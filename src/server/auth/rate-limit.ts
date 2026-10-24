@@ -2,7 +2,7 @@ import "server-only";
 import { createHmac, randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { toApiError } from "@/server/db/errors";
-import { ApiError } from "@/server/http/errors";
+import { ApiError, type ApiErrorCode } from "@/server/http/errors";
 import { log } from "@/server/observability/logger";
 
 /*
@@ -25,6 +25,12 @@ export const AUTH_RATE_LIMITS = {
     windowSeconds: 900,
   },
   verifyByEmail: { scope: "auth.verify.email", limit: 10, windowSeconds: 900 },
+  // Register changes by one administrator (provisional; validate in the pilot).
+  adminMutationByProfile: {
+    scope: "admin.mutation.profile",
+    limit: 60,
+    windowSeconds: 60,
+  },
 } as const satisfies Record<string, RateLimitPolicy>;
 
 export const DIGEST_KEY_VERSION = 1;
@@ -66,6 +72,8 @@ export async function enforceRateLimit(
   policy: RateLimitPolicy,
   kind: SubjectKind,
   value: string,
+  // Which error to report if the limiter itself cannot be reached.
+  unavailable: ApiErrorCode = "AUTH_UNAVAILABLE",
 ): Promise<void> {
   const { data, error } = await admin.rpc("consume_rate_limit", {
     p_scope: policy.scope,
@@ -79,7 +87,7 @@ export async function enforceRateLimit(
     log("error", "ratelimit.unavailable", {
       errorName: toApiError(error).code,
     });
-    throw new ApiError("AUTH_UNAVAILABLE");
+    throw new ApiError(unavailable);
   }
 
   const result = data as {
@@ -87,7 +95,7 @@ export async function enforceRateLimit(
     retryAfterSeconds?: number;
   } | null;
   if (!result || typeof result.allowed !== "boolean") {
-    throw new ApiError("AUTH_UNAVAILABLE");
+    throw new ApiError(unavailable);
   }
   if (!result.allowed) {
     throw new ApiError("RATE_LIMITED", {

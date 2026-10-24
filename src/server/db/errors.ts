@@ -13,6 +13,7 @@ import {
 export interface DatabaseFailure {
   code?: string | undefined;
   message?: string | undefined;
+  details?: string | null | undefined;
   status?: number | undefined;
 }
 
@@ -24,14 +25,25 @@ const TOKEN_TO_CODE: Record<string, ApiErrorCode> = {
   IMMUTABLE_RECORD: "LIFECYCLE_CONFLICT",
 };
 
+// DETAIL tokens that are safe to expose as a machine-readable conflict reason.
+const SAFE_REASONS = new Set([
+  "DUPLICATE_IDENTIFIER",
+  "REPRESENTATIVE_ASSIGNED",
+  "REPRESENTATIVE_DELETED",
+  "LAST_ADMIN",
+  "DELETED_PROFILE",
+]);
+
 export function toApiError(failure: DatabaseFailure): ApiError {
-  const { code, message = "", status } = failure;
+  const { code, message = "", details, status } = failure;
 
   if (code === "P0001") {
     const mapped = TOKEN_TO_CODE[message] ?? message;
     // INVARIANT_VIOLATION and unknown tokens fall through to a safe 500.
     if (mapped !== "INTERNAL_ERROR" && isApiErrorCode(mapped)) {
-      return new ApiError(mapped);
+      return details && SAFE_REASONS.has(details)
+        ? new ApiError(mapped, { context: { reason: details } })
+        : new ApiError(mapped);
     }
     return new ApiError("INTERNAL_ERROR");
   }
@@ -56,7 +68,7 @@ export function toApiError(failure: DatabaseFailure): ApiError {
 /** Throws the mapped ApiError when a Supabase response carries an error. */
 export function unwrap<T>(result: {
   data: T | null;
-  error: { code?: string; message?: string } | null;
+  error: { code?: string; message?: string; details?: string | null } | null;
   status?: number;
 }): T {
   if (result.error) {

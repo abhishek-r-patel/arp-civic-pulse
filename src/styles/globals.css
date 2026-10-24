@@ -61,7 +61,7 @@
 
 @layer base {
   html {
-    min-width: 20rem;
+    min-width: 320px;
     background-color: var(--color-background);
     color: var(--color-primary);
     font-family: var(--font-sans);
@@ -76,6 +76,13 @@
     font-size: var(--text-body);
     line-height: 1.5;
     font-variant-numeric: normal;
+    /* Long words and addresses wrap instead of forcing sideways scrolling. */
+    overflow-wrap: anywhere;
+  }
+
+  /* Plain grids must be able to shrink below their content's natural width. */
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   h1,

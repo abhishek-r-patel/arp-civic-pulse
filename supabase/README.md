@@ -59,6 +59,39 @@ does **not** prove Supabase
 Auth (code delivery, expiry, sessions, cookies); verify those against a real Supabase project or the local
 stack (`supabase start`, which needs Docker).
 
+## Verifying against a hosted Supabase project (real Auth)
+
+Use a **disposable** project only. Created users cannot be deleted afterwards (profiles and audit events restrict
+deletion by design), so delete or reset the project when finished. Fill in `.env.local` (see its comments), then:
+
+```powershell
+# Load .env.local into this shell session (values stay out of the command history).
+Get-Content .env.local | ForEach-Object { if ($_ -match '^\s*([A-Z_]+)=(.*)$') { Set-Item "env:$($matches[1])" $matches[2] } }
+
+# Migrations go straight to the database with the session-pooler URL (no Management API needed).
+npx supabase db push --db-url $env:LIVE_DATABASE_URL --dry-run   # review, then run again with --yes
+
+npm run test:live                                                   # real Auth + Data API (service code)
+$env:LIVE_AUTH = "1"; npx playwright test tests/e2e/auth-live.spec.ts   # real cookies/CSRF through the app
+```
+
+Notes from the first hosted run:
+
+- **Auth settings** are not applied by the migrations. On a new project turn **off** "Allow new users to sign up"
+  and set **Email OTP length to 6** (the hosted default is 8). `supabase config push` applies them from
+  `config.toml` when the access token has the needed permissions (including API Keys read and project settings
+  write); otherwise set them in the dashboard.
+- **Email templates are locked on Supabase's built-in email service.** The default Magic Link email contains a
+  link, not the code. Real emailed codes therefore need **custom SMTP** with the `{{ .Token }}` template
+  (`templates/magic_link.html`). The live tests fetch codes through the Auth admin API and do not depend on this.
+- **Corporate TLS inspection:** if Node or the CLI fails with a certificate error, export your organisation's root
+  CA to a PEM file and set `NODE_EXTRA_CA_CERTS` (Node tools) and `SSL_CERT_FILE` (the Supabase CLI) to it. Do not
+  disable certificate verification.
+- The `sb_secret_` key works as the server-only credential: the routines' `service_role` claim check passes with it.
+
+`LIVE_DATABASE_URL` (session pooler string) is required to push migrations this way and enables the tests that
+suspend profiles or change roles.
+
 ## Auth configuration
 
 `config.toml` disables public sign-up, uses six-digit email OTPs, and renders the code with `{{ .Token }}`

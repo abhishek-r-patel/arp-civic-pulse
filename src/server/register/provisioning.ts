@@ -45,7 +45,7 @@ function incomplete(
   });
 }
 
-async function findAuthUserId(
+export async function findAuthUserIdByEmail(
   admin: SupabaseClient,
   email: string,
 ): Promise<string | null> {
@@ -85,7 +85,7 @@ async function ensureAuthIdentity(
 
   const code = (created.error as { code?: string } | null)?.code;
   if (code === "email_exists" || code === "user_already_exists") {
-    const existing = await findAuthUserId(admin, email);
+    const existing = await findAuthUserIdByEmail(admin, email);
     if (existing) {
       return { id: existing, state: "existing" };
     }

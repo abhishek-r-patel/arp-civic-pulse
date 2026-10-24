@@ -45,7 +45,10 @@ Open <http://localhost:3000>. Use synthetic data only; never copy production reg
 | `npm run typecheck`                       | `tsc --noEmit` under strict settings                                                                      |
 | `npm test`                                | Vitest unit tests in `tests/unit`                                                                         |
 | `npm run test:integration`                | Real-PostgreSQL tests in `tests/integration` (needs `INTEGRATION_DATABASE_URL`, see `supabase/README.md`) |
+| `npm run test:live`                       | Real hosted Supabase Auth/PostgREST tests in `tests/live` (needs a disposable project in `.env.local`)    |
 | `npm run test:e2e`                        | Playwright and axe checks in `tests/e2e` (run `npx playwright install` first)                             |
+
+Browser journeys that sign in for real (`tests/e2e/*-live.spec.ts`) run only with `LIVE_AUTH=1`. On managed Windows machines, system policy can close Microsoft Edge shortly after Playwright starts it ("DevTools remote debugging is disallowed by the system admin"); use Playwright's own Chromium (`npx playwright install chromium`) instead of `PLAYWRIGHT_CHROMIUM_CHANNEL=msedge`.
 
 ## Configuration
 

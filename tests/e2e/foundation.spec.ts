@@ -1,20 +1,20 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-// Phone and laptop widths from docs/DESIGN_SYSTEM.md.
-const widths = [320, 430, 1280, 1440];
+// Phone, tablet and laptop widths from docs/DESIGN_SYSTEM.md, plus intermediate sizes.
+const widths = [320, 375, 430, 640, 768, 1024, 1280, 1440];
 
 for (const width of widths) {
-  test(`home page reflows without horizontal scrolling at ${width}px`, async ({
+  test(`sign-in page reflows without horizontal scrolling at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    await page.goto("/");
+    await page.goto("/sign-in");
 
     await expect(
-      page.getByRole("heading", { level: 1, name: "Civic Pulse" }),
+      page.getByRole("heading", { level: 1, name: "Sign in" }),
     ).toBeVisible();
-    await expect(page.getByText("Project foundation is ready")).toBeVisible();
+    await expect(page.getByLabel(/Registered email address/)).toBeVisible();
 
     const overflows = await page.evaluate(
       () =>
@@ -25,10 +25,33 @@ for (const width of widths) {
   });
 }
 
-test("home page has no automatically detectable accessibility violations", async ({
+test("signed-out visitors are sent to sign-in and see no navigation", async ({
   page,
 }) => {
   await page.goto("/");
+
+  await expect(page).toHaveURL(/\/sign-in$/u);
+  await expect(page.getByRole("navigation", { name: "Main" })).toHaveCount(0);
+});
+
+test("protected admin pages redirect signed-out visitors without revealing anything", async ({
+  page,
+}) => {
+  for (const path of [
+    "/admin/households",
+    "/admin/households/new",
+    "/admin/accounts",
+    "/admin/accounts/new",
+  ]) {
+    await page.goto(path);
+    await expect(page, path).toHaveURL(/\/sign-in$/u);
+  }
+});
+
+test("sign-in page has no automatically detectable accessibility violations", async ({
+  page,
+}) => {
+  await page.goto("/sign-in");
 
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
@@ -38,7 +61,7 @@ test("home page has no automatically detectable accessibility violations", async
 });
 
 test("skip link moves focus to the main content", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/sign-in");
   await page.keyboard.press("Tab");
 
   const skipLink = page.getByRole("link", { name: "Skip to main content" });

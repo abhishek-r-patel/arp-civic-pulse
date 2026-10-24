@@ -36,6 +36,9 @@ export async function createUserClient(): Promise<SupabaseClient> {
         for (const { name, value, options } of cookiesToSet) {
           store.set(name, value, {
             ...options,
+            // The PKCE verifier is only needed briefly; don't keep it for the SDK's default ~400 days.
+            ...(name.includes("code-verifier") &&
+              value !== "" && { maxAge: 10 * 60 }),
             httpOnly: true,
             secure,
             sameSite: "lax",
