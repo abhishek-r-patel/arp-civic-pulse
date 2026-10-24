@@ -18,6 +18,14 @@ The application implements registered-member email OTP access, household/account
 | [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)                           | Production deployment, secrets, migrations and verification |
 | [docs/PILOT_READINESS.md](./docs/PILOT_READINESS.md)                 | Evidence gathered and gates still open                      |
 
+## Learning and user documentation
+
+- [Junior-developer technical guide](./docs/TECHNICAL_GUIDE.md) — architecture, source map, authentication, database invariants, feature walkthroughs, tests and deployment boundaries. [Printable/offline HTML](./docs/TECHNICAL_GUIDE.html).
+- [Illustrated resident and administrator guide](./docs/USER_GUIDE.md) — step-by-step main flows, recovery guidance, 47 synthetic screenshots and flow diagrams. [Printable/offline HTML](./docs/USER_GUIDE.html).
+- HTML copies embed their images, require no CDN/JavaScript, and support browser Print / Save as PDF. Supporting source/document links require the repository layout.
+- Regenerate HTML with `node scripts\docs\render.mjs`; test the small renderer with `node --test scripts\docs\render.test.mjs`.
+- Screenshot capture is deliberately separate from normal tests: set `LIVE_AUTH=1` and `DOC_SCREENSHOTS=1`, then run `npx playwright test -c playwright.docs.config.ts`. Use **only a disposable fixture project**: the run creates synthetic accounts, households, votes and submissions and supplies test-only policy settings. Do not use a production project. See the technical guide for details and coverage limitations.
+
 ## Stack
 
 Next.js (App Router), React, TypeScript (strict), Tailwind CSS, Lucide React, Zod, and Supabase (Auth, PostgreSQL, RLS, SQL functions, Cron) through `@supabase/supabase-js` and `@supabase/ssr`. Tests use Vitest, Playwright and axe. PDF export uses PDFKit with bundled, openly licensed fonts (Inter and Noto Sans Devanagari).
