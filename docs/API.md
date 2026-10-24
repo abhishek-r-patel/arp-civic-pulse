@@ -324,6 +324,7 @@ The top-level `requestId` supports restricted troubleshooting. CLOSED validation
 | `401` | `AUTH_REQUIRED`, `SESSION_EXPIRED` | Sign in again; do not retain ballot choices outside page memory |
 | `403` | `FORBIDDEN`, `CSRF_FAILED` | Capability or browser-request protection failed |
 | `404` | `NOT_FOUND`, `EXPORT_FORMAT_UNAVAILABLE` | Record absent/inaccessible, or requested optional format unavailable after authorization |
+| `405` | `METHOD_NOT_ALLOWED` | Unsupported method; the `Allow` header lists supported methods |
 | `409` | `ALREADY_SUBMITTED`, `STALE_REVISION`, `REGISTER_CONFLICT`, `VOTE_FROZEN`, `LIFECYCLE_CONFLICT`, `VOTING_CLOSED`, `RESULTS_UNAVAILABLE`, `ACTIVATION_BLOCKED` | Refresh safe state, resolve conflict, or satisfy activation blockers; never blindly retry a mutation |
 | `413` | `REQUEST_TOO_LARGE` | Reduce request size within documented technical limits |
 | `415` | `UNSUPPORTED_MEDIA_TYPE` | Send the expected content type |

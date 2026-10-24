@@ -228,21 +228,27 @@ enable_confirmations = false
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
-max_frequency = "1s"
+max_frequency = "60s"
 # Number of characters used in the email OTP.
 otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
 
-# Use a production-ready SMTP server
+# Production needs custom SMTP with an approved sender (the built-in mail service is not
+# production-ready). Credentials come from the environment, never from this file.
 # [auth.email.smtp]
 # enabled = true
-# host = "smtp.sendgrid.net"
+# host = "smtp.example.invalid"
 # port = 587
-# user = "apikey"
-# pass = "env(SENDGRID_API_KEY)"
-# admin_email = "admin@email.com"
-# sender_name = "Admin"
+# user = "env(SMTP_USER)"
+# pass = "env(SMTP_PASSWORD)"
+# admin_email = "env(SMTP_SENDER_EMAIL)"
+# sender_name = "Civic Pulse"
+
+# Sign-in sends a six-digit code, not a link: the template uses {{ .Token }} only.
+[auth.email.template.magic_link]
+subject = "Your Civic Pulse sign-in code"
+content_path = "./supabase/templates/magic_link.html"
 
 # Uncomment to customize email template
 # [auth.email.template.invite]
