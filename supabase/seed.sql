@@ -1,0 +1,6 @@
+-- Intentionally empty.
+--
+-- Civic Pulse seeds no production-like data: no fictional approvals, demo votes,
+-- participation, counts, OTPs or sessions (docs/DATABASE.md section 9).
+-- Local development fixtures are synthetic and are built through the protected
+-- routines (see tests/integration/support/fixtures.ts), never loaded from here.

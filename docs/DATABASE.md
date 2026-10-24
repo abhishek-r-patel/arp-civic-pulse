@@ -381,6 +381,13 @@ Protected user-callable entry points explicitly validate non-null `auth.uid()`, 
 
 No runtime routine returns CLOSED counters except the completion-gated aggregate result routine. Submission routines may increment them but return participation status only. Runtime cannot update/delete audit events; append occurs only inside approved administrative operations. Retention deletion is a separate restricted operation, not an audit-edit capability.
 
+**Implementation notes (migrations `20261024100000`-`20261024100400`).**
+- The protected routine owner is the non-login role `cp_owner`; it owns every application table and routine and has no privileges in the Supabase `auth` schema. `profiles` is created by the migration role (which holds `REFERENCES` on `auth.users`) and then transferred to `cp_owner`.
+- Routines read the caller from the verified JWT claims through `app_private.current_uid()` (the same source as `auth.uid()`) so `cp_owner` never needs access to the managed `auth` schema. The validation requirement is unchanged: non-null identity, current enabled profile, role, entitlement.
+- Submission and activation routines mark their transaction with the settings `cp.submission` / `cp.activation`. Triggers reject participation, response and counter writes without them. These are guards against ad hoc writes, not authorization.
+- Protected routines raise an exception whose message is a stable code (`VOTE_FROZEN`, `FORBIDDEN`, `ACTIVATION_BLOCKED`, ...; SQLSTATE `P0001`). `src/server/db/errors.ts` maps allowlisted codes to API errors and never forwards database text.
+- Server-only routines (`provision_profile`, `enable_profile`, `consume_rate_limit`) are executable by `service_role` alone and re-check the `service_role` claim. Deployment procedures live in `app_private` and are not exposed through the Data API (see `supabase/README.md`).
+
 ### Application access
 
 - Unauthenticated visitors cannot list members, votes, ballots, participation, or results.

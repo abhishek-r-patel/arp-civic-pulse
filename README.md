@@ -36,15 +36,16 @@ Open <http://localhost:3000>. Use synthetic data only; never copy production reg
 
 ## Scripts
 
-| Command                                   | Purpose                                                                       |
-| ----------------------------------------- | ----------------------------------------------------------------------------- |
-| `npm run dev`                             | Development server                                                            |
-| `npm run build` / `npm run start`         | Production build and server                                                   |
-| `npm run lint`                            | ESLint (Next.js core-web-vitals and TypeScript rules)                         |
-| `npm run format` / `npm run format:check` | Prettier with the Tailwind class-order plugin                                 |
-| `npm run typecheck`                       | `tsc --noEmit` under strict settings                                          |
-| `npm test`                                | Vitest unit tests in `tests/unit`                                             |
-| `npm run test:e2e`                        | Playwright and axe checks in `tests/e2e` (run `npx playwright install` first) |
+| Command                                   | Purpose                                                                                                   |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                             | Development server                                                                                        |
+| `npm run build` / `npm run start`         | Production build and server                                                                               |
+| `npm run lint`                            | ESLint (Next.js core-web-vitals and TypeScript rules)                                                     |
+| `npm run format` / `npm run format:check` | Prettier with the Tailwind class-order plugin                                                             |
+| `npm run typecheck`                       | `tsc --noEmit` under strict settings                                                                      |
+| `npm test`                                | Vitest unit tests in `tests/unit`                                                                         |
+| `npm run test:integration`                | Real-PostgreSQL tests in `tests/integration` (needs `INTEGRATION_DATABASE_URL`, see `supabase/README.md`) |
+| `npm run test:e2e`                        | Playwright and axe checks in `tests/e2e` (run `npx playwright install` first)                             |
 
 ## Configuration
 
