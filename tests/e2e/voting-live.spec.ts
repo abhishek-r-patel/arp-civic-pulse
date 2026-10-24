@@ -385,6 +385,35 @@ test.describe("voting", () => {
     ).toBeVisible();
   });
 
+  test("recovers from a malformed acknowledgement without submitting the ballot twice", async ({
+    page,
+  }) => {
+    const resident = await seedHousehold();
+    const adminUser = await provisionAdmin();
+    const vote = await activateVoteFor(adminUser.id, [resident.householdId]);
+    await signInResident(page, resident);
+    await page.goto(`/votes/${vote.id}`);
+    await page.getByRole("radio", { name: "Yes" }).check();
+    await page.getByRole("button", { name: "Review selections" }).click();
+    let submissions = 0;
+    await page.route("**/api/votes/*/submission", async (route) => {
+      submissions += 1;
+      const actual = await route.fetch();
+      expect(actual.status()).toBe(200);
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "null",
+      });
+    });
+    await page.getByRole("button", { name: "Submit vote" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Vote submitted." }),
+    ).toBeVisible();
+    expect(submissions).toBe(1);
+    expect(await participationCount(vote.id)).toBe(1);
+  });
+
   test("ends the flow and keeps nothing when access is revoked mid-ballot", async ({
     page,
   }) => {

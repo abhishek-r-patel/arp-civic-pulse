@@ -1,4 +1,11 @@
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -6,6 +13,9 @@ import {
   findOrphanAuthUsers,
   latestBackupAgeHours,
   pruneBackups,
+  readCounts,
+  restoreBackup,
+  verifyBackup,
   type Manifest,
 } from "../../scripts/ops/backup.ts";
 import {
@@ -90,11 +100,8 @@ describe("expiry", () => {
     createdAt: Date,
     retentionDays: number,
   ) {
-    const files = [
-      `${stamp}.app.enc`,
-      `${stamp}.auth.enc`,
-      `${stamp}.counts.enc`,
-    ];
+    const roles = ["app", "auth", "counts"] as const;
+    const files = roles.map((role) => `${stamp}.${role}.enc`);
     for (const name of files) {
       await writeFile(join(dir, name), "x");
     }
@@ -106,11 +113,11 @@ describe("expiry", () => {
       ).toISOString(),
       retentionDays,
       serverVersion: "17",
-      files: files.map((name) => ({
-        role: "app",
-        name,
+      files: roles.map((role) => ({
+        role,
+        name: `${stamp}.${role}.enc`,
         bytes: 1,
-        sha256: "0",
+        sha256: "0".repeat(64),
       })),
     };
     await writeFile(
@@ -165,6 +172,120 @@ describe("expiry", () => {
     expect(
       await latestBackupAgeHours(dir, new Date("2026-05-21T12:00:00Z")),
     ).toBe(36);
+  });
+
+  it("continues to accept existing format-v1 manifests with a blank server version", async () => {
+    const stamp = "cp-backup-20260101T000000Z";
+    await fakeSet(stamp, new Date("2026-01-01T00:00:00Z"), 30);
+    const path = join(dir, `${stamp}.manifest.json`);
+    const manifest = JSON.parse(await readFile(path, "utf8")) as Manifest;
+    manifest.serverVersion = "";
+    await writeFile(path, JSON.stringify(manifest));
+    expect(
+      await latestBackupAgeHours(dir, new Date("2026-01-02T00:00:00Z")),
+    ).toBe(24);
+  });
+
+  it.each([
+    "../outside.txt",
+    "..\\outside.txt",
+    "C:\\outside.txt",
+    "/outside.txt",
+    "cp-backup-20260520T000000Z.app.enc",
+    "cp-backup-20260101T000000Z.app.enc:stream",
+  ])(
+    "rejects an unsafe manifest filename before deleting anything: %s",
+    async (name) => {
+      const backupDir = join(dir, "backups");
+      await mkdir(backupDir);
+      const outside = join(dir, "outside.txt");
+      await writeFile(outside, "must survive");
+      const stamp = "cp-backup-20260101T000000Z";
+      const manifest = {
+        formatVersion: 1,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        expiresAt: "2026-01-31T00:00:00.000Z",
+        retentionDays: 30,
+        serverVersion: "17",
+        files: ["app", "auth", "counts"].map((role) => ({
+          role,
+          name: role === "auth" ? name : `${stamp}.${role}.enc`,
+          bytes: 1,
+          sha256: "0".repeat(64),
+        })),
+      };
+      const ownFile = join(backupDir, `${stamp}.app.enc`);
+      await writeFile(ownFile, "must also survive");
+      await writeFile(
+        join(backupDir, `${stamp}.manifest.json`),
+        JSON.stringify(manifest),
+      );
+      await writeFile(
+        join(backupDir, "cp-backup-20260520T000000Z.manifest.json"),
+        "{}",
+      );
+
+      await expect(
+        pruneBackups(backupDir, new Date("2026-06-01")),
+      ).rejects.toThrow(/manifest/iu);
+      expect(await readFile(outside, "utf8")).toBe("must survive");
+      expect(await readFile(ownFile, "utf8")).toBe("must also survive");
+    },
+  );
+
+  it("rejects malformed manifests on every read/restore path before processing files or connecting", async () => {
+    const manifestPath = join(dir, "cp-backup-20260101T000000Z.manifest.json");
+    await writeFile(
+      manifestPath,
+      JSON.stringify({ formatVersion: 1, files: [] }),
+    );
+    const key = parseKey(generateKeyHex());
+    for (const action of [
+      () => readCounts(manifestPath, key),
+      () => verifyBackup({ manifestPath, key }),
+      () =>
+        restoreBackup({
+          manifestPath,
+          key,
+          targetUrl: "postgres://operator@localhost/unused",
+        }),
+    ]) {
+      await expect(action()).rejects.toThrow(/manifest/iu);
+    }
+  });
+
+  it.each([
+    "duplicate role",
+    "missing file",
+    "mismatched timestamp",
+    "invalid hash",
+    "invalid expiry",
+    "unknown field",
+  ])("rejects incomplete or inconsistent metadata: %s", async (fault) => {
+    const stamp = "cp-backup-20260101T000000Z";
+    await fakeSet(stamp, new Date("2026-01-01T00:00:00Z"), 30);
+    const path = join(dir, `${stamp}.manifest.json`);
+    const manifest = JSON.parse(await readFile(path, "utf8")) as Manifest;
+    const first = manifest.files[0];
+    if (!first) {
+      throw new Error("Missing fixture file.");
+    }
+    if (fault === "duplicate role") manifest.files[1] = { ...first };
+    if (fault === "missing file") manifest.files.pop();
+    if (fault === "mismatched timestamp")
+      manifest.createdAt = "2026-01-02T00:00:00Z";
+    if (fault === "invalid hash") first.sha256 = "invalid";
+    if (fault === "invalid expiry") manifest.expiresAt = "2099-01-01T00:00:00Z";
+    await writeFile(
+      path,
+      JSON.stringify({
+        ...manifest,
+        ...(fault === "unknown field" && { unexpected: true }),
+      }),
+    );
+    await expect(readCounts(path, parseKey(generateKeyHex()))).rejects.toThrow(
+      /manifest/iu,
+    );
   });
 });
 

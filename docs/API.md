@@ -36,6 +36,8 @@
 
 Return explicit, allowlisted projections rather than serializing database rows. Never expose Auth tokens in application JSON, raw policy administration metadata, internal tally IDs, privileged credentials, or provider responses.
 
+The shared browser client validates the JSON envelope and error metadata before returning them to forms. Malformed responses produce `INVALID_RESPONSE`, never an uncaught parsing/type error or a successful acknowledgement. An uncertain ballot acknowledgement still requires a participation check before any retry.
+
 ### 2.2 Pagination and filtering
 
 All list endpoints use keyset pagination:
@@ -50,7 +52,8 @@ All list endpoints use keyset pagination:
 
 | Dataset | Fixed ordering | Supported filters |
 |---|---|---|
-| Member and administrator votes | `createdAt DESC`, then `id DESC` | `status`, `votingType` |
+| Member votes | Active first by `closesAt ASC`; terminal votes by completion/cancellation time descending; `id ASC` breaks ties | `status`, `votingType` |
+| Administrator votes | `updatedAt DESC`, then `id DESC` | `status`, `votingType` |
 | Households | Normalized household identifier, then `id`, ascending | `isEligible`; optional exact normalized `identifier` |
 | Accounts | Profile `id ASC` | `status`, `isAdmin` |
 | OPEN named responses | Frozen `householdId ASC` within the vote | None |
@@ -71,6 +74,7 @@ Exports contain the **complete authorized dataset**, independent of UI paginatio
 - Verify identity server-side with supported Auth verification methods. An unverified cookie session object or user-editable Auth metadata is not authorization.
 - Apply HTTPS, Secure and appropriate SameSite/path settings using the SDK-supported integration. Validate actual cookie behavior; do not promise all SDK cookies are HttpOnly. Keep tokens out of application JSON, URLs, logs, and custom browser-storage flows.
 - Approve the actual persistent-session policy under A4. Native time-boxed sessions, inactivity limits, and single-session enforcement require Supabase Pro or higher; do not promise a 30-minute idle or 12-hour absolute timeout on Free.
+- **Implemented session upkeep.** Access tokens are short-lived (about an hour). `src/proxy.ts` refreshes an expiring session before any page renders (`src/server/auth/proxy-session.ts`) and passes the new cookies to both the page and the browser, because a Server Component cannot set cookies; without this a session would end at the first page after the token expired. This is upkeep only, never authorization: every page and API call still verifies the user with the Auth server and re-reads the current profile. Session cookies are written by one shared function (`src/server/auth/session-cookies.ts`): HttpOnly, `SameSite=Lax`, path `/`, Secure in production, and the browser-side lifetime capped at 14 days (the SDK default is about 400). The SDK rewrites the cookie on each refresh, so the cap is a **sliding inactivity window**, not a fixed deadline. It is a provisional default pending the A4 session policy; native idle and absolute timeouts and single-session enforcement still need Supabase Pro or higher and are not claimed. Sign-out ends that session at Auth, and replaying a copy of the old cookie afterwards is refused (tested).
 - Sign-out clears SDK cookies and uses supported Auth sign-out behavior. Auth administrative actions and sign-out may not immediately invalidate every issued JWT.
 - Current profile status and role are checked on every protected operation, applicable RLS read, and guarded RPC. Suspension/soft deletion block access even with an existing JWT; role changes take effect from the current profile, not stale token claims.
 
@@ -171,7 +175,7 @@ After a timeout, lost response, or ambiguous infrastructure error, the client re
 
 `GET /api/votes/{id}/results` answers only for a `COMPLETED` vote and only to a frozen eligible representative or an enabled administrator; otherwise `409 RESULTS_UNAVAILABLE` (after object authorization; `context.reason` is `ACTIVE` or `CANCELLED`). Everything comes from one SQL call on one snapshot: eligible/submitted counts as decimal strings, `turnout {numerator, denominator, percent}`, and OPEN `options` (count, percent of submitted), `outcome`/`leaderOptionIds`, `namedResponses` (frozen name, household identifier, option) or CLOSED `offices` (candidates, abstention, `outcome`, `leaderCandidateIds`) with no identities. `limit`/`cursor` page only the named list; totals always cover every response. A counter/participation mismatch returns `503 RESULTS_INTEGRITY_ERROR` and publishes nothing. Percentages and outcomes are derived once in `src/shared/contracts/results.ts`.
 
-`GET /api/votes/{id}/exports/csv` renders the complete file (BOM, CRLF, the fixed columns above, formula-starting cells prefixed with an apostrophe, control characters removed) before any success header, with `Content-Disposition: attachment` and a server-generated name (`civic-pulse-results-<date>-<id8>.csv`), `no-store` and `nosniff`; a render failure is `503 EXPORT_FAILED`. Any other format (including `pdf`) is `404 EXPORT_FORMAT_UNAVAILABLE` after authorization. Budgets (provisional): 120 reads and 10 exports per minute per profile; at most 4 concurrent renders.
+`GET /api/votes/{id}/exports/csv` renders the complete file (BOM, CRLF, the fixed columns above, formula-starting cells prefixed with an apostrophe, control characters removed) before any success header, with `Content-Disposition: attachment` and a server-generated name (`civic-pulse-results-<date>-<id8>.csv`), `no-store` and `nosniff`; a render failure is `503 EXPORT_FAILED`. Unknown or disabled formats are `404 EXPORT_FORMAT_UNAVAILABLE` after authorization. PDF availability and per-format rendering bounds are described below. Budgets (provisional): 120 reads and 10 exports per minute per profile.
 
 `GET /api/admin/votes/{id}/participation` (admin only, not for drafts, `submitted` filter, keyset pagination) returns `eligibleCount`, `submittedCount` and rows of frozen representative name, household identifier and `submitted`; never a selection, email or submission time. `GET /api/admin/audit` (admin only; `action`, `targetType`, `from`, `to`; newest first) returns allowlisted fields only: `details` keeps only keys the application itself writes, so a stray key is dropped rather than exposed.
 
@@ -202,6 +206,8 @@ Provisioning and identity changes span Supabase Auth and application records and
 For email/identity changes, block the profile first and keep it blocked until the Auth identity and register association are verified consistent. Surface partial failures as `503 PROVISIONING_INCOMPLETE` with a safe support ID; do not acknowledge success, create a duplicate identity on retry, or re-enable an inconsistent profile. Recheck the caller's current administrator capability before each privileged stage. Do not silently roll back an already-blocked profile to enabled after an Auth failure.
 
 Suspension/soft deletion immediately blocks application access through current-profile RLS/RPC checks; use supported Auth administrative revocation/bans/email-change controls as applicable without promising instant invalidation of all issued JWTs. Soft deletion uses `status: DELETED`; no HTTP hard-delete or deleted-account restoration is defined.
+
+If the Auth ban fails after a suspension/deletion commits, repeat the same status-only PATCH to retry the Auth stage. An already-blocked profile is not mistaken for a fully completed workflow: the ban is retried and any continuing failure remains `503 PROVISIONING_INCOMPLETE`. A repeated `DELETED` status never restores or edits the deleted profile. Auth identity searches return absence only after completing the search; provider failures or the bounded lookup ceiling return `503 DEPENDENCY_UNAVAILABLE`. Email-change preflight failures do not suspend the target or start the Auth update.
 
 Application-database register/profile writes commit atomically with their audit records and serialize against activation/submission where required; Auth administrative steps require the separate retry-safe workflow above. Current edits never rewrite frozen snapshots. Bulk CSV register import is out of scope for version 1; maintain entries individually.
 
@@ -422,6 +428,8 @@ Supabase Auth enforces its own OTP request/verification limits. Shared PostgreSQ
 | Cron maintenance | Scheduling-role execution grants and bounded batch/concurrency limits |
 
 Code expiry, resend cooldown, Auth request/verification limits, additional application thresholds, body/list caps, timeouts, and export concurrency are controlled operational settings, finalized and validated during the pilot. Validate both configured Auth protections and application limits before release; do not claim a custom five-attempt challenge rule or unsupported session timeout. Session policy must match the selected plan and A4 approval. Technical limits must not silently alter voting rules.
+
+**Unresolved security release blocker:** the current application enforces email budgets for code requests/verification, but not trusted-client-IP budgets. Rotating email addresses bypasses that application dimension and can consume database/provider capacity; provider limits alone are not a substitute. Production ingress is not decided, so `TRUSTED_PROXY_CONFIG` is currently reserved and does not activate IP enforcement. Before deployment, choose the ingress, implement and test its guaranteed overwritten client-IP header, block direct-origin bypass, and verify spoofed forwarding headers cannot reset budgets. Do not trust arbitrary `X-Forwarded-For` or `X-Real-IP` values.
 
 Return `429 RATE_LIMITED` and `Retry-After` in whole seconds when an abuse budget is exhausted. Temporary resource/dependency exhaustion may instead return `503` with appropriate retry guidance. Do not publish email-specific account existence through limiter behavior.
 

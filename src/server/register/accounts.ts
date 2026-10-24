@@ -308,6 +308,16 @@ export async function updateAccount(
 
   const current = await getAccount(deps, id);
   if (current.status === "DELETED") {
+    // A repeated deletion may still need its Auth stage; it never restores or edits the profile.
+    if (
+      changes.status === "DELETED" &&
+      Object.entries(changes).every(
+        ([field, value]) => field === "status" || value === undefined,
+      )
+    ) {
+      await setAuthBan(deps, id, true, true);
+      return getAccount(deps, id);
+    }
     throw new ApiError("LIFECYCLE_CONFLICT", {
       context: { reason: "DELETED_PROFILE" },
     });
@@ -348,10 +358,7 @@ export async function updateAccount(
         p_changes: dbChanges,
       });
     }
-    if (
-      target === "DELETED" ||
-      (target === "SUSPENDED" && effectiveStatus === "ENABLED")
-    ) {
+    if (target === "DELETED" || target === "SUSPENDED") {
       // Narrowing access: the profile is already blocked; now stop new Auth sign-ins.
       await setAuthBan(deps, id, true, true);
     }

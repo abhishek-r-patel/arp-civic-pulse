@@ -1,15 +1,17 @@
 import { spawn } from "node:child_process";
 import {
   mkdtemp,
+  lstat,
   readFile,
   readdir,
   rm,
-  stat,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { Client } from "pg";
+import { basename, join } from "node:path";
+import type { Client } from "pg";
+import { z } from "zod";
+import { operationalDatabaseClient, pgEnv } from "./database.ts";
 import {
   decryptFile,
   encryptBytes,
@@ -64,32 +66,6 @@ function pgTool(name: string, pgBin?: string): string {
   return dir ? join(dir, name) : name;
 }
 
-export function pgEnv(
-  url: string,
-  extra: Record<string, string> = {},
-): NodeJS.ProcessEnv {
-  const parsed = new URL(url);
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    PGHOST: parsed.hostname,
-    PGPORT: parsed.port || "5432",
-    PGUSER: decodeURIComponent(parsed.username),
-    PGDATABASE: decodeURIComponent(parsed.pathname.slice(1)),
-    ...extra,
-  };
-  // Credentials travel in the environment, never on a command line another user could list.
-  if (parsed.password) {
-    env.PGPASSWORD = decodeURIComponent(parsed.password);
-  } else {
-    delete env.PGPASSWORD;
-  }
-  const ssl = parsed.searchParams.get("sslmode");
-  if (ssl) {
-    env.PGSSLMODE = ssl;
-  }
-  return env;
-}
-
 function run(
   tool: string,
   args: string[],
@@ -135,14 +111,22 @@ async function dumpToEncrypted(
           ),
     );
   });
+  let created = false;
+  const encrypted = encryptStream(child.stdout, destination, key).then(
+    (result) => {
+      created = true;
+      return result;
+    },
+  );
   try {
-    const [result] = await Promise.all([
-      encryptStream(child.stdout, destination, key),
-      exited,
-    ]);
+    const [result] = await Promise.all([encrypted, exited]);
     return result;
   } catch (error) {
-    await rm(destination, { force: true });
+    child.kill();
+    await Promise.allSettled([encrypted, exited]);
+    if (created) {
+      await rm(destination, { force: true });
+    }
     throw error;
   }
 }
@@ -216,7 +200,7 @@ export async function createBackup(
 ): Promise<{ manifestPath: string; manifest: Manifest }> {
   const now = options.now ?? new Date();
   const stamp = `cp-backup-${stampOf(now)}`;
-  const client = new Client({ connectionString: options.databaseUrl });
+  const client = operationalDatabaseClient(options.databaseUrl);
   await client.connect();
   const files: Manifest["files"] = [];
   const created: string[] = [];
@@ -244,13 +228,15 @@ export async function createBackup(
       );
     }
     const serverVersion =
-      (await client.query<{ v: string }>("show server_version")).rows[0]?.v ??
-      "";
+      (
+        await client.query<{ v: string }>(
+          "select current_setting('server_version') as v",
+        )
+      ).rows[0]?.v ?? "";
     const counts = await collectCounts(client);
     const env = pgEnv(options.databaseUrl);
 
     const app = join(options.outDir, `${stamp}.app.enc`);
-    created.push(app);
     files.push({
       role: "app",
       name: `${stamp}.app.enc`,
@@ -262,10 +248,10 @@ export async function createBackup(
         options.pgBin,
       )),
     });
+    created.push(app);
 
     // Data only: the schema comes from the reviewed migrations of the target project.
     const auth = join(options.outDir, `${stamp}.auth.enc`);
-    created.push(auth);
     files.push({
       role: "auth",
       name: `${stamp}.auth.enc`,
@@ -289,9 +275,9 @@ export async function createBackup(
         options.pgBin,
       )),
     });
+    created.push(auth);
 
     const countsFile = join(options.outDir, `${stamp}.counts.enc`);
-    created.push(countsFile);
     files.push({
       role: "counts",
       name: `${stamp}.counts.enc`,
@@ -301,6 +287,7 @@ export async function createBackup(
         options.key,
       )),
     });
+    created.push(countsFile);
     await client.query("commit");
 
     const manifest: Manifest = {
@@ -331,8 +318,57 @@ export async function createBackup(
   }
 }
 
+const manifestSchema = z.strictObject({
+  formatVersion: z.literal(1),
+  createdAt: z.iso.datetime(),
+  expiresAt: z.iso.datetime(),
+  retentionDays: z.number().int().positive().max(2_147_483_647),
+  // Earlier format-v1 writers left this informational field blank.
+  serverVersion: z.string().max(100),
+  files: z
+    .array(
+      z.strictObject({
+        role: z.enum(["app", "auth", "counts"]),
+        name: z.string(),
+        bytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+        sha256: z.string().regex(/^[0-9a-f]{64}$/u),
+      }),
+    )
+    .length(3),
+});
+
 async function readManifest(path: string): Promise<Manifest> {
-  return JSON.parse(await readFile(path, "utf8")) as Manifest;
+  const info = await lstat(path);
+  if (!info.isFile() || info.size > 64 * 1024) {
+    throw new Error(
+      "Invalid backup manifest: expected a bounded regular file.",
+    );
+  }
+  let value: unknown;
+  try {
+    value = JSON.parse(await readFile(path, "utf8"));
+  } catch {
+    throw new Error("Invalid backup manifest JSON.");
+  }
+  const parsed = manifestSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new Error("Invalid backup manifest structure.");
+  }
+  const manifest = parsed.data;
+  const stamp = `cp-backup-${stampOf(new Date(manifest.createdAt))}`;
+  if (
+    basename(path) !== `${stamp}.manifest.json` ||
+    new Set(manifest.files.map((file) => file.role)).size !== 3 ||
+    manifest.files.some((file) => file.name !== `${stamp}.${file.role}.enc`) ||
+    new Date(manifest.expiresAt).getTime() -
+      new Date(manifest.createdAt).getTime() !==
+      manifest.retentionDays * 86_400_000
+  ) {
+    throw new Error(
+      "Invalid backup manifest: filenames, roles or expiry do not match this set.",
+    );
+  }
+  return manifest;
 }
 
 async function withDecrypted<T>(
@@ -347,6 +383,9 @@ async function withDecrypted<T>(
     const paths: Record<string, string> = {};
     for (const file of manifest.files.filter((f) => roles.includes(f.role))) {
       const source = join(manifestPath, "..", file.name);
+      if (!(await lstat(source)).isFile()) {
+        throw new Error("Invalid backup manifest: data must be regular files.");
+      }
       const target = join(dir, `${file.role}.plain`);
       await decryptFile(source, target, key);
       paths[file.role] = target;
@@ -387,7 +426,10 @@ export async function verifyBackup(options: {
   for (const file of manifest.files) {
     const path = join(options.manifestPath, "..", file.name);
     try {
-      const info = await stat(path);
+      const info = await lstat(path);
+      if (!info.isFile()) {
+        throw new Error("Not a regular backup file.");
+      }
       if (
         info.size !== file.bytes ||
         (await sha256File(path)) !== file.sha256
@@ -456,7 +498,7 @@ export async function reconcileRestore(options: {
 }): Promise<Reconciliation> {
   const problems: string[] = [];
   const warnings: string[] = [];
-  const client = new Client({ connectionString: options.targetUrl });
+  const client = operationalDatabaseClient(options.targetUrl);
   await client.connect();
   try {
     const restored = await collectCounts(client);
@@ -667,7 +709,7 @@ export async function exportRecoveryRecord(options: {
   destination: string;
   key: Buffer;
 }): Promise<number> {
-  const client = new Client({ connectionString: options.databaseUrl });
+  const client = operationalDatabaseClient(options.databaseUrl);
   await client.connect();
   try {
     const rows = await client.query(

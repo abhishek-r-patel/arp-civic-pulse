@@ -85,4 +85,94 @@ describe("parseEnvironment", () => {
     expect(message).not.toContain("secret-host");
     expect(message).not.toContain("too-short-secret");
   });
+
+  it.each([
+    "https://localhost",
+    "https://127.0.0.1",
+    "https://[::1]",
+    "https://app.localhost",
+  ])("rejects loopback production endpoints: %s", (origin) => {
+    const message = messageFor({
+      ...validProduction,
+      APP_ORIGIN: origin,
+      NEXT_PUBLIC_SUPABASE_URL: origin,
+    });
+    expect(message).toContain("APP_ORIGIN: must not use a loopback host");
+    expect(message).toContain(
+      "NEXT_PUBLIC_SUPABASE_URL: must not use a loopback host",
+    );
+  });
+
+  it.each([
+    "https://project.example.test/rest/v1",
+    "https://:private-password@project.example.test",
+  ])(
+    "rejects a non-canonical production Supabase URL without exposing it",
+    (url) => {
+      const message = messageFor({
+        ...validProduction,
+        NEXT_PUBLIC_SUPABASE_URL: url,
+      });
+      expect(message).toContain(
+        "NEXT_PUBLIC_SUPABASE_URL: must be a bare origin",
+      );
+      expect(message).not.toContain(url);
+      expect(message).not.toContain("private-password");
+    },
+  );
+
+  it("rejects a password-only application URL", () => {
+    expect(
+      messageFor({ APP_ORIGIN: "https://:private-password@vote.example.test" }),
+    ).toContain("APP_ORIGIN: must be a bare origin");
+  });
+
+  it.each(["sb_secret_placeholder", validProduction.SUPABASE_SERVICE_ROLE_KEY])(
+    "refuses server-only keys in the browser-visible setting",
+    (key) => {
+      const message = messageFor({
+        ...validProduction,
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: key,
+      });
+      expect(message).toContain("must not contain a server-only credential");
+      expect(message).not.toContain(key);
+    },
+  );
+
+  it.each(["service_role", "authenticated"])(
+    "rejects a legacy %s token in public configuration",
+    (role) => {
+      const token = `header.${Buffer.from(JSON.stringify({ role })).toString("base64url")}.signature`;
+      const message = messageFor({
+        ...validProduction,
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: token,
+      });
+      expect(message).toContain(
+        "legacy public keys must carry only the anon role",
+      );
+      expect(message).not.toContain(token);
+    },
+  );
+
+  it("accepts the legacy anon public-key format", () => {
+    const token = `header.${Buffer.from(JSON.stringify({ role: "anon" })).toString("base64url")}.signature`;
+    expect(
+      parseEnvironment({
+        ...validProduction,
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: token,
+      }),
+    ).toBeDefined();
+  });
+
+  it("reports malformed legacy claims without exposing the token", () => {
+    const token = "header.private-malformed-claims.signature";
+    const message = messageFor({
+      ...validProduction,
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: token,
+    });
+    expect(message).toContain(
+      "legacy public keys must contain valid JSON claims",
+    );
+    expect(message).not.toContain(token);
+  });
 });

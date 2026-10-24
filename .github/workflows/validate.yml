@@ -1,0 +1,57 @@
+name: Validate deployment candidate
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: supabase_admin
+          POSTGRES_DB: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U supabase_admin -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - name: Verify migrations and database guards on disposable PostgreSQL 17
+        run: npm run test:integration -- --exclude "**/restore.test.ts"
+        env:
+          INTEGRATION_DATABASE_URL: postgres://supabase_admin@127.0.0.1:5432/postgres
+      - name: Build with synthetic configuration only
+        run: npm run deploy:check && npm run build
+        env:
+          APP_ORIGIN: https://vote.example.invalid
+          NEXT_PUBLIC_SUPABASE_URL: https://project.example.invalid
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: public-ci-placeholder
+          SUPABASE_SERVICE_ROLE_KEY: server-ci-placeholder
+          RATE_LIMIT_HMAC_KEY: ci-placeholder-not-a-production-key-000000
+      - name: Install test browser
+        run: npx playwright install --with-deps chromium
+      - name: Check signed-out browser journeys without an external provider
+        run: npx playwright test foundation.spec.ts --project=chromium --workers=1 --grep-invert "health endpoint"

@@ -47,6 +47,17 @@ export function ErrorSummary({
             : "This could not be completed"}
         </p>
         <p className="text-body text-primary">{describeFailure(failure)}</p>
+        {failure.code === "AUTH_REQUIRED" ||
+        failure.code === "SESSION_EXPIRED" ? (
+          <p>
+            <a
+              href="/sign-in"
+              className="font-semibold underline underline-offset-2"
+            >
+              Sign in again
+            </a>
+          </p>
+        ) : null}
         {failure.fieldErrors.length > 0 ? (
           <ul className="list-disc pl-5 text-body text-primary">
             {failure.fieldErrors.map((error) => (

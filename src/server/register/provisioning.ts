@@ -55,7 +55,10 @@ export async function findAuthUserIdByEmail(
       perPage: LOOKUP_PAGE_SIZE,
     });
     if (error) {
-      return null;
+      log("warn", "provisioning.identity_lookup_failed", {
+        status: error.status ?? 0,
+      });
+      throw new ApiError("DEPENDENCY_UNAVAILABLE");
     }
     const match = data.users.find(
       (user) => user.email?.toLowerCase() === email,
@@ -67,7 +70,10 @@ export async function findAuthUserIdByEmail(
       return null;
     }
   }
-  return null;
+  log("warn", "provisioning.identity_lookup_incomplete", {
+    errorCode: "LOOKUP_LIMIT",
+  });
+  throw new ApiError("DEPENDENCY_UNAVAILABLE");
 }
 
 async function ensureAuthIdentity(

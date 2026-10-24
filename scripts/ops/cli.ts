@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { createClient } from "@supabase/supabase-js";
-import { Client } from "pg";
+import { operationalDatabaseClient } from "./database.ts";
 import {
   createBackup,
   exportRecoveryRecord,
@@ -178,7 +178,7 @@ async function main(): Promise<number> {
           auth: { persistSession: false, autoRefreshToken: false },
         },
       );
-      const db = new Client({ connectionString: need("BACKUP_DATABASE_URL") });
+      const db = operationalDatabaseClient(need("BACKUP_DATABASE_URL"));
       await db.connect();
       let profileIds: Set<string>;
       try {

@@ -132,6 +132,7 @@ describe.skipIf(!enabled)("encrypted backup and restore rehearsal", () => {
       ...(pgBin && { pgBin }),
     });
     expect(manifest.retentionDays).toBe(90);
+    expect(manifest.serverVersion).toMatch(/^17\./u);
     expect(
       new Date(manifest.expiresAt).getTime() -
         new Date(manifest.createdAt).getTime(),
@@ -213,6 +214,7 @@ describe.skipIf(!enabled)("encrypted backup and restore rehearsal", () => {
       now: new Date(Date.now() + 1_000),
       ...(pgBin && { pgBin }),
     });
+
     const app = join(
       out,
       manifest.files.find((f) => f.role === "app")?.name as string,
@@ -234,6 +236,28 @@ describe.skipIf(!enabled)("encrypted backup and restore rehearsal", () => {
         ...(pgBin && { pgBin }),
       }),
     ).rejects.toThrow(/wrong key/u);
+  });
+
+  it("does not delete any existing backup when another run has the same timestamp", async () => {
+    const options = {
+      databaseUrl: urlFor(source),
+      outDir: out,
+      key,
+      now: new Date("2035-01-01T00:00:00Z"),
+      ...(pgBin && { pgBin }),
+    };
+    const { manifestPath, manifest } = await createBackup(options);
+    const original = await Promise.all(
+      manifest.files.map((file) => readFile(join(out, file.name))),
+    );
+    await expect(createBackup(options)).rejects.toThrow();
+    for (const [index, file] of manifest.files.entries()) {
+      expect(await readFile(join(out, file.name))).toEqual(original[index]);
+    }
+    expect((await readCounts(manifestPath, key)).tables.participation).toBe(5);
+    expect(
+      (await verifyBackup({ manifestPath, key, ...(pgBin && { pgBin }) })).ok,
+    ).toBe(true);
   });
 
   it("restores into an isolated database and reproduces every record, count, digest and result", async () => {

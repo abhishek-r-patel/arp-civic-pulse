@@ -649,6 +649,45 @@ describe("updateAccount", () => {
     expect(order).toEqual(["auth:ban:none", "rpc:update_profile"]);
   });
 
+  it.each(["SUSPENDED", "DELETED"] as const)(
+    "retries an incomplete Auth ban when the profile is already %s",
+    async (status) => {
+      const w = world({
+        tables: {
+          profiles: [
+            ok(adminRow),
+            current({ status }),
+            ok(adminRow),
+            current({ status }),
+          ],
+        },
+      });
+      const account = await updateAccount(w.deps, TARGET, { status });
+      expect(w.admin.updateUserById).toHaveBeenCalledWith(TARGET, {
+        ban_duration: "876000h",
+      });
+      expect(w.rpcCalls).toEqual([]);
+      expect(account.status).toBe(status);
+    },
+  );
+
+  it.each(["SUSPENDED", "DELETED"] as const)(
+    "does not falsely report a completed %s retry while Auth still fails",
+    async (status) => {
+      const w = world({
+        tables: { profiles: [ok(adminRow), current({ status }), ok(adminRow)] },
+      });
+      w.admin.updateUserById.mockResolvedValueOnce({
+        data: {},
+        error: { status: 503 },
+      });
+      const error = await failure(updateAccount(w.deps, TARGET, { status }));
+      expect(error.code).toBe("PROVISIONING_INCOMPLETE");
+      expect(error.context).toEqual({ stage: "AUTH", profileBlocked: true });
+      expect(w.rpcCalls).toEqual([]);
+    },
+  );
+
   it("leaves Auth unchanged and surfaces the database's reason when enabling is refused", async () => {
     const w = world({
       tables: {
@@ -672,16 +711,22 @@ describe("updateAccount", () => {
     expect(error.code).toBe("PROVISIONING_INCOMPLETE");
   });
 
-  it("refuses to change a deleted account", async () => {
-    const w = world({
-      tables: { profiles: [ok(adminRow), current({ status: "DELETED" })] },
-    });
-    const error = await failure(
-      updateAccount(w.deps, TARGET, { representativeName: "X" }),
-    );
-    expect(error.code).toBe("LIFECYCLE_CONFLICT");
-    expect(w.rpcCalls).toEqual([]);
-  });
+  it.each([
+    { representativeName: "X" },
+    { status: "DELETED", representativeName: "X" },
+    { status: "ENABLED" },
+  ] as const)(
+    "refuses to edit or restore a deleted account: %j",
+    async (changes) => {
+      const w = world({
+        tables: { profiles: [ok(adminRow), current({ status: "DELETED" })] },
+      });
+      const error = await failure(updateAccount(w.deps, TARGET, changes));
+      expect(error.code).toBe("LIFECYCLE_CONFLICT");
+      expect(w.rpcCalls).toEqual([]);
+      expect(w.admin.updateUserById).not.toHaveBeenCalled();
+    },
+  );
 
   it("surfaces the last-administrator guard as a conflict", async () => {
     const w = world({
@@ -706,6 +751,19 @@ describe("updateAccount", () => {
   });
 
   describe("email change", () => {
+    it("does not suspend the account or change Auth when the duplicate lookup is unavailable", async () => {
+      const w = world({ tables: { profiles: [ok(adminRow), current()] } });
+      w.admin.listUsers.mockResolvedValueOnce({
+        data: null,
+        error: { status: 503 },
+      });
+      const error = await failure(
+        updateAccount(w.deps, TARGET, { email: "new@example.test" }),
+      );
+      expect(error.code).toBe("DEPENDENCY_UNAVAILABLE");
+      expect(w.rpcCalls).toEqual([]);
+      expect(w.admin.updateUserById).not.toHaveBeenCalled();
+    });
     const enabled = () => current({ status: "ENABLED" });
     const full = (final: Result = current()) => ({
       profiles: [ok(adminRow), enabled(), ok(adminRow), ok(adminRow), final],

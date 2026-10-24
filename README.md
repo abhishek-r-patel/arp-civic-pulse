@@ -2,20 +2,21 @@
 
 Mobile-first voting and polls for a single Resident Welfare Association (RWA).
 
-This repository currently contains the **project foundation only**: tooling, design tokens, shared UI primitives, environment validation and base routes. Sign-in, voting, administration, database schema and exports are not implemented yet.
+The application implements registered-member email OTP access, household/account administration, OPEN polls and CLOSED elections, protected results, CSV/PDF exports, and operational backup/recovery tooling. Production use remains blocked by the approvals and external-environment checks in [pilot readiness](./docs/PILOT_READINESS.md).
 
 ## Source of truth
 
-| Document                                                             | Authority                                             |
-| -------------------------------------------------------------------- | ----------------------------------------------------- |
-| [docs/AGENTS.md](./docs/AGENTS.md)                                   | Workspace-wide engineering rules                      |
-| [docs/PRD.md](./docs/PRD.md)                                         | Scope, behaviour and acceptance criteria              |
-| [docs/DESIGN_SYSTEM.md](./docs/DESIGN_SYSTEM.md)                     | Visual tokens, accessibility and responsive behaviour |
-| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)                       | Stack, boundaries, privacy and operations             |
-| [docs/API.md](./docs/API.md), [docs/DATABASE.md](./docs/DATABASE.md) | Supporting contracts                                  |
-| [docs/IMPLEMENTATION_PLAN.md](./docs/IMPLEMENTATION_PLAN.md)         | Sequencing                                            |
-| [docs/OPERATIONS.md](./docs/OPERATIONS.md)                           | Backups, restore, retention, monitoring, incidents    |
-| [docs/PILOT_READINESS.md](./docs/PILOT_READINESS.md)                 | Evidence gathered and gates still open                |
+| Document                                                             | Authority                                                   |
+| -------------------------------------------------------------------- | ----------------------------------------------------------- |
+| [docs/AGENTS.md](./docs/AGENTS.md)                                   | Workspace-wide engineering rules                            |
+| [docs/PRD.md](./docs/PRD.md)                                         | Scope, behaviour and acceptance criteria                    |
+| [docs/DESIGN_SYSTEM.md](./docs/DESIGN_SYSTEM.md)                     | Visual tokens, accessibility and responsive behaviour       |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)                       | Stack, boundaries, privacy and operations                   |
+| [docs/API.md](./docs/API.md), [docs/DATABASE.md](./docs/DATABASE.md) | Supporting contracts                                        |
+| [docs/IMPLEMENTATION_PLAN.md](./docs/IMPLEMENTATION_PLAN.md)         | Sequencing                                                  |
+| [docs/OPERATIONS.md](./docs/OPERATIONS.md)                           | Backups, restore, retention, monitoring, incidents          |
+| [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)                           | Production deployment, secrets, migrations and verification |
+| [docs/PILOT_READINESS.md](./docs/PILOT_READINESS.md)                 | Evidence gathered and gates still open                      |
 
 ## Stack
 
@@ -30,7 +31,7 @@ Next.js (App Router), React, TypeScript (strict), Tailwind CSS, Lucide React, Zo
 
 ```powershell
 npm ci
-copy .env.example .env.local   # optional; the foundation runs without it
+Copy-Item .env.example .env.local   # fill with isolated development settings
 npm run dev
 ```
 
@@ -42,6 +43,7 @@ Open <http://localhost:3000>. Use synthetic data only; never copy production reg
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `npm run dev`                             | Development server                                                                                              |
 | `npm run build` / `npm run start`         | Production build and server                                                                                     |
+| `npm run deploy:check`                    | Validate injected production configuration without loading local environment files or printing values           |
 | `npm run lint`                            | ESLint (Next.js core-web-vitals and TypeScript rules)                                                           |
 | `npm run format` / `npm run format:check` | Prettier with the Tailwind class-order plugin                                                                   |
 | `npm run typecheck`                       | `tsc --noEmit` under strict settings                                                                            |
@@ -52,6 +54,13 @@ Open <http://localhost:3000>. Use synthetic data only; never copy production reg
 | `npm run ops -- <command>`                | Backup, verify, restore rehearsal, status, orphan Auth cleanup (see [docs/OPERATIONS.md](./docs/OPERATIONS.md)) |
 
 Browser journeys that sign in for real (`tests/e2e/*-live.spec.ts`) run only with `LIVE_AUTH=1`. On managed Windows machines, system policy can close Microsoft Edge shortly after Playwright starts it ("DevTools remote debugging is disallowed by the system admin"); use Playwright's own Chromium (`npx playwright install chromium`) instead of `PLAYWRIGHT_CHROMIUM_CHANNEL=msedge`.
+
+## GitHub security automation
+
+- [Dependabot](./.github/dependabot.yml) checks npm dependencies and GitHub Actions weekly on Mondays. Minor/patch npm updates are grouped; major npm updates remain separate. Update PRs are not automatically merged.
+- [CodeQL](./.github/workflows/codeql.yml) scans JavaScript/TypeScript on pushes, pull requests, manual runs and a weekly schedule. It uses extended security queries without building the app or accessing Supabase; no application secrets are needed.
+- This CodeQL workflow uses **advanced setup**. If CodeQL **default setup** is already enabled in GitHub, disable it before using this workflow; default setup blocks advanced workflow uploads. Keep GitHub Actions enabled and allow the referenced actions under repository/organization policy.
+- Enable Dependabot alerts and security updates in repository security settings separately. Commit both configuration files to the default branch for scheduled scans and version updates to take effect. Review the first runs in Actions/Security and configure required status checks separately.
 
 ## Configuration
 
@@ -76,4 +85,4 @@ supabase           config.toml and migrations (reviewed, versioned SQL)
 tests              unit, integration, e2e, fixtures
 ```
 
-Real voting requires approval of PRD assumptions A1–A7, providers, region, retention and recovery objectives. Nothing in this foundation represents production readiness.
+Real voting requires approval of PRD assumptions A1–A7, providers, region, retention and recovery objectives. Follow the [deployment runbook](./docs/DEPLOYMENT.md); a successful build or configuration check alone does not establish production readiness.
