@@ -1,6 +1,13 @@
 import "server-only";
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
 import { ApiError } from "@/server/http/errors";
+import { CSRF_HEADER, csrfTokenFor } from "@/server/http/csrf";
+
+export {
+  CSRF_HEADER,
+  createCsrfContext,
+  csrfTokenFor,
+} from "@/server/http/csrf";
 
 /*
  * Browser mutation protection (docs/API.md section 3.2): an exact Origin match
@@ -13,18 +20,6 @@ import { ApiError } from "@/server/http/errors";
  * reveal it. The context must be replaced at authentication; cookie handling
  * belongs to the session integration. This is not a session token.
  */
-const CSRF_DOMAIN = "civic-pulse:csrf:v1:";
-export const CSRF_HEADER = "x-csrf-token";
-
-export function createCsrfContext(): string {
-  return randomBytes(32).toString("base64url");
-}
-
-export function csrfTokenFor(context: string): string {
-  return createHash("sha256")
-    .update(CSRF_DOMAIN + context)
-    .digest("base64url");
-}
 
 function constantTimeEqual(left: string, right: string): boolean {
   const a = Buffer.from(left);

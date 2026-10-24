@@ -1,12 +1,21 @@
 import {
   Ban,
+  Circle,
   CircleCheck,
   CircleDot,
+  CircleOff,
+  CirclePause,
   Eye,
   Lock,
   PencilLine,
+  ShieldCheck,
+  User,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import {
+  ACCOUNT_STATUS_LABELS,
+  type AccountStatus,
+} from "@/shared/contracts/register";
 import {
   VOTE_STATUS_LABELS,
   VOTING_TYPE_LABELS,
@@ -16,7 +25,7 @@ import {
 import { cn } from "./cn";
 
 const baseClasses =
-  "inline-flex items-center gap-1.5 rounded-control border px-2 py-1 text-caption font-semibold";
+  "inline-flex max-w-full items-center gap-1.5 rounded-control border px-2 py-1 text-caption font-semibold";
 
 const typeConfig: Record<VotingType, { icon: LucideIcon; classes: string }> = {
   OPEN: {
@@ -41,7 +50,7 @@ const statusConfig: Record<VoteStatus, { icon: LucideIcon; classes: string }> =
     },
     COMPLETED: {
       icon: CircleCheck,
-      classes: "border-success/40 bg-success/10 text-success",
+      classes: "border-success/40 bg-success/5 text-success",
     },
     CANCELLED: {
       icon: Ban,
@@ -67,6 +76,100 @@ export function VoteStatusBadge({ status }: Readonly<{ status: VoteStatus }>) {
     <span className={cn(baseClasses, classes)}>
       <Icon aria-hidden="true" className="size-4" />
       {VOTE_STATUS_LABELS[status]}
+    </span>
+  );
+}
+
+// Personal participation is a third, separate concept from type and status.
+export function ParticipationBadge({
+  submitted,
+}: Readonly<{ submitted: boolean }>) {
+  return (
+    <span
+      className={cn(
+        baseClasses,
+        submitted
+          ? "border-success/40 bg-success/5 text-success"
+          : "border-muted/40 bg-muted/10 text-muted",
+      )}
+    >
+      {submitted ? (
+        <CircleCheck aria-hidden="true" className="size-4" />
+      ) : (
+        <Circle aria-hidden="true" className="size-4" />
+      )}
+      {submitted ? "Submitted" : "Not voted"}
+    </span>
+  );
+}
+
+const accountStatusConfig: Record<
+  AccountStatus,
+  { icon: LucideIcon; classes: string }
+> = {
+  ENABLED: {
+    icon: CircleCheck,
+    classes: "border-success/40 bg-success/5 text-success",
+  },
+  SUSPENDED: {
+    icon: CirclePause,
+    classes: "border-warning/40 bg-warning/5 text-warning",
+  },
+  DELETED: {
+    icon: Ban,
+    classes: "border-error/40 bg-error/10 text-error",
+  },
+};
+
+export function AccountStatusBadge({
+  status,
+}: Readonly<{ status: AccountStatus }>) {
+  const { icon: Icon, classes } = accountStatusConfig[status];
+
+  return (
+    <span className={cn(baseClasses, classes)}>
+      <Icon aria-hidden="true" className="size-4" />
+      {ACCOUNT_STATUS_LABELS[status]}
+    </span>
+  );
+}
+
+export function RoleBadge({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
+  const Icon = isAdmin ? ShieldCheck : User;
+
+  return (
+    <span
+      className={cn(
+        baseClasses,
+        isAdmin
+          ? "border-primary/40 bg-primary/10 text-primary"
+          : "border-muted/40 bg-muted/10 text-muted",
+      )}
+    >
+      <Icon aria-hidden="true" className="size-4" />
+      {isAdmin ? "Administrator" : "Resident"}
+    </span>
+  );
+}
+
+export function EligibilityBadge({
+  eligible,
+}: Readonly<{ eligible: boolean }>) {
+  return (
+    <span
+      className={cn(
+        baseClasses,
+        eligible
+          ? "border-accent/40 bg-accent/10 text-accent"
+          : "border-muted/40 bg-muted/10 text-muted",
+      )}
+    >
+      {eligible ? (
+        <CircleCheck aria-hidden="true" className="size-4" />
+      ) : (
+        <CircleOff aria-hidden="true" className="size-4" />
+      )}
+      {eligible ? "Eligible" : "Not eligible"}
     </span>
   );
 }

@@ -1,5 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Optional local settings (ignored by Git), used by the LIVE_AUTH specs and the dev server.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // No .env.local: the default e2e specs do not need one.
+}
+
 const port = 3100;
 const baseURL = `http://127.0.0.1:${port}`;
 
@@ -8,6 +15,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
+  // Assertions wait for real network round trips (and, locally, dev-server compiles).
+  expect: { timeout: 15_000 },
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL,

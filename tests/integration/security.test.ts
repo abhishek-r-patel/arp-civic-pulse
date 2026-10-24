@@ -170,6 +170,10 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
         "is_enabled_admin",
         "is_enabled_member",
         "owns_participation",
+        "create_household",
+        "normalize_household_identifier",
+        "update_household",
+        "update_profile",
       ]);
     });
 

@@ -1,4 +1,5 @@
-import type { ButtonHTMLAttributes } from "react";
+import Link from "next/link";
+import type { ButtonHTMLAttributes, ComponentProps } from "react";
 import { cn } from "./cn";
 
 type ButtonVariant = "primary" | "secondary" | "destructive";
@@ -19,6 +20,23 @@ const variantClasses: Record<ButtonVariant, string> = {
     "border-error bg-error text-white hover:border-error-strong hover:bg-error-strong active:bg-error-strong",
 };
 
+const baseClasses =
+  "inline-flex touch-target w-full items-center justify-center gap-2 rounded-control border px-4 py-3 text-body font-semibold transition-colors sm:w-auto";
+
+// Navigation that looks like a button: a real link, not a button with a handler.
+export function LinkButton({
+  variant = "primary",
+  className,
+  ...rest
+}: Readonly<ComponentProps<typeof Link> & { variant?: ButtonVariant }>) {
+  return (
+    <Link
+      className={cn(baseClasses, variantClasses[variant], className)}
+      {...rest}
+    />
+  );
+}
+
 export function Button({
   variant = "primary",
   loading = false,
@@ -35,7 +53,7 @@ export function Button({
       aria-busy={loading || undefined}
       disabled={disabled || loading}
       className={cn(
-        "inline-flex touch-target w-full items-center justify-center gap-2 rounded-control border px-4 py-3 text-body font-semibold transition-colors sm:w-auto",
+        baseClasses,
         "disabled:cursor-not-allowed disabled:opacity-60",
         variantClasses[variant],
         className,

@@ -1,8 +1,11 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { cache } from "react";
+import { connection } from "next/server";
 import { createUserClient } from "@/server/db/clients";
 import { toApiError } from "@/server/db/errors";
 import { ApiError } from "@/server/http/errors";
+import { log } from "@/server/observability/logger";
 
 export interface Account {
   id: string;
@@ -101,3 +104,34 @@ export async function requireAdmin(
   }
   return context;
 }
+
+export type SessionState =
+  | { state: "anonymous" }
+  // A valid Auth session without a current enabled application profile.
+  | { state: "blocked" }
+  | { state: "account"; account: Account };
+
+/*
+ * For pages and the shell: one verification per request. A configuration or
+ * Auth outage reads as "anonymous" so error and not-found pages still render;
+ * protected data is never shown in that case.
+ */
+export const getSessionState = cache(async (): Promise<SessionState> => {
+  // Per-request data: opt out of prerendering BEFORE the try block, so the
+  // framework's dynamic-rendering signal is never swallowed below.
+  await connection();
+  try {
+    const { account } = await requireAccount();
+    return { state: "account", account };
+  } catch (error) {
+    if (error instanceof ApiError && error.code === "FORBIDDEN") {
+      return { state: "blocked" };
+    }
+    if (!(error instanceof ApiError && error.code === "AUTH_REQUIRED")) {
+      log("warn", "session.unavailable", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
+    }
+    return { state: "anonymous" };
+  }
+});

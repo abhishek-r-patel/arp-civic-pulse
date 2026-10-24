@@ -1,0 +1,948 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { describe, expect, it, vi } from "vitest";
+import { toApiError } from "@/server/db/errors";
+import { ApiError } from "@/server/http/errors";
+import {
+  createAccount,
+  listAccounts,
+  updateAccount,
+} from "@/server/register/accounts";
+import {
+  createHousehold,
+  getHousehold,
+  listHouseholds,
+  updateHousehold,
+} from "@/server/register/households";
+import { postgrestQuote, type RegisterDeps } from "@/server/register/shared";
+import { accountListQuerySchema } from "@/shared/contracts/admin-votes";
+import {
+  createAccountSchema,
+  createHouseholdSchema,
+  householdListQuerySchema,
+  patchAccountSchema,
+  patchHouseholdSchema,
+} from "@/shared/contracts/register";
+
+/*
+ * Logic tests with call-order recording. Database behaviour is covered by the
+ * real-PostgreSQL integration tests and Auth behaviour by the live tests.
+ */
+const ACTOR = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const TARGET = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const OTHER = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+const HOUSEHOLD = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+
+type Result = { data: unknown; error: unknown; status?: number };
+const asClient = (value: object) => value as unknown as SupabaseClient;
+
+class Query {
+  calls: [string, unknown[]][] = [];
+  constructor(private readonly result: Result) {}
+  private record(name: string, args: unknown[]): this {
+    this.calls.push([name, args]);
+    return this;
+  }
+  select = (...args: unknown[]) => this.record("select", args);
+  order = (...args: unknown[]) => this.record("order", args);
+  limit = (...args: unknown[]) => this.record("limit", args);
+  eq = (...args: unknown[]) => this.record("eq", args);
+  gt = (...args: unknown[]) => this.record("gt", args);
+  or = (...args: unknown[]) => this.record("or", args);
+  returns = () => Promise.resolve(this.result);
+  maybeSingle = () => Promise.resolve(this.result);
+}
+
+interface World {
+  deps: RegisterDeps;
+  events: string[];
+  queries: { table: string; query: Query }[];
+  rpcCalls: { name: string; args: Record<string, unknown> }[];
+  admin: {
+    getUserById: ReturnType<typeof vi.fn>;
+    updateUserById: ReturnType<typeof vi.fn>;
+    listUsers: ReturnType<typeof vi.fn>;
+  };
+}
+
+const profile = (id: string, over: Record<string, unknown> = {}) => ({
+  id,
+  representative_name: "Alice Rao",
+  status: "ENABLED",
+  is_admin: false,
+  updated_at: "2030-01-01T00:00:00Z",
+  ...over,
+});
+const adminRow = { id: ACTOR, representative_name: "Asha", is_admin: true };
+const ok = (data: unknown): Result => ({ data, error: null, status: 200 });
+
+function world(
+  options: {
+    tables?: Record<string, Result[]>;
+    rpc?: Record<string, Result | Result[]>;
+    authUsers?: Record<
+      string,
+      { email: string; email_confirmed_at?: string } | null
+    >;
+    updateUserError?: { code?: string; status?: number } | null;
+    getUserByIdAfterUpdate?: string;
+    adminLostAfterFirstCheck?: boolean;
+  } = {},
+): World {
+  const events: string[] = [];
+  const queues = Object.fromEntries(
+    Object.entries(options.tables ?? {}).map(([table, results]) => [
+      table,
+      [...results],
+    ]),
+  );
+  const rpcQueues = Object.fromEntries(
+    Object.entries(options.rpc ?? {}).map(([name, value]) => [
+      name,
+      Array.isArray(value) ? [...value] : [value],
+    ]),
+  );
+  const queries: World["queries"] = [];
+  const rpcCalls: World["rpcCalls"] = [];
+
+  const client = {
+    from: (table: string) => {
+      const next = queues[table]?.shift() ?? ok(null);
+      const query = new Query(next);
+      queries.push({ table, query });
+      events.push(`from:${table}`);
+      return query;
+    },
+    rpc: (name: string, args: Record<string, unknown>) => {
+      rpcCalls.push({ name, args });
+      events.push(`rpc:${name}`);
+      const queue = rpcQueues[name];
+      const result =
+        queue && queue.length > 0
+          ? queue.length > 1
+            ? queue.shift()
+            : queue[0]
+          : ok({});
+      return Promise.resolve(result);
+    },
+  };
+
+  const users = options.authUsers ?? {};
+  let emailUpdated = false;
+  const getUserById = vi.fn((id: string) => {
+    events.push(`auth:get:${id === TARGET ? "target" : id}`);
+    const user = users[id];
+    if (user === null) {
+      return Promise.resolve({ data: { user: null }, error: { status: 404 } });
+    }
+    // The identity reports the new email only after the update call succeeded.
+    const email =
+      emailUpdated && options.getUserByIdAfterUpdate
+        ? options.getUserByIdAfterUpdate
+        : (user?.email ?? `${id}@example.test`);
+    return Promise.resolve({
+      data: {
+        user: {
+          id,
+          email,
+          email_confirmed_at: user?.email_confirmed_at ?? null,
+        },
+      },
+      error: null,
+    });
+  });
+  const updateUserById = vi.fn(
+    (_id: string, attributes: Record<string, unknown>) => {
+      events.push(
+        "ban_duration" in attributes
+          ? `auth:ban:${String(attributes.ban_duration)}`
+          : "auth:email",
+      );
+      const error =
+        "email" in attributes ? (options.updateUserError ?? null) : null;
+      if ("email" in attributes && !error) {
+        emailUpdated = true;
+      }
+      return Promise.resolve({ data: {}, error });
+    },
+  );
+  const listUsers = vi.fn(() => {
+    events.push("auth:list");
+    return Promise.resolve({ data: { users: [] }, error: null });
+  });
+  const admin = {
+    auth: {
+      admin: { getUserById, updateUserById, listUsers, createUser: vi.fn() },
+    },
+    rpc: client.rpc,
+  };
+
+  return {
+    deps: {
+      client: asClient(client),
+      admin: asClient(admin),
+      actor: { id: ACTOR, representativeName: "Asha", isAdmin: true },
+    },
+    events,
+    queries,
+    rpcCalls,
+    admin: { getUserById, updateUserById, listUsers },
+  };
+}
+
+async function failure(action: Promise<unknown>): Promise<ApiError> {
+  try {
+    await action;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return error;
+    }
+    throw error;
+  }
+  throw new Error("Expected an ApiError.");
+}
+
+describe("register contracts", () => {
+  it("normalises account input and defaults isAdmin to false", () => {
+    expect(
+      createAccountSchema.parse({
+        email: " New@Example.TEST ",
+        representativeName: "  Alice Rao ",
+      }),
+    ).toEqual({
+      email: "new@example.test",
+      representativeName: "Alice Rao",
+      isAdmin: false,
+    });
+  });
+
+  it("rejects unknown fields and hostile text", () => {
+    for (const bad of [
+      { email: "a@example.test", representativeName: "A", role: "admin" },
+      { email: "a@example.test", representativeName: "<b>A</b>" },
+      { email: "nope", representativeName: "A" },
+      { email: "a@example.test", representativeName: "A", isAdmin: "yes" },
+    ]) {
+      expect(createAccountSchema.safeParse(bad).success).toBe(false);
+    }
+  });
+
+  it("requires at least one changed field on patches and never accepts null", () => {
+    expect(patchAccountSchema.safeParse({}).success).toBe(false);
+    expect(patchAccountSchema.safeParse({ status: "ENABLED" }).success).toBe(
+      true,
+    );
+    expect(patchAccountSchema.safeParse({ status: "ACTIVE" }).success).toBe(
+      false,
+    );
+    expect(
+      patchAccountSchema.safeParse({ representativeName: null }).success,
+    ).toBe(false);
+    expect(patchHouseholdSchema.safeParse({}).success).toBe(false);
+    expect(patchHouseholdSchema.safeParse({ isEligible: false }).success).toBe(
+      true,
+    );
+    expect(
+      patchHouseholdSchema.safeParse({ identifier: "A-1", extra: 1 }).success,
+    ).toBe(false);
+  });
+
+  it("bounds household identifiers and requires a UUID representative", () => {
+    const base = { representativeAccountId: TARGET };
+    expect(
+      createHouseholdSchema.parse({ ...base, identifier: " A-101 " }),
+    ).toEqual({
+      ...base,
+      identifier: "A-101",
+      isEligible: false,
+    });
+    expect(
+      createHouseholdSchema.safeParse({ ...base, identifier: "x".repeat(101) })
+        .success,
+    ).toBe(false);
+    expect(
+      createHouseholdSchema.safeParse({
+        identifier: "A-1",
+        representativeAccountId: "1",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("limits list queries to documented filters", () => {
+    expect(
+      accountListQuerySchema.safeParse({ status: "ENABLED", isAdmin: "false" })
+        .success,
+    ).toBe(true);
+    expect(
+      accountListQuerySchema.safeParse({ email: "a@example.test" }).success,
+    ).toBe(false);
+    expect(
+      householdListQuerySchema.safeParse({
+        isEligible: "true",
+        identifier: "A-1",
+      }).success,
+    ).toBe(true);
+    expect(householdListQuerySchema.safeParse({ search: "a" }).success).toBe(
+      false,
+    );
+  });
+});
+
+describe("toApiError conflict reasons", () => {
+  it("exposes only allowlisted machine-readable reasons", () => {
+    const withReason = toApiError({
+      code: "P0001",
+      message: "REGISTER_CONFLICT",
+      details: "DUPLICATE_IDENTIFIER",
+      status: 400,
+    });
+    expect(withReason.code).toBe("REGISTER_CONFLICT");
+    expect(withReason.context).toEqual({ reason: "DUPLICATE_IDENTIFIER" });
+
+    const leaked = toApiError({
+      code: "P0001",
+      message: "REGISTER_CONFLICT",
+      details: "Key (identifier)=(secret) exists",
+      status: 400,
+    });
+    expect(leaked.context).toBeUndefined();
+  });
+});
+
+describe("listAccounts", () => {
+  const query = (over: Record<string, unknown> = {}) =>
+    accountListQuerySchema.parse(over);
+
+  it("filters profile-first and fetches one extra row to detect another page", async () => {
+    const rows = [profile(TARGET), profile(OTHER), profile(ACTOR)];
+    const w = world({ tables: { profiles: [ok(rows)] } });
+    const result = await listAccounts(
+      w.deps,
+      query({ limit: "2", status: "ENABLED", isAdmin: "false" }),
+    );
+
+    const calls = w.queries[0]?.query.calls ?? [];
+    expect(calls).toContainEqual(["limit", [3]]);
+    expect(calls).toContainEqual(["eq", ["status", "ENABLED"]]);
+    expect(calls).toContainEqual(["eq", ["is_admin", false]]);
+    expect(result.data).toHaveLength(2);
+    expect(result.page).toMatchObject({ limit: 2, hasMore: true });
+    expect(result.page.nextCursor).toEqual(expect.any(String));
+  });
+
+  it("enriches only the returned page through Auth and never looks up the extra row", async () => {
+    const w = world({
+      tables: {
+        profiles: [ok([profile(TARGET), profile(OTHER), profile(ACTOR)])],
+      },
+      authUsers: {
+        [TARGET]: {
+          email: "alice@example.test",
+          email_confirmed_at: "2030-01-01T00:00:00Z",
+        },
+      },
+    });
+    const result = await listAccounts(w.deps, query({ limit: "2" }));
+
+    expect(w.admin.getUserById).toHaveBeenCalledTimes(2);
+    expect(w.admin.getUserById).not.toHaveBeenCalledWith(ACTOR);
+    expect(result.data[0]).toMatchObject({
+      id: TARGET,
+      email: "alice@example.test",
+      emailVerifiedAt: "2030-01-01T00:00:00Z",
+    });
+  });
+
+  it("resumes after the cursor and rejects a cursor from another filter", async () => {
+    const first = world({
+      tables: { profiles: [ok([profile(TARGET), profile(OTHER)])] },
+    });
+    const page = await listAccounts(
+      first.deps,
+      query({ limit: "1", status: "ENABLED" }),
+    );
+
+    const second = world({ tables: { profiles: [ok([profile(OTHER)])] } });
+    await listAccounts(
+      second.deps,
+      query({ limit: "1", status: "ENABLED", cursor: page.page.nextCursor }),
+    );
+    expect(second.queries[0]?.query.calls).toContainEqual([
+      "gt",
+      ["id", TARGET],
+    ]);
+
+    const mismatched = world();
+    const error = await failure(
+      listAccounts(
+        mismatched.deps,
+        query({
+          limit: "1",
+          status: "SUSPENDED",
+          cursor: page.page.nextCursor,
+        }),
+      ),
+    );
+    expect(error.code).toBe("VALIDATION_FAILED");
+  });
+
+  it("fails visibly when Auth enrichment is unavailable", async () => {
+    const w = world({ tables: { profiles: [ok([profile(TARGET)])] } });
+    w.admin.getUserById.mockResolvedValueOnce({
+      data: { user: null },
+      error: { status: 503 },
+    });
+    expect((await failure(listAccounts(w.deps, query()))).code).toBe(
+      "DEPENDENCY_UNAVAILABLE",
+    );
+  });
+
+  it("returns an empty page without calling Auth", async () => {
+    const w = world({ tables: { profiles: [ok([])] } });
+    const result = await listAccounts(w.deps, query());
+    expect(result).toMatchObject({
+      data: [],
+      page: { hasMore: false, nextCursor: null },
+    });
+    expect(w.admin.getUserById).not.toHaveBeenCalled();
+  });
+});
+
+describe("createAccount", () => {
+  const input = {
+    email: "new@example.test",
+    representativeName: "New Person",
+    isAdmin: false,
+  };
+
+  it("re-checks the caller's current authority before touching Auth", async () => {
+    const w = world({ tables: { profiles: [ok(null)] } });
+    const error = await failure(createAccount(w.deps, input));
+
+    expect(error.code).toBe("FORBIDDEN");
+    expect(w.events.some((event) => event.startsWith("auth:"))).toBe(false);
+  });
+
+  it("provisions on behalf of the acting administrator and returns the suspended account", async () => {
+    const w = world({
+      tables: {
+        profiles: [ok(adminRow), ok(profile(TARGET, { status: "SUSPENDED" }))],
+      },
+      rpc: { provision_profile: ok({ id: TARGET, created: true }) },
+    });
+    (
+      w.deps.admin as unknown as {
+        auth: { admin: { createUser: ReturnType<typeof vi.fn> } };
+      }
+    ).auth.admin.createUser.mockResolvedValue({
+      data: { user: { id: TARGET } },
+      error: null,
+    });
+    const account = await createAccount(w.deps, input);
+
+    expect(w.rpcCalls[0]).toEqual({
+      name: "provision_profile",
+      args: {
+        p_auth_user_id: TARGET,
+        p_representative_name: "New Person",
+        p_is_admin: false,
+        p_actor_profile_id: ACTOR,
+      },
+    });
+    expect(account).toMatchObject({ id: TARGET, status: "SUSPENDED" });
+  });
+
+  it("reports an identical, already complete account as a duplicate email", async () => {
+    const w = world({
+      tables: { profiles: [ok(adminRow)] },
+      rpc: { provision_profile: ok({ id: TARGET, created: false }) },
+    });
+    (
+      w.deps.admin as unknown as {
+        auth: {
+          admin: {
+            createUser: ReturnType<typeof vi.fn>;
+            listUsers: ReturnType<typeof vi.fn>;
+          };
+        };
+      }
+    ).auth.admin.createUser.mockResolvedValue({
+      data: { user: null },
+      error: { code: "email_exists", status: 422 },
+    });
+    (
+      w.deps.admin as unknown as {
+        auth: { admin: { listUsers: ReturnType<typeof vi.fn> } };
+      }
+    ).auth.admin.listUsers.mockResolvedValue({
+      data: { users: [{ id: TARGET, email: "new@example.test" }] },
+      error: null,
+    });
+    const error = await failure(createAccount(w.deps, input));
+
+    expect(error.code).toBe("REGISTER_CONFLICT");
+    expect(error.context).toEqual({ reason: "DUPLICATE_EMAIL" });
+  });
+});
+
+describe("updateAccount", () => {
+  const current = (over: Record<string, unknown> = {}) =>
+    ok(profile(TARGET, over));
+
+  it("changes profile fields in one audited database call and touches nothing in Auth", async () => {
+    const w = world({
+      tables: {
+        profiles: [
+          ok(adminRow),
+          current(),
+          current({ representative_name: "Alice R." }),
+        ],
+      },
+    });
+    const account = await updateAccount(w.deps, TARGET, {
+      representativeName: "Alice R.",
+      isAdmin: true,
+    });
+
+    expect(w.rpcCalls).toEqual([
+      {
+        name: "update_profile",
+        args: {
+          p_profile_id: TARGET,
+          p_changes: { representativeName: "Alice R.", isAdmin: true },
+        },
+      },
+    ]);
+    expect(
+      w.events.filter(
+        (e) => e.startsWith("auth:") && !e.startsWith("auth:get"),
+      ),
+    ).toEqual([]);
+    expect(account.representativeName).toBe("Alice R.");
+  });
+
+  it("does nothing for unchanged values", async () => {
+    const w = world({
+      tables: { profiles: [ok(adminRow), current(), current()] },
+    });
+    await updateAccount(w.deps, TARGET, {
+      representativeName: "Alice Rao",
+      status: "ENABLED",
+    });
+    expect(w.rpcCalls).toEqual([]);
+  });
+
+  it("blocks the profile in the database BEFORE stopping Auth sign-in on suspension", async () => {
+    const w = world({
+      tables: {
+        profiles: [
+          ok(adminRow),
+          current(),
+          ok(adminRow),
+          current({ status: "SUSPENDED" }),
+        ],
+      },
+    });
+    await updateAccount(w.deps, TARGET, { status: "SUSPENDED" });
+
+    const order = w.events.filter(
+      (e) => e.startsWith("rpc:") || e.startsWith("auth:ban"),
+    );
+    expect(order).toEqual(["rpc:update_profile", "auth:ban:876000h"]);
+  });
+
+  it("allows Auth sign-in BEFORE enabling a profile", async () => {
+    const w = world({
+      tables: {
+        profiles: [
+          ok(adminRow),
+          current({ status: "SUSPENDED" }),
+          ok(adminRow),
+          current(),
+        ],
+      },
+    });
+    await updateAccount(w.deps, TARGET, { status: "ENABLED" });
+
+    const order = w.events.filter(
+      (e) => e.startsWith("rpc:") || e.startsWith("auth:ban"),
+    );
+    expect(order).toEqual(["auth:ban:none", "rpc:update_profile"]);
+  });
+
+  it("leaves Auth unchanged and surfaces the database's reason when enabling is refused", async () => {
+    const w = world({
+      tables: {
+        profiles: [
+          ok(adminRow),
+          current({ status: "SUSPENDED" }),
+          ok(adminRow),
+        ],
+      },
+      rpc: {
+        update_profile: {
+          data: null,
+          error: { code: "P0001", message: "PROVISIONING_INCOMPLETE" },
+          status: 400,
+        },
+      },
+    });
+    const error = await failure(
+      updateAccount(w.deps, TARGET, { status: "ENABLED" }),
+    );
+    expect(error.code).toBe("PROVISIONING_INCOMPLETE");
+  });
+
+  it("refuses to change a deleted account", async () => {
+    const w = world({
+      tables: { profiles: [ok(adminRow), current({ status: "DELETED" })] },
+    });
+    const error = await failure(
+      updateAccount(w.deps, TARGET, { representativeName: "X" }),
+    );
+    expect(error.code).toBe("LIFECYCLE_CONFLICT");
+    expect(w.rpcCalls).toEqual([]);
+  });
+
+  it("surfaces the last-administrator guard as a conflict", async () => {
+    const w = world({
+      tables: { profiles: [ok(adminRow), current({ is_admin: true })] },
+      rpc: {
+        update_profile: {
+          data: null,
+          error: {
+            code: "P0001",
+            message: "LIFECYCLE_CONFLICT",
+            details: "LAST_ADMIN",
+          },
+          status: 400,
+        },
+      },
+    });
+    const error = await failure(
+      updateAccount(w.deps, TARGET, { isAdmin: false }),
+    );
+    expect(error.code).toBe("LIFECYCLE_CONFLICT");
+    expect(error.context).toEqual({ reason: "LAST_ADMIN" });
+  });
+
+  describe("email change", () => {
+    const enabled = () => current({ status: "ENABLED" });
+    const full = (final: Result = current()) => ({
+      profiles: [ok(adminRow), enabled(), ok(adminRow), ok(adminRow), final],
+    });
+
+    it("blocks first, changes and verifies the Auth identity, then restores access", async () => {
+      const w = world({
+        tables: full(),
+        authUsers: { [TARGET]: { email: "old@example.test" } },
+        getUserByIdAfterUpdate: "new@example.test",
+      });
+      await updateAccount(w.deps, TARGET, { email: "new@example.test" });
+
+      const order = w.events.filter(
+        (e) =>
+          e.startsWith("rpc:") ||
+          (e.startsWith("auth:") && e !== "auth:get:" + TARGET) ||
+          e === "auth:get:target",
+      );
+      const sequence = order.filter((e) => e !== "auth:get:target" || true);
+      expect(sequence.indexOf("auth:list")).toBeLessThan(
+        sequence.indexOf("rpc:update_profile"),
+      );
+      expect(w.rpcCalls[0]?.args).toEqual({
+        p_profile_id: TARGET,
+        p_changes: { status: "SUSPENDED" },
+      });
+      expect(w.events.indexOf("rpc:update_profile")).toBeLessThan(
+        w.events.indexOf("auth:email"),
+      );
+      expect(w.events.indexOf("auth:email")).toBeLessThan(
+        w.events.lastIndexOf("rpc:update_profile"),
+      );
+      expect(w.rpcCalls.at(-1)?.args).toEqual({
+        p_profile_id: TARGET,
+        p_changes: { status: "ENABLED" },
+      });
+    });
+
+    it("rejects an email that belongs to another identity before blocking anyone", async () => {
+      const w = world({
+        tables: { profiles: [ok(adminRow), enabled()] },
+        authUsers: { [TARGET]: { email: "old@example.test" } },
+      });
+      w.admin.listUsers.mockResolvedValue({
+        data: { users: [{ id: OTHER, email: "new@example.test" }] },
+        error: null,
+      });
+      const error = await failure(
+        updateAccount(w.deps, TARGET, { email: "new@example.test" }),
+      );
+
+      expect(error.code).toBe("REGISTER_CONFLICT");
+      expect(error.context).toEqual({ reason: "DUPLICATE_EMAIL" });
+      expect(w.rpcCalls).toEqual([]);
+    });
+
+    it("keeps the profile BLOCKED and reports partial state when the Auth change fails", async () => {
+      const w = world({
+        tables: full(),
+        authUsers: { [TARGET]: { email: "old@example.test" } },
+        updateUserError: { status: 500 },
+      });
+      const error = await failure(
+        updateAccount(w.deps, TARGET, { email: "new@example.test" }),
+      );
+
+      expect(error.code).toBe("PROVISIONING_INCOMPLETE");
+      expect(error.context).toEqual({ stage: "AUTH", profileBlocked: true });
+      expect(w.rpcCalls.map((c) => c.args.p_changes)).toEqual([
+        { status: "SUSPENDED" },
+      ]);
+    });
+
+    it("keeps the profile blocked when the new email cannot be verified", async () => {
+      const w = world({
+        tables: full(),
+        authUsers: { [TARGET]: { email: "old@example.test" } },
+        getUserByIdAfterUpdate: "unexpected@example.test",
+      });
+      const error = await failure(
+        updateAccount(w.deps, TARGET, { email: "new@example.test" }),
+      );
+
+      expect(error.code).toBe("PROVISIONING_INCOMPLETE");
+      expect(w.rpcCalls).toHaveLength(1);
+    });
+
+    it("stops before the Auth stage if the caller is no longer an administrator", async () => {
+      const w = world({
+        tables: { profiles: [ok(adminRow), enabled(), ok(null)] },
+        authUsers: { [TARGET]: { email: "old@example.test" } },
+      });
+      const error = await failure(
+        updateAccount(w.deps, TARGET, { email: "new@example.test" }),
+      );
+
+      expect(error.code).toBe("FORBIDDEN");
+      expect(w.events).not.toContain("auth:email");
+    });
+
+    it("does not re-enable an account that was already suspended", async () => {
+      const w = world({
+        tables: {
+          profiles: [
+            ok(adminRow),
+            current({ status: "SUSPENDED" }),
+            ok(adminRow),
+            current({ status: "SUSPENDED" }),
+          ],
+        },
+        authUsers: { [TARGET]: { email: "old@example.test" } },
+        getUserByIdAfterUpdate: "new@example.test",
+      });
+      await updateAccount(w.deps, TARGET, { email: "new@example.test" });
+
+      expect(w.rpcCalls).toEqual([]);
+    });
+
+    it("reports a late database refusal as blocked partial state", async () => {
+      const w = world({
+        tables: full(),
+        authUsers: { [TARGET]: { email: "old@example.test" } },
+        getUserByIdAfterUpdate: "new@example.test",
+        rpc: {
+          update_profile: [
+            ok({}),
+            {
+              data: null,
+              error: { code: "P0001", message: "PROVISIONING_INCOMPLETE" },
+              status: 400,
+            },
+          ],
+        },
+      });
+      const error = await failure(
+        updateAccount(w.deps, TARGET, { email: "new@example.test" }),
+      );
+
+      expect(error.code).toBe("PROVISIONING_INCOMPLETE");
+      expect(error.context).toEqual({ stage: "PROFILE", profileBlocked: true });
+    });
+  });
+});
+
+describe("households service", () => {
+  const row = (over: Record<string, unknown> = {}) => ({
+    id: HOUSEHOLD,
+    identifier: "A-101",
+    identifier_normalized: "a-101",
+    representative_profile_id: TARGET,
+    is_eligible: true,
+    updated_at: "2030-01-01T00:00:00Z",
+    profiles: { representative_name: "Alice Rao", status: "ENABLED" },
+    ...over,
+  });
+  const listQuery = (over: Record<string, unknown> = {}) =>
+    householdListQuerySchema.parse(over);
+
+  it("orders by normalised identifier then id and projects representative details", async () => {
+    const w = world({
+      tables: { households: [ok([row()])] },
+      authUsers: { [TARGET]: { email: "alice@example.test" } },
+    });
+    const result = await listHouseholds(w.deps, listQuery());
+
+    const calls = w.queries[0]?.query.calls ?? [];
+    expect(calls.filter(([name]) => name === "order")).toEqual([
+      ["order", ["identifier_normalized", { ascending: true }]],
+      ["order", ["id", { ascending: true }]],
+    ]);
+    expect(result.data[0]).toEqual({
+      id: HOUSEHOLD,
+      identifier: "A-101",
+      representativeAccountId: TARGET,
+      isEligible: true,
+      updatedAt: "2030-01-01T00:00:00.000Z",
+      representative: {
+        name: "Alice Rao",
+        email: "alice@example.test",
+        status: "ENABLED",
+      },
+    });
+  });
+
+  it("filters eligibility and uses the database's normalisation for exact identifiers", async () => {
+    const w = world({
+      tables: { households: [ok([])] },
+      rpc: { normalize_household_identifier: ok("a-101") },
+    });
+    await listHouseholds(
+      w.deps,
+      listQuery({ isEligible: "false", identifier: " A-101 " }),
+    );
+
+    expect(w.rpcCalls[0]).toEqual({
+      name: "normalize_household_identifier",
+      args: { p_identifier: "A-101" },
+    });
+    const calls = w.queries[0]?.query.calls ?? [];
+    expect(calls).toContainEqual(["eq", ["is_eligible", false]]);
+    expect(calls).toContainEqual(["eq", ["identifier_normalized", "a-101"]]);
+  });
+
+  it("builds a safe keyset condition even when the cursor key contains filter syntax", async () => {
+    const tricky = 'a,b)"\\c';
+    const first = world({
+      tables: {
+        households: [
+          ok([row({ identifier_normalized: tricky }), row({ id: OTHER })]),
+        ],
+      },
+    });
+    const page = await listHouseholds(first.deps, listQuery({ limit: "1" }));
+
+    const second = world({ tables: { households: [ok([])] } });
+    await listHouseholds(
+      second.deps,
+      listQuery({ limit: "1", cursor: page.page.nextCursor }),
+    );
+    const condition = (second.queries[0]?.query.calls.find(
+      ([name]) => name === "or",
+    )?.[1] ?? [])[0];
+
+    expect(condition).toBe(
+      `identifier_normalized.gt.${postgrestQuote(tricky)},and(identifier_normalized.eq.${postgrestQuote(tricky)},id.gt.${HOUSEHOLD})`,
+    );
+    expect(postgrestQuote(tricky)).toBe('"a,b)\\"\\\\c"');
+  });
+
+  it("looks each representative up once per page", async () => {
+    const w = world({
+      tables: {
+        households: [
+          ok([row(), row({ id: OTHER, identifier_normalized: "a-102" })]),
+        ],
+      },
+    });
+    await listHouseholds(w.deps, listQuery());
+    expect(w.admin.getUserById).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns not-found for a missing household", async () => {
+    const w = world({ tables: { households: [ok(null)] } });
+    expect((await failure(getHousehold(w.deps, HOUSEHOLD))).code).toBe(
+      "NOT_FOUND",
+    );
+  });
+
+  it("creates through the guarded routine and returns the stored household", async () => {
+    const w = world({
+      tables: { profiles: [ok(adminRow)], households: [ok(row())] },
+      rpc: { create_household: ok({ id: HOUSEHOLD }) },
+    });
+    const created = await createHousehold(w.deps, {
+      identifier: "A-101",
+      representativeAccountId: TARGET,
+      isEligible: true,
+    });
+
+    expect(w.rpcCalls[0]).toEqual({
+      name: "create_household",
+      args: {
+        p_identifier: "A-101",
+        p_representative_account_id: TARGET,
+        p_is_eligible: true,
+      },
+    });
+    expect(created.id).toBe(HOUSEHOLD);
+  });
+
+  it("explains conflicts with a machine-readable reason", async () => {
+    const w = world({
+      tables: { profiles: [ok(adminRow)] },
+      rpc: {
+        create_household: {
+          data: null,
+          error: {
+            code: "P0001",
+            message: "REGISTER_CONFLICT",
+            details: "DUPLICATE_IDENTIFIER",
+          },
+          status: 400,
+        },
+      },
+    });
+    const error = await failure(
+      createHousehold(w.deps, {
+        identifier: "A-101",
+        representativeAccountId: TARGET,
+        isEligible: false,
+      }),
+    );
+
+    expect(error.code).toBe("REGISTER_CONFLICT");
+    expect(error.context).toEqual({ reason: "DUPLICATE_IDENTIFIER" });
+  });
+
+  it("sends only the fields that were supplied", async () => {
+    const w = world({
+      tables: { profiles: [ok(adminRow)], households: [ok(row())] },
+      rpc: { update_household: ok({}) },
+    });
+    await updateHousehold(w.deps, HOUSEHOLD, { isEligible: false });
+
+    expect(w.rpcCalls[0]).toEqual({
+      name: "update_household",
+      args: { p_household_id: HOUSEHOLD, p_changes: { isEligible: false } },
+    });
+  });
+
+  it("requires a current administrator for changes", async () => {
+    const w = world({ tables: { profiles: [ok(null)] } });
+    expect(
+      (await failure(updateHousehold(w.deps, HOUSEHOLD, { isEligible: true })))
+        .code,
+    ).toBe("FORBIDDEN");
+    expect(w.rpcCalls).toEqual([]);
+  });
+});
