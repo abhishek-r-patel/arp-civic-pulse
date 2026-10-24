@@ -60,7 +60,16 @@ test("sign-in page has no automatically detectable accessibility violations", as
   expect(results.violations).toEqual([]);
 });
 
-test("skip link moves focus to the main content", async ({ page }) => {
+test("skip link moves focus to the main content", async ({
+  page,
+  browserName,
+}) => {
+  // Safari does not Tab to links unless the user turns that on (or presses Option+Tab),
+  // and the automated WebKit build cannot reproduce Option+Tab. Check it on a real Safari.
+  test.skip(
+    browserName === "webkit",
+    "Needs a real Safari: see docs/PILOT_READINESS.md.",
+  );
   await page.goto("/sign-in");
   await page.keyboard.press("Tab");
 

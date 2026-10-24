@@ -21,6 +21,8 @@ at start-up, and never uses the migration credentials.
 | `20261024130000_activation_lifecycle`     | Activation freeze, early completion/cancellation, due completion, `cp_scheduler` role and the Cron job        |
 | `20261024130100_deferred_trigger_definer` | Deferred invariant triggers made `SECURITY DEFINER` (PostgreSQL 17/18 behave differently otherwise)           |
 | `20261024140000_cast_vote`                | `cast_vote` and `get_my_participation`; fixes the activation guard and preview blockers that looked at other votes |
+| `20261024150000_member_votes_results`      | Member vote list/detail, completion-gated `get_vote_results`, admin participation monitor, audit history          |
+| `20261024160000_retention_maintenance`     | Retention execution (`run_maintenance`, Cron daily), operational status and health ping, retention guard exceptions |
 
 All objects are owned by `cp_owner` (non-login, no superuser, no BYPASSRLS, no access to the Supabase `auth`
 schema). `anon` and `authenticated` hold no write privileges; `service_role` can only execute the three

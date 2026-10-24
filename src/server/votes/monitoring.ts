@@ -1,0 +1,139 @@
+import "server-only";
+import { z } from "zod";
+import { buildKnownPage, decodeCursor } from "@/server/http/cursor";
+import { ApiError } from "@/server/http/errors";
+import { callRoutine, type RegisterDeps } from "@/server/register/shared";
+import { enforceReadLimit } from "@/server/votes/member";
+import {
+  auditQuerySchema,
+  participationQuerySchema,
+} from "@/shared/contracts/admin-votes";
+import {
+  auditListSchema,
+  participationMonitorSchema,
+  type AuditEvent,
+} from "@/shared/contracts/member-votes";
+import type { PageInfo } from "@/shared/contracts/pagination";
+import { uuid } from "@/shared/validation/primitives";
+
+/*
+ * Administrator monitoring. Participation shows who has and has not submitted
+ * (frozen name and household identifier) and never a choice, an email or a
+ * per-submission time. The audit history exposes allowlisted fields only. Both
+ * routines re-check the caller as an enabled administrator.
+ */
+function parse<Schema extends z.ZodType>(
+  schema: Schema,
+  value: unknown,
+): z.output<Schema> {
+  const result = schema.safeParse(value);
+  if (!result.success) {
+    throw new ApiError("INTERNAL_ERROR");
+  }
+  return result.data;
+}
+
+const participationPosition = z.object({ key: z.string().max(100), id: uuid });
+
+export interface ParticipationReport {
+  voteId: string;
+  status: "ACTIVE" | "COMPLETED" | "CANCELLED";
+  eligibleCount: string;
+  submittedCount: string;
+  rows: {
+    representativeName: string;
+    householdIdentifier: string;
+    submitted: boolean;
+  }[];
+}
+
+export async function getParticipationReport(
+  deps: RegisterDeps,
+  voteId: string,
+  query: z.output<typeof participationQuerySchema>,
+): Promise<{ data: ParticipationReport; page: PageInfo }> {
+  await enforceReadLimit(deps);
+  const binding = {
+    endpoint: "/api/admin/votes/participation",
+    parentId: voteId,
+    filters: { submitted: query.submitted },
+  };
+  const after = query.cursor
+    ? decodeCursor(query.cursor, binding, participationPosition)
+    : null;
+
+  const report = parse(
+    participationMonitorSchema,
+    await callRoutine(deps.client, "get_vote_participation", {
+      p_vote_id: voteId,
+      p_submitted: query.submitted ?? null,
+      p_limit: query.limit,
+      p_after_key: after?.key ?? null,
+      p_after_household: after?.id ?? null,
+    }),
+  );
+
+  const { rows, page } = buildKnownPage(
+    report.rows,
+    report.hasMore,
+    query.limit,
+    binding,
+    (row) => ({ key: row.cursor.key, id: row.cursor.householdId }),
+  );
+  return {
+    data: {
+      voteId: report.voteId,
+      status: report.status,
+      eligibleCount: report.eligibleCount,
+      submittedCount: report.submittedCount,
+      rows: rows.map((row) => ({
+        representativeName: row.representativeName,
+        householdIdentifier: row.householdIdentifier,
+        submitted: row.submitted,
+      })),
+    },
+    page,
+  };
+}
+
+const auditPosition = z.object({ id: z.string().regex(/^\d{1,19}$/u) });
+
+export async function listAuditEvents(
+  deps: RegisterDeps,
+  query: z.output<typeof auditQuerySchema>,
+): Promise<{ data: AuditEvent[]; page: PageInfo }> {
+  await enforceReadLimit(deps);
+  const binding = {
+    endpoint: "/api/admin/audit",
+    filters: {
+      action: query.action,
+      targetType: query.targetType,
+      from: query.from,
+      to: query.to,
+    },
+  };
+  const after = query.cursor
+    ? decodeCursor(query.cursor, binding, auditPosition)
+    : null;
+
+  const list = parse(
+    auditListSchema,
+    await callRoutine(deps.client, "list_audit_events", {
+      p_limit: query.limit,
+      p_after_id: after?.id ?? null,
+      p_action: query.action ?? null,
+      p_target_type: query.targetType ?? null,
+      p_from: query.from ?? null,
+      p_to: query.to ?? null,
+    }),
+  );
+
+  const { rows, page } = buildKnownPage(
+    list.rows,
+    list.hasMore,
+    query.limit,
+    binding,
+    (row) => ({ id: row.id }),
+  );
+  return { data: rows, page };
+}

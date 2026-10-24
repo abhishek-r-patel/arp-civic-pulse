@@ -51,6 +51,12 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // PDFKit and fontkit read their data files at run time; bundling them breaks that.
+  serverExternalPackages: ["pdfkit", "fontkit"],
+  // The PDF renderer loads the bundled fonts from disk: keep them in a traced build output.
+  outputFileTracingIncludes: {
+    "/api/votes/[id]/exports/[format]": ["./public/fonts/pdf/**/*"],
+  },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },

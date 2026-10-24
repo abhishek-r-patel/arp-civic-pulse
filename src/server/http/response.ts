@@ -43,6 +43,15 @@ export function paginated<T>(
   return respond({ data, page, requestId }, requestId, 200);
 }
 
+// One document (not a list) whose embedded list is paged, e.g. a result with named responses.
+export function okWithPage<T>(
+  data: T,
+  page: PageInfo | null,
+  requestId: string,
+): Response {
+  return respond({ data, ...(page && { page }), requestId }, requestId, 200);
+}
+
 export function noContent(requestId: string): Response {
   return new Response(null, {
     status: 204,

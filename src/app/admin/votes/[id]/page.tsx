@@ -5,6 +5,7 @@ import { DraftEditor } from "@/components/admin/vote-forms";
 import { LifecycleActions } from "@/components/admin/lifecycle-actions";
 import { FLASH_NOTICES, firstValues } from "@/components/admin/format";
 import { PageHeader } from "@/components/ui/layout";
+import { LinkButton } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { BallotPreview } from "@/components/votes/ballot-preview";
 import { LifecycleSummary } from "@/components/votes/lifecycle-summary";
@@ -97,6 +98,27 @@ export default async function VotePage({
             </Notice>
           ) : null}
           <LifecycleSummary vote={vote} />
+          <section aria-labelledby="follow-up" className="grid gap-3">
+            <h2 id="follow-up" className="text-section font-semibold">
+              Follow-up
+            </h2>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <LinkButton
+                href={`/admin/votes/${vote.id}/participation`}
+                variant="secondary"
+              >
+                Participation
+              </LinkButton>
+              {vote.status === "COMPLETED" ? (
+                <LinkButton
+                  href={`/votes/${vote.id}/results`}
+                  variant="secondary"
+                >
+                  Results and download
+                </LinkButton>
+              ) : null}
+            </div>
+          </section>
           {vote.status === "ACTIVE" ? (
             <LifecycleActions csrfToken={deps.csrfToken} voteId={vote.id} />
           ) : null}

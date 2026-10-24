@@ -175,13 +175,15 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
       ).toEqual([
         "consume_rate_limit",
         "enable_profile",
+        "health_ping",
+        "operational_status",
         "provision_profile",
         "reconcile_vote",
       ]);
-      // The Cron role reaches exactly one entry point and nothing else.
+      // The Cron role reaches exactly its two entry points and nothing else.
       expect(
         (await executable("cp_scheduler")).rows.map((r) => r.name),
-      ).toEqual(["complete_due_votes"]);
+      ).toEqual(["complete_due_votes", "run_maintenance"]);
       expect(
         (await executable("authenticated")).rows.map((r) => r.name),
       ).toEqual([
@@ -199,8 +201,13 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
         "create_draft",
         "create_household",
         "get_admin_vote",
+        "get_member_vote",
         "get_my_participation",
         "get_rwa_display",
+        "get_vote_participation",
+        "get_vote_results",
+        "list_audit_events",
+        "list_member_votes",
         "normalize_household_identifier",
         "preview_draft",
         "update_draft",
