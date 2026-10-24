@@ -1,0 +1,1762 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Civic Pulse: technical guide for junior developers</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: system-ui, sans-serif;
+        color: #12253b;
+        background: #f3f6f8;
+        line-height: 1.65;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      main {
+        max-width: 1080px;
+        margin: 24px auto;
+        padding: 40px;
+        background: white;
+      }
+      h1,
+      h2,
+      h3 {
+        line-height: 1.25;
+        scroll-margin-top: 20px;
+      }
+      h1 {
+        font-size: 2.1rem;
+      }
+      h2 {
+        margin-top: 2.5rem;
+        border-bottom: 2px solid #dce7ec;
+        padding-bottom: 0.5rem;
+      }
+      a {
+        color: #086b70;
+        text-underline-offset: 0.16em;
+        overflow-wrap: anywhere;
+      }
+      a:focus-visible {
+        outline: 3px solid #147c81;
+        outline-offset: 3px;
+      }
+      p,
+      li,
+      td,
+      th,
+      code,
+      figcaption {
+        overflow-wrap: anywhere;
+      }
+      li {
+        margin: 0.45rem 0;
+      }
+      code {
+        background: #eef3f6;
+        border-radius: 3px;
+        padding: 0.1em 0.25em;
+      }
+      pre {
+        background: #eef3f6;
+        padding: 16px;
+        white-space: pre-wrap;
+        font-size: 0.85rem;
+      }
+      pre code {
+        padding: 0;
+      }
+      nav {
+        border: 1px solid #cbd8df;
+        background: #f7fafb;
+        padding: 20px;
+      }
+      nav ol {
+        padding-left: 1.5rem;
+      }
+      figure {
+        margin: 24px auto 32px;
+        border: 1px solid #d2dce2;
+        padding: 12px;
+        background: #fafcfd;
+      }
+      figure.phone {
+        max-width: 414px;
+      }
+      figure img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        margin: auto;
+      }
+      figcaption {
+        font-size: 0.85rem;
+        line-height: 1.4;
+        margin-top: 12px;
+        color: #3e5365;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        font-size: 0.92rem;
+      }
+      th,
+      td {
+        text-align: left;
+        vertical-align: top;
+        border: 1px solid #cbd8df;
+        padding: 10px;
+      }
+      th {
+        background: #edf4f5;
+      }
+      .notice {
+        border-left: 4px solid #147c81;
+        background: #edf6f6;
+        padding: 12px 16px;
+      }
+      @media (max-width: 600px) {
+        main {
+          margin: 0;
+          padding: 20px;
+        }
+        h1 {
+          font-size: 1.7rem;
+        }
+        h2 {
+          font-size: 1.35rem;
+        }
+        th,
+        td {
+          padding: 6px;
+          font-size: 0.8rem;
+        }
+        figure {
+          padding: 6px;
+        }
+      }
+      @page {
+        size: A4;
+        margin: 16mm;
+      }
+      @media print {
+        :root {
+          font-size: 10pt;
+          background: white;
+        }
+        main {
+          max-width: none;
+          padding: 0;
+          margin: 0;
+        }
+        h1,
+        h2,
+        h3 {
+          break-after: avoid;
+        }
+        h2 {
+          margin-top: 1.5rem;
+        }
+        p,
+        li {
+          orphans: 3;
+          widows: 3;
+        }
+        figure {
+          break-inside: avoid;
+          margin: 12pt auto;
+          padding: 6pt;
+        }
+        figure img {
+          max-height: 225mm;
+          max-width: 100%;
+          object-fit: contain;
+        }
+        figure.phone {
+          max-width: 90mm;
+        }
+        figcaption {
+          font-size: 8pt;
+        }
+        th,
+        td {
+          padding: 6pt;
+          font-size: 8pt;
+        }
+        thead {
+          display: table-header-group;
+        }
+        tr,
+        pre {
+          break-inside: avoid;
+        }
+        a {
+          color: inherit;
+        }
+        nav {
+          break-after: page;
+        }
+        .notice {
+          font-size: 9pt;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="notice">
+        Offline / print edition. Images are embedded; no internet or JavaScript
+        is required. Use your browser's Print / Save as PDF. Source-code and
+        supporting-document links require the original repository layout.
+      </p>
+      <nav aria-label="Contents">
+        <strong>Contents</strong>
+        <ol>
+          <li>
+            <a href="#1-what-the-application-does"
+              >1. What the application does</a
+            >
+          </li>
+          <li><a href="#2-stack-and-boundaries">2. Stack and boundaries</a></li>
+          <li>
+            <a href="#3-first-hour-in-the-repository"
+              >3. First hour in the repository</a
+            >
+          </li>
+          <li><a href="#4-folder-and-file-map">4. Folder and file map</a></li>
+          <li>
+            <a href="#5-trace-a-real-feature-submit-a-ballot"
+              >5. Trace a real feature: submit a ballot</a
+            >
+          </li>
+          <li>
+            <a href="#6-authentication-sessions-and-authorization"
+              >6. Authentication, sessions and authorization</a
+            >
+          </li>
+          <li>
+            <a href="#7-database-model-and-invariants"
+              >7. Database model and invariants</a
+            >
+          </li>
+          <li>
+            <a href="#8-lifecycle-and-register-workflows"
+              >8. Lifecycle and register workflows</a
+            >
+          </li>
+          <li>
+            <a href="#9-pages-and-http-entry-points"
+              >9. Pages and HTTP entry points</a
+            >
+          </li>
+          <li>
+            <a href="#10-results-exports-and-ui-conventions"
+              >10. Results, exports and UI conventions</a
+            >
+          </li>
+          <li>
+            <a href="#11-environment-deployment-and-operations"
+              >11. Environment, deployment and operations</a
+            >
+          </li>
+          <li>
+            <a href="#12-tests-what-to-run-and-what-they-prove"
+              >12. Tests: what to run and what they prove</a
+            >
+          </li>
+          <li>
+            <a href="#13-a-safe-workflow-for-your-first-code-change"
+              >13. A safe workflow for your first code change</a
+            >
+          </li>
+          <li>
+            <a href="#14-debugging-without-leaking-data"
+              >14. Debugging without leaking data</a
+            >
+          </li>
+          <li>
+            <a href="#15-known-limitations-and-next-reading"
+              >15. Known limitations and next reading</a
+            >
+          </li>
+        </ol>
+      </nav>
+      <h1 id="civic-pulse-technical-guide-for-junior-developers">
+        Civic Pulse: technical guide for junior developers
+      </h1>
+      <p>
+        Audience: a developer joining this codebase. Describes the current
+        implementation; recheck the manifests and release evidence as the
+        application evolves.
+      </p>
+      <p>
+        This guide explains the implemented code, not just the intended
+        architecture. Read the <a href="./PRD.md">PRD</a>,
+        <a href="./DESIGN_SYSTEM.md">design system</a>,
+        <a href="./ARCHITECTURE.md">architecture</a>,
+        <a href="./DATABASE.md">database contract</a> and
+        <a href="./API.md">API contract</a> for authoritative requirements. The
+        application is <strong>not approved for production launch</strong>; see
+        the <a href="./LAUNCH_AUDIT.md">launch audit</a>.
+      </p>
+      <p>
+        Companion: <a href="./USER_GUIDE.html">illustrated end-user guide</a>.
+        Printable/offline version:
+        <a href="./TECHNICAL_GUIDE.html">technical guide HTML</a>. Open the HTML
+        in a browser and use Print / Save as PDF.
+      </p>
+      <h2 id="1-what-the-application-does">1. What the application does</h2>
+      <p>
+        Civic Pulse serves one Resident Welfare Association (RWA).
+        Administrators register household representatives, create votes, preview
+        them and explicitly activate them. Residents sign in with an emailed
+        six-digit code and submit once for their frozen household entitlement.
+      </p>
+      <ul>
+        <li>
+          <strong>OPEN poll:</strong> one choice. Authorized completed results
+          contain representative names, household identifiers and choices.
+        </li>
+        <li>
+          <strong>CLOSED election:</strong> one candidate or explicit abstention
+          for every office. Storage and results use aggregate counters, not
+          retrievable individual ballots.
+        </li>
+        <li>
+          <strong>Lifecycle:</strong> Draft, Active, Completed or Cancelled.
+          Type and status are different concepts.
+        </li>
+        <li>
+          <strong>Results:</strong> private to entitled members and
+          administrators; CSV is required and PDF is implemented but can be
+          disabled.
+        </li>
+        <li>
+          <strong>Operations:</strong> audit history, bounded retention,
+          encrypted backups/restore, health checks and maintenance mode.
+        </li>
+      </ul>
+      <figure class="wide">
+        <img
+          src="data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMTAwMCIKICBoZWlnaHQ9IjM1MCIKICB2aWV3Qm94PSIwIDAgMTAwMCAzNTAiCiAgcm9sZT0iaW1nIgogIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyIKPgogIDx0aXRsZSBpZD0idGl0bGUiPkNpdmljIFB1bHNlOiBmcm9tIHJlZ2lzdGVyIHRvIHJlc3VsdHM8L3RpdGxlPgogIDxkZXNjIGlkPSJkZXNjIj4KICAgIFRoZSBhZG1pbmlzdHJhdG9yIHNldHMgdXAgaG91c2Vob2xkcywgY3JlYXRlcyBhbmQgcHJldmlld3MgYSBkcmFmdCwgdGhlbgogICAgYWN0aXZhdGVzIGl0LiBSZXNpZGVudHMgc2lnbiBpbiwgcmV2aWV3IGFuZCBzdWJtaXQgb25jZS4gQ29tcGxldGlvbgogICAgcHVibGlzaGVzIGF1dGhvcml6ZWQgcmVzdWx0cyBhbmQgZG93bmxvYWRzLgogIDwvZGVzYz4KICA8ZGVmcz4KICAgIDxtYXJrZXIKICAgICAgaWQ9ImFycm93IgogICAgICBtYXJrZXJXaWR0aD0iMTAiCiAgICAgIG1hcmtlckhlaWdodD0iMTAiCiAgICAgIHJlZlg9IjgiCiAgICAgIHJlZlk9IjMiCiAgICAgIG9yaWVudD0iYXV0byIKICAgID4KICAgICAgPHBhdGggZD0iTTAgMCBMMCA2IEw4IDNaIiBmaWxsPSIjNDc1NTY5IiAvPgogICAgPC9tYXJrZXI+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSIxMDAwIiBoZWlnaHQ9IjM1MCIgcng9IjEyIiBmaWxsPSIjZjhmYWZjIiAvPgogIDxnIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzBmMTcyYSI+CiAgICA8dGV4dCB4PSI1MDAiIHk9IjMyIiBmb250LXNpemU9IjIyIiBmb250LXdlaWdodD0iYm9sZCI+CiAgICAgIE9uZSBob3VzZWhvbGQuIE9uZSBmaW5hbCBzdWJtaXNzaW9uIHBlciB2b3RlLgogICAgPC90ZXh0PgogICAgPGcgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjMGY3NjZlIiBzdHJva2Utd2lkdGg9IjIiPgogICAgICA8cmVjdCB4PSIyMCIgeT0iNjUiIHdpZHRoPSIyMTAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iMjcwIiB5PSI2NSIgd2lkdGg9IjIxMCIgaGVpZ2h0PSI5MCIgcng9IjEwIiAvPgogICAgICA8cmVjdCB4PSI1MjAiIHk9IjY1IiB3aWR0aD0iMjEwIiBoZWlnaHQ9IjkwIiByeD0iMTAiIC8+CiAgICAgIDxyZWN0IHg9Ijc3MCIgeT0iNjUiIHdpZHRoPSIyMTAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iMjcwIiB5PSIyMTUiIHdpZHRoPSIyMTAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iNTIwIiB5PSIyMTUiIHdpZHRoPSIyMTAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iNzcwIiB5PSIyMTUiIHdpZHRoPSIyMTAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgLz4KICAgIDwvZz4KICAgIDxnIGZvbnQtc2l6ZT0iMTciPgogICAgICA8dGV4dCB4PSIxMjUiIHk9Ijk5Ij5SZWdpc3RlciBhY2NvdW50czwvdGV4dD4KICAgICAgPHRleHQgeD0iMTI1IiB5PSIxMjUiPmFuZCBob3VzZWhvbGRzPC90ZXh0PgogICAgICA8dGV4dCB4PSIzNzUiIHk9Ijk5Ij5DcmVhdGUgZHJhZnQ8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjM3NSIgeT0iMTI1Ij5PUEVOIG9yIENMT1NFRDwvdGV4dD4KICAgICAgPHRleHQgeD0iNjI1IiB5PSI5OSI+U2F2ZSBhbmQgcHJldmlldzwvdGV4dD4KICAgICAgPHRleHQgeD0iNjI1IiB5PSIxMjUiPkNvcnJlY3QgYW55IGJsb2NrZXJzPC90ZXh0PgogICAgICA8dGV4dCB4PSI4NzUiIHk9Ijk5Ij5BY3RpdmF0ZSBleHBsaWNpdGx5PC90ZXh0PgogICAgICA8dGV4dCB4PSI4NzUiIHk9IjEyNSI+QmFsbG90IGFuZCB2b3RlcnMgZnJlZXplPC90ZXh0PgogICAgICA8dGV4dCB4PSIzNzUiIHk9IjI1MCI+UmVzaWRlbnRzIHNpZ24gaW48L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjM3NSIgeT0iMjc2Ij5DaG9vc2UgYW5kIHJldmlldzwvdGV4dD4KICAgICAgPHRleHQgeD0iNjI1IiB5PSIyNTAiPlN1Ym1pdCBvbmNlPC90ZXh0PgogICAgICA8dGV4dCB4PSI2MjUiIHk9IjI3NiI+V2FpdCBmb3IgY29uZmlybWF0aW9uPC90ZXh0PgogICAgICA8dGV4dCB4PSI4NzUiIHk9IjI1MCI+QWZ0ZXIgY29tcGxldGlvbjwvdGV4dD4KICAgICAgPHRleHQgeD0iODc1IiB5PSIyNzYiPlJlc3VsdHMsIENTViBhbmQgUERGKjwvdGV4dD4KICAgIDwvZz4KICAgIDx0ZXh0IHg9IjUwMCIgeT0iMzM1IiBmb250LXNpemU9IjE0Ij4KICAgICAgKiBQREYgaXMgb3B0aW9uYWwuIEFjdGl2ZSBjaG9pY2VzIGFyZSBuZXZlciBwdWJsaXNoZWQuIE9ubHkgYXV0aG9yaXplZAogICAgICB2aWV3ZXJzIGNhbiBzZWUgcmVzdWx0cy4KICAgIDwvdGV4dD4KICA8L2c+CiAgPGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjIiIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIj4KICAgIDxwYXRoIGQ9Ik0yMzAgMTEwSDI2MCIgLz4KICAgIDxwYXRoIGQ9Ik00ODAgMTEwSDUxMCIgLz4KICAgIDxwYXRoIGQ9Ik03MzAgMTEwSDc2MCIgLz4KICAgIDxwYXRoIGQ9Ik04NzUgMTU1VjE4NUgzNzVWMjA1IiAvPgogICAgPHBhdGggZD0iTTQ4MCAyNjBINTEwIiAvPgogICAgPHBhdGggZD0iTTczMCAyNjBINzYwIiAvPgogIDwvZz4KPC9zdmc+Cg=="
+          alt="Application overview"
+        />
+        <figcaption>Application overview</figcaption>
+      </figure>
+      <p>
+        Application-level CLOSED privacy is not cryptographic anonymity.
+        Privileged infrastructure operators, WAL/backups and very small
+        electorates can allow inference. Never describe the system as secret
+        from all operators.
+      </p>
+      <h2 id="2-stack-and-boundaries">2. Stack and boundaries</h2>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Layer</th>
+              <th>Implementation</th>
+              <th>Why it matters</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Runtime</td>
+              <td>Node.js 24, npm, pinned lockfile</td>
+              <td>CI/hosting must use the supported Node major.</td>
+            </tr>
+            <tr>
+              <td>Framework</td>
+              <td>Next.js App Router 16, React 19, strict TypeScript</td>
+              <td>
+                Pages are usually server components; interactive forms use
+                client components. Read the installed Next.js docs before
+                applying old framework patterns.
+              </td>
+            </tr>
+            <tr>
+              <td>UI</td>
+              <td>Tailwind CSS, shared semantic tokens, Lucide icons</td>
+              <td>
+                Reuse components; do not introduce an alternate theme or UI
+                framework.
+              </td>
+            </tr>
+            <tr>
+              <td>Validation</td>
+              <td>Zod request/response contracts</td>
+              <td>
+                Types alone do not validate network input or database JSON.
+              </td>
+            </tr>
+            <tr>
+              <td>Identity</td>
+              <td>Supabase Auth email OTP and SSR cookie integration</td>
+              <td>
+                No custom password, OTP table or home-grown session store.
+              </td>
+            </tr>
+            <tr>
+              <td>Database</td>
+              <td>Supabase PostgreSQL 17, RLS, guarded functions, Cron</td>
+              <td>
+                Database permissions remain effective when someone bypasses the
+                web UI.
+              </td>
+            </tr>
+            <tr>
+              <td>Exports</td>
+              <td>PDFKit/fontkit and CSV renderer</td>
+              <td>
+                Generate private completed results on demand; no public stored
+                reports.
+              </td>
+            </tr>
+            <tr>
+              <td>Tests</td>
+              <td>Vitest, real PostgreSQL, Playwright, axe</td>
+              <td>
+                Different layers prove different things; mocks do not prove
+                database permissions.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <figure class="wide">
+        <img
+          src="data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMTAwMCIKICBoZWlnaHQ9IjQzMCIKICB2aWV3Qm94PSIwIDAgMTAwMCA0MzAiCiAgcm9sZT0iaW1nIgogIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyIKPgogIDx0aXRsZSBpZD0idGl0bGUiPkFwcGxpY2F0aW9uIHRydXN0IGJvdW5kYXJpZXM8L3RpdGxlPgogIDxkZXNjIGlkPSJkZXNjIj4KICAgIEJyb3dzZXIgY2FsbHMgc2FtZS1vcmlnaW4gTmV4dC5qcyBwYWdlcyBhbmQgQVBJcy4gU2VydmVyIHNlcnZpY2VzIHZlcmlmeQogICAgU3VwYWJhc2UgQXV0aCBhbmQgY3VycmVudCBwcm9maWxlIHBlcm1pc3Npb25zLCB0aGVuIHVzZSB0aGUgdXNlcidzIGRhdGFiYXNlCiAgICBjbGllbnQgZm9yIFJMUyBhbmQgZ3VhcmRlZCByb3V0aW5lcy4gQSBzZXBhcmF0ZSBwcml2aWxlZ2VkIGNsaWVudCBoYW5kbGVzCiAgICBBdXRoIGFkbWluaXN0cmF0aW9uIGFuZCBsaW1pdGVyIHJvdXRpbmVzIG9ubHkuIFBvc3RncmVTUUwgc3RvcmVzCiAgICBwYXJ0aWNpcGF0aW9uIHdpdGggT1BFTiByZXNwb25zZXMgb3IgQ0xPU0VEIGFnZ3JlZ2F0ZSBjb3VudGVycyBhdG9taWNhbGx5LgogIDwvZGVzYz4KICA8ZGVmcz4KICAgIDxtYXJrZXIKICAgICAgaWQ9ImEiCiAgICAgIG1hcmtlcldpZHRoPSIxMCIKICAgICAgbWFya2VySGVpZ2h0PSIxMCIKICAgICAgcmVmWD0iOCIKICAgICAgcmVmWT0iMyIKICAgICAgb3JpZW50PSJhdXRvIgogICAgPgogICAgICA8cGF0aCBkPSJNMCAwIEwwIDYgTDggM1oiIGZpbGw9IiM0NzU1NjkiIC8+CiAgICA8L21hcmtlcj4KICA8L2RlZnM+CiAgPHJlY3Qgd2lkdGg9IjEwMDAiIGhlaWdodD0iNDMwIiByeD0iMTIiIGZpbGw9IiNmOGZhZmMiIC8+CiAgPGcgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMGYxNzJhIj4KICAgIDx0ZXh0IHg9IjUwMCIgeT0iMzIiIGZvbnQtc2l6ZT0iMjIiIGZvbnQtd2VpZ2h0PSJib2xkIj4KICAgICAgQXV0aG9yaXphdGlvbiBpcyBlbmZvcmNlZCBvbiB0aGUgc2VydmVyIEFORCBpbiBQb3N0Z3JlU1FMCiAgICA8L3RleHQ+CiAgICA8ZyBmaWxsPSIjZmZmIiBzdHJva2U9IiMwZjc2NmUiIHN0cm9rZS13aWR0aD0iMiI+CiAgICAgIDxyZWN0IHg9IjIwIiB5PSI3NSIgd2lkdGg9IjIxMCIgaGVpZ2h0PSI5MCIgcng9IjEwIiAvPgogICAgICA8cmVjdCB4PSIzMjAiIHk9Ijc1IiB3aWR0aD0iMzAwIiBoZWlnaHQ9IjkwIiByeD0iMTAiIC8+CiAgICAgIDxyZWN0IHg9IjcyMCIgeT0iNzUiIHdpZHRoPSIyNjAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iMzIwIiB5PSIyNzAiIHdpZHRoPSIzMDAiIGhlaWdodD0iMTAwIiByeD0iMTAiIC8+CiAgICAgIDxyZWN0IHg9IjcyMCIgeT0iMjcwIiB3aWR0aD0iMjYwIiBoZWlnaHQ9IjEwMCIgcng9IjEwIiAvPgogICAgPC9nPgogICAgPGcgZm9udC1zaXplPSIxNyI+CiAgICAgIDx0ZXh0IHg9IjEyNSIgeT0iMTEwIj5Ccm93c2VyIC8gUmVhY3Q8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjEyNSIgeT0iMTQwIj5ObyB0cnVzdGVkIHJvbGUgb3IgaWRlbnRpdHk8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjQ3MCIgeT0iMTEwIj5OZXh0LmpzIHBhZ2VzIC8gSFRUUCBib3VuZGFyeTwvdGV4dD4KICAgICAgPHRleHQgeD0iNDcwIiB5PSIxNDAiPk9yaWdpbiwgQ1NSRiwgWm9kLCBzZXJ2aWNlczwvdGV4dD4KICAgICAgPHRleHQgeD0iODUwIiB5PSIxMTAiPlN1cGFiYXNlIEF1dGg8L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg1MCIgeT0iMTQwIj5PVFAsIGdldFVzZXIsIHJlZnJlc2g8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjQ3MCIgeT0iMzAyIj5Vc2VyLXNlc3Npb24gZGF0YWJhc2UgY2xpZW50PC90ZXh0PgogICAgICA8dGV4dCB4PSI0NzAiIHk9IjMzMCI+UkxTICsgZ3VhcmRlZCBTUUwgZnVuY3Rpb25zPC90ZXh0PgogICAgICA8dGV4dCB4PSI0NzAiIHk9IjM1NSI+UGVybWlzc2lvbnMgYW5kIGR1cmFibGUgY29tbWl0PC90ZXh0PgogICAgICA8dGV4dCB4PSI4NTAiIHk9IjMwMiI+SXNvbGF0ZWQgcHJpdmlsZWdlZCBjbGllbnQ8L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg1MCIgeT0iMzMwIj5BdXRoIGFkbWluLCBwcm92aXNpb25pbmcsPC90ZXh0PgogICAgICA8dGV4dCB4PSI4NTAiIHk9IjM1NSI+bGltaXRpbmcgLyByZWNvbmNpbGlhdGlvbjwvdGV4dD4KICAgIDwvZz4KICAgIDxnIGZvbnQtc2l6ZT0iMTQiPgogICAgICA8dGV4dCB4PSIyNjQiIHk9IjY1Ij5TYW1lIG9yaWdpbjwvdGV4dD4KICAgICAgPHRleHQgeD0iNDcwIiB5PSIyMTUiPlZlcmlmaWVkIHVzZXI7IGN1cnJlbnQgZW5hYmxlZCBwcm9maWxlPC90ZXh0PgogICAgICA8dGV4dCB4PSI4NTAiIHk9IjIxNSI+TmV2ZXIgb3JkaW5hcnkgYmFsbG90L3Jlc3VsdCByZWFkczwvdGV4dD4KICAgICAgPHRleHQgeD0iNTAwIiB5PSI0MDUiPgogICAgICAgIENMT1NFRDogcGFydGljaXBhdGlvbiArIGNvdW50ZXJzLCBub3QgaW5kaXZpZHVhbCBiYWxsb3RzLiBDcm9uIHVzZXMgYQogICAgICAgIHJlc3RyaWN0ZWQgc2NoZWR1bGVyIHJvbGUuCiAgICAgIDwvdGV4dD4KICAgIDwvZz4KICA8L2c+CiAgPGcgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiIG1hcmtlci1lbmQ9InVybCgjYSkiPgogICAgPHBhdGggZD0iTTIzMCAxMjBIMzEwIiAvPgogICAgPHBhdGggZD0iTTYyMCAxMjBINzEwIiAvPgogICAgPHBhdGggZD0iTTQ3MCAxNjVWMjYwIiAvPgogICAgPHBhdGggZD0iTTYwMCAxNjVWMjM1SDg1MFYyNjAiIC8+CiAgPC9nPgo8L3N2Zz4K"
+          alt="Server and database trust boundaries"
+        />
+        <figcaption>Server and database trust boundaries</figcaption>
+      </figure>
+      <p>Key vocabulary:</p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Term</th>
+              <th>Meaning</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Server component</td>
+              <td>
+                Runs on the server, can call server services directly, and must
+                not send secrets to the browser.
+              </td>
+            </tr>
+            <tr>
+              <td>Client component</td>
+              <td>
+                Uses browser state/events. Its checks help UX but are not
+                authorization.
+              </td>
+            </tr>
+            <tr>
+              <td>RLS</td>
+              <td>
+                Row-level security: database policies restrict what a caller can
+                read.
+              </td>
+            </tr>
+            <tr>
+              <td>RPC</td>
+              <td>
+                A database function called through Supabase; protected writes
+                use these guarded routines.
+              </td>
+            </tr>
+            <tr>
+              <td><code>SECURITY DEFINER</code></td>
+              <td>
+                A function executes with its owner&#39;s privileges. It must
+                independently validate the caller and pin a trusted search path.
+              </td>
+            </tr>
+            <tr>
+              <td>Frozen electorate</td>
+              <td>
+                The households, representatives and historical names selected
+                when a vote is activated. Later register edits do not transfer
+                these entitlements.
+              </td>
+            </tr>
+            <tr>
+              <td>Participation</td>
+              <td>
+                The fact that a frozen household submitted. For CLOSED votes
+                this is not a record of its selections.
+              </td>
+            </tr>
+            <tr>
+              <td>Acknowledgement</td>
+              <td>
+                The application says the transaction committed; it does not
+                expose a CLOSED selection receipt.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <h2 id="3-first-hour-in-the-repository">
+        3. First hour in the repository
+      </h2>
+      <ol>
+        <li>
+          Follow <a href="./LOCAL_SETUP.md">LOCAL_SETUP.md</a> for the complete
+          Windows setup and isolated Supabase test project. Never use production
+          for development.
+        </li>
+        <li>
+          Inspect <a href="../package.json">package.json</a>,
+          <a href="../.nvmrc">.nvmrc</a>,
+          <a href="../.env.example">.env.example</a>, and
+          <a href="./AGENTS.md">AGENTS.md</a>.
+        </li>
+        <li>
+          Put Node 24 on PATH. Use <code>npm ci</code> with the committed
+          lockfile for a fresh checkout. The existing local guide also describes
+          portable tools/corporate CA setup.
+        </li>
+        <li>
+          Supply your own ignored local environment configuration. Do not copy
+          an actual developer&#39;s secrets or publish them in issues,
+          screenshots or commits.
+        </li>
+        <li>
+          Start with <code>npm run dev</code>. Open the address reported by
+          Next.js; ordinary local development uses port 3000.
+        </li>
+        <li>
+          Sign in with a deliberately provisioned test account. New
+          installations require migrations, settings and a controlled first
+          administrator; visiting the site does not create an admin.
+        </li>
+        <li>
+          Run <code>npm test</code>, <code>npm run typecheck</code> and
+          <code>npm run lint</code>.
+        </li>
+        <li>Trace one feature using section 5 before attempting changes.</li>
+      </ol>
+      <p>
+        Never disable certificate verification to solve corporate TLS problems.
+        Configure the approved CA for the relevant tooling. Existing live-test
+        helpers have a documented TLS-verification weakness; do not copy that
+        pattern into new runtime/deployment code.
+      </p>
+      <h2 id="4-folder-and-file-map">4. Folder and file map</h2>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Path</th>
+              <th>Responsibility</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="../src/app">src/app</a></td>
+              <td>
+                Pages, layouts, loading/error boundaries and HTTP route
+                handlers. Route-group parentheses do not appear in URLs.
+              </td>
+            </tr>
+            <tr>
+              <td><a href="../src/components/ui">src/components/ui</a></td>
+              <td>
+                Buttons, fields, notices, dialogs, tables, pagination, badges
+                and common layout.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/components/admin">src/components/admin</a>
+              </td>
+              <td>
+                Account/household forms, draft editing, preview and lifecycle
+                interaction.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/components/votes">src/components/votes</a>
+              </td>
+              <td>Resident ballots, privacy notices and completed results.</td>
+            </tr>
+            <tr>
+              <td><a href="../src/server">src/server</a></td>
+              <td>
+                Server-only services. Do not import these into client
+                components.
+              </td>
+            </tr>
+            <tr>
+              <td><a href="../src/shared">src/shared</a></td>
+              <td>
+                Browser-safe contracts, validation, HTTP client and time
+                formatting.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/styles/globals.css">src/styles/globals.css</a>
+              </td>
+              <td>Shared Tailwind design tokens and global styling.</td>
+            </tr>
+            <tr>
+              <td><a href="../src/proxy.ts">src/proxy.ts</a></td>
+              <td>
+                Page-request CSRF context, pre-render session refresh and
+                maintenance page handling. Not the final authorization layer.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/instrumentation.ts">src/instrumentation.ts</a>
+              </td>
+              <td>Validate server environment on Node startup.</td>
+            </tr>
+            <tr>
+              <td><a href="../next.config.ts">next.config.ts</a></td>
+              <td>
+                Security/cache headers, PDF dependencies and bundled-font
+                tracing.
+              </td>
+            </tr>
+            <tr>
+              <td><a href="../supabase/migrations">supabase/migrations</a></td>
+              <td>Ordered, immutable schema/guard/RLS/function migrations.</td>
+            </tr>
+            <tr>
+              <td><a href="../scripts/ops">scripts/ops</a></td>
+              <td>
+                Encrypted backup/restore, status, recovery-record and cleanup
+                commands.
+              </td>
+            </tr>
+            <tr>
+              <td><a href="../tests">tests</a></td>
+              <td>
+                Unit, integration, live-service, browser and capacity suites.
+              </td>
+            </tr>
+            <tr>
+              <td><a href="../.github">.github</a></td>
+              <td>Validation, CodeQL and Dependabot configuration.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Useful server entry points:</p>
+      <ul>
+        <li>
+          <a href="../src/server/authorization/account.ts"
+            >authorization/account.ts</a
+          >: verified identity, enabled profile and current role.
+        </li>
+        <li>
+          <a href="../src/server/db/clients.ts">db/clients.ts</a>: separate
+          user-session and privileged clients.
+        </li>
+        <li>
+          <a href="../src/server/register/page-context.ts"
+            >register/page-context.ts</a
+          >: page guards plus services&#39; dependencies and CSRF token.
+        </li>
+        <li>
+          <a href="../src/server/http/route.ts">http/route.ts</a>: consistent
+          methods, support IDs, maintenance and safe errors.
+        </li>
+        <li>
+          <a href="../src/server/http/request.ts">http/request.ts</a>:
+          request-body, parameter and query parsing.
+        </li>
+        <li>
+          <a href="../src/server/auth/dependencies.ts">auth/dependencies.ts</a>:
+          Origin/CSRF guard and Auth dependencies.
+        </li>
+        <li>
+          <a href="../src/server/auth/otp.ts">auth/otp.ts</a>: request code,
+          verify and sign out.
+        </li>
+        <li>
+          <a href="../src/server/votes/submission.ts">votes/submission.ts</a>:
+          submission and participation status.
+        </li>
+        <li>
+          <a href="../src/server/votes/member.ts">votes/member.ts</a>: entitled
+          discovery/detail/results.
+        </li>
+        <li>
+          <a href="../src/server/votes/lifecycle.ts">votes/lifecycle.ts</a>:
+          activation/completion/cancellation and overdue reconciliation.
+        </li>
+        <li>
+          <a href="../src/server/exports/results-export.ts"
+            >exports/results-export.ts</a
+          >: complete private CSV/PDF response.
+        </li>
+        <li>
+          <a href="../src/server/observability/logger.ts"
+            >observability/logger.ts</a
+          >: allowlisted logs.
+        </li>
+      </ul>
+      <h2 id="5-trace-a-real-feature-submit-a-ballot">
+        5. Trace a real feature: submit a ballot
+      </h2>
+      <p>Read these files in order:</p>
+      <ol>
+        <li>
+          <a href="../src/app/votes/[id]/page.tsx">Vote page</a> obtains a
+          guarded page context and authorized vote detail.
+        </li>
+        <li>
+          <a href="../src/components/votes/ballot-form.tsx">BallotForm</a>
+          renders choices and keeps unsent selections in component/page memory.
+        </li>
+        <li>
+          <a href="../src/shared/http/api-client.ts">Browser API helper</a>
+          sends a same-origin JSON request with a CSRF token and validates the
+          response envelope.
+        </li>
+        <li>
+          <a href="../src/app/api/votes/[id]/submission/route.ts"
+            >Submission route</a
+          >
+          checks Origin/CSRF, validates the ID/body and obtains an enabled
+          member context.
+        </li>
+        <li>
+          <a href="../src/server/votes/submission.ts">Submission service</a>
+          enforces a profile budget and calls <code>cast_vote</code> using the
+          member&#39;s own client.
+        </li>
+        <li>
+          <a href="../supabase/migrations/20261024140000_cast_vote.sql"
+            >cast_vote migration</a
+          >
+          locks/rechecks/validates/writes atomically.
+        </li>
+        <li>
+          After commit the response is participation-only:
+          <code>voteId</code> and <code>submitted: true</code>, wrapped in the
+          common envelope.
+        </li>
+        <li>
+          A lost, malformed or unavailable acknowledgement triggers an
+          own-participation check. The client must not blindly repeat a
+          submission.
+        </li>
+      </ol>
+      <pre><code>Browser POST /api/votes/{id}/submission
+  -&gt; exact Origin + CSRF
+  -&gt; verified Auth identity + current enabled profile
+  -&gt; Zod/body/UUID validation and shared rate limit
+  -&gt; user-session RPC cast_vote
+       -&gt; lock vote, recheck entitlement/status/deadline
+       -&gt; insert unique participation
+       -&gt; OPEN: insert response
+          CLOSED: increment one counter per office
+       -&gt; whole transaction commits, or all changes roll back
+  -&gt; safe acknowledgement (no CLOSED selections)</code></pre>
+      <figure class="wide">
+        <img
+          src="data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMTAwMCIKICBoZWlnaHQ9IjQ3MCIKICB2aWV3Qm94PSIwIDAgMTAwMCA0NzAiCiAgcm9sZT0iaW1nIgogIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyIKPgogIDx0aXRsZSBpZD0idGl0bGUiPlNhZmUgdm90aW5nIGFuZCBjb25uZWN0aW9uIHJlY292ZXJ5PC90aXRsZT4KICA8ZGVzYyBpZD0iZGVzYyI+CiAgICBDaG9vc2UsIHJldmlldyBhbmQgc3VibWl0LiBBIGNvbmZpcm1lZCBhY2NlcHRhbmNlIGlzIGZpbmFsLiBJZiB0aGUKICAgIGFja25vd2xlZGdlbWVudCBpcyB1bmNsZWFyLCBjaGVjayBwYXJ0aWNpcGF0aW9uLiBSZWNvcmRlZCBtZWFucyBkb25lLCBub3QKICAgIHJlY29yZGVkIHBlcm1pdHMgcmV2aWV3IGFuZCByZXRyeSBvbmx5IHdoaWxlIGFsbG93ZWQsIGFuZCBhbiB1bmF2YWlsYWJsZQogICAgY2hlY2sgbWVhbnMgd2FpdCBhbmQgY2hlY2sgYWdhaW4gd2l0aG91dCBzdWJtaXR0aW5nIGJsaW5kbHkuCiAgPC9kZXNjPgogIDxkZWZzPgogICAgPG1hcmtlcgogICAgICBpZD0iYSIKICAgICAgbWFya2VyV2lkdGg9IjEwIgogICAgICBtYXJrZXJIZWlnaHQ9IjEwIgogICAgICByZWZYPSI4IgogICAgICByZWZZPSIzIgogICAgICBvcmllbnQ9ImF1dG8iCiAgICA+CiAgICAgIDxwYXRoIGQ9Ik0wIDAgTDAgNiBMOCAzWiIgZmlsbD0iIzQ3NTU2OSIgLz4KICAgIDwvbWFya2VyPgogIDwvZGVmcz4KICA8cmVjdCB3aWR0aD0iMTAwMCIgaGVpZ2h0PSI0NzAiIHJ4PSIxMiIgZmlsbD0iI2Y4ZmFmYyIgLz4KICA8ZyBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMwZjE3MmEiPgogICAgPHRleHQgeD0iNTAwIiB5PSIzMiIgZm9udC1zaXplPSIyMiIgZm9udC13ZWlnaHQ9ImJvbGQiPgogICAgICBBIGxvc3QgcmVzcG9uc2UgaXMgbm90IHByb29mIHRoYXQgYSB2b3RlIGZhaWxlZAogICAgPC90ZXh0PgogICAgPGcgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjMGY3NjZlIiBzdHJva2Utd2lkdGg9IjIiPgogICAgICA8cmVjdCB4PSIyMCIgeT0iNjUiIHdpZHRoPSIyMDAiIGhlaWdodD0iNjUiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iMjgwIiB5PSI2NSIgd2lkdGg9IjIwMCIgaGVpZ2h0PSI2NSIgcng9IjEwIiAvPgogICAgICA8cmVjdCB4PSI1NDAiIHk9IjY1IiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjY1IiByeD0iMTAiIC8+CiAgICAgIDxyZWN0IHg9Ijc4MCIgeT0iNjUiIHdpZHRoPSIyMDAiIGhlaWdodD0iNjUiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iNTQwIiB5PSIyMTUiIHdpZHRoPSIyMDAiIGhlaWdodD0iNzUiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iMjAiIHk9IjM2NSIgd2lkdGg9IjI1MCIgaGVpZ2h0PSI3NSIgcng9IjEwIiAvPgogICAgICA8cmVjdCB4PSIzNzUiIHk9IjM2NSIgd2lkdGg9IjI1MCIgaGVpZ2h0PSI3NSIgcng9IjEwIiAvPgogICAgICA8cmVjdCB4PSI3MzAiIHk9IjM2NSIgd2lkdGg9IjI1MCIgaGVpZ2h0PSI3NSIgcng9IjEwIiAvPgogICAgPC9nPgogICAgPGcgZm9udC1zaXplPSIxNyI+CiAgICAgIDx0ZXh0IHg9IjEyMCIgeT0iMTA0Ij5DaG9vc2UgYWxsIHJlcXVpcmVkIGZpZWxkczwvdGV4dD4KICAgICAgPHRleHQgeD0iMzgwIiB5PSIxMDQiPlJldmlldyBzZWxlY3Rpb25zPC90ZXh0PgogICAgICA8dGV4dCB4PSI2NDAiIHk9IjEwNCI+U3VibWl0IG9uY2U8L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg4MCIgeT0iMTA0Ij5Wb3RlIHN1Ym1pdHRlZC48L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjY0MCIgeT0iMjQ1Ij5VbmNsZWFyIHJlc3BvbnNlPzwvdGV4dD4KICAgICAgPHRleHQgeD0iNjQwIiB5PSIyNzIiPkNoZWNrIHBhcnRpY2lwYXRpb248L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjE0NSIgeT0iMzk1Ij5SZWNvcmRlZDwvdGV4dD4KICAgICAgPHRleHQgeD0iMTQ1IiB5PSI0MjMiPkZpbmlzaGVkOyBkbyBub3Qgdm90ZSBhZ2FpbjwvdGV4dD4KICAgICAgPHRleHQgeD0iNTAwIiB5PSIzOTUiPkNvbmZpcm1lZCBub3QgcmVjb3JkZWQ8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjUwMCIgeT0iNDIzIj5SZXZpZXcgYW5kIHJldHJ5IGlmIGFsbG93ZWQ8L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg1NSIgeT0iMzk1Ij5DaGVjayBhbHNvIHVuYXZhaWxhYmxlPC90ZXh0PgogICAgICA8dGV4dCB4PSI4NTUiIHk9IjQyMyI+V2FpdDsgdXNlIENoZWNrIGFnYWluPC90ZXh0PgogICAgPC9nPgogICAgPGcgZm9udC1zaXplPSIxNCI+CiAgICAgIDx0ZXh0IHg9IjY0MCIgeT0iMTgxIj5Db25uZWN0aW9uIHByb2JsZW08L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg1MCIgeT0iMTU1Ij5DbGVhciBhY2NlcHRhbmNlIG9ubHk8L3RleHQ+CiAgICA8L2c+CiAgPC9nPgogIDxnIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIiBtYXJrZXItZW5kPSJ1cmwoI2EpIj4KICAgIDxwYXRoIGQ9Ik0yMjAgOTdIMjcwIiAvPgogICAgPHBhdGggZD0iTTQ4MCA5N0g1MzAiIC8+CiAgICA8cGF0aCBkPSJNNzQwIDk3SDc3MCIgLz4KICAgIDxwYXRoIGQ9Ik02NDAgMTMwVjIwNSIgLz4KICAgIDxwYXRoIGQ9Ik02NDAgMjkwVjMyNUgxNDVWMzU1IiAvPgogICAgPHBhdGggZD0iTTY0MCAyOTBWMzI1SDUwMFYzNTUiIC8+CiAgICA8cGF0aCBkPSJNNjQwIDI5MFYzMjVIODU1VjM1NSIgLz4KICA8L2c+Cjwvc3ZnPgo="
+          alt="Submission and recovery branches"
+        />
+        <figcaption>Submission and recovery branches</figcaption>
+      </figure>
+      <p>
+        The definitive deadline check uses the
+        <strong>database clock after locking</strong>, not the browser clock,
+        request arrival time or transaction-start time. A request waiting for a
+        lock until the deadline is rejected. A transaction admitted before the
+        deadline can commit afterward.
+      </p>
+      <h2 id="6-authentication-sessions-and-authorization">
+        6. Authentication, sessions and authorization
+      </h2>
+      <h3 id="sign-in-flow">Sign-in flow</h3>
+      <ol>
+        <li>
+          A controlled administrator provisions the email identity/profile.
+          Public signup is disabled.
+        </li>
+        <li>
+          The code-request route normalizes/validates the email and returns
+          generic guidance. It must not reveal whether an address is registered.
+        </li>
+        <li>
+          Supabase handles six-digit, expiring, single-use email codes.
+          Production requires custom SMTP; test helpers can obtain codes through
+          supported Auth administration without email.
+        </li>
+        <li>
+          Verification requires both a valid Auth session and a current enabled
+          application profile.
+        </li>
+        <li>
+          The server-side SDK writes session cookies.
+          <a href="../src/server/auth/session-cookies.ts"
+            >Shared cookie hardening</a
+          >
+          applies HttpOnly, Secure in production, SameSite=Lax and a provisional
+          14-day sliding browser lifetime.
+        </li>
+        <li>
+          <a href="../src/server/auth/proxy-session.ts"
+            >Proxy session refresh</a
+          >
+          refreshes before Server Component rendering and forwards new cookies
+          to both browser and request. Server Components cannot themselves write
+          cookies.
+        </li>
+        <li>
+          Protected APIs use <code>getUser</code> and current profile checks.
+          Role comes from the database profile, not user-editable JWT metadata.
+        </li>
+        <li>
+          Sign out uses supported Auth behavior. Current application
+          suspension/role checks remain essential because issued tokens are not
+          universally revoked instantly.
+        </li>
+      </ol>
+      <p>
+        CSRF context is a separate HttpOnly cookie; production uses a host-only
+        Secure cookie and SameSite=Strict. The page exposes a derived token, not
+        that secret context. Do not confuse CSRF and session cookies.
+      </p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Capability</th>
+              <th>Signed out</th>
+              <th>Enabled resident</th>
+              <th>Enabled administrator</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Sign-in page/code flow</td>
+              <td>Yes</td>
+              <td>Yes</td>
+              <td>Yes</td>
+            </tr>
+            <tr>
+              <td>Member ballot</td>
+              <td>No</td>
+              <td>Own frozen entitlement only</td>
+              <td>Only own frozen entitlement</td>
+            </tr>
+            <tr>
+              <td>Completed results/export</td>
+              <td>No</td>
+              <td>Entitled votes only</td>
+              <td>Authorized administrative access</td>
+            </tr>
+            <tr>
+              <td>Register/drafts/lifecycle/audit</td>
+              <td>No</td>
+              <td>No</td>
+              <td>Yes</td>
+            </tr>
+            <tr>
+              <td>Active choice totals</td>
+              <td>No</td>
+              <td>No</td>
+              <td>No</td>
+            </tr>
+            <tr>
+              <td>Individual CLOSED selections</td>
+              <td>No</td>
+              <td>No</td>
+              <td>No</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Suspended/deleted/unprovisioned identities do not gain access merely by
+        holding a valid token. Admin pages use a plain not-found for non-admins;
+        APIs use the appropriate safe status. Inaccessible vote IDs are
+        indistinguishable from nonexistent ones.
+      </p>
+      <h2 id="7-database-model-and-invariants">
+        7. Database model and invariants
+      </h2>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Entity</th>
+              <th>Relationship and purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>auth.users</code></td>
+              <td>
+                Managed Supabase identity; email/verification/session state is
+                not duplicated in application profiles.
+              </td>
+            </tr>
+            <tr>
+              <td><code>profiles</code></td>
+              <td>
+                Stable Auth user ID, representative name,
+                enabled/suspended/deleted status and admin flag.
+              </td>
+            </tr>
+            <tr>
+              <td><code>households</code></td>
+              <td>
+                Unique normalized label and one current representative; controls
+                future eligibility selection.
+              </td>
+            </tr>
+            <tr>
+              <td><code>rwa_settings</code></td>
+              <td>
+                Singleton RWA name/timezone, actual A1-A7 approvals and approved
+                retention periods.
+              </td>
+            </tr>
+            <tr>
+              <td><code>votes</code></td>
+              <td>
+                Type, status, revision, deadline, terminal reasons and frozen
+                display metadata.
+              </td>
+            </tr>
+            <tr>
+              <td><code>offices</code> / <code>candidates</code></td>
+              <td>
+                CLOSED ballot structure with parent ownership and ordered
+                positions.
+              </td>
+            </tr>
+            <tr>
+              <td><code>poll_options</code></td>
+              <td>OPEN ballot choices.</td>
+            </tr>
+            <tr>
+              <td><code>electorate</code></td>
+              <td>
+                One frozen entitlement per vote/household, frozen representative
+                and historical labels.
+              </td>
+            </tr>
+            <tr>
+              <td><code>participation</code></td>
+              <td>
+                One accepted submission per entitlement. No CLOSED choices.
+              </td>
+            </tr>
+            <tr>
+              <td><code>open_responses</code></td>
+              <td>
+                Attributable option response. Published only through authorized
+                completed results.
+              </td>
+            </tr>
+            <tr>
+              <td><code>closed_tallies</code></td>
+              <td>
+                Candidate/abstention counters per office. No per-voter CLOSED
+                record.
+              </td>
+            </tr>
+            <tr>
+              <td><code>audit_events</code></td>
+              <td>
+                Administrative actor/action/record/time/reason, not payloads or
+                OTPs.
+              </td>
+            </tr>
+            <tr>
+              <td><code>rate_limit_buckets</code></td>
+              <td>
+                Shared atomic limiter state with HMAC-derived subjects rather
+                than raw emails.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <pre><code>auth.users -- profiles -- households
+                  \          \
+                   \       electorate -- votes -- offices -- candidates
+                    \          |            \-- poll_options
+                     historical representative
+                               |
+                         participation
+                         /           \
+                OPEN response    CLOSED aggregate counters*
+
+* Diagram shows the atomic workflow, NOT a stored per-person link
+  from participation to a particular CLOSED choice.</code></pre>
+      <p>Critical constraints:</p>
+      <ul>
+        <li>
+          Unique participation and whole-transaction rollback prevent
+          duplicate/partial ballots.
+        </li>
+        <li>
+          Frozen content, representatives and deadlines cannot be edited after
+          activation.
+        </li>
+        <li>Candidate IDs must belong to the submitted office/vote.</li>
+        <li>
+          For each completed CLOSED office, candidates plus abstentions equal
+          submitted ballots.
+        </li>
+        <li>
+          OPEN response counts equal accepted participation. Invariant failure
+          withholds results rather than fabricating a fix.
+        </li>
+        <li>
+          Terminal votes cannot reopen. Accepted submissions cannot be edited,
+          deleted manually or withdrawn.
+        </li>
+        <li>
+          Counts/audit bigints use decimal strings across API boundaries to
+          avoid unsafe JavaScript coercion.
+        </li>
+        <li>
+          Current suspension blocks access without erasing accepted
+          participation or changing the frozen turnout denominator.
+        </li>
+      </ul>
+      <h3 id="permissions">Permissions</h3>
+      <p>
+        All application tables have RLS and restricted grants. Ordinary
+        users/admins cannot directly read choice tables or write application
+        tables. Guarded functions independently check identity and capability.
+        Restricted non-login owners have fixed search paths; private data is not
+        published to Realtime.
+      </p>
+      <p>
+        The privileged client bypasses RLS: use it only in the established
+        provisioning/Auth administration, limiter and narrowly scoped
+        reconciliation paths. Do not use it for ordinary ballot/result access.
+      </p>
+      <h3 id="migration-map">Migration map</h3>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Migration suffix</th>
+              <th>Responsibility</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>100000_core_schema</code></td>
+              <td>Owners, tables, keys, constraints and indexes.</td>
+            </tr>
+            <tr>
+              <td><code>100100_guards_and_helpers</code></td>
+              <td>Identity/visibility, lifecycle guards and invariants.</td>
+            </tr>
+            <tr>
+              <td><code>100200_rls_and_grants</code></td>
+              <td>Policies, safe column access and restricted execution.</td>
+            </tr>
+            <tr>
+              <td><code>100300_audit_settings_provisioning</code></td>
+              <td>
+                Audit, deployment settings/admin bootstrap and profile
+                provisioning.
+              </td>
+            </tr>
+            <tr>
+              <td><code>100400_rate_limiting</code></td>
+              <td>Atomic supplemental application limiter.</td>
+            </tr>
+            <tr>
+              <td><code>110000_register_administration</code></td>
+              <td>Household/account routines and last-admin guard.</td>
+            </tr>
+            <tr>
+              <td><code>120000_vote_drafts</code></td>
+              <td>Draft revision/ballot/electorate/preview routines.</td>
+            </tr>
+            <tr>
+              <td><code>130000_activation_lifecycle</code></td>
+              <td>
+                Freeze, lifecycle and restricted due-completion scheduling.
+              </td>
+            </tr>
+            <tr>
+              <td><code>130100_deferred_trigger_definer</code></td>
+              <td>Consistent deferred-trigger execution semantics.</td>
+            </tr>
+            <tr>
+              <td><code>140000_cast_vote</code></td>
+              <td>Atomic submission and participation-status routine.</td>
+            </tr>
+            <tr>
+              <td><code>150000_member_votes_results</code></td>
+              <td>
+                Authorized discovery, results, participation and audit
+                projections.
+              </td>
+            </tr>
+            <tr>
+              <td><code>160000_retention_maintenance</code></td>
+              <td>
+                Bounded retention, readiness/status and maintenance scheduling.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        All files start with <code>20261024</code>; use the exact filenames in
+        <a href="../supabase/migrations">migrations</a>. Do not rewrite an
+        applied migration. New changes require a new versioned migration and
+        fresh/upgrade tests. Never run migrations at application startup or use
+        a reset on an existing real database.
+      </p>
+      <h2 id="8-lifecycle-and-register-workflows">
+        8. Lifecycle and register workflows
+      </h2>
+      <figure class="wide">
+        <img
+          src="data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMTAwMCIKICBoZWlnaHQ9IjMyMCIKICB2aWV3Qm94PSIwIDAgMTAwMCAzMjAiCiAgcm9sZT0iaW1nIgogIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyIKPgogIDx0aXRsZSBpZD0idGl0bGUiPlZvdGUgbGlmZWN5Y2xlPC90aXRsZT4KICA8ZGVzYyBpZD0iZGVzYyI+CiAgICBBIGRyYWZ0IGNhbiBiZSBlZGl0ZWQuIEV4cGxpY2l0IGFjdGl2YXRpb24gZnJlZXplcyBpdC4gQW4gYWN0aXZlIHZvdGUKICAgIGNvbXBsZXRlcyBhdCBpdHMgZGVhZGxpbmUgb3IgZWFybHkgd2l0aCBhIHJlYXNvbiwgb3IgaXMgY2FuY2VsbGVkIHdpdGggYQogICAgcmVhc29uLiBUZXJtaW5hbCB2b3RlcyBuZXZlciByZW9wZW4uCiAgPC9kZXNjPgogIDxkZWZzPgogICAgPG1hcmtlcgogICAgICBpZD0iYSIKICAgICAgbWFya2VyV2lkdGg9IjEwIgogICAgICBtYXJrZXJIZWlnaHQ9IjEwIgogICAgICByZWZYPSI4IgogICAgICByZWZZPSIzIgogICAgICBvcmllbnQ9ImF1dG8iCiAgICA+CiAgICAgIDxwYXRoIGQ9Ik0wIDAgTDAgNiBMOCAzWiIgZmlsbD0iIzQ3NTU2OSIgLz4KICAgIDwvbWFya2VyPgogIDwvZGVmcz4KICA8cmVjdCB3aWR0aD0iMTAwMCIgaGVpZ2h0PSIzMjAiIHJ4PSIxMiIgZmlsbD0iI2Y4ZmFmYyIgLz4KICA8ZyBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMwZjE3MmEiPgogICAgPHRleHQgeD0iNTAwIiB5PSIzMiIgZm9udC1zaXplPSIyMiIgZm9udC13ZWlnaHQ9ImJvbGQiPgogICAgICBWb3RpbmcgdHlwZSBpcyBzZXBhcmF0ZSBmcm9tIGxpZmVjeWNsZSBzdGF0dXMKICAgIDwvdGV4dD4KICAgIDxnIGZpbGw9IiNmZmYiIHN0cm9rZS13aWR0aD0iMiI+CiAgICAgIDxyZWN0IHg9IjI1IiB5PSIxMDAiIHdpZHRoPSIxOTAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgc3Ryb2tlPSIjNjQ3NDhiIiAvPgogICAgICA8cmVjdCB4PSIzNjAiIHk9IjEwMCIgd2lkdGg9IjE5MCIgaGVpZ2h0PSI5MCIgcng9IjEwIiBzdHJva2U9IiMwZjc2NmUiIC8+CiAgICAgIDxyZWN0IHg9Ijc4MCIgeT0iNjAiIHdpZHRoPSIxOTUiIGhlaWdodD0iOTAiIHJ4PSIxMCIgc3Ryb2tlPSIjMTU4MDNkIiAvPgogICAgICA8cmVjdCB4PSI3ODAiIHk9IjIwNSIgd2lkdGg9IjE5NSIgaGVpZ2h0PSI4MCIgcng9IjEwIiBzdHJva2U9IiNiOTFjMWMiIC8+CiAgICA8L2c+CiAgICA8ZyBmb250LXNpemU9IjE5IiBmb250LXdlaWdodD0iYm9sZCI+CiAgICAgIDx0ZXh0IHg9IjEyMCIgeT0iMTM1Ij5EcmFmdDwvdGV4dD4KICAgICAgPHRleHQgeD0iNDU1IiB5PSIxMzUiPkFjdGl2ZTwvdGV4dD4KICAgICAgPHRleHQgeD0iODc3IiB5PSI5NSI+Q29tcGxldGVkPC90ZXh0PgogICAgICA8dGV4dCB4PSI4NzciIHk9IjIzOCI+Q2FuY2VsbGVkPC90ZXh0PgogICAgPC9nPgogICAgPGcgZm9udC1zaXplPSIxNSI+CiAgICAgIDx0ZXh0IHg9IjEyMCIgeT0iMTYyIj5FZGl0YWJsZSwgbm90IHJlc2lkZW50LXZpc2libGU8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjQ1NSIgeT0iMTYyIj5Gcm96ZW4sIGFjY2VwdHMgZWxpZ2libGUgdm90ZXM8L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg3NyIgeT0iMTIyIj5BdXRob3JpemVkIHJlc3VsdHMgYXZhaWxhYmxlPC90ZXh0PgogICAgICA8dGV4dCB4PSI4NzciIHk9IjI2NSI+Tm8gdmFsaWQgcmVzdWx0cyBvciBleHBvcnRzPC90ZXh0PgogICAgICA8dGV4dCB4PSIyODYiIHk9IjkwIj5QcmV2aWV3ICsgY29uZmlybTwvdGV4dD4KICAgICAgPHRleHQgeD0iNjU2IiB5PSI3MSI+RGVhZGxpbmUgb3IgZWFybHkgKyByZWFzb248L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjY1NiIgeT0iMjE3Ij5DYW5jZWwgKyByZWFzb248L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjQ2MCIgeT0iMjkwIj4KICAgICAgICBObyByZW9wZW5pbmcsIGRlYWRsaW5lIGV4dGVuc2lvbiBvciBiYWxsb3QgZWRpdHMgYWZ0ZXIgYWN0aXZhdGlvbi4KICAgICAgPC90ZXh0PgogICAgPC9nPgogIDwvZz4KICA8ZyBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIgbWFya2VyLWVuZD0idXJsKCNhKSI+CiAgICA8cGF0aCBkPSJNMjE1IDE0NUgzNTAiIC8+CiAgICA8cGF0aCBkPSJNNTUwIDEzMEg2NTBWMTA1SDc3MCIgLz4KICAgIDxwYXRoIGQ9Ik01NTAgMTY1SDY1MFYyNDVINzcwIiAvPgogIDwvZz4KPC9zdmc+Cg=="
+          alt="Immutable lifecycle"
+        />
+        <figcaption>Immutable lifecycle</figcaption>
+      </figure>
+      <p>
+        Drafts can be incomplete. Every edit increments
+        <code>draftRevision</code>; an update includes the expected revision. A
+        stale edit receives a conflict rather than overwriting someone
+        else&#39;s work. Preview identifies its version, and activation must
+        confirm that same version.
+      </p>
+      <p>
+        Activation checks ballot validity, current selected representatives,
+        future deadline, approvals and retention configuration. It freezes the
+        electorate, historical identity/display data and ballot. Editing a
+        household later affects future votes only.
+      </p>
+      <p>
+        Supabase Cron completes due votes and runs bounded retention. The
+        scheduling role has narrow function grants. Scheduled completion records
+        the deadline as effective completion time even if processing is late.
+        Authorized reads may reconcile an overdue vote, but the transactional
+        deadline remains authoritative.
+      </p>
+      <p>
+        Register changes span Auth and application records; they are not one
+        distributed transaction:
+      </p>
+      <ul>
+        <li>
+          Create a profile suspended; ordinary residents need a household before
+          enabling.
+        </li>
+        <li>
+          Email changes preflight identity ownership, block access and verify
+          Auth consistency before restoring prior access.
+        </li>
+        <li>
+          Provider failures surface partial-workflow errors. Do not silently
+          enable an inconsistent account.
+        </li>
+        <li>
+          Repeated suspension/deletion status can retry an incomplete Auth ban.
+          A deleted profile is not restored or edited.
+        </li>
+        <li>At least one enabled administrator must remain.</li>
+      </ul>
+      <figure class="wide">
+        <img
+          src="data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMTAwMCIKICBoZWlnaHQ9IjI3MCIKICB2aWV3Qm94PSIwIDAgMTAwMCAyNzAiCiAgcm9sZT0iaW1nIgogIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyIKPgogIDx0aXRsZSBpZD0idGl0bGUiPlJlZ2lzdGVyaW5nIGEgcmVwcmVzZW50YXRpdmU8L3RpdGxlPgogIDxkZXNjIGlkPSJkZXNjIj4KICAgIENyZWF0ZSB0aGUgcmVzaWRlbnQgYWNjb3VudCBzdXNwZW5kZWQsIGFzc2lnbiBpdCB0byBhIHVuaXF1ZSBob3VzZWhvbGQsIG1hcmsKICAgIHRoZSBob3VzZWhvbGQgZWxpZ2libGUgaWYgYXBwcm92ZWQsIGVuYWJsZSB0aGUgYWNjb3VudCwgYW5kIGluY2x1ZGUgdGhhdAogICAgaG91c2Vob2xkIHdoZW4gYWN0aXZhdGluZyBmdXR1cmUgdm90ZXMuCiAgPC9kZXNjPgogIDxkZWZzPgogICAgPG1hcmtlcgogICAgICBpZD0iYSIKICAgICAgbWFya2VyV2lkdGg9IjEwIgogICAgICBtYXJrZXJIZWlnaHQ9IjEwIgogICAgICByZWZYPSI4IgogICAgICByZWZZPSIzIgogICAgICBvcmllbnQ9ImF1dG8iCiAgICA+CiAgICAgIDxwYXRoIGQ9Ik0wIDAgTDAgNiBMOCAzWiIgZmlsbD0iIzQ3NTU2OSIgLz4KICAgIDwvbWFya2VyPgogIDwvZGVmcz4KICA8cmVjdCB3aWR0aD0iMTAwMCIgaGVpZ2h0PSIyNzAiIHJ4PSIxMiIgZmlsbD0iI2Y4ZmFmYyIgLz4KICA8ZyBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMwZjE3MmEiPgogICAgPHRleHQgeD0iNTAwIiB5PSIzMiIgZm9udC1zaXplPSIyMiIgZm9udC13ZWlnaHQ9ImJvbGQiPgogICAgICBDcmVhdGUgYWNjb3VudCBmaXJzdDsgYXNzaWduIGhvdXNlaG9sZCBiZWZvcmUgZW5hYmxpbmcgYSByZXNpZGVudAogICAgPC90ZXh0PgogICAgPGcgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjMGY3NjZlIiBzdHJva2Utd2lkdGg9IjIiPgogICAgICA8cmVjdCB4PSIxNSIgeT0iNzUiIHdpZHRoPSIyMTAiIGhlaWdodD0iMTAwIiByeD0iMTAiIC8+CiAgICAgIDxyZWN0IHg9IjI2NSIgeT0iNzUiIHdpZHRoPSIyMTAiIGhlaWdodD0iMTAwIiByeD0iMTAiIC8+CiAgICAgIDxyZWN0IHg9IjUxNSIgeT0iNzUiIHdpZHRoPSIyMTAiIGhlaWdodD0iMTAwIiByeD0iMTAiIC8+CiAgICAgIDxyZWN0IHg9Ijc2NSIgeT0iNzUiIHdpZHRoPSIyMjAiIGhlaWdodD0iMTAwIiByeD0iMTAiIC8+CiAgICA8L2c+CiAgICA8ZyBmb250LXNpemU9IjE3Ij4KICAgICAgPHRleHQgeD0iMTIwIiB5PSIxMTIiPkNyZWF0ZSByZXNpZGVudDwvdGV4dD4KICAgICAgPHRleHQgeD0iMTIwIiB5PSIxNDMiPkluaXRpYWxseSBzdXNwZW5kZWQ8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjM3MCIgeT0iMTEyIj5Bc3NpZ24gaG91c2Vob2xkPC90ZXh0PgogICAgICA8dGV4dCB4PSIzNzAiIHk9IjE0MyI+U2V0IGVsaWdpYmlsaXR5IGNvcnJlY3RseTwvdGV4dD4KICAgICAgPHRleHQgeD0iNjIwIiB5PSIxMTIiPkVuYWJsZSBhY2NvdW50PC90ZXh0PgogICAgICA8dGV4dCB4PSI2MjAiIHk9IjE0MyI+Q29uZmlybSBhY2Nlc3MgY2hhbmdlPC90ZXh0PgogICAgICA8dGV4dCB4PSI4NzUiIHk9IjExMiI+U2VsZWN0IGluIG5ldyBkcmFmdDwvdGV4dD4KICAgICAgPHRleHQgeD0iODc1IiB5PSIxNDMiPkZyZWV6ZSBvbiBhY3RpdmF0aW9uPC90ZXh0PgogICAgPC9nPgogICAgPHRleHQgeD0iNTAwIiB5PSIyMTUiIGZvbnQtc2l6ZT0iMTYiPgogICAgICBBbiBhZG1pbmlzdHJhdG9yIG1heSBleGlzdCB3aXRob3V0IGEgaG91c2Vob2xkLCBidXQgY2Fubm90IHZvdGUgd2l0aG91dCBhbgogICAgICBlbnRpdGxlbWVudC4KICAgIDwvdGV4dD4KICAgIDx0ZXh0IHg9IjUwMCIgeT0iMjQ1IiBmb250LXNpemU9IjE2Ij4KICAgICAgUmVnaXN0ZXIgZWRpdHMgZG8gbm90IHRyYW5zZmVyIGV4aXN0aW5nIGZyb3plbiBlbnRpdGxlbWVudHMgb3IgZXJhc2UKICAgICAgYWNjZXB0ZWQgdm90ZXMuCiAgICA8L3RleHQ+CiAgPC9nPgogIDxnIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIyIiBtYXJrZXItZW5kPSJ1cmwoI2EpIj4KICAgIDxwYXRoIGQ9Ik0yMjUgMTI1SDI1NSIgLz4KICAgIDxwYXRoIGQ9Ik00NzUgMTI1SDUwNSIgLz4KICAgIDxwYXRoIGQ9Ik03MjUgMTI1SDc1NSIgLz4KICA8L2c+Cjwvc3ZnPgo="
+          alt="Safe register onboarding"
+        />
+        <figcaption>Safe register onboarding</figcaption>
+      </figure>
+      <h2 id="9-pages-and-http-entry-points">9. Pages and HTTP entry points</h2>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>URL</th>
+              <th>Main use</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>/sign-in</code></td>
+              <td>Registered email, code verification, resend and recovery.</td>
+            </tr>
+            <tr>
+              <td><code>/</code></td>
+              <td>
+                Member&#39;s entitled votes, filters and own participation.
+                Admins also see management links.
+              </td>
+            </tr>
+            <tr>
+              <td><code>/votes/{id}</code></td>
+              <td>Authorized ballot, submitted state or terminal context.</td>
+            </tr>
+            <tr>
+              <td><code>/votes/{id}/results</code></td>
+              <td>
+                Completed totals, authorized named OPEN responses and downloads.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>/admin/accounts</code>, <code>/new</code>,
+                <code>/{id}</code>
+              </td>
+              <td>Account list, provisioning, details, role/access changes.</td>
+            </tr>
+            <tr>
+              <td>
+                <code>/admin/households</code>, <code>/new</code>,
+                <code>/{id}</code>
+              </td>
+              <td>Register, assignment, label and future eligibility.</td>
+            </tr>
+            <tr>
+              <td>
+                <code>/admin/votes</code>, <code>/new</code>, <code>/{id}</code>
+              </td>
+              <td>Draft creation/editing or frozen lifecycle detail.</td>
+            </tr>
+            <tr>
+              <td><code>/admin/votes/{id}/preview</code></td>
+              <td>Version-bound preview/readiness and activation.</td>
+            </tr>
+            <tr>
+              <td><code>/admin/votes/{id}/participation</code></td>
+              <td>Participation monitor with no choices.</td>
+            </tr>
+            <tr>
+              <td><code>/admin/audit</code></td>
+              <td>Administrative history.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>HTTP groups mirror the same services:</p>
+      <ul>
+        <li>
+          <code>/api/auth/code</code>, <code>/verify</code>,
+          <code>/sign-out</code>.
+        </li>
+        <li>
+          <code>/api/votes</code>, <code>/api/votes/{id}</code>,
+          <code>/{id}/participation</code>, <code>/{id}/submission</code>,
+          <code>/{id}/results</code>, <code>/{id}/exports/{format}</code>.
+        </li>
+        <li>
+          <code>/api/admin/accounts</code> and
+          <code>/api/admin/households</code>, plus record IDs.
+        </li>
+        <li>
+          <code>/api/admin/votes</code>, record IDs, <code>/preview</code>,
+          <code>/activate</code>, <code>/complete</code>, <code>/cancel</code>,
+          <code>/participation</code>.
+        </li>
+        <li><code>/api/admin/audit</code>.</li>
+        <li><code>/api/internal/health</code>.</li>
+      </ul>
+      <p>
+        Read <a href="./API.md">API.md</a> for exact methods and schemas. Pages
+        call services directly; do not have a Server Component HTTP-fetch the
+        application&#39;s own API.
+      </p>
+      <h3 id="errors-and-pagination">Errors and pagination</h3>
+      <pre><code>{
+  &quot;error&quot;: {
+    &quot;code&quot;: &quot;VALIDATION_FAILED&quot;,
+    &quot;message&quot;: &quot;Check the fields.&quot;,
+    &quot;fieldErrors&quot;: []
+  },
+  &quot;requestId&quot;: &quot;random-support-identifier&quot;
+}</code></pre>
+      <p>
+        Success envelopes use <code>data</code>, errors use <code>error</code>;
+        paginated responses include <code>page</code>. HTTP <code>204</code> has
+        no JSON body. Error bodies never contain provider internals, tokens or
+        submitted choices.
+      </p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Typical meaning</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>401</td>
+              <td>No verified session.</td>
+            </tr>
+            <tr>
+              <td>403</td>
+              <td>
+                Denied capability, blocked account or failed browser mutation
+                protection.
+              </td>
+            </tr>
+            <tr>
+              <td>404</td>
+              <td>
+                Missing/inaccessible object or unsupported authorized format.
+              </td>
+            </tr>
+            <tr>
+              <td>409</td>
+              <td>
+                Duplicate, stale revision, lifecycle conflict or vote no longer
+                open.
+              </td>
+            </tr>
+            <tr>
+              <td>422</td>
+              <td>Invalid fields, IDs or filters.</td>
+            </tr>
+            <tr>
+              <td>429</td>
+              <td>Budget exceeded; follow retry guidance.</td>
+            </tr>
+            <tr>
+              <td>503</td>
+              <td>
+                Dependency/export/partial provisioning unavailable; do not
+                assume a ballot was rejected.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The browser helper converts malformed envelopes to
+        <code>INVALID_RESPONSE</code> rather than throwing through a form.
+        Endpoint success payloads still need their own contracts; the generic
+        helper does not deeply validate every <code>data</code> shape.
+      </p>
+      <p>
+        Lists use bounded keyset cursors tied to endpoint/filters. Never invent
+        offsets, assume the first page contains all records, or accept cursor
+        content as authorization.
+      </p>
+      <h2 id="10-results-exports-and-ui-conventions">
+        10. Results, exports and UI conventions
+      </h2>
+      <p>
+        The database result projection is validated and transformed in
+        <a href="../src/shared/contracts/results.ts">shared result contracts</a
+        >. Screen, CSV and PDF derive from it, not separate counting
+        implementations.
+      </p>
+      <ul>
+        <li>Frozen eligible households are the turnout denominator.</li>
+        <li>
+          Per-office percentages use submitted ballots; zero denominators are
+          not applicable.
+        </li>
+        <li>
+          Zero ballots have no winner. Positive tied leaders remain ties.
+          Abstention is not a candidate.
+        </li>
+        <li>
+          All-abstain and early-completion semantics require real A5 approval.
+        </li>
+        <li>
+          OPEN names/households are frozen snapshots, with no email in exports.
+        </li>
+        <li>CLOSED exports contain aggregate data only.</li>
+        <li>
+          Rendering completes before success headers. A render error returns a
+          clean failure, not a partially successful document.
+        </li>
+        <li>
+          Current process-local render slots: eight CSV, two PDF, bounded wait.
+          These are not a global cross-instance queue.
+        </li>
+        <li>
+          PDF fonts are bundled and traced for deployment; unsupported text is
+          explicitly refused, with CSV guidance.
+        </li>
+      </ul>
+      <p>
+        Use <a href="../src/components/ui">UI primitives</a> for status,
+        validation, focus, dialogs and accessible fields. Preserve 48px touch
+        targets, 16px input text, semantic tokens, visible focus and native
+        radios. A button&#39;s disabled state is not authorization.
+      </p>
+      <p>
+        Current export controls are ordinary download links: generation
+        progress, in-progress deduplication and inline recoverable errors remain
+        an acknowledged UX gap. Do not document those missing behaviors as
+        implemented.
+      </p>
+      <h2 id="11-environment-deployment-and-operations">
+        11. Environment, deployment and operations
+      </h2>
+      <p>
+        Read
+        <a href="../src/server/config/environment.ts">environment validation</a
+        >, <a href="../.env.example">.env.example</a> and the
+        <a href="./DEPLOYMENT.md">deployment guide</a>.
+      </p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Configuration</th>
+              <th>Location</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                Canonical origin, public Supabase URL/key, server Auth
+                credential, HMAC key
+              </td>
+              <td>
+                Hosting environment/secret manager; isolated per environment.
+              </td>
+            </tr>
+            <tr>
+              <td>SMTP credentials, code template/expiry/limits, Auth URLs</td>
+              <td>Supabase/provider configuration.</td>
+            </tr>
+            <tr>
+              <td>RWA timezone, policy approvals, retention</td>
+              <td>Controlled database settings/procedures.</td>
+            </tr>
+            <tr>
+              <td>Migration credentials</td>
+              <td>Deployment runner only, not ordinary app runtime.</td>
+            </tr>
+            <tr>
+              <td>Backup database URL/encryption key/destination</td>
+              <td>Approved isolated operations runner and secret store.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        <code>npm run deploy:check</code> validates injected production
+        configuration without loading local environment files. It does not prove
+        provider identity, key correctness, SMTP, approval or IP limiting.
+        <code>next build</code>/startup independently validate relevant
+        configuration. Public build values and CSP settings require rebuilding
+        for the target environment.
+      </p>
+      <p>
+        Security headers, exact Origin/CSRF, private/no-store responses and
+        Secure production cookies are already configured. Avoid wildcard
+        credential CORS. <code>TRUSTED_PROXY_CONFIG</code> is reserved: the
+        missing trusted-IP enforcement remains a release blocker.
+      </p>
+      <p>
+        <code>MAINTENANCE_MODE=1</code> returns 503 on pages/data APIs and
+        unavailable health. Health aborts its database HTTP probe at three
+        seconds and clears its timeout; it is readiness, not proof of
+        SMTP/backups or an invitation to keep a free project awake.
+      </p>
+      <p>
+        Operational commands are in <a href="./OPERATIONS.md">OPERATIONS.md</a>.
+        Backup sets encrypt application/Auth/counts data with AES-GCM and
+        validate manifest filenames/hashes. Keep encryption keys separately. A
+        consistent restore can still omit acknowledged votes: completeness needs
+        independent evidence. Never restore an old database simply to undo a
+        code deployment.
+      </p>
+      <p>
+        Logs accept only bounded allowlisted metadata. Do not add request
+        bodies, raw provider errors, emails, cookies, codes, SQL bind values or
+        CLOSED selections. Provider/APM payload capture must also be disabled in
+        the actual deployment.
+      </p>
+      <h2 id="12-tests-what-to-run-and-what-they-prove">
+        12. Tests: what to run and what they prove
+      </h2>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Command</th>
+              <th>Proves / prerequisites</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>npm test</code></td>
+              <td>
+                Unit contracts, services, response handling and ops guards. Does
+                not prove real RLS.
+              </td>
+            </tr>
+            <tr>
+              <td><code>npm run typecheck</code></td>
+              <td>Strict TypeScript. Not runtime validation.</td>
+            </tr>
+            <tr>
+              <td>
+                <code>npm run lint</code> / <code>npm run format:check</code>
+              </td>
+              <td>Static quality and repository formatting.</td>
+            </tr>
+            <tr>
+              <td><code>npm run test:integration</code></td>
+              <td>
+                Real PostgreSQL 17 migrations, RLS/grants, guards, races,
+                deadlines, retention and restore. Requires a disposable server;
+                suites create/drop test databases.
+              </td>
+            </tr>
+            <tr>
+              <td><code>npm run test:live</code></td>
+              <td>
+                Real Auth/Data API behavior against the disposable configured
+                Supabase project. Creates synthetic records.
+              </td>
+            </tr>
+            <tr>
+              <td><code>npm run test:e2e</code></td>
+              <td>
+                Playwright browser journeys/axe. Live specs need
+                <code>LIVE_AUTH=1</code> and isolated test credentials.
+              </td>
+            </tr>
+            <tr>
+              <td><code>npm run test:load</code></td>
+              <td>
+                500-household/100-task local database contention and rendering
+                bounds. Not production HTTP/email capacity.
+              </td>
+            </tr>
+            <tr>
+              <td><code>npm run build</code></td>
+              <td>
+                Production compilation with valid configuration. Not deployment
+                or launch approval.
+              </td>
+            </tr>
+            <tr>
+              <td><code>npm audit</code></td>
+              <td>
+                Currently disclosed dependency advisories, not absence of all
+                vulnerabilities.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The validation workflow uses a disposable PostgreSQL 17 service,
+        synthetic build values and signed-out browser tests without production
+        secrets. Restore/hosted workflows remain separate. CodeQL advanced
+        workflow and Dependabot are configured; do not enable a competing CodeQL
+        default setup at the same time.
+      </p>
+      <p>
+        Before these guides, the current baseline was 355 unit tests and 225
+        integration tests, with selected live browser/capacity evidence. Counts
+        change over time: report your own actual results rather than quoting
+        this number as certification.
+      </p>
+      <h3 id="rebuild-these-illustrated-documents">
+        Rebuild these illustrated documents
+      </h3>
+      <p>
+        The <a href="../scripts/docs/capture.spec.ts">capture spec</a> is
+        outside the ordinary e2e directory and is explicitly opt-in:
+      </p>
+      <pre><code>$env:LIVE_AUTH = &quot;1&quot;
+$env:DOC_SCREENSHOTS = &quot;1&quot;
+npx playwright test -c playwright.docs.config.ts
+node scripts\docs\render.mjs</code></pre>
+      <p>
+        Use only the approved disposable fixture project. Capturing creates
+        synthetic Auth users, profiles, households, votes, participation and
+        fixture policy/retention data; never run it against production. It
+        reuses existing fixture helpers. Email/code fields are masked,
+        trace/video are off, and screenshots are stored in the documentation
+        image folder. The code-error response and connection failures are
+        deliberately simulated; the rest of the principal voting/administration
+        flows use the real test application and database. The capture does not
+        prove SMTP delivery.
+      </p>
+      <p>
+        The renderer supports the deliberately small Markdown subset used by
+        these two guides and embeds local images in the printable HTML. It fails
+        on missing local linked files/images. Regenerate both HTML files
+        whenever changing Markdown or screenshots. Do not hand-edit the
+        generated HTML.
+      </p>
+      <h2 id="13-a-safe-workflow-for-your-first-code-change">
+        13. A safe workflow for your first code change
+      </h2>
+      <ol>
+        <li>
+          Identify the exact requirement and relevant page/API/service/SQL
+          contract.
+        </li>
+        <li>
+          Read nearby tests and reuse established components/helpers before
+          adding new logic.
+        </li>
+        <li>
+          Write a focused regression or acceptance test. Reproduce the old
+          failure when possible.
+        </li>
+        <li>
+          Change shared validation first when input/output shapes change; update
+          related server/database/UI surfaces together.
+        </li>
+        <li>
+          Add a new migration if persistence/permissions need changing. Test
+          fresh schema and upgrade/data preservation, not just an empty mock.
+        </li>
+        <li>
+          Preserve privacy and atomicity. Never fix a display problem by
+          altering counters manually or weakening an RLS policy.
+        </li>
+        <li>
+          Exercise loading/empty/success/error paths and the relevant
+          viewport/keyboard flow.
+        </li>
+        <li>
+          Run focused tests, types and lint, then expand to the affected
+          integration/browser/build checks.
+        </li>
+        <li>
+          Update directly related documentation. Report actual evidence and
+          remaining limits.
+        </li>
+        <li>
+          Have a reviewer inspect permissions, historical data compatibility,
+          rollback and production risk.
+        </li>
+      </ol>
+      <p>
+        Example: adding a required draft field involves its shared Zod schema,
+        editor, draft service/RPC, database constraints and preview/activation
+        readiness, result/export snapshot if historically relevant, tests and
+        contract docs. Changing only a text input is incomplete.
+      </p>
+      <h2 id="14-debugging-without-leaking-data">
+        14. Debugging without leaking data
+      </h2>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Symptom</th>
+              <th>Start here</th>
+              <th>Do not do this</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Signed out unexpectedly</td>
+              <td>
+                Proxy refresh, cookie attributes, Auth outcome and current
+                profile.
+              </td>
+              <td>Print session cookies/tokens into console or chat.</td>
+            </tr>
+            <tr>
+              <td>Resident cannot see a vote</td>
+              <td>
+                Frozen electorate, current enabled status, correct project and
+                lifecycle.
+              </td>
+              <td>Use service-role reads to bypass the restriction.</td>
+            </tr>
+            <tr>
+              <td>Draft conflict</td>
+              <td>Revision in editor/preview and another admin&#39;s edit.</td>
+              <td>Retry an overwrite with an invented latest revision.</td>
+            </tr>
+            <tr>
+              <td>Submission appears uncertain</td>
+              <td>Own participation check and support ID.</td>
+              <td>
+                Blindly resubmit or reconstruct CLOSED selections from counters.
+              </td>
+            </tr>
+            <tr>
+              <td>Results unavailable</td>
+              <td>Completion gate and invariants; operations escalation.</td>
+              <td>
+                Repair totals by hand or publish a best-effort approximation.
+              </td>
+            </tr>
+            <tr>
+              <td>Export fails</td>
+              <td>
+                Authorization, completion, capacity, supported fonts and safe
+                error code.
+              </td>
+              <td>Return truncated bytes with HTTP 200.</td>
+            </tr>
+            <tr>
+              <td>DB tests skipped</td>
+              <td>
+                Confirm disposable <code>INTEGRATION_DATABASE_URL</code> is
+                configured.
+              </td>
+              <td>Claim skipped tests passed.</td>
+            </tr>
+            <tr>
+              <td>Build accepts placeholders</td>
+              <td>Preflight checks shape, not actual provider connectivity.</td>
+              <td>Treat a successful synthetic build as a live deployment.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <h2 id="15-known-limitations-and-next-reading">
+        15. Known limitations and next reading
+      </h2>
+      <p>
+        Read the <a href="./LAUNCH_AUDIT.md">launch audit</a> before any
+        release. The unresolved items include trusted-IP abuse protection, real
+        SMTP/capacity, provider/region approvals, credential hygiene, production
+        deployment verification, real off-site recovery, real-device/manual
+        accessibility acceptance, the export UX gap, remote test-helper TLS
+        verification and stale local HTTP-load instructions.
+      </p>
+      <p>
+        The existing instructions that imply the repository is
+        documentation-only are stale; actual code/manifests are present. Do not
+        infer working behavior from either old prose or this guide without
+        running the relevant checks.
+      </p>
+      <p>
+        Suggested reading order after this guide:
+        <a href="./USER_GUIDE.html">user guide</a>, <a href="./API.md">API</a>,
+        <a href="./DATABASE.md">database</a>,
+        <a href="./OPERATIONS.md">operations</a>,
+        <a href="./DEPLOYMENT.md">deployment</a>,
+        <a href="./LAUNCH_AUDIT.md">launch audit</a>.
+      </p>
+    </main>
+  </body>
+</html>
