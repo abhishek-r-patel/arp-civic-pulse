@@ -62,10 +62,14 @@ What this does **not** show: behaviour on the real hosting plan, from phones on 
 
 None of these can be completed by code. Record the evidence (date, who, result) next to each.
 
+**Security release blocker:** production ingress is undecided and trusted-client-IP rate limiting is not implemented. The email-only budgets can be bypassed by rotating addresses. Do not release until the selected proxy's client-IP guarantees, direct-origin restrictions, limiter implementation and spoofing/burst tests are complete. Merely setting `TRUSTED_PROXY_CONFIG` does not enable this control.
+
+Operational remote database connections now require verified TLS, and backup manifests are validated before use. The real provider CA/hostname and off-site backup/restore path still need deployment evidence; local integration tests do not establish that evidence.
+
 | #   | Gate                                                                                                                                                                                  | State |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
 | 1   | Real approvals **A1–A7**, provider and region, recorded by the real approving authority (today they exist only as **fixtures on the disposable project**)                               | ⬜     |
-| 2   | Approved session policy, all-abstain wording (A5) and early-completion rule, retention periods and backup expiry, RPO/RTO                                                                | ⬜     |
+| 2   | Approved session policy (the app caps the session cookie at 14 days of inactivity as a provisional default; confirm or change it, and decide whether Pro-tier idle/absolute timeouts are needed), all-abstain wording (A5) and early-completion rule, retention periods and backup expiry, RPO/RTO                                                                | ⬜     |
 | 3   | Custom SMTP provider with enough sending/peak capacity, and its Auth limits (Gmail was deferred; the built-in hosted mail cannot carry a code to arbitrary users)                      | ⬜     |
 | 4   | Hosting plan eligibility and cost, TLS, trusted-proxy configuration (`TRUSTED_PROXY_CONFIG`; the per-IP limiter is not implemented until this is approved)                              | ⬜     |
 | 5   | Real-device checks: Safari on iPhone, Chrome on Android, and the supported laptop browsers (including keyboard use of radios and the skip link in Safari), CSV and **PDF** download and print on real phones and a laptop | ⬜     |

@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { getEnvironment } from "@/server/config/environment";
+import { hardenSessionCookie } from "@/server/auth/session-cookies";
 import { ApiError } from "@/server/http/errors";
 
 function publicConfiguration(): { url: string; key: string } {
@@ -34,16 +35,17 @@ export async function createUserClient(): Promise<SupabaseClient> {
       getAll: () => store.getAll(),
       setAll: (cookiesToSet) => {
         for (const { name, value, options } of cookiesToSet) {
-          store.set(name, value, {
-            ...options,
-            // The PKCE verifier is only needed briefly; don't keep it for the SDK's default ~400 days.
-            ...(name.includes("code-verifier") &&
-              value !== "" && { maxAge: 10 * 60 }),
-            httpOnly: true,
-            secure,
-            sameSite: "lax",
-            path: "/",
-          });
+          try {
+            store.set(
+              name,
+              value,
+              hardenSessionCookie(name, value, options, secure),
+            );
+          } catch {
+            // A Server Component cannot write cookies. That is safe: the request
+            // proxy has already refreshed an expiring session for this request
+            // (src/proxy.ts), and route handlers, which can write, take this path.
+          }
         }
       },
     },

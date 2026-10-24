@@ -34,6 +34,8 @@ npm run ops -- <command> [options]      # = node --env-file-if-exists=.env.local
 
 `GET /api/internal/health` returns `{"data":{"status":"ok"|"unavailable"},"requestId":"..."}` (200 / 503) and nothing else: no versions, quotas or provider detail. It checks that the database answers a trivial call. It is for a monitor, **not** a keep-alive; do not poll it to stop a free-tier project pausing.
 
+The probe aborts its outstanding database HTTP request after three seconds and clears its timer when the check finishes. Failures are reported through allowlisted operational logging without provider messages or credentials; the public response remains only a status and support ID.
+
 Run `status` and the health check from a scheduler you control (Windows Task Scheduler, cron, or a monitoring service) and alert on a non-zero exit. **Manual: no scheduler is configured by this repository.**
 
 ## 3. Retention (automatic)
@@ -76,6 +78,16 @@ Deletion from the live database does **not** erase copies in existing backups; t
 
    On Supabase's hosted project use the **direct** connection string (not the transaction pooler: the snapshot needs one session). If the platform refuses a grant, use the project's database owner role instead and record why.
 3. Choose and approve the off-site destination and its expiry. **Not decided.** Supabase Free does not include automatic backups or point-in-time recovery, and Supabase Cron is not an off-site backup.
+
+### Operational connection security
+
+All operational PostgreSQL connections (backup, recovery record, restore/reconciliation and orphan cleanup) and native dump/restore tools require **certificate and hostname verification** for remote hosts. Use a PostgreSQL URL with `?sslmode=verify-full`; omitted TLS mode also selects `verify-full` remotely. Insecure or weaker explicit modes are rejected, not silently upgraded or retried without TLS. Plaintext is permitted only for the literal loopback hosts `localhost`, `127.0.0.1` and `::1`, for local development.
+
+For a provider-specific CA, use `sslrootcert=<URL-encoded path to the approved CA file>` or set `PGSSLROOTCERT` to that file. Otherwise system certificate roots are used. `NODE_EXTRA_CA_CERTS` can extend Node's system roots, but does not configure libpq; set the approved `PGSSLROOTCERT` when the native tools need a custom CA. Optional client certificates use `sslcert`/`sslkey` (or `PGSSLCERT`/`PGSSLKEY`). These four TLS parameters are the only supported connection-URL query options; duplicates and host/SSL override parameters are rejected. Do not disable certificate validation to work around a connection failure.
+
+Credentials reach native tools through their environment, never command-line arguments. Inherited `PGSERVICE`, `PGSERVICEFILE` and `PGHOSTADDR` cannot redirect these connections. Use the same approved CA and hostname for Node and PostgreSQL tools, and confirm the real hosted backup/restore connection before release.
+
+Backup manifests are bounded, strictly validated metadata: each must name exactly its own application, Auth and counts files, with unique roles, valid hashes, matching timestamps and expiry. Traversal paths, alternate streams, cross-set filenames and symbolic-link manifests/data reads are refused. Failed same-timestamp backups preserve the existing set. AES-GCM authenticates encrypted file contents; it does **not** authenticate the plaintext manifest or prevent rollback of a whole valid backup. Protect the destination and retain a trusted inventory/recovery point separately.
 
 ### 4.2 Taking a backup
 

@@ -6,6 +6,7 @@ import {
   csrfCookieName,
   isValidCsrfContext,
 } from "@/server/http/csrf";
+import { refreshSessionCookies } from "@/server/auth/proxy-session";
 import { MAINTENANCE_PAGE, isMaintenanceMode } from "@/server/maintenance";
 
 /*
@@ -14,8 +15,12 @@ import { MAINTENANCE_PAGE, isMaintenanceMode } from "@/server/maintenance";
  * cookies while rendering. Any client-supplied copy of the header is replaced.
  * The context is a secret held in an HttpOnly cookie; the page only ever
  * receives the one-way token derived from it.
+ *
+ * It also refreshes an expiring Supabase session and hands the new cookies to
+ * both the page being rendered and the browser (see proxy-session.ts). That is
+ * session upkeep only; authorization is decided later, per request, on the server.
  */
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   if (isMaintenanceMode()) {
     return new NextResponse(MAINTENANCE_PAGE, {
       status: 503,
@@ -37,7 +42,16 @@ export function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(CSRF_CONTEXT_HEADER, context);
 
+  const refreshed = await refreshSessionCookies(request);
+  if (refreshed) {
+    requestHeaders.set("cookie", refreshed.cookieHeader);
+  }
+
   const response = NextResponse.next({ request: { headers: requestHeaders } });
+  for (const { name: cookieName, value, options } of refreshed?.setCookies ??
+    []) {
+    response.cookies.set(cookieName, value, options);
+  }
   if (!reuse) {
     response.cookies.set(name, context, {
       httpOnly: true,

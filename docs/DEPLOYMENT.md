@@ -1,0 +1,158 @@
+# Production deployment runbook
+
+## 1. Status and approval boundary
+
+This repository is **prepared for deployment, not deployed or approved for real voting**. The architecture prefers Vercel for Next.js and Supabase PostgreSQL/Auth/Cron. No hosting account, production Supabase project, region, domain, budget or trusted ingress is selected by this configuration. No existing hosted project is assumed to be production.
+
+Do not promote a deployment or admit real residents until the open gates in [PILOT_READINESS.md](./PILOT_READINESS.md) are closed. In particular, `TRUSTED_PROXY_CONFIG` is reserved and **does not implement trusted-client-IP limiting**. Approve ingress, implement and test spoof-resistant IP enforcement before release; setting the variable is not a workaround. This guide does not grant approval of A1-A7, providers, regions, retention or recovery objectives.
+
+## 2. Hosting configuration
+
+- Confirm Vercel plan eligibility, cost, region and runtime/memory/export limits. Do not assume Hobby permits the RWA's use.
+- Use Node.js **24.x**, repository root as the project root, and the Next.js framework preset. Node major 24 is already constrained by `package.json` and `.nvmrc`.
+- `vercel.json` installs with `npm ci` and builds with `npm run deploy:check && npm run build`. Keep Next.js's managed output directory; this is not a static export or Edge-runtime application.
+- Vercel manages server startup; do not configure `next dev` as a production command. On an approved self-managed Node host, run `npm run build`, then `npm run start -- --hostname 127.0.0.1 --port 3000` behind an HTTPS reverse proxy and process supervisor. That alternative requires separate ingress approval.
+- `.vercelignore` excludes local environment files, local build output, dumps, encrypted backups, keys and test artifacts from CLI uploads. `.gitignore` excludes `.vercel` metadata. Review the upload/repository before sending it to an approved host.
+- Choose the application region near the approved database region (Mumbai is an architectural preference, not an approval). Region is intentionally not hard-coded.
+- Keep the existing PDFKit/fontkit externalization and font tracing in `next.config.ts`. Validate a complete multi-page PDF on the actual host before enabling PDF exports; set `PDF_EXPORT_ENABLED=0` if deferring this optional feature.
+
+Vercel settings documentation: [project configuration](https://vercel.com/docs/project-configuration), [Node versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions).
+
+## 3. Secrets and environment separation
+
+Create a **new, isolated production Supabase project** in the approved region, or explicitly approve and inventory an existing production project. Never reuse the development/test project, test users, test database login, or development keys. Keep Preview deployments on a separate staging Supabase project with synthetic data. Protect previews and do not inject production secrets into preview builds or pull-request CI.
+
+Configure these in the hosting environment manager, scoped separately to Production and Preview:
+
+| Variable | Requirement |
+|---|---|
+| `APP_ORIGIN` | Exact canonical HTTPS origin, e.g. `https://vote.example.org`, without path, query, credentials or trailing route. Match the domain users actually visit. |
+| `NEXT_PUBLIC_SUPABASE_URL` | Approved project's bare HTTPS API origin, not a database connection URL or `/rest/v1` URL. Public/build-time value. |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Same project's publishable key or legacy **anon** key. Public/build-time value, never a secret/service-role/user token. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Same project's server-only privileged credential, accessible only to the application runtime/build environment that requires it. Never prefix it with `NEXT_PUBLIC_`. |
+| `RATE_LIMIT_HMAC_KEY` | Independent random production secret, at least 32 characters. Store in the approved secret manager; generate separately for each environment. |
+| `LOG_LEVEL` | Normally `info`; logs remain allowlisted and must not capture bodies, selections, OTPs, tokens or cookies. |
+| `MAINTENANCE_MODE` | `1` for initial restricted deployment/recovery; `0` only for an authorized validation or release window. |
+| `PDF_EXPORT_ENABLED` | `0` to defer optional PDF; `1` only after hosted font/render/runtime checks. |
+| `TRUSTED_PROXY_CONFIG` | Reserved; not an enabled security control. Remains a release blocker as described above. |
+
+Use the secret manager's generator for `RATE_LIMIT_HMAC_KEY` or generate 32 random bytes on an approved workstation; do not put its value in command arguments, logs, chat or version control.
+
+The following belong **only** to an approved deployment/operations runner, not Vercel's application environment:
+
+- `SUPABASE_ACCESS_TOKEN`: least-privilege management token only if using management/CLI operations.
+- `MIGRATION_DATABASE_URL`: approved production direct or supported session-pooler migration connection, with `sslmode=verify-full` and the provider CA; never transaction pooling. Restrict database access to the migration operator/runner. Never use a backup login to migrate.
+- Backup runner: `BACKUP_DATABASE_URL`, `BACKUP_ENCRYPTION_KEY`, `BACKUP_DIR`, `BACKUP_MAX_AGE_HOURS`, optionally `PG_BIN_DIR` and approved CA configuration. Follow [OPERATIONS.md](./OPERATIONS.md).
+- Recovery rehearsal runner: `RESTORE_DATABASE_URL`, pointing to an isolated, already-migrated recovery environment, never production.
+
+SMTP credentials belong in Supabase's provider settings, not application/public variables.
+
+`npm run deploy:check` reads **only injected environment variables**, does not auto-load `.env.local`, and forces production validation. It exits nonzero on unsafe/missing configuration and reports names/rules without printing values. It does not authenticate keys, prove project isolation, validate approvals or enable IP limiting. Startup independently rechecks configuration through instrumentation. Never use CI's synthetic placeholders for a real deployment.
+
+`NEXT_PUBLIC_*` values and the CSP origin are bound when building. Rebuild for the final environment/domain; do not promote a staging build with staging public values or only edit runtime variables after building.
+
+## 4. Production database and migrations
+
+There are **12 immutable migrations**, from `20261024100000_core_schema.sql` through `20261024160000_retention_maintenance.sql`. See [supabase/README.md](../supabase/README.md) and [DATABASE.md](./DATABASE.md). The app never migrates at startup or during the Vercel build.
+
+Before any write:
+
+1. Independently verify the destination project reference, hostname, PostgreSQL major version, owner and environment in the Supabase dashboard. Supabase PostgreSQL **17** is the tested target. Do not print the connection URL.
+2. For an existing database, take a verified encrypted backup, preserve configuration/Auth recovery material, and confirm a restore rehearsal. Schedule an approved maintenance window outside active votes.
+3. Use an approved installed Supabase CLI version, authenticated from the deployment-only secret store. With `MIGRATION_DATABASE_URL` injected, run these read-only planning commands in a trusted operator session:
+
+   ```powershell
+   supabase migration list --db-url $env:MIGRATION_DATABASE_URL
+   supabase db push --db-url $env:MIGRATION_DATABASE_URL --dry-run
+   ```
+
+   The CLI accepts the database URL as an argument: use an isolated trusted runner because same-machine process inspection can reveal it. Do not echo command expansion, enable debug logs, paste URLs into tickets, or run on a shared workstation. Follow the provider's verified TLS/CA instructions; never disable verification.
+
+4. Review pending SQL and migration history. Stop for unexpected remote-only migrations, drift, incompatible versions or existing data. Do not repair migration history automatically.
+5. **Manual approval required:** only then apply the reviewed pending migrations:
+
+   ```powershell
+   supabase db push --db-url $env:MIGRATION_DATABASE_URL
+   supabase migration list --db-url $env:MIGRATION_DATABASE_URL
+   ```
+
+6. Confirm all 12 versions appear locally/remotely, RLS/grants match the migrations, and the supported Auth/Data API access checks pass in staging. Never run the destructive test fixtures or live test suites against production.
+7. Enable/verify `pg_cron` using supported provider controls. Migrations can skip scheduling when it is absent; a successful push is not proof of scheduling. Verify both jobs and recent run status read-only:
+
+   ```sql
+   select jobname, schedule, active, username, command
+   from cron.job
+   where jobname in ('civic-pulse-complete-due-votes', 'civic-pulse-maintenance');
+   select status, start_time, end_time
+   from cron.job_run_details
+   order by start_time desc limit 10;
+   ```
+
+   The scheduling username is the migration role; verify the command explicitly starts with `set role cp_scheduler` before calling the narrowly scoped routine. There is no public HTTP cron endpoint. A disabled/unavailable extension is an unresolved operational gate.
+8. Initialize settings and the first administrator through the documented `app_private.deployment_*` procedures, using real authorities/approved retention values. Record actual A1-A7 approvals, never test approvals. Do not copy test settings/registers into production.
+
+**Never** run `db reset`, use remote reset flags, recreate application schemas, rewrite applied migrations, seed test fixtures, or restore an older database merely to undo a deployment. Preserve acknowledged ballots. A rollback is schema-compatible application code or an approved forward fix.
+
+Production migration status is **unverified until an authorized operator completes these checks**; local migration tests do not imply the production project was inspected.
+
+## 5. Auth, SMTP, domain, HTTPS and CORS
+
+In the production Supabase dashboard:
+
+- Disable public signup, including provider-specific signup paths; keep only approved authentication providers enabled.
+- Set Site URL to the exact canonical `APP_ORIGIN`; allow only explicit required redirect URLs, not wildcard production/preview domains.
+- Configure six-digit email OTP and the `{{ .Token }}` email template, with the approved expiry, resend and verification limits under A4. Do not blindly push `supabase/config.toml`: it contains local URLs/defaults and can overwrite hosted settings.
+- Configure the approved custom SMTP account, sender and DNS authentication (SPF/DKIM/DMARC where supported). Gmail SMTP was discussed but is not configured or approved here. Verify provider limits and delivery capacity for the actual peak; a built-in/test email service is not production delivery.
+- Validate login, expiry, refresh, sign-out, suspension and role changes end to end in staging. Disable sensitive Auth/request payload capture.
+
+Add the approved domain in the hosting dashboard and apply **only that dashboard's** DNS records after DNS-owner approval. Wait for verified ownership and an issued HTTPS certificate. Redirect HTTP and alternate hostnames to the single canonical HTTPS host, without credentialed cross-origin redirects.
+
+The application intentionally has **no cross-origin credential CORS allowlist**. Keep browser API calls same-origin; do not add `Access-Control-Allow-Origin: *` or broadly permit preview domains. Mutations validate exact Origin plus CSRF. Verify Supabase authentication configuration separately; do not weaken application Origin checks to accommodate a wrong domain.
+
+Existing production headers include HSTS (`includeSubDomains`), CSP, frame denial, MIME protection and no-referrer. Review ownership/HTTPS of all affected subdomains before enabling the canonical domain. Session cookies are HttpOnly, SameSite=Lax and Secure in production. Restrict access while the ingress/IP gate remains open.
+
+## 6. Validation, rollout and monitoring
+
+The GitHub workflow runs locked install, formatting, types, lint, unit tests, non-restore integration tests on an **ephemeral PostgreSQL 17** service, a production build with synthetic environment values, and signed-out Chromium foundation journeys. The external-provider health test is excluded from that browser job and remains a staging/production check. The workflow has read-only repository permission and no production deployment secrets. No automatic deployment or database migration is configured here.
+
+Before connecting hosting to Git, require the validation workflow on the release branch and configure deployment approvals/protection in the repository and host. Vercel's Git integration can otherwise publish independently of this workflow; do not assume adding the workflow gates a deployment.
+
+The restore suite is intentionally separate because it requires matching PostgreSQL client tools and recovery fixtures. Before release, run it on an isolated approved runner, plus staging browser/live checks, load tests, real-device checks and an off-site restore. The CI workflow must itself pass in the repository host before it is treated as evidence.
+
+Local candidate checks:
+
+```powershell
+npm run format:check
+npm run typecheck
+npm run lint
+npm test
+npm run deploy:check       # production variables injected; never load dev credentials
+npm run build
+```
+
+Deployment sequence:
+
+1. Validate in a staging project using synthetic data and staging secrets; run the supported integration/live/browser suites there only.
+2. Apply approved production migrations separately; verify history, policies, jobs, backup and recovery readiness.
+3. Configure production environment with `MAINTENANCE_MODE=1`. Deploy through the approved Vercel project/dashboard, without sending local secrets. A protected preview is not automatically a public production release.
+4. Verify DNS/TLS and the exact built configuration. The initial health response must be **503 unavailable** during maintenance.
+5. Only after release gates close, open a controlled validation window with `MAINTENANCE_MODE=0` and redeploy as required by the host. Verify `GET /api/internal/health` is **200** with only `data.status` and `requestId`; otherwise do not admit voters.
+6. Confirm signed-out pages redirect to sign-in, protected APIs deny access, wrong-Origin mutations fail, no wildcard credential CORS exists, and protected responses use `private, no-store`. Verify actual secure cookie attributes and refresh/logout over HTTPS.
+7. Validate SMTP with approved operator accounts; perform ballot/export acceptance checks in staging rather than generating fake production votes.
+8. Enable privacy-safe monitoring and alert delivery: health availability, Cron lag, database capacity, invariant/submission failures, email errors, exports and backup freshness. Do not use monitoring as a free-tier keep-alive. Configure the external backup scheduler/off-site destination separately; Vercel's ephemeral filesystem is not backup storage.
+9. Record deployment URL, artifact/revision, time, environment, migration versions and approving operator in the approved release record. Never include secrets.
+
+For HTTPS checks, use a trusted shell without disabling certificate validation:
+
+```powershell
+Invoke-WebRequest -Uri "$env:APP_ORIGIN/sign-in"
+Invoke-RestMethod -Uri "$env:APP_ORIGIN/api/internal/health"
+```
+
+Check status codes and headers, not just a successful TCP connection. A public TLS certificate, healthy database response, and successful OTP delivery on the actual domain cannot be proven by a local build.
+
+## 7. Rollback and incident response
+
+Retain the previous schema-compatible application artifact and its matching public configuration. Re-enable maintenance on incidents, preserve logs/support IDs without payloads, and use [OPERATIONS.md](./OPERATIONS.md) for reconciliation/recovery. Never roll back accepted-data completeness by restoring a pre-deployment backup after accepting votes.
+
+Stop rollout for incorrect totals, lost/duplicate/partial/late ballots, unauthorized disclosure, failed health/TLS/SMTP, missing approvals, unverified ingress, or recovery uncertainty. Resume only under the approved incident/release process.

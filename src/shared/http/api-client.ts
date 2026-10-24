@@ -41,6 +41,41 @@ const NETWORK_FAILURE: ApiFailure = {
   retryAfterSeconds: null,
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isFieldError(value: unknown): value is ApiFieldError {
+  return (
+    isRecord(value) &&
+    typeof value.field === "string" &&
+    typeof value.code === "string" &&
+    typeof value.message === "string"
+  );
+}
+
+function isFailureContext(value: unknown): value is ApiFailure["context"] {
+  return (
+    isRecord(value) &&
+    Object.values(value).every(
+      (entry) =>
+        entry === null ||
+        typeof entry === "string" ||
+        typeof entry === "boolean" ||
+        (typeof entry === "number" && Number.isFinite(entry)),
+    )
+  );
+}
+
+function invalidResponse(status: number): ApiFailure {
+  return {
+    ...NETWORK_FAILURE,
+    status,
+    code: "INVALID_RESPONSE",
+    message: "The server sent an unexpected response. Try again.",
+  };
+}
+
 export async function apiRequest<T>(
   path: string,
   { method = "GET", body, csrfToken }: RequestOptions = {},
@@ -69,38 +104,49 @@ export async function apiRequest<T>(
   try {
     payload = await response.json();
   } catch {
-    return {
-      ...NETWORK_FAILURE,
-      status: response.status,
-      code: "INVALID_RESPONSE",
-      message: "The server sent an unexpected response. Try again.",
-    };
+    return invalidResponse(response.status);
   }
 
-  const envelope = payload as {
-    data?: T;
-    error?: {
-      code?: string;
-      message?: string;
-      fieldErrors?: ApiFieldError[];
-      context?: ApiFailure["context"];
-    };
-    requestId?: string;
-  };
-
-  if (response.ok && envelope.data !== undefined) {
-    return { ok: true, status: response.status, data: envelope.data };
+  if (
+    !isRecord(payload) ||
+    (payload.requestId !== undefined && typeof payload.requestId !== "string")
+  ) {
+    return invalidResponse(response.status);
+  }
+  if (response.ok) {
+    if (!Object.hasOwn(payload, "data") || Object.hasOwn(payload, "error")) {
+      return invalidResponse(response.status);
+    }
+    return { ok: true, status: response.status, data: payload.data as T };
+  }
+  const error = payload.error;
+  if (
+    Object.hasOwn(payload, "data") ||
+    !isRecord(error) ||
+    typeof error.code !== "string" ||
+    typeof error.message !== "string"
+  ) {
+    return invalidResponse(response.status);
+  }
+  const fieldErrors = error.fieldErrors === undefined ? [] : error.fieldErrors;
+  const context = error.context === undefined ? {} : error.context;
+  if (
+    !Array.isArray(fieldErrors) ||
+    !fieldErrors.every(isFieldError) ||
+    !isFailureContext(context)
+  ) {
+    return invalidResponse(response.status);
   }
 
   const retryAfter = Number(response.headers.get("retry-after"));
   return {
     ok: false,
     status: response.status,
-    code: envelope.error?.code ?? "UNKNOWN_ERROR",
-    message: envelope.error?.message ?? "Something went wrong. Try again.",
-    fieldErrors: envelope.error?.fieldErrors ?? [],
-    context: envelope.error?.context ?? {},
-    requestId: envelope.requestId ?? null,
+    code: error.code,
+    message: error.message,
+    fieldErrors,
+    context,
+    requestId: payload.requestId ?? null,
     retryAfterSeconds:
       Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null,
   };

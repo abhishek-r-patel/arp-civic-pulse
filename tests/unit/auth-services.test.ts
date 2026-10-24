@@ -17,6 +17,7 @@ import { toApiError } from "@/server/db/errors";
 import { ApiError } from "@/server/http/errors";
 import {
   enableAccount,
+  findAuthUserIdByEmail,
   provisionAccount,
 } from "@/server/register/provisioning";
 import { CODE_RESEND_SECONDS } from "@/shared/contracts/auth";
@@ -509,6 +510,52 @@ describe("current account and authorization", () => {
     await expect(requireAdmin(admin)).resolves.toMatchObject({
       account: { isAdmin: true },
     });
+  });
+});
+
+describe("Auth identity lookup", () => {
+  it("returns null only after a completed search proves the address is absent", async () => {
+    const listUsers = vi
+      .fn()
+      .mockResolvedValue({ data: { users: [] }, error: null });
+    const admin = asClient({ auth: { admin: { listUsers } } });
+    await expect(
+      findAuthUserIdByEmail(admin, "absent@example.test"),
+    ).resolves.toBeNull();
+    expect(listUsers).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a provider outage rather than pretending the address does not exist", async () => {
+    const admin = asClient({
+      auth: {
+        admin: {
+          listUsers: vi.fn().mockResolvedValue({
+            data: null,
+            error: { status: 503, message: "provider details" },
+          }),
+        },
+      },
+    });
+    await expect(
+      findAuthUserIdByEmail(admin, "resident@example.test"),
+    ).rejects.toMatchObject({ code: "DEPENDENCY_UNAVAILABLE" });
+  });
+
+  it("reports an incomplete bounded scan rather than claiming the address is available", async () => {
+    const listUsers = vi.fn().mockResolvedValue({
+      data: {
+        users: Array.from({ length: 200 }, (_, i) => ({
+          id: `user-${i}`,
+          email: `other-${i}@example.test`,
+        })),
+      },
+      error: null,
+    });
+    const admin = asClient({ auth: { admin: { listUsers } } });
+    await expect(
+      findAuthUserIdByEmail(admin, "resident@example.test"),
+    ).rejects.toMatchObject({ code: "DEPENDENCY_UNAVAILABLE" });
+    expect(listUsers).toHaveBeenCalledTimes(25);
   });
 });
 

@@ -43,7 +43,13 @@ const environmentSchema = z
 
     if (environment.APP_ORIGIN) {
       const url = new URL(environment.APP_ORIGIN);
-      if (url.pathname !== "/" || url.search || url.hash || url.username) {
+      if (
+        url.pathname !== "/" ||
+        url.search ||
+        url.hash ||
+        url.username ||
+        url.password
+      ) {
         fail("APP_ORIGIN", "must be a bare origin without path or credentials");
       }
     }
@@ -67,8 +73,62 @@ const environmentSchema = z
 
     for (const key of ["APP_ORIGIN", "NEXT_PUBLIC_SUPABASE_URL"] as const) {
       const value = environment[key];
-      if (value && new URL(value).protocol !== "https:") {
+      if (!value) {
+        continue;
+      }
+      const url = new URL(value);
+      if (url.protocol !== "https:") {
         fail(key, "must use HTTPS in production");
+      }
+      if (
+        url.hostname === "localhost" ||
+        url.hostname.endsWith(".localhost") ||
+        url.hostname === "[::1]" ||
+        /^127\./.test(url.hostname)
+      ) {
+        fail(key, "must not use a loopback host in production");
+      }
+      if (
+        key === "NEXT_PUBLIC_SUPABASE_URL" &&
+        (url.pathname !== "/" ||
+          url.search ||
+          url.hash ||
+          url.username ||
+          url.password)
+      ) {
+        fail(key, "must be a bare origin without path or credentials");
+      }
+    }
+
+    const publicKey = environment.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    if (
+      publicKey &&
+      (publicKey.startsWith("sb_secret_") ||
+        publicKey === environment.SUPABASE_SERVICE_ROLE_KEY)
+    ) {
+      fail(
+        "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+        "must not contain a server-only credential",
+      );
+    }
+    const keySegments = publicKey?.split(".");
+    const encodedClaims = keySegments?.[1];
+    if (keySegments?.length === 3 && encodedClaims !== undefined) {
+      try {
+        const payload: unknown = JSON.parse(
+          Buffer.from(encodedClaims, "base64url").toString("utf8"),
+        );
+        if (!z.object({ role: z.literal("anon") }).safeParse(payload).success) {
+          fail(
+            "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+            "legacy public keys must carry only the anon role",
+          );
+        }
+      } catch {
+        fail(
+          "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+          "legacy public keys must contain valid JSON claims",
+        );
       }
     }
 

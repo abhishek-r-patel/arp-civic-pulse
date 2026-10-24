@@ -2,21 +2,31 @@ import { createAdminClient } from "@/server/db/clients";
 import { ok } from "@/server/http/response";
 import { route } from "@/server/http/route";
 import { isMaintenanceMode } from "@/server/maintenance";
+import { log } from "@/server/observability/logger";
 
 export const dynamic = "force-dynamic";
 
 const TIMEOUT_MS = 3_000;
 
 async function databaseReachable(): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const ping = createAdminClient().rpc("health_ping");
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("timeout")), TIMEOUT_MS),
-    );
-    const { data, error } = await Promise.race([ping, timeout]);
-    return !error && data === true;
-  } catch {
+    const { data, error, status } = await createAdminClient()
+      .rpc("health_ping")
+      .abortSignal(controller.signal);
+    if (!error && data === true) {
+      return true;
+    }
+    log("warn", "health.database_unavailable", { status });
     return false;
+  } catch (error) {
+    log("warn", "health.database_unavailable", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+    return false;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
