@@ -108,6 +108,19 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
       expect(result.rows).toEqual([]);
     });
 
+    it("makes every deferred trigger function SECURITY DEFINER, so commit-time checks behave the same on PostgreSQL 17 and 18", async () => {
+      // PostgreSQL 18 fires deferred triggers as the role that queued them; 17 fires them
+      // as the role current at commit (the signed-in caller). Only a definer is safe on both.
+      const result = await db.asSuperuser((c) =>
+        c.query<{ proname: string }>(
+          `select distinct p.proname
+             from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+            where not t.tgisinternal and t.tgdeferrable and not p.prosecdef`,
+        ),
+      );
+      expect(result.rows).toEqual([]);
+    });
+
     it("grants no write or truncate privileges to any API role", async () => {
       const result = await db.asSuperuser((c) =>
         c.query<{ role: string; table: string; privilege: string }>(
@@ -159,7 +172,16 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
       expect((await executable("anon")).rows).toEqual([]);
       expect(
         (await executable("service_role")).rows.map((r) => r.name),
-      ).toEqual(["consume_rate_limit", "enable_profile", "provision_profile"]);
+      ).toEqual([
+        "consume_rate_limit",
+        "enable_profile",
+        "provision_profile",
+        "reconcile_vote",
+      ]);
+      // The Cron role reaches exactly one entry point and nothing else.
+      expect(
+        (await executable("cp_scheduler")).rows.map((r) => r.name),
+      ).toEqual(["complete_due_votes"]);
       expect(
         (await executable("authenticated")).rows.map((r) => r.name),
       ).toEqual([
@@ -170,8 +192,18 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
         "is_enabled_admin",
         "is_enabled_member",
         "owns_participation",
+        "activate_vote",
+        "cancel_vote",
+        "cast_vote",
+        "complete_vote_early",
+        "create_draft",
         "create_household",
+        "get_admin_vote",
+        "get_my_participation",
+        "get_rwa_display",
         "normalize_household_identifier",
+        "preview_draft",
+        "update_draft",
         "update_household",
         "update_profile",
       ]);

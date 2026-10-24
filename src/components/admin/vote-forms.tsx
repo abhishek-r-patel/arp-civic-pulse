@@ -1,0 +1,1059 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  ArrowDown,
+  ArrowUp,
+  Eye,
+  Plus,
+  Save,
+  Trash2,
+  Vote,
+} from "lucide-react";
+import {
+  buildPatch,
+  describeFieldPath,
+  fieldIdForPath,
+  isDirty,
+  mergeOnto,
+  stateFromDetail,
+  type DraftState,
+  type OfficeDraft,
+  type OptionDraft,
+} from "@/components/admin/draft-model";
+import { Button, LinkButton } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/dialog";
+import { ErrorSummary } from "@/components/ui/error-summary";
+import { CheckboxField, TextAreaField, TextField } from "@/components/ui/field";
+import { Notice } from "@/components/ui/notice";
+import { PRIVACY_COPY } from "@/components/votes/privacy-notice";
+import type {
+  AdminVoteDetail,
+  SelectableHousehold,
+} from "@/shared/contracts/drafts";
+import { VOTING_TYPE_LABELS, type VotingType } from "@/shared/contracts/voting";
+import { apiRequest, type ApiFailure } from "@/shared/http/api-client";
+import { fieldErrorFor } from "@/shared/http/messages";
+import {
+  formatInZone,
+  instantToLocalInput,
+  zonedLocalToInstant,
+} from "@/shared/time/zoned";
+
+const DEADLINE_MESSAGES = {
+  INVALID: "Enter a valid date and time.",
+  NONEXISTENT:
+    "That time does not exist on the day the clocks change. Choose a different time.",
+  AMBIGUOUS:
+    "That time happens twice on the day the clocks change. Choose a different time.",
+} as const;
+
+const TYPE_DESCRIPTIONS: Record<
+  VotingType,
+  { summary: string; privacy: string }
+> = {
+  OPEN: {
+    summary:
+      "One question with options, such as a yes/no decision. Each household picks one option.",
+    privacy: PRIVACY_COPY.OPEN,
+  },
+  CLOSED: {
+    summary:
+      "An election with offices and candidates. Each household picks one candidate, or abstains, for every office.",
+    privacy: PRIVACY_COPY.CLOSED,
+  },
+};
+
+const buttonInline = "sm:w-auto";
+
+type NewDraftProps = Readonly<{ csrfToken: string | undefined }>;
+
+export function NewDraftForm({ csrfToken }: NewDraftProps) {
+  const router = useRouter();
+  const [type, setType] = useState<VotingType | "">("");
+  const [failure, setFailure] = useState<ApiFailure | null>(null);
+  const [missing, setMissing] = useState(false);
+  const [pending, setPending] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (pending) {
+      return;
+    }
+    setFailure(null);
+    if (type === "") {
+      setMissing(true);
+      return;
+    }
+    setMissing(false);
+    setPending(true);
+    const result = await apiRequest<AdminVoteDetail>("/api/admin/votes", {
+      method: "POST",
+      body: { votingType: type },
+      csrfToken,
+    });
+    setPending(false);
+    if (!result.ok) {
+      setFailure(result);
+      return;
+    }
+    router.push(`/admin/votes/${result.data.id}?notice=draft-created`);
+  }
+
+  return (
+    <form onSubmit={submit} noValidate className="grid max-w-ballot gap-6">
+      <ErrorSummary failure={failure} />
+
+      <fieldset
+        aria-describedby={missing ? "type-error" : undefined}
+        className="grid gap-3"
+      >
+        <legend className="pb-1 text-card-heading font-semibold">
+          Voting type
+          <span aria-hidden="true" className="text-error">
+            {" "}
+            *
+          </span>
+          <span className="sr-only"> (required)</span>
+        </legend>
+        <p className="text-body text-muted">
+          The type decides what residents see and how choices are kept. It
+          cannot be changed once the vote is activated.
+        </p>
+        {(["OPEN", "CLOSED"] as const).map((value) => (
+          <label
+            key={value}
+            htmlFor={`type-${value}`}
+            className="flex cursor-pointer items-start gap-3 rounded-card border border-control-border bg-surface p-4 has-[:checked]:border-accent has-[:checked]:bg-accent/5"
+          >
+            <input
+              id={`type-${value}`}
+              type="radio"
+              name="votingType"
+              value={value}
+              checked={type === value}
+              onChange={() => {
+                setType(value);
+                setMissing(false);
+              }}
+              className="mt-1 size-5 shrink-0 accent-accent"
+            />
+            <span className="grid gap-1">
+              <span className="text-card-heading font-semibold">
+                {VOTING_TYPE_LABELS[value]}
+              </span>
+              <span className="text-body">
+                {TYPE_DESCRIPTIONS[value].summary}
+              </span>
+              <span className="text-body text-muted">
+                What residents are told: {TYPE_DESCRIPTIONS[value].privacy}
+              </span>
+            </span>
+          </label>
+        ))}
+        {missing ? (
+          <p id="type-error" className="text-caption font-semibold text-error">
+            Choose OPEN or CLOSED voting to continue.
+          </p>
+        ) : null}
+      </fieldset>
+
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <Button type="submit" loading={pending}>
+          <Vote aria-hidden="true" className="size-5" />
+          Create draft
+        </Button>
+        <LinkButton href="/admin/votes" variant="secondary">
+          Cancel
+        </LinkButton>
+      </div>
+    </form>
+  );
+}
+
+function ReorderControls({
+  label,
+  index,
+  count,
+  onMove,
+  onRemove,
+}: Readonly<{
+  label: string;
+  index: number;
+  count: number;
+  onMove: (delta: -1 | 1) => void;
+  onRemove: () => void;
+}>) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button
+        variant="secondary"
+        className={buttonInline}
+        disabled={index === 0}
+        onClick={() => onMove(-1)}
+        aria-label={`Move ${label} up`}
+      >
+        <ArrowUp aria-hidden="true" className="size-5" />
+        <span className="sr-only sm:not-sr-only">Up</span>
+      </Button>
+      <Button
+        variant="secondary"
+        className={buttonInline}
+        disabled={index === count - 1}
+        onClick={() => onMove(1)}
+        aria-label={`Move ${label} down`}
+      >
+        <ArrowDown aria-hidden="true" className="size-5" />
+        <span className="sr-only sm:not-sr-only">Down</span>
+      </Button>
+      <Button
+        variant="secondary"
+        className={buttonInline}
+        onClick={onRemove}
+        aria-label={`Remove ${label}`}
+      >
+        <Trash2 aria-hidden="true" className="size-5" />
+        <span className="sr-only sm:not-sr-only">Remove</span>
+      </Button>
+    </div>
+  );
+}
+
+function moved<T>(items: readonly T[], index: number, delta: -1 | 1): T[] {
+  const target = index + delta;
+  if (target < 0 || target >= items.length) {
+    return [...items];
+  }
+  const next = [...items];
+  const [item] = next.splice(index, 1);
+  next.splice(target, 0, item as T);
+  return next;
+}
+
+type EditorProps = Readonly<{
+  csrfToken: string | undefined;
+  initial: AdminVoteDetail;
+  households: readonly SelectableHousehold[];
+  flash?: string | undefined;
+}>;
+
+function localDeadline(detail: AdminVoteDetail): string {
+  return instantToLocalInput(detail.closesAt, detail.timezone ?? "UTC");
+}
+
+export function DraftEditor({
+  csrfToken,
+  initial,
+  households,
+  flash,
+}: EditorProps) {
+  const router = useRouter();
+  const timezone = initial.timezone;
+  const counter = useRef(0);
+  const nextKey = () => {
+    counter.current += 1;
+    return `new-${counter.current}`;
+  };
+
+  const [server, setServer] = useState(initial);
+  const [baseline, setBaseline] = useState(() =>
+    stateFromDetail(initial, localDeadline(initial)),
+  );
+  const [state, setState] = useState(baseline);
+  const [failure, setFailure] = useState<ApiFailure | null>(null);
+  const [deadlineIssue, setDeadlineIssue] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(flash ?? null);
+  const [unchanged, setUnchanged] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [stale, setStale] = useState(false);
+  const [mergeNotes, setMergeNotes] = useState<string[] | null>(null);
+  const [typeChange, setTypeChange] = useState<VotingType | null>(null);
+  const [filter, setFilter] = useState("");
+
+  const dirty = useMemo(
+    () => isDirty(baseline, state, timezone),
+    [baseline, state, timezone],
+  );
+
+  // Leaving with unsaved edits is the one place a draft can be lost silently.
+  useEffect(() => {
+    if (!dirty) {
+      return;
+    }
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  const patch = (changes: Partial<DraftState>) => {
+    setState((current) => ({ ...current, ...changes }));
+    setSaved(null);
+    setUnchanged(false);
+  };
+
+  function adopt(detail: AdminVoteDetail) {
+    const next = stateFromDetail(detail, localDeadline(detail));
+    setServer(detail);
+    setBaseline(next);
+    setState(next);
+  }
+
+  async function save() {
+    if (pending) {
+      return;
+    }
+    setFailure(null);
+    setDeadlineIssue(null);
+    setSaved(null);
+    setUnchanged(false);
+    setStale(false);
+
+    const result = buildPatch(baseline, state, timezone);
+    if (!result.ok) {
+      setDeadlineIssue(DEADLINE_MESSAGES[result.deadline]);
+      document.getElementById("closesLocal")?.focus();
+      return;
+    }
+    if (result.changed.length === 0) {
+      setUnchanged(true);
+      return;
+    }
+
+    setPending(true);
+    const response = await apiRequest<AdminVoteDetail>(
+      `/api/admin/votes/${server.id}`,
+      {
+        method: "PATCH",
+        body: { expectedRevision: server.draftRevision, ...result.patch },
+        csrfToken,
+      },
+    );
+    setPending(false);
+
+    if (!response.ok) {
+      // Everything typed stays on screen; a stale save offers recovery.
+      setFailure(response);
+      setStale(response.code === "STALE_REVISION");
+      return;
+    }
+    setMergeNotes(null);
+    adopt(response.data);
+    setSaved(`Draft saved as version ${response.data.draftRevision}.`);
+  }
+
+  async function fetchLatest(): Promise<AdminVoteDetail | null> {
+    setPending(true);
+    const response = await apiRequest<AdminVoteDetail>(
+      `/api/admin/votes/${server.id}`,
+    );
+    setPending(false);
+    if (!response.ok) {
+      setFailure(response);
+      return null;
+    }
+    return response.data;
+  }
+
+  async function keepMyChanges() {
+    const latest = await fetchLatest();
+    if (!latest) {
+      return;
+    }
+    if (latest.status !== "DRAFT") {
+      // Activated meanwhile: nothing can be saved any more.
+      router.refresh();
+      return;
+    }
+    const merged = mergeOnto(baseline, state, latest, localDeadline(latest));
+    setServer(latest);
+    setBaseline(merged.baseline);
+    setState(merged.state);
+    setMergeNotes(merged.notes);
+    setFailure(null);
+    setStale(false);
+  }
+
+  async function discardMine() {
+    const latest = await fetchLatest();
+    if (!latest) {
+      return;
+    }
+    if (latest.status !== "DRAFT") {
+      router.refresh();
+      return;
+    }
+    adopt(latest);
+    setMergeNotes(null);
+    setFailure(null);
+    setStale(false);
+    setSaved(`Loaded the latest version (version ${latest.draftRevision}).`);
+  }
+
+  function requestType(next: VotingType) {
+    if (next === state.votingType) {
+      return;
+    }
+    const hasBallot =
+      state.votingType === "CLOSED"
+        ? state.offices.length > 0
+        : state.options.length > 0;
+    if (hasBallot) {
+      setTypeChange(next);
+      return;
+    }
+    patch({ votingType: next });
+  }
+
+  function confirmTypeChange() {
+    if (typeChange) {
+      patch({ votingType: typeChange, offices: [], options: [] });
+    }
+    setTypeChange(null);
+  }
+
+  const updateOffice = (
+    index: number,
+    change: (office: OfficeDraft) => OfficeDraft,
+  ) =>
+    patch({
+      offices: state.offices.map((office, i) =>
+        i === index ? change(office) : office,
+      ),
+    });
+  const updateOption = (
+    index: number,
+    change: (option: OptionDraft) => OptionDraft,
+  ) =>
+    patch({
+      options: state.options.map((option, i) =>
+        i === index ? change(option) : option,
+      ),
+    });
+
+  const selected = useMemo(
+    () => new Set(state.selectedHouseholdIds),
+    [state.selectedHouseholdIds],
+  );
+  const eligibleCount = households.filter((h) => h.isEligible).length;
+  const visibleHouseholds = households.filter((household) => {
+    if (!household.isEligible && !selected.has(household.id)) {
+      return false;
+    }
+    const needle = filter.trim().toLowerCase();
+    return (
+      needle === "" ||
+      `${household.identifier} ${household.representativeName}`
+        .toLowerCase()
+        .includes(needle)
+    );
+  });
+
+  function toggleHousehold(id: string, on: boolean) {
+    patch({
+      selectedHouseholdIds: on
+        ? [...state.selectedHouseholdIds, id]
+        : state.selectedHouseholdIds.filter((existing) => existing !== id),
+    });
+  }
+
+  const summaryFailure: ApiFailure | null = failure && {
+    ...failure,
+    fieldErrors: failure.fieldErrors.map((error) => ({
+      ...error,
+      field: fieldIdForPath(error.field),
+    })),
+  };
+  const summaryLabels = Object.fromEntries(
+    (failure?.fieldErrors ?? []).map((error) => [
+      fieldIdForPath(error.field),
+      describeFieldPath(error.field),
+    ]),
+  );
+  const errorAt = (path: string) => fieldErrorFor(failure, path);
+
+  const deadlineText = useMemo(() => {
+    if (!timezone || state.closesLocal === "") {
+      return null;
+    }
+    const converted = zonedLocalToInstant(state.closesLocal, timezone);
+    return converted.ok ? formatInZone(converted.instant, timezone) : null;
+  }, [state.closesLocal, timezone]);
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        void save();
+      }}
+      noValidate
+      className="grid max-w-ballot gap-8"
+    >
+      {saved ? (
+        <Notice tone="success" heading={saved}>
+          {dirty
+            ? "You have further unsaved changes."
+            : "Preview the ballot to check what residents will see."}
+        </Notice>
+      ) : null}
+
+      {stale ? (
+        <Notice
+          tone="warning"
+          heading="Someone saved a newer version of this draft"
+        >
+          <p>
+            Nothing you typed has been lost, and nothing was overwritten. Choose
+            how to continue.
+          </p>
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+            <Button onClick={() => void keepMyChanges()} loading={pending}>
+              Review latest and keep my changes
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => void discardMine()}
+              disabled={pending}
+            >
+              Discard my changes and load latest
+            </Button>
+          </div>
+        </Notice>
+      ) : null}
+
+      {mergeNotes ? (
+        <Notice
+          tone="info"
+          heading={`Latest version loaded (version ${server.draftRevision})`}
+        >
+          <p>
+            Your unsaved changes are kept on top of it. Review them, then save
+            again.
+          </p>
+          {mergeNotes.length > 0 ? (
+            <ul className="list-disc pt-2 pl-5">
+              {mergeNotes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          ) : null}
+        </Notice>
+      ) : null}
+
+      <ErrorSummary
+        failure={stale ? null : summaryFailure}
+        fieldLabels={summaryLabels}
+      />
+
+      <fieldset disabled={pending} className="grid min-w-0 gap-8">
+        <section aria-labelledby="type-heading" className="grid gap-3">
+          <h2 id="type-heading" className="text-section font-semibold">
+            1. Voting type
+          </h2>
+          <div
+            className="grid gap-3"
+            role="radiogroup"
+            aria-labelledby="type-heading"
+          >
+            {(["OPEN", "CLOSED"] as const).map((value) => (
+              <label
+                key={value}
+                htmlFor={`type-${value}`}
+                className="flex cursor-pointer items-start gap-3 rounded-card border border-control-border bg-surface p-4 has-[:checked]:border-accent has-[:checked]:bg-accent/5"
+              >
+                <input
+                  id={`type-${value}`}
+                  type="radio"
+                  name="votingType"
+                  checked={state.votingType === value}
+                  onChange={() => requestType(value)}
+                  className="mt-1 size-5 shrink-0 accent-accent"
+                />
+                <span className="grid gap-1">
+                  <span className="text-card-heading font-semibold">
+                    {VOTING_TYPE_LABELS[value]}
+                  </span>
+                  <span className="text-body">
+                    {TYPE_DESCRIPTIONS[value].summary}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <p className="text-caption text-muted">
+            Changing the type removes the{" "}
+            {state.votingType === "OPEN" ? "options" : "offices and candidates"}{" "}
+            you have entered, because the other type uses a different ballot.
+          </p>
+        </section>
+
+        <section aria-labelledby="details-heading" className="grid gap-4">
+          <h2 id="details-heading" className="text-section font-semibold">
+            2. Details
+          </h2>
+          <TextField
+            id="title"
+            name="title"
+            label={state.votingType === "OPEN" ? "Question" : "Title"}
+            hint={
+              state.votingType === "OPEN"
+                ? "The question residents will answer."
+                : "For example: Managing committee election 2026."
+            }
+            required
+            maxLength={300}
+            autoComplete="off"
+            value={state.title}
+            onChange={(event) => patch({ title: event.target.value })}
+            error={errorAt("title")}
+          />
+          <TextAreaField
+            id="instructions"
+            name="instructions"
+            label={
+              state.votingType === "OPEN"
+                ? "Background"
+                : "Instructions for voters"
+            }
+            hint={
+              state.votingType === "OPEN"
+                ? "Optional context residents should read before choosing."
+                : "Required before activation. Plain text only."
+            }
+            required={state.votingType === "CLOSED"}
+            maxLength={10000}
+            value={state.instructions}
+            onChange={(event) => patch({ instructions: event.target.value })}
+            error={errorAt("instructions")}
+          />
+        </section>
+
+        <section aria-labelledby="ballot-heading" className="grid gap-4">
+          <h2 id="ballot-heading" className="text-section font-semibold">
+            3. Ballot
+          </h2>
+          {state.votingType === "OPEN" ? (
+            <OptionsEditor
+              options={state.options}
+              errorAt={errorAt}
+              onChange={(options) => patch({ options })}
+              onAdd={() =>
+                patch({
+                  options: [...state.options, { key: nextKey(), label: "" }],
+                })
+              }
+              onUpdate={updateOption}
+            />
+          ) : (
+            <OfficesEditor
+              offices={state.offices}
+              errorAt={errorAt}
+              nextKey={nextKey}
+              onChange={(offices) => patch({ offices })}
+              onUpdate={updateOffice}
+            />
+          )}
+        </section>
+
+        <section aria-labelledby="electorate-heading" className="grid gap-4">
+          <h2 id="electorate-heading" className="text-section font-semibold">
+            4. Electorate
+          </h2>
+          <p className="text-body text-muted">
+            Choose the households that may vote. Each household votes once,
+            through its representative. The selection and each representative
+            are frozen when the vote is activated.
+          </p>
+          {errorAt("eligibleHouseholdIds") ? (
+            <p className="text-caption font-semibold text-error">
+              {errorAt("eligibleHouseholdIds")}
+            </p>
+          ) : null}
+          {eligibleCount === 0 && selected.size === 0 ? (
+            <Notice tone="warning" heading="No household is eligible yet">
+              <p>
+                Mark households as eligible in the{" "}
+                <Link
+                  href="/admin/households"
+                  className="font-semibold text-accent underline underline-offset-2"
+                >
+                  household register
+                </Link>{" "}
+                before selecting them here.
+              </p>
+            </Notice>
+          ) : (
+            <>
+              <TextField
+                id="household-filter"
+                label="Find a household"
+                hint="Search by household identifier or representative name."
+                autoComplete="off"
+                type="search"
+                value={filter}
+                onChange={(event) => setFilter(event.target.value)}
+              />
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Button
+                  variant="secondary"
+                  onClick={() =>
+                    patch({
+                      selectedHouseholdIds: households
+                        .filter((h) => h.isEligible)
+                        .map((h) => h.id),
+                    })
+                  }
+                >
+                  Select all {eligibleCount} eligible
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => patch({ selectedHouseholdIds: [] })}
+                  disabled={selected.size === 0}
+                >
+                  Clear selection
+                </Button>
+                <p role="status" className="text-body font-semibold">
+                  {selected.size} selected
+                </p>
+              </div>
+              <fieldset className="grid gap-1 rounded-card border border-border bg-surface p-3">
+                <legend className="px-1 text-body font-semibold">
+                  Eligible households
+                </legend>
+                {visibleHouseholds.length === 0 ? (
+                  <p className="p-2 text-body text-muted">
+                    No household matches that search.
+                  </p>
+                ) : (
+                  <div className="grid max-h-96 gap-1 overflow-y-auto p-1">
+                    {visibleHouseholds.map((household) => (
+                      <CheckboxField
+                        key={household.id}
+                        id={`household-${household.id}`}
+                        label={`${household.identifier} — ${household.representativeName}`}
+                        hint={
+                          !household.isEligible
+                            ? "No longer eligible. Deselect it before activation."
+                            : !household.representativeEnabled
+                              ? "The representative's account is not enabled yet."
+                              : undefined
+                        }
+                        checked={selected.has(household.id)}
+                        onChange={(event) =>
+                          toggleHousehold(household.id, event.target.checked)
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
+              </fieldset>
+            </>
+          )}
+        </section>
+
+        <section aria-labelledby="deadline-heading" className="grid gap-4">
+          <h2 id="deadline-heading" className="text-section font-semibold">
+            5. Deadline
+          </h2>
+          {timezone ? (
+            <>
+              <TextField
+                id="closesLocal"
+                name="closesLocal"
+                type="datetime-local"
+                label="Voting closes"
+                hint={`Enter the time in the RWA's time zone (${timezone}). Voting stops accepting submissions at exactly this time.`}
+                value={state.closesLocal}
+                onChange={(event) => {
+                  setDeadlineIssue(null);
+                  patch({ closesLocal: event.target.value });
+                }}
+                error={deadlineIssue ?? errorAt("closesAt")}
+              />
+              <p role="status" className="text-body">
+                {deadlineText
+                  ? `Residents will see: ${deadlineText}.`
+                  : "No deadline set yet."}
+              </p>
+            </>
+          ) : (
+            <Notice
+              tone="warning"
+              heading="The RWA time zone has not been set up"
+            >
+              <p>
+                A deadline cannot be entered until the deployment owner sets the
+                RWA name and time zone.
+              </p>
+            </Notice>
+          )}
+        </section>
+      </fieldset>
+
+      {unchanged ? (
+        <Notice tone="info">There are no changes to save.</Notice>
+      ) : null}
+
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <Button type="submit" loading={pending}>
+          <Save aria-hidden="true" className="size-5" />
+          Save draft
+        </Button>
+        {dirty ? (
+          <Button variant="secondary" disabled>
+            <Eye aria-hidden="true" className="size-5" />
+            Save to preview
+          </Button>
+        ) : (
+          <LinkButton
+            href={`/admin/votes/${server.id}/preview?revision=${server.draftRevision}`}
+            variant="secondary"
+          >
+            <Eye aria-hidden="true" className="size-5" />
+            Preview ballot
+          </LinkButton>
+        )}
+        <LinkButton href="/admin/votes" variant="secondary">
+          Back to votes
+        </LinkButton>
+      </div>
+      {dirty ? (
+        <p role="status" className="text-caption text-muted">
+          You have unsaved changes. Save the draft before previewing.
+        </p>
+      ) : null}
+
+      <ConfirmDialog
+        open={typeChange !== null}
+        title={`Change to ${typeChange ? VOTING_TYPE_LABELS[typeChange] : ""}?`}
+        confirmLabel="Change type"
+        destructive
+        onConfirm={confirmTypeChange}
+        onCancel={() => setTypeChange(null)}
+      >
+        <p>
+          This removes the{" "}
+          {state.votingType === "CLOSED" ? "offices and candidates" : "options"}{" "}
+          you have entered. The title, instructions, deadline and selected
+          households stay. The change is applied when you save the draft.
+        </p>
+      </ConfirmDialog>
+    </form>
+  );
+}
+
+function OptionsEditor({
+  options,
+  errorAt,
+  onChange,
+  onAdd,
+  onUpdate,
+}: Readonly<{
+  options: readonly OptionDraft[];
+  errorAt: (path: string) => string | undefined;
+  onChange: (options: OptionDraft[]) => void;
+  onAdd: () => void;
+  onUpdate: (
+    index: number,
+    change: (option: OptionDraft) => OptionDraft,
+  ) => void;
+}>) {
+  return (
+    <div className="grid gap-4">
+      <p className="text-body text-muted">
+        Residents pick exactly one option. Add at least two different options.
+      </p>
+      {options.length === 0 ? (
+        <p className="text-body text-muted">No options yet.</p>
+      ) : null}
+      {options.map((option, index) => (
+        <div
+          key={option.key}
+          className="grid gap-2 rounded-card border border-border bg-surface p-3"
+        >
+          <TextField
+            id={`option-${index}-label`}
+            label={`Option ${index + 1}`}
+            required
+            maxLength={200}
+            autoComplete="off"
+            value={option.label}
+            onChange={(event) =>
+              onUpdate(index, (current) => ({
+                ...current,
+                label: event.target.value,
+              }))
+            }
+            error={errorAt(`options[${index}].label`)}
+          />
+          <ReorderControls
+            label={`option ${index + 1}`}
+            index={index}
+            count={options.length}
+            onMove={(delta) => onChange(moved(options, index, delta))}
+            onRemove={() => onChange(options.filter((_, i) => i !== index))}
+          />
+        </div>
+      ))}
+      <div>
+        <Button variant="secondary" onClick={onAdd}>
+          <Plus aria-hidden="true" className="size-5" />
+          Add option
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function OfficesEditor({
+  offices,
+  errorAt,
+  nextKey,
+  onChange,
+  onUpdate,
+}: Readonly<{
+  offices: readonly OfficeDraft[];
+  errorAt: (path: string) => string | undefined;
+  nextKey: () => string;
+  onChange: (offices: OfficeDraft[]) => void;
+  onUpdate: (
+    index: number,
+    change: (office: OfficeDraft) => OfficeDraft,
+  ) => void;
+}>) {
+  return (
+    <div className="grid gap-4">
+      <p className="text-body text-muted">
+        Residents choose one candidate for each office, or abstain. The Abstain
+        choice is added automatically; do not add it yourself.
+      </p>
+      {offices.length === 0 ? (
+        <p className="text-body text-muted">No offices yet.</p>
+      ) : null}
+      {offices.map((office, officeIndex) => (
+        <fieldset
+          key={office.key}
+          className="grid gap-3 rounded-card border border-border bg-surface p-3"
+        >
+          <legend className="px-1 text-card-heading font-semibold">
+            Office {officeIndex + 1}
+          </legend>
+          <TextField
+            id={`office-${officeIndex}-name`}
+            label="Office name"
+            hint="For example: Chairperson."
+            required
+            maxLength={200}
+            autoComplete="off"
+            value={office.name}
+            onChange={(event) =>
+              onUpdate(officeIndex, (current) => ({
+                ...current,
+                name: event.target.value,
+              }))
+            }
+            error={errorAt(`offices[${officeIndex}].name`)}
+          />
+          <ReorderControls
+            label={`office ${officeIndex + 1}`}
+            index={officeIndex}
+            count={offices.length}
+            onMove={(delta) => onChange(moved(offices, officeIndex, delta))}
+            onRemove={() =>
+              onChange(offices.filter((_, i) => i !== officeIndex))
+            }
+          />
+
+          <div className="grid gap-3 border-t border-border pt-3">
+            <h3 className="text-body font-semibold">
+              Candidates for office {officeIndex + 1}
+            </h3>
+            {office.candidates.length === 0 ? (
+              <p className="text-body text-muted">No candidates yet.</p>
+            ) : null}
+            {office.candidates.map((candidate, candidateIndex) => (
+              <div key={candidate.key} className="grid gap-2">
+                <TextField
+                  id={`office-${officeIndex}-candidate-${candidateIndex}-name`}
+                  label={`Candidate ${candidateIndex + 1}`}
+                  required
+                  maxLength={200}
+                  autoComplete="off"
+                  value={candidate.name}
+                  onChange={(event) =>
+                    onUpdate(officeIndex, (current) => ({
+                      ...current,
+                      candidates: current.candidates.map((existing, i) =>
+                        i === candidateIndex
+                          ? { ...existing, name: event.target.value }
+                          : existing,
+                      ),
+                    }))
+                  }
+                  error={errorAt(
+                    `offices[${officeIndex}].candidates[${candidateIndex}].name`,
+                  )}
+                />
+                <ReorderControls
+                  label={`candidate ${candidateIndex + 1} of office ${officeIndex + 1}`}
+                  index={candidateIndex}
+                  count={office.candidates.length}
+                  onMove={(delta) =>
+                    onUpdate(officeIndex, (current) => ({
+                      ...current,
+                      candidates: moved(
+                        current.candidates,
+                        candidateIndex,
+                        delta,
+                      ),
+                    }))
+                  }
+                  onRemove={() =>
+                    onUpdate(officeIndex, (current) => ({
+                      ...current,
+                      candidates: current.candidates.filter(
+                        (_, i) => i !== candidateIndex,
+                      ),
+                    }))
+                  }
+                />
+              </div>
+            ))}
+            <div>
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  onUpdate(officeIndex, (current) => ({
+                    ...current,
+                    candidates: [
+                      ...current.candidates,
+                      { key: nextKey(), name: "" },
+                    ],
+                  }))
+                }
+              >
+                <Plus aria-hidden="true" className="size-5" />
+                Add candidate to office {officeIndex + 1}
+              </Button>
+            </div>
+          </div>
+        </fieldset>
+      ))}
+      <div>
+        <Button
+          variant="secondary"
+          onClick={() =>
+            onChange([...offices, { key: nextKey(), name: "", candidates: [] }])
+          }
+        >
+          <Plus aria-hidden="true" className="size-5" />
+          Add office
+        </Button>
+      </div>
+    </div>
+  );
+}

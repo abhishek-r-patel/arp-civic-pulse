@@ -2,7 +2,10 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { HouseholdForm } from "@/components/admin/household-form";
 import { PageHeader } from "@/components/ui/layout";
-import { listAssignableAccounts } from "@/server/register/accounts";
+import {
+  MAX_ASSIGNABLE,
+  listAssignableAccounts,
+} from "@/server/register/accounts";
 import { adminPageContext } from "@/server/register/page-context";
 
 export const metadata = { title: "Add household" };
@@ -24,7 +27,11 @@ export default async function NewHouseholdPage() {
         title="Add household"
         description="Assign a household to an existing account. This never creates or merges accounts."
       />
-      <HouseholdForm csrfToken={deps.csrfToken} accounts={accounts} />
+      <HouseholdForm
+        csrfToken={deps.csrfToken}
+        accounts={accounts}
+        limited={accounts.length >= MAX_ASSIGNABLE}
+      />
     </div>
   );
 }

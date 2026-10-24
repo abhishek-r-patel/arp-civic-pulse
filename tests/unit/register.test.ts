@@ -3,8 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import { toApiError } from "@/server/db/errors";
 import { ApiError } from "@/server/http/errors";
 import {
+  MAX_ASSIGNABLE,
   createAccount,
   listAccounts,
+  listAssignableAccounts,
   updateAccount,
 } from "@/server/register/accounts";
 import {
@@ -46,6 +48,7 @@ class Query {
   order = (...args: unknown[]) => this.record("order", args);
   limit = (...args: unknown[]) => this.record("limit", args);
   eq = (...args: unknown[]) => this.record("eq", args);
+  neq = (...args: unknown[]) => this.record("neq", args);
   gt = (...args: unknown[]) => this.record("gt", args);
   or = (...args: unknown[]) => this.record("or", args);
   returns = () => Promise.resolve(this.result);
@@ -305,6 +308,83 @@ describe("toApiError conflict reasons", () => {
       status: 400,
     });
     expect(leaked.context).toBeUndefined();
+  });
+
+  it("maps submission outcomes without echoing anything", () => {
+    for (const [message, code] of [
+      ["ALREADY_SUBMITTED", "ALREADY_SUBMITTED"],
+      ["VOTING_CLOSED", "VOTING_CLOSED"],
+      ["NOT_FOUND", "NOT_FOUND"],
+    ] as const) {
+      const error = toApiError({
+        code: "P0001",
+        message,
+        details: "selection abc",
+        status: 400,
+      });
+      expect(error.code).toBe(code);
+      expect(error.context).toBeUndefined();
+    }
+  });
+});
+
+describe("listAssignableAccounts", () => {
+  const rows = Array.from({ length: 250 }, (_, index) => ({
+    id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+    // Newest first (index 0), with names that sort the other way round.
+    representative_name: `Resident ${String(index).padStart(3, "0")}`,
+    status: "ENABLED",
+  }));
+
+  it("asks for the newest accounts first, so a just-created account is always offered", async () => {
+    const w = world({
+      tables: { profiles: [ok(rows)], households: [ok([])] },
+    });
+    await listAssignableAccounts(w.deps);
+    const profiles = w.queries.find((q) => q.table === "profiles");
+    const order = profiles?.query.calls
+      .filter(([name]) => name === "order")
+      .map(([, args]) => [
+        args[0],
+        (args[1] as { ascending: boolean }).ascending,
+      ]);
+    expect(order).toEqual([
+      ["created_at", false],
+      ["id", false],
+    ]);
+  });
+
+  it("caps the list, drops assigned accounts, keeps the current representative, and sorts by name", async () => {
+    const oldest = rows[249]?.id ?? "";
+    const assigned = rows[0]?.id ?? "";
+    const w = world({
+      tables: {
+        profiles: [ok(rows)],
+        households: [
+          ok([
+            { representative_profile_id: oldest },
+            { representative_profile_id: assigned },
+          ]),
+        ],
+      },
+    });
+    const result = await listAssignableAccounts(w.deps, oldest);
+
+    expect(result).toHaveLength(MAX_ASSIGNABLE);
+    const ids = result.map((account) => account.id);
+    // The account being edited is offered even though it is the oldest of all.
+    expect(ids).toContain(oldest);
+    // Another household's representative is not.
+    expect(ids).not.toContain(assigned);
+    const names = result.map((account) => account.name);
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+  });
+
+  it("returns fewer than the cap when fewer accounts are available", async () => {
+    const w = world({
+      tables: { profiles: [ok(rows.slice(0, 3))], households: [ok([])] },
+    });
+    expect(await listAssignableAccounts(w.deps)).toHaveLength(3);
   });
 });
 

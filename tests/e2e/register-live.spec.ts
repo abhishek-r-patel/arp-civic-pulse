@@ -1,6 +1,12 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
-import { freshCode, plusEmail, provisionAdmin } from "./support/live";
+import { expect, test } from "@playwright/test";
+import {
+  freshCode,
+  plusEmail,
+  provisionAdmin,
+  signInThroughUi,
+  stubCodeRequest,
+} from "./support/live";
 
 /*
  * Real browser journeys against the dev server and YOUR disposable hosted
@@ -22,36 +28,6 @@ test.beforeEach(() => {
   test.setTimeout(240_000);
 });
 test.use({ actionTimeout: 30_000, navigationTimeout: 60_000 });
-
-// Stands in for the code request so no email is sent; verification below is real.
-async function stubCodeRequest(page: Page) {
-  await page.route("**/api/auth/code", (route) =>
-    route.fulfill({
-      status: 202,
-      contentType: "application/json; charset=utf-8",
-      body: JSON.stringify({
-        data: {
-          message:
-            "If this address can sign in, a code may arrive shortly. If it does not, wait before requesting another code or contact the administrator.",
-          resendAfterSeconds: 60,
-        },
-        requestId: "00000000-0000-4000-8000-000000000000",
-      }),
-    }),
-  );
-}
-
-async function signInThroughUi(page: Page, email: string, code: string) {
-  await stubCodeRequest(page);
-  await page.goto("/sign-in");
-  await page.getByLabel(/Registered email address/).fill(email);
-  await page.getByRole("button", { name: "Send sign-in code" }).click();
-  await page.getByLabel(/Six-digit code/).fill(code);
-  await page.getByRole("button", { name: "Verify and sign in" }).click();
-  await expect(
-    page.getByRole("heading", { level: 1, name: "Votes" }),
-  ).toBeVisible();
-}
 
 test.describe("sign-in screen", () => {
   test("shows a generic acknowledgement for an unregistered address and no code is sent", async ({
@@ -123,10 +99,9 @@ test.describe("sign-in screen", () => {
     await signInThroughUi(page, email, code);
 
     const nav = page.getByRole("navigation", { name: "Main" });
-    await expect(nav.getByRole("link", { name: "Votes" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    await expect(
+      nav.getByRole("link", { name: "Votes", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
     await expect(nav.getByRole("link", { name: "Households" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Accounts" })).toBeVisible();
 
@@ -244,6 +219,10 @@ test.describe("register screens", () => {
       );
       await representative.selectOption({ label: offered ?? "" });
       await page.getByRole("button", { name: "Add household" }).click();
+      if (attempt === 1) {
+        // Let the first creation finish; navigating away would abort the request.
+        await expect(page.getByText("Household added.")).toBeVisible();
+      }
     }
 
     await expect(

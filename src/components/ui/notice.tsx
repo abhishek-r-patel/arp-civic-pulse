@@ -27,12 +27,12 @@ const toneConfig: Record<
   },
   success: {
     icon: CircleCheck,
-    classes: "border-success/40 bg-success/10 text-success",
+    classes: "border-success/40 bg-success/5 text-success",
     role: "status",
   },
   warning: {
     icon: TriangleAlert,
-    classes: "border-warning/40 bg-warning/10 text-warning",
+    classes: "border-warning/40 bg-warning/5 text-warning",
   },
   error: {
     icon: CircleAlert,

@@ -103,6 +103,13 @@ describe("toApiError", () => {
     );
     expect(toApiError({ status: 503 }).code).toBe("DEPENDENCY_UNAVAILABLE");
     expect(toApiError({ code: "08006" }).code).toBe("DEPENDENCY_UNAVAILABLE");
+    // A bounded lock wait or statement timeout is temporary, never a domain outcome.
+    expect(toApiError({ code: "55P03", status: 400 }).code).toBe(
+      "DEPENDENCY_UNAVAILABLE",
+    );
+    expect(toApiError({ code: "57014", status: 400 }).code).toBe(
+      "DEPENDENCY_UNAVAILABLE",
+    );
     expect(toApiError({ code: "22P02", status: 400 }).code).toBe(
       "INTERNAL_ERROR",
     );

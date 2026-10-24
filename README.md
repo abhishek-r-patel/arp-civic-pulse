@@ -52,6 +52,8 @@ Browser journeys that sign in for real (`tests/e2e/*-live.spec.ts`) run only wit
 
 ## Configuration
 
+New here? Follow the step-by-step [local setup guide](./docs/LOCAL_SETUP.md).
+
 Server configuration is validated when the server starts (`src/instrumentation.ts` → `src/server/config/environment.ts`); production fails clearly on missing or unsafe values. See [.env.example](./.env.example) for placeholder-only variables.
 
 - `NEXT_PUBLIC_*` values are visible in browsers and must never hold a secret.

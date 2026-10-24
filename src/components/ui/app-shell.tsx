@@ -46,6 +46,7 @@ export async function AppShell({
                   <>
                     <NavLink href="/admin/households">Households</NavLink>
                     <NavLink href="/admin/accounts">Accounts</NavLink>
+                    <NavLink href="/admin/votes">Manage votes</NavLink>
                   </>
                 ) : null}
               </nav>

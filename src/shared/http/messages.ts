@@ -16,6 +16,12 @@ const CONFLICT_REASONS: Record<string, string> = {
     "At least one enabled administrator must remain. Make someone else an administrator first.",
   DELETED_PROFILE:
     "This account has been deleted and can no longer be changed.",
+  DEADLINE_PASSED:
+    "The deadline had already passed, so the vote was completed at its deadline and your action was not applied.",
+  DRAFT: "This vote has not been activated yet.",
+  ACTIVE: "This vote is already active.",
+  COMPLETED: "This vote has already been completed.",
+  CANCELLED: "This vote has already been cancelled.",
 };
 
 export function describeFailure(failure: ApiFailure): string {
