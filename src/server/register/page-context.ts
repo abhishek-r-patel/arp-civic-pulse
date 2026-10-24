@@ -29,3 +29,24 @@ export async function adminPageContext(): Promise<
     csrfToken: await getCsrfToken(),
   };
 }
+
+/*
+ * Page-level guard for resident screens: any verified, enabled account. Whether
+ * a particular vote is visible is decided by the database from the frozen
+ * electorate, never by this layer.
+ */
+export async function memberPageContext(): Promise<
+  RegisterDeps & { csrfToken: string | undefined }
+> {
+  const session = await getSessionState();
+  if (session.state !== "account") {
+    redirect("/sign-in");
+  }
+
+  return {
+    client: await createUserClient(),
+    admin: createAdminClient(),
+    actor: session.account,
+    csrfToken: await getCsrfToken(),
+  };
+}

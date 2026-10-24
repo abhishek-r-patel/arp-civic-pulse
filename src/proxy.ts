@@ -6,6 +6,7 @@ import {
   csrfCookieName,
   isValidCsrfContext,
 } from "@/server/http/csrf";
+import { MAINTENANCE_PAGE, isMaintenanceMode } from "@/server/maintenance";
 
 /*
  * Ensures every page request has a CSRF context (docs/API.md section 3.2) and
@@ -15,6 +16,17 @@ import {
  * receives the one-way token derived from it.
  */
 export function proxy(request: NextRequest) {
+  if (isMaintenanceMode()) {
+    return new NextResponse(MAINTENANCE_PAGE, {
+      status: 503,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "private, no-store",
+        "Retry-After": "300",
+      },
+    });
+  }
+
   const production = process.env.NODE_ENV === "production";
   const name = csrfCookieName(production);
 

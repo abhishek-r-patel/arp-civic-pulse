@@ -57,17 +57,23 @@ export function SignInForm({
 
   const secondsLeft = Math.max(0, Math.ceil((resendAt - now) / 1000));
 
-  async function requestCode(event?: FormEvent) {
+  async function requestCode(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     if (pending) {
       return;
     }
+    // The address is read from the form itself: text typed before the page finished
+    // loading (slow phone, slow browser) is in the field but not yet in React state.
+    const typed = event
+      ? String(new FormData(event.currentTarget).get("email") ?? "")
+      : email;
+    setEmail(typed);
     setPending(true);
     setFailure(null);
 
     const result = await apiRequest<RequestCodeData>("/api/auth/code", {
       method: "POST",
-      body: { email },
+      body: { email: typed },
       csrfToken,
     });
     setPending(false);
@@ -130,7 +136,7 @@ export function SignInForm({
           autoCapitalize="none"
           spellCheck={false}
           required
-          value={email}
+          defaultValue={email}
           onChange={(event) => setEmail(event.target.value)}
           error={fieldErrorFor(failure, "email")}
         />

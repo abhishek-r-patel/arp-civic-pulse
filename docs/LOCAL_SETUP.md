@@ -4,7 +4,7 @@ This guide takes you from a fresh checkout to a running app you can sign in to, 
 
 **What you will have at the end:** the app running at `http://localhost:3000`, connected to your own Supabase project, with one administrator who can sign in, manage accounts and households, and create and preview votes.
 
-**What the app can do today (be clear on scope):** sign-in with an emailed code, accounts and household register administration, vote drafts with a resident preview (both OPEN and CLOSED), the vote lifecycle (activation, early completion, cancellation, automatic completion at the deadline), and a **submission API** that records one final ballot per household atomically. **Resident screens for voting, results and exports are not built yet** (implementation phases 12 and later), so a ballot can currently only be submitted through the API, not through a page.
+**What the app can do today (be clear on scope):** sign-in with an emailed code, accounts and household register administration, vote drafts with a resident preview (both OPEN and CLOSED), the vote lifecycle (activation, early completion, cancellation, automatic completion at the deadline), **resident voting screens** (your votes, ballot, review, one final submission, recovery from an unclear outcome), **completed results**, a **CSV download**, and administrator **participation** and **audit history** screens. a **PDF download** (A4, grayscale, printable), automatic **retention** clean-up, encrypted **backups** with a tested restore, a **health** route and **maintenance mode** (see [OPERATIONS.md](./OPERATIONS.md)). What is left is people and environment work, not code: real approvals, real email, hosting, real-device checks and the pilot itself (see [PILOT_READINESS.md](./PILOT_READINESS.md)).
 
 ---
 
@@ -127,7 +127,7 @@ npx supabase db push --db-url $env:LIVE_DATABASE_URL --dry-run
 npx supabase db push --db-url $env:LIVE_DATABASE_URL --yes
 ```
 
-You should see the migrations listed (`20261024100000` through `20261024140000`) and `Finished supabase db push.` The lifecycle migration also schedules a Supabase Cron job (`civic-pulse-complete-due-votes`, once a minute) when `pg_cron` is available, which it is on Supabase.
+You should see the migrations listed (`20261024100000` through `20261024160000`) and `Finished supabase db push.` The lifecycle migration also schedules a Supabase Cron job (`civic-pulse-complete-due-votes`, once a minute) when `pg_cron` is available, which it is on Supabase.
 
 > `supabase link` needs a management token with extra permissions and is not required. `db push --db-url` is enough.
 
@@ -227,7 +227,10 @@ Follow this to see every built feature:
 7. Choose **Preview ballot** to see exactly what residents will see: the privacy notice, the deadline with its time zone, and the unselected choices (CLOSED votes show a built-in **Abstain** per office). The preview lists anything still blocking activation, with a link to fix each.
 8. Try editing the same draft in two browser tabs and saving in both: the second save is refused with "Someone saved a newer version of this draft", and you can keep your changes on top of the latest version without losing either person's work.
 9. **Activate it** (needs step 7.3, a complete draft, at least one eligible household with an enabled representative, and a future deadline). On a ready preview, choose **Activate vote** and confirm. Type, ballot, electorate, representatives and deadline are now frozen: the editor is gone and the vote page shows its lifecycle (activated time, deadline).
-10. **End it:** on an active vote choose **Complete vote early** or **Cancel vote**. Each needs a written reason, is final, and is recorded. If you leave the deadline to pass instead, the vote is completed automatically (normally within a minute by Supabase Cron) and records the deadline, not the moment it was processed, as its end time. There is no way to reopen a vote or extend its deadline.
+10. **Vote as a resident.** Sign out, then sign in as one of the residents in the electorate (with Option B in section 8 you get their code from the Auth admin API). **Votes** lists the vote with its deadline in the RWA's time zone and a **Not voted** badge. Open it, read the privacy notice, choose an option (nothing is pre-selected; a CLOSED vote has **Abstain** for every office), choose **Review selections**, check the summary (use **Back** to change it), then **Submit vote**. You see **Vote submitted.**; the choice is not kept in the page, the address or browser storage, and a reload shows only that your household has voted. A second attempt, from any device, is refused.
+11. **Watch participation (administrator).** On an activated vote page choose **Participation** to see which households have submitted (never what they chose) and filter by submitted / not submitted. **Audit history** (header) lists administrative actions, newest first, with filters.
+12. **End it:** on an active vote choose **Complete vote early** or **Cancel vote**. Each needs a written reason, is final, and is recorded. If you leave the deadline to pass instead, the vote is completed automatically (normally within a minute by Supabase Cron) and records the deadline, not the moment it was processed, as its end time. There is no way to reopen a vote or extend its deadline.
+13. **See the results.** Once a vote is completed, residents in its electorate and administrators can open **View results**: turnout (with the denominator), totals with percentages of submitted responses, ties and abstentions spelled out, and, for an OPEN vote only, who chose what. **Download CSV** and **Download PDF** give the same numbers (and, for OPEN, the complete named list). The PDF is a printable A4 copy; if a name contains characters outside Latin, Greek, Cyrillic and Devanagari the PDF refuses rather than dropping them, and the CSV still works. A cancelled vote shows **Cancelled; results not valid.** and offers nothing to download. Nothing is shown while a vote is still open.
 
 ---
 
@@ -259,6 +262,10 @@ npm run test:integration
 ```
 
 Each test file creates and drops its own database. Stop the server with `Ctrl+C` in its window when you are done. Trust authentication is acceptable only because the server listens on `127.0.0.1` and holds nothing but throwaway test databases.
+
+Two optional extras for the integration suite: set `PG_BIN_DIR` to the same `bin` folder (so the encrypted backup and restore rehearsal in `tests/integration/restore.test.ts` can run `pg_dump` and `pg_restore`; without it that file is skipped), and, for the 100-concurrent-user capacity test, start the server with `-c max_connections=300` instead of `60` and run `npm run test:load` on its own (`tests/load/db-capacity.test.ts`; it needs about 120 connections and is kept out of the normal integration run so it cannot starve the timing-sensitive tests).
+
+**Browsers:** the same specs run in Firefox and WebKit (`npx playwright install firefox webkit`, then `--project=firefox` or `--project=webkit`). Two keyboard steps are skipped in the automated WebKit build and must be checked on real Safari (see [PILOT_READINESS.md](./PILOT_READINESS.md)).
 
 **Browser tests:** install Playwright's own Chromium once with `npx playwright install chromium`. On managed Windows machines, policy can close Microsoft Edge shortly after Playwright starts it; the bundled Chromium avoids that. The signed-in specs create users in your project and need `LIVE_AUTH=1`:
 

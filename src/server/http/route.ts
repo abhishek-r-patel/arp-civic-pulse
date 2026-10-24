@@ -1,6 +1,7 @@
 import "server-only";
 import { ApiError } from "@/server/http/errors";
 import { errorResponse, newRequestId } from "@/server/http/response";
+import { isMaintenanceMode } from "@/server/maintenance";
 import { log } from "@/server/observability/logger";
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
@@ -53,6 +54,16 @@ export function route(
         try {
           if (!handler) {
             throw new ApiError("METHOD_NOT_ALLOWED", { allow });
+          }
+          // Maintenance stops every data path; the health route stays honest about it.
+          if (
+            isMaintenanceMode() &&
+            !routeName.endsWith("/api/internal/health")
+          ) {
+            throw new ApiError("DEPENDENCY_UNAVAILABLE", {
+              message: "The service is being maintained. Try again later.",
+              retryAfterSeconds: 300,
+            });
           }
           const params = (await nextContext?.params) ?? {};
           response = await handler({ request, requestId, params });

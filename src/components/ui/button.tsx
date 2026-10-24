@@ -23,6 +23,14 @@ const variantClasses: Record<ButtonVariant, string> = {
 const baseClasses =
   "inline-flex touch-target w-full items-center justify-center gap-2 rounded-control border px-4 py-3 text-body font-semibold transition-colors sm:w-auto";
 
+// For a plain anchor that must behave like a button, e.g. a file download.
+export function buttonClasses(
+  variant: ButtonVariant = "primary",
+  className?: string,
+): string {
+  return cn(baseClasses, variantClasses[variant], className);
+}
+
 // Navigation that looks like a button: a real link, not a button with a handler.
 export function LinkButton({
   variant = "primary",

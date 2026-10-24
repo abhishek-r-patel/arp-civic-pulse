@@ -48,6 +48,17 @@ export const VOTE_RATE_LIMITS = {
     limit: 60,
     windowSeconds: 60,
   },
+  // Reading votes and results are cheap; the CSV render is the expensive one.
+  readByProfile: {
+    scope: "votes.read.profile",
+    limit: 120,
+    windowSeconds: 60,
+  },
+  exportByProfile: {
+    scope: "votes.export.profile",
+    limit: 10,
+    windowSeconds: 60,
+  },
 } as const satisfies Record<string, RateLimitPolicy>;
 
 export type SubjectKind = "email" | "ip" | "profile";

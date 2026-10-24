@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
-// Real-database tests. Requires INTEGRATION_DATABASE_URL pointing at a
+// Real-database tests (the heavy capacity test lives in tests/load, run by vitest.load.config.ts,\n// so it cannot starve the timing-sensitive tests here). Requires INTEGRATION_DATABASE_URL pointing at a
 // DISPOSABLE local PostgreSQL server (see supabase/README.md). Without it the
 // suites are skipped rather than silently passing against nothing.
 export default defineConfig({

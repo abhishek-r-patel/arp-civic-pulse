@@ -7,7 +7,9 @@ import { VOTE_STATUSES, VOTING_TYPES } from "@/shared/contracts/voting";
  * way out so a malformed routine result becomes a safe server error instead of
  * reaching a client. No tallies, counters or per-household data appear here.
  */
-const instant = z.string().transform((value) => new Date(value).toISOString());
+export const instant = z
+  .string()
+  .transform((value) => new Date(value).toISOString());
 
 const candidateProjection = z.object({
   id: z.uuid(),
@@ -15,14 +17,14 @@ const candidateProjection = z.object({
   position: z.number().int(),
 });
 
-const officeProjection = z.object({
+export const officeProjection = z.object({
   id: z.uuid(),
   name: z.string(),
   position: z.number().int(),
   candidates: z.array(candidateProjection),
 });
 
-const optionProjection = z.object({
+export const optionProjection = z.object({
   id: z.uuid(),
   label: z.string(),
   position: z.number().int(),

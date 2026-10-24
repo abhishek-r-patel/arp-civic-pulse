@@ -3,6 +3,19 @@ import { Notice } from "@/components/ui/notice";
 import type { AdminVoteDetail } from "@/shared/contracts/drafts";
 import { formatInZone } from "@/shared/time/zoned";
 
+export type LifecycleFields = Pick<
+  AdminVoteDetail,
+  | "status"
+  | "timezone"
+  | "activatedAt"
+  | "closesAt"
+  | "completedAt"
+  | "completionMode"
+  | "completionReason"
+  | "cancelledAt"
+  | "cancellationReason"
+>;
+
 /*
  * Lifecycle facts for a vote that has left the draft stage. Times are shown in
  * the RWA time zone that was frozen at activation. The recorded completion
@@ -23,7 +36,8 @@ function Fact({
 
 export function LifecycleSummary({
   vote,
-}: Readonly<{ vote: AdminVoteDetail }>) {
+  audience = "admin",
+}: Readonly<{ vote: LifecycleFields; audience?: "admin" | "member" }>) {
   const zone = vote.timezone ?? "UTC";
   const at = (instant: string | null) =>
     instant ? (
@@ -46,7 +60,7 @@ export function LifecycleSummary({
           </p>
         </Notice>
       ) : null}
-      {vote.status === "ACTIVE" ? (
+      {vote.status === "ACTIVE" && audience === "admin" ? (
         <Notice tone="info" heading="Voting ends automatically at the deadline">
           <p>
             The vote is finalised at its deadline, normally within a minute. If

@@ -7,6 +7,19 @@ import {
 import type { AdminVoteDetail } from "@/shared/contracts/drafts";
 import { formatInZone } from "@/shared/time/zoned";
 
+// The fields the ballot needs; administrator and member projections both provide them.
+export type BallotVote = Pick<
+  AdminVoteDetail,
+  | "votingType"
+  | "status"
+  | "title"
+  | "instructions"
+  | "closesAt"
+  | "timezone"
+  | "options"
+  | "offices"
+>;
+
 /*
  * Read-only rendering of the resident ballot (docs/DESIGN_SYSTEM.md section
  * 11): title, type and status shown separately, privacy notice, deadline with
@@ -14,7 +27,7 @@ import { formatInZone } from "@/shared/time/zoned";
  * and disabled, and every election office carries the built-in Abstain choice
  * that is never stored as ballot configuration.
  */
-function Deadline({ vote }: Readonly<{ vote: AdminVoteDetail }>) {
+function Deadline({ vote }: Readonly<{ vote: BallotVote }>) {
   if (!vote.closesAt) {
     return <span>No deadline set</span>;
   }
@@ -58,7 +71,7 @@ function Choice({
   );
 }
 
-export function BallotPreview({ vote }: Readonly<{ vote: AdminVoteDetail }>) {
+export function BallotPreview({ vote }: Readonly<{ vote: BallotVote }>) {
   return (
     <article
       aria-labelledby="ballot-title"

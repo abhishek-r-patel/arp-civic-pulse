@@ -114,12 +114,27 @@ export function buildPage<Row>(
   binding: CursorBinding,
   positionOf: (row: Row) => CursorPosition,
 ): { rows: Row[]; page: PageInfo } {
-  const hasMore = rows.length > limit;
-  const visible = rows.slice(0, limit);
+  return buildKnownPage(
+    rows.slice(0, limit),
+    rows.length > limit,
+    limit,
+    binding,
+    positionOf,
+  );
+}
+
+// For routines that already trimmed the page and reported whether more exist.
+export function buildKnownPage<Row>(
+  visible: readonly Row[],
+  hasMore: boolean,
+  limit: number,
+  binding: CursorBinding,
+  positionOf: (row: Row) => CursorPosition,
+): { rows: Row[]; page: PageInfo } {
   const last = visible.at(-1);
 
   return {
-    rows: visible,
+    rows: [...visible],
     page: {
       limit,
       hasMore,

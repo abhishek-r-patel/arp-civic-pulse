@@ -14,10 +14,12 @@ This repository currently contains the **project foundation only**: tooling, des
 | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)                       | Stack, boundaries, privacy and operations             |
 | [docs/API.md](./docs/API.md), [docs/DATABASE.md](./docs/DATABASE.md) | Supporting contracts                                  |
 | [docs/IMPLEMENTATION_PLAN.md](./docs/IMPLEMENTATION_PLAN.md)         | Sequencing                                            |
+| [docs/OPERATIONS.md](./docs/OPERATIONS.md)                           | Backups, restore, retention, monitoring, incidents    |
+| [docs/PILOT_READINESS.md](./docs/PILOT_READINESS.md)                 | Evidence gathered and gates still open                |
 
 ## Stack
 
-Next.js (App Router), React, TypeScript (strict), Tailwind CSS, Lucide React, Zod, and Supabase (Auth, PostgreSQL, RLS, SQL functions, Cron) through `@supabase/supabase-js` and `@supabase/ssr`. Tests use Vitest, Playwright and axe. PDF export is optional and not installed.
+Next.js (App Router), React, TypeScript (strict), Tailwind CSS, Lucide React, Zod, and Supabase (Auth, PostgreSQL, RLS, SQL functions, Cron) through `@supabase/supabase-js` and `@supabase/ssr`. Tests use Vitest, Playwright and axe. PDF export uses PDFKit with bundled, openly licensed fonts (Inter and Noto Sans Devanagari).
 
 ## Prerequisites
 
@@ -36,17 +38,18 @@ Open <http://localhost:3000>. Use synthetic data only; never copy production reg
 
 ## Scripts
 
-| Command                                   | Purpose                                                                                                   |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `npm run dev`                             | Development server                                                                                        |
-| `npm run build` / `npm run start`         | Production build and server                                                                               |
-| `npm run lint`                            | ESLint (Next.js core-web-vitals and TypeScript rules)                                                     |
-| `npm run format` / `npm run format:check` | Prettier with the Tailwind class-order plugin                                                             |
-| `npm run typecheck`                       | `tsc --noEmit` under strict settings                                                                      |
-| `npm test`                                | Vitest unit tests in `tests/unit`                                                                         |
-| `npm run test:integration`                | Real-PostgreSQL tests in `tests/integration` (needs `INTEGRATION_DATABASE_URL`, see `supabase/README.md`) |
-| `npm run test:live`                       | Real hosted Supabase Auth/PostgREST tests in `tests/live` (needs a disposable project in `.env.local`)    |
-| `npm run test:e2e`                        | Playwright and axe checks in `tests/e2e` (run `npx playwright install` first)                             |
+| Command                                   | Purpose                                                                                                         |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                             | Development server                                                                                              |
+| `npm run build` / `npm run start`         | Production build and server                                                                                     |
+| `npm run lint`                            | ESLint (Next.js core-web-vitals and TypeScript rules)                                                           |
+| `npm run format` / `npm run format:check` | Prettier with the Tailwind class-order plugin                                                                   |
+| `npm run typecheck`                       | `tsc --noEmit` under strict settings                                                                            |
+| `npm test`                                | Vitest unit tests in `tests/unit`                                                                               |
+| `npm run test:integration`                | Real-PostgreSQL tests in `tests/integration` (needs `INTEGRATION_DATABASE_URL`, see `supabase/README.md`)       |
+| `npm run test:live`                       | Real hosted Supabase Auth/PostgREST tests in `tests/live` (needs a disposable project in `.env.local`)          |
+| `npm run test:e2e`                        | Playwright and axe checks in `tests/e2e` (run `npx playwright install` first)                                   |
+| `npm run ops -- <command>`                | Backup, verify, restore rehearsal, status, orphan Auth cleanup (see [docs/OPERATIONS.md](./docs/OPERATIONS.md)) |
 
 Browser journeys that sign in for real (`tests/e2e/*-live.spec.ts`) run only with `LIVE_AUTH=1`. On managed Windows machines, system policy can close Microsoft Edge shortly after Playwright starts it ("DevTools remote debugging is disallowed by the system admin"); use Playwright's own Chromium (`npx playwright install chromium`) instead of `PLAYWRIGHT_CHROMIUM_CHANNEL=msedge`.
 
