@@ -57,5 +57,8 @@
     "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
     "vitest": "5.0.5"
+  },
+  "overrides": {
+    "typescript": "$typescript"
   }
 }
