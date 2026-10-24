@@ -1,0 +1,110 @@
+@import "tailwindcss";
+
+/*
+ * Civic Pulse design tokens (docs/DESIGN_SYSTEM.md). Define values here once;
+ * components use token classes (bg-accent, text-muted, ...), never raw hex.
+ */
+@theme {
+  --color-primary: #0f172a;
+  --color-accent: #0f766e;
+  --color-secondary: #4f46e5;
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-error: #b91c1c;
+  --color-muted: #475569;
+  --color-border: #cbd5e1;
+  --color-control-border: #64748b;
+
+  /* Interaction shades derived from palette colours rather than new hues. */
+  --color-accent-strong: color-mix(in oklab, var(--color-accent) 80%, black);
+  --color-error-strong: color-mix(in oklab, var(--color-error) 80%, black);
+
+  --radius-control: 0.5rem;
+  --radius-card: 0.75rem;
+
+  --container-content: 70rem;
+  --container-ballot: 40rem;
+
+  --text-display: 2rem;
+  --text-display--line-height: 1.25;
+  --text-display-lg: 3rem;
+  --text-display-lg--line-height: 1.25;
+  --text-page-title: 1.75rem;
+  --text-page-title--line-height: 1.25;
+  --text-page-title-lg: 2.25rem;
+  --text-page-title-lg--line-height: 1.25;
+  --text-section: 1.25rem;
+  --text-section--line-height: 1.25;
+  --text-section-lg: 1.5rem;
+  --text-section-lg--line-height: 1.25;
+  --text-card-heading: 1.25rem;
+  --text-card-heading--line-height: 1.25;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5;
+  --text-caption: 0.875rem;
+  --text-caption--line-height: 1.5;
+}
+
+@theme inline {
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+}
+
+/* Minimum interactive target is 48 x 48 CSS pixels. */
+@utility touch-target {
+  min-height: 3rem;
+  min-width: 3rem;
+}
+
+@layer base {
+  html {
+    min-width: 20rem;
+    background-color: var(--color-background);
+    color: var(--color-primary);
+    font-family: var(--font-sans);
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    min-height: 100vh;
+    margin: 0;
+    background-color: var(--color-background);
+    font-size: var(--text-body);
+    line-height: 1.5;
+    font-variant-numeric: normal;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    line-height: 1.25;
+  }
+
+  /* Form controls must never fall below 16px, which prevents iOS zoom. */
+  input,
+  select,
+  textarea {
+    font-size: max(1rem, 16px);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-secondary);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

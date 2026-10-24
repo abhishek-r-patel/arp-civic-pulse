@@ -1,0 +1,14 @@
+node_modules
+.next
+out
+coverage
+playwright-report
+test-results
+package-lock.json
+next-env.d.ts
+
+# Governing documents are maintained by hand
+docs
+
+# Generated and provider-managed Supabase files
+supabase

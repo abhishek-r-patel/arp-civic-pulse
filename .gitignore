@@ -1,0 +1,30 @@
+# Dependencies and build output
+node_modules/
+.next/
+out/
+coverage/
+playwright-report/
+test-results/
+blob-report/
+*.tsbuildinfo
+next-env.d.ts
+
+# Local configuration and secrets; only the placeholder example is tracked
+.env
+.env.*
+!.env.example
+
+# Supabase local stack state and temporary files
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+
+# Database dumps and generated resident reports
+*.dump
+*.sql.gz
+*.backup
+
+# Logs and operating-system files
+*.log
+.DS_Store
+Thumbs.db
