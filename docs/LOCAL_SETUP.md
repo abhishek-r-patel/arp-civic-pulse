@@ -1,0 +1,301 @@
+# Run Civic Pulse locally: end-to-end guide
+
+This guide takes you from a fresh checkout to a running app you can sign in to, with every step in order. It is written for Windows and PowerShell.
+
+**What you will have at the end:** the app running at `http://localhost:3000`, connected to your own Supabase project, with one administrator who can sign in, manage accounts and households, and create and preview votes.
+
+**What the app can do today (be clear on scope):** sign-in with an emailed code, accounts and household register administration, vote drafts with a resident preview (both OPEN and CLOSED), the vote lifecycle (activation, early completion, cancellation, automatic completion at the deadline), and a **submission API** that records one final ballot per household atomically. **Resident screens for voting, results and exports are not built yet** (implementation phases 12 and later), so a ballot can currently only be submitted through the API, not through a page.
+
+---
+
+## 1. What you need
+
+| Need | Notes |
+|---|---|
+| Windows with PowerShell | Commands below are PowerShell. |
+| **Node.js 24** and npm 10+ | The project requires `>=24 <25`. A portable copy works: unzip it and put its folder on `PATH` per session (step 2). |
+| A free **Supabase** account | You will create a project. Use a **disposable** project for development: created users cannot be deleted afterwards by design (see section 11). |
+| An inbox you can read | For sign-in codes (step 8). A Gmail test account works. |
+| Optional: PostgreSQL **17** (portable is fine) | Only for the database integration tests (section 10). Use 17, the version Supabase runs; 18 behaves differently. |
+| Optional: Docker | Only if you prefer the fully local Supabase stack (`supabase start`). This guide uses a hosted project instead because it needs no Docker or admin rights. |
+
+You do **not** need to install Git, Docker or admin rights to follow this guide.
+
+---
+
+## 2. Open a shell and put Node on PATH
+
+Each PowerShell window starts fresh, so repeat this in every new window (skip it if Node 24 is installed system-wide):
+
+```powershell
+$env:PATH = "C:\Users\<you>\Apps\Portable\node-v24.22.1;" + $env:PATH
+cd C:\Users\<you>\Apps\Local-Dev\arp-civic-pulse
+node --version    # should print v24.x
+npm --version
+```
+
+---
+
+## 3. Install dependencies
+
+```powershell
+npm install
+```
+
+If your network performs TLS inspection (common on corporate laptops) and `npm install` or the app fails with certificate errors, see section 10 ("Corporate TLS").
+
+---
+
+## 4. Create a Supabase project
+
+1. Sign in at <https://supabase.com/dashboard> and choose **New project**.
+2. Name it (for example `civic-pulse-dev`), pick a region near you, and set a **database password**. Save the password in a password manager. Never paste it into chat or commit it.
+3. Wait until the project finishes provisioning.
+
+### 4.1 Collect the values you need
+
+You will copy these into `.env.local` in step 5. Dashboard labels move around over time; look for these names:
+
+| Value | Where to find it |
+|---|---|
+| Project URL | **Project Settings → API** (looks like `https://<ref>.supabase.co`) |
+| Publishable key | **Project Settings → API Keys** (a key starting `sb_publishable_`, or the legacy `anon` key) |
+| Secret key | Same page (a key starting `sb_secret_`, or the legacy `service_role` key). **Server-only. Never expose it.** |
+| Session pooler connection string | **Connect** button → **Session pooler** (looks like `postgresql://postgres.<ref>:<password>@<host>:5432/postgres`) |
+
+Use the **session pooler** string, not the direct one: the direct connection is IPv6-only on many networks.
+
+### 4.2 Configure Authentication
+
+In **Authentication** (names may vary slightly):
+
+1. **Sign In / Providers → Email:** keep Email enabled. **Turn off "Allow new users to sign up"** (Civic Pulse has no public sign-up; administrators create accounts).
+2. **Email OTP length: 6.** The app asks for a six-digit code.
+3. **URL Configuration:** set **Site URL** to `http://localhost:3000`.
+4. Email delivery: see step 8. The built-in email service cannot carry a code, so read that step before you try to sign in.
+
+---
+
+## 5. Create `.env.local`
+
+Copy the example and fill it in. `.env.local` is ignored by Git; never commit it.
+
+```powershell
+Copy-Item .env.example .env.local
+notepad .env.local
+```
+
+Fill in:
+
+```dotenv
+APP_ORIGIN=http://localhost:3000
+LOG_LEVEL=info
+
+NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable or anon key>
+SUPABASE_SERVICE_ROLE_KEY=<secret or service_role key>
+RATE_LIMIT_HMAC_KEY=<at least 32 random characters>
+
+# Needed only for migrations and the live tests (not read by the running app):
+LIVE_DATABASE_URL=postgresql://postgres.<ref>:<password>@<host>:5432/postgres
+LIVE_TEST_EMAIL=<your test inbox address, for the live tests only>
+```
+
+Generate a good `RATE_LIMIT_HMAC_KEY`:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+Important details:
+
+- `APP_ORIGIN` must **exactly** match the address in your browser. If you browse to `http://localhost:3000`, use that; `127.0.0.1` is a different origin and will fail the app's security check ("Your page has expired. Reload it and try again.").
+- `NEXT_PUBLIC_*` values are visible to browsers. Only the publishable key belongs there. The secret key and `LIVE_DATABASE_URL` are server-side only.
+- If your database password contains special characters, URL-encode them in the connection string.
+
+---
+
+## 6. Create the database schema
+
+The schema (tables, security rules, guarded routines) lives in `supabase/migrations`. Apply it to your project with the Supabase CLI, which is already a project dev tool, using the connection string from step 4.1. First load `.env.local` into the current shell (values never appear on the command line):
+
+```powershell
+Get-Content .env.local | ForEach-Object { if ($_ -match '^\s*([A-Z_]+)=(.*)$') { Set-Item "env:$($matches[1])" $matches[2].Trim() } }
+
+# Review what would be applied, then apply it:
+npx supabase db push --db-url $env:LIVE_DATABASE_URL --dry-run
+npx supabase db push --db-url $env:LIVE_DATABASE_URL --yes
+```
+
+You should see the migrations listed (`20261024100000` through `20261024140000`) and `Finished supabase db push.` The lifecycle migration also schedules a Supabase Cron job (`civic-pulse-complete-due-votes`, once a minute) when `pg_cron` is available, which it is on Supabase.
+
+> `supabase link` needs a management token with extra permissions and is not required. `db push --db-url` is enough.
+
+---
+
+## 7. Set up the RWA and the first administrator
+
+There is no public sign-up and no default password, so the first administrator is created by a short, audited setup procedure.
+
+### 7.1 Create the administrator's sign-in identity
+
+In the Supabase dashboard: **Authentication → Users → Add user → Create new user.** Enter the administrator's email address, **tick "Auto Confirm User"**, and create it. Copy the user's **UID** (a UUID).
+
+### 7.2 Run the setup SQL
+
+In the dashboard open **SQL Editor** and run, replacing the placeholders:
+
+```sql
+-- Name and time zone of your RWA (deadlines are entered and shown in this zone).
+select app_private.deployment_initialize_settings('My Society RWA', 'Asia/Kolkata');
+
+-- Makes the user from step 7.1 an enabled administrator.
+select app_private.deployment_bootstrap_admin('<auth user UID>', 'Asha Admin');
+```
+
+Each procedure writes an audit event. `deployment_initialize_settings` can only be run once.
+
+> If the SQL Editor reports that it cannot run `app_private` functions, run the same two statements with any PostgreSQL client connected through `LIVE_DATABASE_URL` (for example the `psql` that ships with the portable PostgreSQL).
+
+### 7.3 Policy approvals (needed to activate a vote)
+
+Activation requires the seven policy approvals (A1-A7) and every retention period to be recorded, so until they are the preview shows the blocker "Policy approvals and retention periods are not all recorded". **Real approvals must be recorded by the people who actually approve them**; the procedures are in `supabase/README.md`.
+
+To try activation on a **disposable development project only**, you can record clearly marked *fixture* approvals. They are not real approvals, and must never be copied to a real deployment. In the SQL Editor, replace `<admin UID>` with the administrator's UID from step 7.1:
+
+```sql
+select app_private.deployment_record_policy_approval(k, 'fixture-v1', now(), '<admin UID>', 'FIXTURE ONLY (development)', 'APPROVED')
+from unnest(array['A1','A2','A3','A4','A5','A6','A7']) as k;
+
+select app_private.deployment_set_retention(365, 365, 365, 30, 90);
+```
+
+---
+
+## 8. Make sign-in codes arrive
+
+The app signs people in with a **six-digit code**. Supabase's built-in email service sends a magic **link** and its template cannot be changed, so no code is included. You have two options.
+
+### Option A: custom SMTP (needed for real emailed codes)
+
+1. In Gmail, turn on 2-Step Verification, then create an **App password** (Google Account → Security → App passwords). Use that 16-character password, not your normal one.
+2. In Supabase: **Authentication → Emails → SMTP Settings → Enable custom SMTP**:
+   - Host `smtp.gmail.com`, port `465` (or `587`), username = the Gmail address, password = the app password, sender = the same address.
+3. **Authentication → Emails → Templates → Magic Link.** Replace the body with the project's template so the email shows the code. The template is `supabase/templates/magic_link.html`; its essential content is `{{ .Token }}`.
+4. Gmail limits sending volume; this is fine for development, not for production.
+
+### Option B: skip email for development
+
+You can mint the same code the email would contain with the Auth admin API (no email is sent). Run this from the project folder after loading `.env.local` (step 6), using the administrator's email:
+
+```powershell
+node --input-type=module -e "import { createClient } from '@supabase/supabase-js'; const a = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } }); const r = await a.auth.admin.generateLink({ type: 'magiclink', email: process.argv[1] }); console.log(r.data?.properties?.email_otp ?? r.error?.message)" admin@example.com
+```
+
+It prints six digits. Use the email of a user that **already exists** (for example the administrator from step 7.1): the admin API creates an Auth user if the address is unknown. Treat the secret key as a password and use this on a development project only.
+
+> Codes are single-use and expire. Requesting a new code invalidates earlier ones.
+
+---
+
+## 9. Run the app
+
+```powershell
+npm run dev
+```
+
+Wait for `Ready`, then open **<http://localhost:3000>** (use `localhost`, matching `APP_ORIGIN`).
+
+If port 3000 is busy, either stop whatever uses it or run `npm run dev -- --port 3100` and change `APP_ORIGIN` to `http://localhost:3100`, then restart.
+
+### 9.1 Sign in
+
+1. You land on **Sign in**. Enter the administrator's email and choose **Send sign-in code**. The screen always says "If this address can sign in, a code may arrive shortly" so it never reveals who is registered.
+2. Enter the six-digit code from your inbox (Option A) or from the script (Option B) and choose **Verify and sign in**.
+3. You arrive on **Votes** with a header showing **Households, Accounts, Manage votes** (administrators only) and **Sign out**.
+
+### 9.2 A guided first walkthrough
+
+Follow this to see every built feature:
+
+1. **Accounts → Add account.** Create a resident (name + email). New accounts start **Suspended**.
+2. **Households → Add household.** Give it an identifier (for example `A-101`), choose that resident as the representative, and tick **Eligible to vote**.
+3. **Accounts →** open the resident and choose **Enable account** (confirm in the dialog). A resident can only be enabled once they represent a household; otherwise the app tells you why.
+4. Repeat steps 1-3 for a few residents.
+5. **Manage votes → New vote.** Choose **OPEN** (a question with options) or **CLOSED** (an election with offices and candidates) and **Create draft**.
+6. In the editor fill in the five sections: voting type, details, ballot, electorate (search and tick households), and deadline (entered in your RWA's time zone; you see how residents will read it). **Save draft.**
+7. Choose **Preview ballot** to see exactly what residents will see: the privacy notice, the deadline with its time zone, and the unselected choices (CLOSED votes show a built-in **Abstain** per office). The preview lists anything still blocking activation, with a link to fix each.
+8. Try editing the same draft in two browser tabs and saving in both: the second save is refused with "Someone saved a newer version of this draft", and you can keep your changes on top of the latest version without losing either person's work.
+9. **Activate it** (needs step 7.3, a complete draft, at least one eligible household with an enabled representative, and a future deadline). On a ready preview, choose **Activate vote** and confirm. Type, ballot, electorate, representatives and deadline are now frozen: the editor is gone and the vote page shows its lifecycle (activated time, deadline).
+10. **End it:** on an active vote choose **Complete vote early** or **Cancel vote**. Each needs a written reason, is final, and is recorded. If you leave the deadline to pass instead, the vote is completed automatically (normally within a minute by Supabase Cron) and records the deadline, not the moment it was processed, as its end time. There is no way to reopen a vote or extend its deadline.
+
+---
+
+## 10. Run the tests (optional)
+
+| What | Command | Needs |
+|---|---|---|
+| Format, types, lint | `npm run format:check`, `npm run typecheck`, `npm run lint` | Nothing extra |
+| Unit tests | `npm test` | Nothing extra |
+| Production build | `npm run build` | `.env.local` loaded |
+| Real-database tests | `npm run test:integration` | A throwaway local PostgreSQL (below) |
+| Hosted-Supabase tests | `npm run test:live` | `.env.local` loaded; a disposable project |
+| Browser tests | `npx playwright test --project=chromium` | `npx playwright install chromium` once; add `LIVE_AUTH=1` for the signed-in specs |
+
+**Integration tests** need a disposable **PostgreSQL 17** server (the version Supabase runs; never a shared or production one). One-time setup of a throwaway cluster, then start it in its own window or as a background process (do not use `pg_ctl -w`, which can hang a shell):
+
+```powershell
+$bin  = "C:\Users\<you>\Apps\Portable\postgresql-17.11-5\pgsql\bin"
+$data = "C:\Users\<you>\Apps\Portable\temp\cp-pgdata17"
+& "$bin\initdb.exe" -D $data -U supabase_admin -A trust -E UTF8      # once
+& "$bin\postgres.exe" -D $data -p 54399 -c listen_addresses=127.0.0.1 -c max_connections=60
+```
+
+Then, in another window (Node on PATH, project folder):
+
+```powershell
+$env:INTEGRATION_DATABASE_URL = "postgres://supabase_admin@127.0.0.1:54399/postgres"
+npm run test:integration
+```
+
+Each test file creates and drops its own database. Stop the server with `Ctrl+C` in its window when you are done. Trust authentication is acceptable only because the server listens on `127.0.0.1` and holds nothing but throwaway test databases.
+
+**Browser tests:** install Playwright's own Chromium once with `npx playwright install chromium`. On managed Windows machines, policy can close Microsoft Edge shortly after Playwright starts it; the bundled Chromium avoids that. The signed-in specs create users in your project and need `LIVE_AUTH=1`:
+
+```powershell
+$env:LIVE_AUTH = "1"
+npx playwright test --project=chromium --workers=1
+```
+
+Do not run the live and browser suites repeatedly back to back: they sign in many times and Supabase's hosted Auth will answer "Too many requests" (HTTP 429) for several minutes. Wait and retry.
+
+---
+
+## 11. Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `node` / `npm` not recognised | Node is not on `PATH` in this window. Repeat step 2. |
+| "Your page has expired. Reload it and try again." | The address in your browser does not exactly match `APP_ORIGIN` (`localhost` vs `127.0.0.1`, or a different port). Fix `APP_ORIGIN` and restart `npm run dev`. |
+| Server will not start, mentions environment variables | A required value is missing or malformed in `.env.local` (for example `RATE_LIMIT_HMAC_KEY` shorter than 32 characters). The error names the setting. |
+| Sign-in says "If this address can sign in…" but no email comes | Expected for unregistered addresses. For a registered one: custom SMTP is not set up (step 8) or the email is in spam. Use Option B to confirm the rest works. |
+| The email has a link but no six-digit code | The Magic Link template was not replaced (step 8, Option A, point 3). |
+| "The code is invalid or has expired" | Codes are single-use and short-lived; request a new one and use only the latest. |
+| "Too many requests" | Supabase Auth or the app's own rate limit. Wait a few minutes. Repeated test runs trigger it. |
+| Sign-in works but pages say "not found" | The signed-in user is not an enabled administrator. Re-check step 7.2. |
+| Certificate errors (`SELF_SIGNED_CERT_IN_CHAIN`, `unable to get local issuer certificate`) | Corporate TLS inspection. Export your organisation's root certificate to a `.pem` file, then in the same shell: `$env:NODE_EXTRA_CA_CERTS = "C:\path\root.pem"` (Node tools) and `$env:SSL_CERT_FILE = "C:\path\root.pem"` (the Supabase CLI). |
+| `db push` cannot connect | Use the **session pooler** string (step 4.1), URL-encode special characters in the password, and check your network allows outbound port 5432. |
+| Playwright: "browser has been closed" | Edge closed by policy; use `npx playwright install chromium` and run without `PLAYWRIGHT_CHROMIUM_CHANNEL=msedge`. |
+| Port 3000 in use | See the note in step 9. |
+
+---
+
+## 12. Housekeeping and safety
+
+- **Secrets:** never commit `.env.local`, paste keys or the database password into chat, tickets or screenshots, or put a secret in a `NEXT_PUBLIC_*` variable. If a secret leaks, rotate it in the Supabase dashboard (**Project Settings → Database / API Keys**).
+- **Use a disposable project for development.** Accounts, profiles and audit events cannot be deleted through the app by design. When you are finished, delete the Supabase project (or reset it) and revoke any access token you created.
+- **Use synthetic data** (fake names, test mailboxes) while developing.
+- **Stopping:** press `Ctrl+C` in the window running `npm run dev`.
+- **Later phases** (voting by residents, results, exports, retention, backups) are not implemented. Do not run a real vote with this build.
+
+For the design and requirements behind all of this, see `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/DATABASE.md`, `docs/API.md` and `supabase/README.md`.

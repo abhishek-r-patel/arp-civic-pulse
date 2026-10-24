@@ -32,6 +32,12 @@ const SAFE_REASONS = new Set([
   "REPRESENTATIVE_DELETED",
   "LAST_ADMIN",
   "DELETED_PROFILE",
+  // Lifecycle: the vote's current state or why an action did not apply.
+  "DEADLINE_PASSED",
+  "DRAFT",
+  "ACTIVE",
+  "COMPLETED",
+  "CANCELLED",
 ]);
 
 export function toApiError(failure: DatabaseFailure): ApiError {
@@ -49,6 +55,10 @@ export function toApiError(failure: DatabaseFailure): ApiError {
   }
   if (code === "42501") {
     return new ApiError("FORBIDDEN");
+  }
+  // A bounded lock wait or statement timeout is temporary, never a domain outcome.
+  if (code === "55P03" || code === "57014") {
+    return new ApiError("DEPENDENCY_UNAVAILABLE");
   }
   if (code === "23505") {
     return new ApiError("REGISTER_CONFLICT");

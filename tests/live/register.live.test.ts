@@ -5,6 +5,7 @@ import { loadEnabledAccount } from "@/server/authorization/account";
 import { callRoutine, type RegisterDeps } from "@/server/register/shared";
 import {
   createAccount,
+  getAccount,
   listAccounts,
   listAssignableAccounts,
   updateAccount,
@@ -108,9 +109,14 @@ describe.skipIf(!hasLive)("live: register administration", () => {
         updateAccount(deps, account.id, { status: "ENABLED" }),
       );
       expect(blocked.code).toBe("PROVISIONING_INCOMPLETE");
-      expect((await listAssignableAccounts(deps)).map((a) => a.id)).toContain(
-        account.id,
-      );
+      // Unassigned accounts are offered as representatives. The picker is capped and
+      // the project accumulates accounts, so check the fact itself, not list position.
+      const owned = await deps.client
+        .from("households")
+        .select("id")
+        .eq("representative_profile_id", account.id);
+      expect(owned.error).toBeNull();
+      expect(owned.data).toEqual([]);
 
       await createHousehold(deps, {
         identifier: `E-${unique()}`,
@@ -197,14 +203,10 @@ describe.skipIf(!hasLive)("live: register administration", () => {
       );
       expect(conflict.code).toBe("REGISTER_CONFLICT");
       expect(conflict.context).toEqual({ reason: "DUPLICATE_EMAIL" });
-      expect(
-        (
-          await listAccounts(
-            deps,
-            accountListQuerySchema.parse({ status: "ENABLED", limit: "100" }),
-          )
-        ).data.map((a) => a.id),
-      ).toContain(second.account.id);
+      // Read the account directly: a list ordered by id would let this fail as the project grows.
+      expect((await getAccount(deps, second.account.id)).status).toBe(
+        "ENABLED",
+      );
     });
 
     it("paginates with stable keyset cursors and enriches only the returned page", async () => {
@@ -318,9 +320,34 @@ describe.skipIf(!hasLive)("live: register administration", () => {
         );
       }
 
+      // Find the page holding our rows with big pages (the project accumulates
+      // households), then walk that neighbourhood one row at a time so a cursor
+      // lands on every identifier that contains filter syntax.
+      let start: string | undefined;
+      let probe: string | undefined;
+      let located = false;
+      for (let pageNumber = 0; pageNumber < 500 && !located; pageNumber += 1) {
+        const result = await listHouseholds(
+          deps,
+          householdListQuerySchema.parse({
+            limit: "100",
+            ...(probe && { cursor: probe }),
+          }),
+        );
+        if (result.data.some((household) => ids.includes(household.id))) {
+          start = probe;
+          located = true;
+        } else if (!result.page.nextCursor) {
+          break;
+        } else {
+          probe = result.page.nextCursor;
+        }
+      }
+      expect(located).toBe(true);
+
       const seen: string[] = [];
-      let cursor: string | undefined;
-      for (let pageNumber = 0; pageNumber < 200; pageNumber += 1) {
+      let cursor = start;
+      for (let pageNumber = 0; pageNumber < 400; pageNumber += 1) {
         const result = await listHouseholds(
           deps,
           householdListQuerySchema.parse({
@@ -329,7 +356,7 @@ describe.skipIf(!hasLive)("live: register administration", () => {
           }),
         );
         seen.push(...result.data.map((household) => household.id));
-        if (!result.page.nextCursor) {
+        if (!result.page.nextCursor || ids.every((id) => seen.includes(id))) {
           break;
         }
         cursor = result.page.nextCursor;
@@ -363,9 +390,15 @@ describe.skipIf(!hasLive)("live: register administration", () => {
       expect(notEligible.data.every((household) => !household.isEligible)).toBe(
         true,
       );
-      expect(notEligible.data.map((household) => household.id)).toContain(
-        created.id,
+      // Combine with the exact identifier so the check cannot fall off a capped page.
+      const mine = await listHouseholds(
+        deps,
+        householdListQuerySchema.parse({
+          isEligible: "false",
+          identifier: created.identifier,
+        }),
       );
+      expect(mine.data.map((household) => household.id)).toEqual([created.id]);
     });
   });
 

@@ -4,6 +4,7 @@ import type {
   ReactNode,
   Ref,
   SelectHTMLAttributes,
+  TextareaHTMLAttributes,
 } from "react";
 import { useId } from "react";
 import { cn } from "./cn";
@@ -172,6 +173,50 @@ type CheckboxFieldProps = Readonly<
     hint?: string;
   }
 >;
+
+type TextAreaFieldProps = Readonly<
+  FieldChrome &
+    Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "id" | "required"> & {
+      id?: string;
+    }
+>;
+
+export function TextAreaField({
+  id,
+  label,
+  hint,
+  error,
+  required = false,
+  className,
+  ...rest
+}: TextAreaFieldProps) {
+  const generated = useId();
+  const fieldId = id ?? generated;
+
+  return (
+    <Chrome
+      id={fieldId}
+      label={label}
+      hint={hint}
+      error={error}
+      required={required}
+    >
+      <textarea
+        id={fieldId}
+        required={required}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy(fieldId, hint, error)}
+        className={cn(
+          controlClasses,
+          "min-h-32 resize-y",
+          error ? "border-error" : "border-control-border",
+          className,
+        )}
+        {...rest}
+      />
+    </Chrome>
+  );
+}
 
 // A native checkbox in a 48px row; the label text is the accessible name.
 export function CheckboxField({

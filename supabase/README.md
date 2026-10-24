@@ -16,10 +16,18 @@ at start-up, and never uses the migration credentials.
 | `20261024100200_rls_and_grants`           | RLS on every table, safe read-only policies and grants, no write grants                                       |
 | `20261024100300_audit_settings_provisioning` | Audit append, deployment procedures (settings, approvals, retention, first admin), provisioning routines |
 | `20261024100400_rate_limiting`            | Supplemental application rate-limit routine                                                                   |
+| `20261024110000_register_administration`  | Guarded household and account maintenance routines (audited, last-administrator guard)                        |
+| `20261024120000_vote_drafts`              | Revision-checked draft routines, deferrable position uniqueness, preview, RWA display                          |
+| `20261024130000_activation_lifecycle`     | Activation freeze, early completion/cancellation, due completion, `cp_scheduler` role and the Cron job        |
+| `20261024130100_deferred_trigger_definer` | Deferred invariant triggers made `SECURITY DEFINER` (PostgreSQL 17/18 behave differently otherwise)           |
+| `20261024140000_cast_vote`                | `cast_vote` and `get_my_participation`; fixes the activation guard and preview blockers that looked at other votes |
 
 All objects are owned by `cp_owner` (non-login, no superuser, no BYPASSRLS, no access to the Supabase `auth`
 schema). `anon` and `authenticated` hold no write privileges; `service_role` can only execute the three
-server-only routines (`provision_profile`, `enable_profile`, `consume_rate_limit`).
+server-only routines (`provision_profile`, `enable_profile`, `consume_rate_limit`, `reconcile_vote`). The
+Cron job runs through the non-login `cp_scheduler` role, which can execute `public.complete_due_votes()` and nothing else.
+Scheduling needs the `pg_cron` extension (available on Supabase); where it is missing the migration skips scheduling
+and says so.
 
 ## Deployment procedures (run as the migration role, never exposed over the API)
 
@@ -47,15 +55,29 @@ credential or HTTP settings endpoint.
 Tests run against a **disposable** PostgreSQL server with a stand-in for Supabase's `auth` schema and API
 roles (`tests/integration/support`). Each test file creates and drops its own database.
 
+**Use PostgreSQL 17**, the major version Supabase runs (and `config.toml` targets). Version 18 behaves differently in
+ways that matter here: for example it fires *deferred* triggers as the role that queued them, while 17 fires them as
+the role current at commit. A suite that passes only on 18 can fail on Supabase.
+
+One-time setup of a throwaway 17 cluster (superuser `supabase_admin`, trust authentication, local only), then start it
+on port 54399 (start it as a background process; `pg_ctl -w` can hang a shell):
+
+```powershell
+$bin  = "C:\Users\<you>\Apps\Portable\postgresql-17.11-5\pgsql\bin"
+$data = "C:\Users\<you>\Apps\Portable\temp\cp-pgdata17"
+& "$bin\initdb.exe" -D $data -U supabase_admin -A trust -E UTF8
+& "$bin\postgres.exe" -D $data -p 54399 -c listen_addresses=127.0.0.1 -c max_connections=60
+```
+
 ```powershell
 $env:INTEGRATION_DATABASE_URL = "postgres://supabase_admin@127.0.0.1:54399/postgres"   # superuser URL of a throwaway server
 npm run test:integration
 ```
 
 Without `INTEGRATION_DATABASE_URL` the suites are skipped. Never point it at a shared, linked or production
-database. This proves the schema, RLS, grants, guards, routines and limiter. The suites were run on PostgreSQL
-18.6 while `config.toml` targets Supabase's PostgreSQL 17; re-run them against the real stack before release. It
-does **not** prove Supabase
+database. This proves the schema, RLS, grants, guards, routines and limiter; the suites pass on PostgreSQL 17.11. A bare
+local server has no `pg_cron`, so Cron scheduling is skipped there (the completion routine itself is tested directly);
+the scheduled job is verified on a hosted project. It does **not** prove Supabase
 Auth (code delivery, expiry, sessions, cookies); verify those against a real Supabase project or the local
 stack (`supabase start`, which needs Docker).
 

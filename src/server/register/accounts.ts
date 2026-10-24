@@ -149,12 +149,15 @@ export interface AssignableAccount {
   status: AccountStatus;
 }
 
-const MAX_ASSIGNABLE = 200;
+export const MAX_ASSIGNABLE = 200;
 
 /*
  * Accounts that can represent a household: not deleted and not already
- * representing one (plus the current representative when editing). Only these
- * few are enriched with an email so same-named residents can be told apart.
+ * representing one (plus the current representative when editing). The most
+ * recently created come first, which is the natural flow (create the account,
+ * then assign it), and the list is capped, so callers show a notice when it is
+ * full. Only these few are enriched with an email so same-named residents can
+ * be told apart.
  */
 export async function listAssignableAccounts(
   deps: RegisterDeps,
@@ -165,8 +168,8 @@ export async function listAssignableAccounts(
       .from("profiles")
       .select("id, representative_name, status")
       .neq("status", "DELETED")
-      .order("representative_name", { ascending: true })
-      .order("id", { ascending: true })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .limit(2000)
       .returns<{ id: string; representative_name: string; status: string }[]>(),
     deps.client
@@ -181,9 +184,21 @@ export async function listAssignableAccounts(
   const assigned = new Set(
     (households.data ?? []).map((row) => row.representative_profile_id),
   );
-  const options = (profiles.data ?? [])
-    .filter((row) => !assigned.has(row.id) || row.id === includeId)
-    .slice(0, MAX_ASSIGNABLE);
+  const candidates = (profiles.data ?? []).filter(
+    (row) => !assigned.has(row.id) || row.id === includeId,
+  );
+  // The current representative is always offered, even beyond the cap.
+  const current = candidates.find((row) => row.id === includeId);
+  const options = [
+    ...(current ? [current] : []),
+    ...candidates.filter((row) => row.id !== includeId),
+  ]
+    .slice(0, MAX_ASSIGNABLE)
+    .sort(
+      (left, right) =>
+        left.representative_name.localeCompare(right.representative_name) ||
+        left.id.localeCompare(right.id),
+    );
 
   const identities = await loadAuthIdentities(
     deps.admin,

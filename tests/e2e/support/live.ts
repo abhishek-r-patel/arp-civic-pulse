@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
-import { expect } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { Client } from "pg";
 
 /*
  * Helpers for the LIVE_AUTH browser specs. They talk to YOUR disposable hosted
@@ -59,4 +60,277 @@ export async function provisionAdmin(
   expect(enabled.error).toBeNull();
 
   return { id: id ?? "", email, code: await freshCode(email) };
+}
+
+// Stands in for the code request so no email is sent; verification afterwards is real.
+export async function stubCodeRequest(page: Page): Promise<void> {
+  await page.route("**/api/auth/code", (route) =>
+    route.fulfill({
+      status: 202,
+      contentType: "application/json; charset=utf-8",
+      body: JSON.stringify({
+        data: {
+          message:
+            "If this address can sign in, a code may arrive shortly. If it does not, wait before requesting another code or contact the administrator.",
+          resendAfterSeconds: 60,
+        },
+        requestId: "00000000-0000-4000-8000-000000000000",
+      }),
+    }),
+  );
+}
+
+export async function signInThroughUi(
+  page: Page,
+  email: string,
+  code: string,
+): Promise<void> {
+  await stubCodeRequest(page);
+  await page.goto("/sign-in");
+  await page.getByLabel(/Registered email address/).fill(email);
+  await page.getByRole("button", { name: "Send sign-in code" }).click();
+  await page.getByLabel(/Six-digit code/).fill(code);
+  await page.getByRole("button", { name: "Verify and sign in" }).click();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Votes" }),
+  ).toBeVisible();
+}
+
+/**
+ * An enabled resident with an eligible household, so a draft can select it.
+ * Synthetic data only; the disposable project is reset afterwards.
+ */
+export async function seedHousehold(): Promise<{
+  identifier: string;
+  name: string;
+  id: string;
+  email: string;
+  householdId: string;
+}> {
+  const client = admin();
+  const email = plusEmail();
+  const identifier = `E2E-${randomBytes(3).toString("hex").toUpperCase()}`;
+  const name = `Resident ${identifier}`;
+
+  const created = await client.auth.admin.createUser({
+    email,
+    email_confirm: true,
+  });
+  const id = created.data.user?.id;
+  expect(id, created.error?.message).toBeTruthy();
+
+  const provisioned = await client.rpc("provision_profile", {
+    p_auth_user_id: id,
+    p_representative_name: name,
+    p_is_admin: false,
+    p_actor_profile_id: null,
+  });
+  expect(provisioned.error).toBeNull();
+
+  const sql = new Client({
+    connectionString: process.env.LIVE_DATABASE_URL,
+    // TLS is used; verification is relaxed because this is a throwaway test project.
+    ssl: { rejectUnauthorized: false },
+  });
+  await sql.connect();
+  let householdId = "";
+  try {
+    const inserted = await sql.query<{ id: string }>(
+      `insert into public.households (identifier, identifier_normalized, representative_profile_id, is_eligible)
+       values ($1, app_private.normalize_key($1), $2, true) returning id`,
+      [identifier, id],
+    );
+    householdId = inserted.rows[0]?.id ?? "";
+  } finally {
+    await sql.end();
+  }
+
+  const enabled = await client.rpc("enable_profile", {
+    p_profile_id: id,
+    p_actor_profile_id: null,
+  });
+  expect(enabled.error).toBeNull();
+  return { identifier, name, id: id ?? "", email, householdId };
+}
+
+/**
+ * Runs one guarded routine exactly as a signed-in API request does (the
+ * authenticated role with that user's claims), committed on its own.
+ */
+export async function asUser<T>(
+  userId: string,
+  sql: string,
+  params: unknown[] = [],
+): Promise<T> {
+  const client = new Client({
+    connectionString: process.env.LIVE_DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+  });
+  await client.connect();
+  try {
+    await client.query("begin");
+    await client.query("set local role authenticated");
+    await client.query("select set_config('request.jwt.claims', $1, true)", [
+      JSON.stringify({ sub: userId, role: "authenticated" }),
+    ]);
+    const result = await client.query<{ r: T }>(`select ${sql} as r`, params);
+    await client.query("commit");
+    return result.rows[0]?.r as T;
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    await client.end();
+  }
+}
+
+/** Creates and ACTIVATES a vote whose electorate is the given households. */
+export async function activateVoteFor(
+  adminId: string,
+  householdIds: string[],
+  type: "OPEN" | "CLOSED" = "OPEN",
+  closesInMs = 3_600_000,
+): Promise<{
+  id: string;
+  options: { id: string; label: string }[];
+  offices: { id: string; candidates: { id: string }[] }[];
+}> {
+  await ensureFixturePolicy(adminId);
+  const draft = await asUser<{ id: string }>(
+    adminId,
+    "public.create_draft($1)",
+    [type],
+  );
+  const closesAt = new Date(Date.now() + closesInMs).toISOString();
+  const changes =
+    type === "OPEN"
+      ? {
+          title: "Submission API vote",
+          closesAt,
+          options: [
+            { label: "Yes", position: 1 },
+            { label: "No", position: 2 },
+          ],
+          eligibleHouseholdIds: householdIds,
+        }
+      : {
+          title: "Submission API election",
+          instructions: "One per office.",
+          closesAt,
+          offices: [
+            {
+              name: "Chair",
+              position: 1,
+              candidates: [
+                { name: "Asha", position: 1 },
+                { name: "Ravi", position: 2 },
+              ],
+            },
+          ],
+          eligibleHouseholdIds: householdIds,
+        };
+  await asUser(adminId, "public.update_draft($1, 1, $2::jsonb)", [
+    draft.id,
+    JSON.stringify(changes),
+  ]);
+  return asUser(adminId, "public.activate_vote($1, 2, true)", [draft.id]);
+}
+
+/**
+ * Records FIXTURE policy approvals and retention on the disposable project so
+ * activation can be exercised. These are not real approvals and must never be
+ * copied to a real deployment. Idempotent.
+ */
+export async function ensureFixturePolicy(adminId: string): Promise<void> {
+  const sql = new Client({
+    connectionString: process.env.LIVE_DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+  });
+  await sql.connect();
+  try {
+    const settings = await sql.query("select 1 from public.rwa_settings");
+    if (settings.rowCount === 0) {
+      await sql.query(
+        "select app_private.deployment_initialize_settings('Live RWA', 'Asia/Kolkata')",
+      );
+    }
+    for (const key of ["A1", "A2", "A3", "A4", "A5", "A6", "A7"]) {
+      const have = await sql.query(
+        "select 1 from public.rwa_settings where policy_approvals ? $1",
+        [key],
+      );
+      if (have.rowCount === 0) {
+        await sql.query(
+          "select app_private.deployment_record_policy_approval($1, 'fixture-v1', now(), $2, 'FIXTURE ONLY (disposable project)', 'APPROVED')",
+          [key, adminId],
+        );
+      }
+    }
+    await sql.query(
+      `update public.rwa_settings
+          set vote_retention_days = coalesce(vote_retention_days, 365),
+              audit_retention_days = coalesce(audit_retention_days, 365),
+              inactive_profile_retention_days = coalesce(inactive_profile_retention_days, 365),
+              rate_limit_retention_days = coalesce(rate_limit_retention_days, 30),
+              backup_retention_days = coalesce(backup_retention_days, 90)
+        where id = 1`,
+    );
+  } finally {
+    await sql.end();
+  }
+}
+
+export async function createDraftThroughUi(
+  page: Page,
+  type: "OPEN" | "CLOSED",
+): Promise<string> {
+  await page.goto("/admin/votes/new");
+  await page
+    .getByRole("radio", { name: new RegExp(`^${type} voting`) })
+    .check();
+  await page.getByRole("button", { name: "Create draft" }).click();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Untitled draft" }),
+  ).toBeVisible();
+  return new URL(page.url()).pathname;
+}
+
+export async function addOpenBallot(
+  page: Page,
+  question: string,
+): Promise<void> {
+  await page.getByLabel(/^Question/).fill(question);
+  await page.getByRole("button", { name: "Add option" }).click();
+  await page.getByLabel(/^Option 1/).fill("Yes");
+  await page.getByRole("button", { name: "Add option" }).click();
+  await page.getByLabel(/^Option 2/).fill("No");
+}
+
+export async function saveDraft(
+  page: Page,
+  expectedVersion: number,
+): Promise<void> {
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect(
+    page.getByText(`Draft saved as version ${expectedVersion}.`),
+  ).toBeVisible();
+}
+
+/** A saved OPEN draft that previews as ready (one eligible household, a deadline, two options). */
+export async function buildReadyOpenDraft(
+  page: Page,
+  adminId: string,
+  closesLocal = "2099-06-01T18:00",
+): Promise<string> {
+  await ensureFixturePolicy(adminId);
+  const household = await seedHousehold();
+  const editor = await createDraftThroughUi(page, "OPEN");
+  await addOpenBallot(page, "Lifecycle question");
+  await page.getByLabel("Find a household").fill(household.identifier);
+  await page
+    .getByRole("checkbox", { name: new RegExp(household.identifier) })
+    .check();
+  await page.getByLabel(/^Voting closes/).fill(closesLocal);
+  await saveDraft(page, 2);
+  return editor;
 }

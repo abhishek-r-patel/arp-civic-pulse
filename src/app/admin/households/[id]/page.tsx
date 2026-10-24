@@ -4,7 +4,10 @@ import { ChevronLeft } from "lucide-react";
 import { HouseholdForm } from "@/components/admin/household-form";
 import { PageHeader } from "@/components/ui/layout";
 import { ApiError } from "@/server/http/errors";
-import { listAssignableAccounts } from "@/server/register/accounts";
+import {
+  MAX_ASSIGNABLE,
+  listAssignableAccounts,
+} from "@/server/register/accounts";
 import { getHousehold } from "@/server/register/households";
 import { adminPageContext } from "@/server/register/page-context";
 import { idParamsSchema } from "@/shared/contracts/register";
@@ -51,6 +54,7 @@ export default async function EditHouseholdPage({
         csrfToken={deps.csrfToken}
         accounts={accounts}
         household={household}
+        limited={accounts.length >= MAX_ASSIGNABLE}
       />
     </div>
   );

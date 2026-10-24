@@ -35,6 +35,21 @@ export const AUTH_RATE_LIMITS = {
 
 export const DIGEST_KEY_VERSION = 1;
 
+// Member vote actions per signed-in profile (provisional; validate in the pilot).
+// Rate limiting is abuse protection only: duplicate prevention is the database's unique participation.
+export const VOTE_RATE_LIMITS = {
+  submissionByProfile: {
+    scope: "votes.submission.profile",
+    limit: 20,
+    windowSeconds: 60,
+  },
+  participationByProfile: {
+    scope: "votes.participation.profile",
+    limit: 60,
+    windowSeconds: 60,
+  },
+} as const satisfies Record<string, RateLimitPolicy>;
+
 export type SubjectKind = "email" | "ip" | "profile";
 
 let ephemeralKey: Buffer | undefined;

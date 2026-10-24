@@ -20,6 +20,8 @@ type HouseholdFormProps = Readonly<{
   csrfToken: string | undefined;
   accounts: readonly AssignableAccount[];
   household?: HouseholdProjection;
+  /** True when the account list was capped, so some accounts are not shown. */
+  limited?: boolean;
 }>;
 
 // Machine-readable conflict reasons point at the field the person can fix.
@@ -63,6 +65,7 @@ export function HouseholdForm({
   csrfToken,
   accounts,
   household,
+  limited = false,
 }: HouseholdFormProps) {
   const router = useRouter();
   const editing = household !== undefined;
@@ -170,6 +173,16 @@ export function HouseholdForm({
           representativeAccountId: "Representative",
         }}
       />
+
+      {limited ? (
+        <Notice tone="warning" heading="The account list is not complete">
+          <p>
+            Only the {accounts.length} most recently created accounts without a
+            household are listed. If the account you need is missing, assign the
+            older accounts first.
+          </p>
+        </Notice>
+      ) : null}
 
       <TextField
         id="identifier"
