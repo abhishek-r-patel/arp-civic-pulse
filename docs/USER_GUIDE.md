@@ -4,7 +4,14 @@ This guide shows how to use the implemented Civic Pulse application. Residents c
 
 **Important:** These are demonstration screens from an isolated test environment, not a live RWA. Production launch is still awaiting the controls and approvals in the [launch audit](./LAUNCH_AUDIT.md). Obtain the real application address and support contact from your RWA; do not use a developer's test address.
 
-Printable/offline copy: [USER_GUIDE.html](./USER_GUIDE.html). Open that file in a browser and choose Print / Save as PDF. Developers: [technical guide](./TECHNICAL_GUIDE.md).
+Open **User Guide** in the application footer to read this illustrated guide
+without signing in. It opens at `/user-guide.html`; use Contents to jump to a
+topic and **Back to Civic Pulse** to return. The web copy includes the screenshots
+and supports browser Print / Save as PDF. Repository-only supporting-document
+links are not active in the web copy; the technical guide is not published by the
+application.
+
+Printable/offline repository copy: [USER_GUIDE.html](./USER_GUIDE.html). Open that file in a browser and choose Print / Save as PDF. Developers: [technical guide](./TECHNICAL_GUIDE.md).
 
 ## 1. Start here
 
@@ -17,11 +24,28 @@ You need:
 
 There is **no public signup** and no application password. Ask your RWA administrator to correct your register entry if necessary. Never share your emailed code.
 
+The footer links, in order, to **Sign In**, **User Guide**, **Privacy Policy** and
+**Contact**. The guide and information pages do not require sign-in.
+When online contact is enabled, supply your name, reply email and a short message;
+never include selections, codes, passwords or identity documents. **Message
+accepted** confirms the mail service accepted the enquiry, not that it reached
+the administrator's inbox. If delivery cannot be confirmed, keep your text and
+wait before retrying, or use your RWA's usual support channel. If online contact
+is not available, the page says so rather than presenting a non-working form.
+Where configured, optional Google Analytics is off by default and can be allowed
+or withdrawn using the checkbox on privacy/contact pages. It does not track
+sign-in or voting screens.
+
 ![Who does what, from administrator setup to resident results](./images/user-guide/overview.svg)
 
 ### How to read these pictures
 
 The 47 screenshots show the principal resident and administrator journeys, plus representative validation, privacy, access and recovery states. Resident screens use a narrow phone viewport; most administration screens use a desktop viewport. The same application adapts to the device.
+
+These screenshots predate the public privacy/contact pages, breadcrumbs and
+information footer. The current support and optional-analytics behavior is
+described in section 1; those additions are not illustrated by these older
+screenshots. Do not treat the images as proof of contact-email delivery.
 
 Names, addresses, votes, household labels and counts are synthetic. Gray rectangles deliberately hide email addresses and sign-in codes. Some lists contain accumulated test records: a count such as “715 eligible” is **not** the size of your RWA, a product limit or a performance guarantee. Dates/time zones are examples; always read the actual vote's displayed deadline.
 

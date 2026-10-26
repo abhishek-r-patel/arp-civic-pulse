@@ -1,3 +1,5 @@
+// Protected participation overview without disclosure of active choice totals.
+import { privateRecordMetadata } from "@/shared/metadata";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
@@ -19,7 +21,11 @@ import { participationQuerySchema } from "@/shared/contracts/admin-votes";
 import { idParamsSchema } from "@/shared/contracts/register";
 import { percentage } from "@/shared/validation/numbers";
 
-export const metadata = { title: "Participation" };
+export const generateMetadata = privateRecordMetadata(
+  "Participation",
+  "Review household participation without revealing active voting choices.",
+  "/admin/votes/[id]/participation",
+);
 
 type Row = ParticipationReport["rows"][number];
 

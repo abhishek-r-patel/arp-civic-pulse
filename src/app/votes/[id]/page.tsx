@@ -1,3 +1,5 @@
+// Protected resident ballot and participation state.
+import { privateRecordMetadata } from "@/shared/metadata";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Clock } from "lucide-react";
@@ -18,7 +20,11 @@ import { getMemberVote } from "@/server/votes/member";
 import { idParamsSchema } from "@/shared/contracts/register";
 import { formatInZone } from "@/shared/time/zoned";
 
-export const metadata = { title: "Vote" };
+export const generateMetadata = privateRecordMetadata(
+  "Vote",
+  "Review and submit your household's eligible response to an association poll or election.",
+  "/votes/[id]",
+);
 
 export default async function MemberVotePage({
   params,

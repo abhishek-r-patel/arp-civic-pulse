@@ -116,6 +116,48 @@ docs\
 
 Keep Supabase user-session and privileged provisioning clients separate. Do not introduce a second frontend/backend package or speculative abstraction layers.
 
+### Public discovery and contact additions
+
+The crawlable public surface is `/sign-in`, `/privacy` and `/contact`. These
+pages use server rendering through the session-aware shell, not a client-only
+SPA. Private routes inherit `noindex, nofollow`; robots and sitemap are not
+authorization. Do not include register, ballot or results URLs in discovery.
+
+| File | Responsibility |
+|---|---|
+| `src/shared/metadata.ts` | Public route allowlist, canonical/social metadata and private record titles/canonicals; no-index defaults |
+| `src/app/robots.ts`, `src/app/sitemap.ts` | Public discovery, derived from the allowlist |
+| `src/app/opengraph-image.tsx` | Public 1200 by 630 PNG share artwork, without resident information |
+| `src/app/icon.svg` | Selected F/Open Conversation favicon; Next.js automatically emits the app icon link and serves the scalable SVG at `/icon.svg` |
+| `src/app/privacy/page.tsx`, `src/app/contact/page.tsx` | Public privacy notice and support entry point |
+| `src/components/ui/public-structured-data.tsx` | Escaped Organization and public BreadcrumbList JSON-LD |
+| `src/components/ui/breadcrumbs.tsx` | Contextual navigation using generic record labels |
+| `src/components/ui/public-analytics.tsx` | Optional, opt-in GA4 on privacy/contact only; sanitized path-based views |
+| `src/components/access/contact-form.tsx` | Accessible support form, validation and uncertain-send recovery |
+| `src/shared/contracts/contact.ts` | Strict, bounded support payload |
+| `src/app/api/contact/route.ts`, `src/server/contact.ts` | CSRF-protected, rate-limited Resend delivery; never an OTP or voting dependency |
+| `tests/unit/metadata.test.ts`, `tests/unit/contact.test.ts` | Discovery policy, contact protections and controlled transport tests |
+| `public/user-guide.html` | Generated, no-index public user help with embedded synthetic screenshots and no repository-only links; linked from the app footer |
+
+`scripts/docs/render.mjs` generates the web user guide alongside the existing
+offline guides. `predev` and `prebuild` run it automatically. The web guide is a
+standalone static HTML document with no application scripts or analytics, a
+return-to-app link, working contents anchors and lazy-decoded screenshots.
+It uses the same `/icon.svg` favicon as app pages; offline editions do not add
+that server-relative dependency.
+It does not expose the technical guide, source tree or a generic documentation
+file endpoint, and it is deliberately excluded from the crawlable sitemap.
+
+Public information links across the authentication boundary intentionally use
+full document navigation: removing Next.js Script from JSX does not unload a
+previously executed tracker. Never replace those boundary anchors with SPA
+navigation without preserving isolation. GA4 enhanced measurement must also be
+disabled in the property. No form payloads, URL queries, referrers, account names
+or voting events are sent. Analytics is disabled by default and consent can be
+withdrawn. Contact messages are emailed, not stored in application tables;
+rate-limit buckets retain only HMAC subjects. See deployment for activation and
+the remaining identity/retention/provider approvals.
+
 ## 05 Data Model and Database Permissions
 Use stable identifiers, foreign keys, nonnegative counter constraints, explicit state checks and UTC `timestamptz` values. Store the RWA's IANA timezone for input/display.
 

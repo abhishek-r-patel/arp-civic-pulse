@@ -1,3 +1,4 @@
+// Protected administrator account directory.
 import Link from "next/link";
 import { UserPlus } from "lucide-react";
 import {
@@ -18,7 +19,12 @@ import { adminPageContext } from "@/server/register/page-context";
 import { accountListQuerySchema } from "@/shared/contracts/admin-votes";
 import type { AccountProjection } from "@/shared/contracts/register";
 
-export const metadata = { title: "Accounts" };
+export const metadata = {
+  title: "Accounts",
+  description:
+    "Administer registered member accounts and current access to Civic Pulse.",
+  alternates: { canonical: "/admin/accounts" },
+};
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 

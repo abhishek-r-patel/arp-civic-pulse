@@ -6,6 +6,18 @@ Legend: ✅ proven here by an automated check you can re-run · 🟡 partly prov
 
 ## 1. Automated regression and security evidence
 
+The table below includes historical runs, not a claim that every suite passes
+against the currently configured services. In the **26 October 2026 public-launch
+change run**, build/lint/typecheck, 374 unit tests, four documentation-renderer
+tests and 21 configured Chromium public/foundation tests passed. The existing
+health test returned **503**, so it was explicitly excluded from that final
+21-test run, not reclassified as a pass. Live authenticated/database checks were
+not rerun. Contact and Google provider traffic was controlled with synthetic
+settings; real contact inbox receipt, GA4 collection and Search Console ownership
+were not verified. All five external-integration settings were absent locally at
+that check. See the [dated audit](./LAUNCH_AUDIT.md#public-site-checklist-26-october-2026)
+for exact scope; the Firefox/WebKit counts below predate the public additions.
+
 | Gate (plan task)                                         | State | Evidence and how to re-run                                                                                                                                                                                                 |
 | -------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Locked dependency restore, format, strict types, lint    | ✅     | `npm ci`, `npm run format:check`, `npm run typecheck`, `npm run lint`. Dependencies are pinned to exact versions with a lockfile.                                                                                          |
@@ -60,7 +72,7 @@ What this does **not** show: behaviour on the real hosting plan, from phones on 
 
 ## 3. Open gates: people, devices, approvals, environments
 
-None of these can be completed by code. Record the evidence (date, who, result) next to each.
+These gates require external evidence or approval; some also require unresolved code changes. Record the evidence (date, who, result) next to each. A documentation update does not close a gate.
 
 **Security release blocker:** production ingress is undecided and trusted-client-IP rate limiting is not implemented. The email-only budgets can be bypassed by rotating addresses. Do not release until the selected proxy's client-IP guarantees, direct-origin restrictions, limiter implementation and spoofing/burst tests are complete. Merely setting `TRUSTED_PROXY_CONFIG` does not enable this control.
 
@@ -79,6 +91,7 @@ Operational remote database connections now require verified TLS, and backup man
 | 9   | Deployment through staging to production on the approved plan; smoke test with synthetic data; migrations applied outside any active vote                                               | ⬜     |
 | 10  | Load test repeated on the real plan                                                                                                                                                   | ⬜     |
 | 11  | Key and credential hygiene: the database password that was shown in a chat earlier and the CLI access token must be rotated or deleted; the disposable project reset or deleted        | ⬜     |
+| 12 | Public launch: approve legal operator/contact details, exact privacy/retention/provider terms and canonical domain; configure contact sender/recipient/Resend and prove real inbox receipt. If enabling GA4/Search Console, approve the integrations, verify consent/isolation and disable Enhanced Measurement, complete property verification and submit the public sitemap. | ⬜ |
 
 ## 4. Pilot evaluation (after the gates above, with real residents)
 
@@ -97,10 +110,16 @@ No adoption or budget target excuses an integrity or privacy failure. A lost, du
 
 ## 5. Running the HTTP load test
 
-A production server insists on an HTTPS origin, so put a TLS front in front of `next start`:
+A production server insists on an HTTPS **non-loopback** origin, so use an approved
+isolated staging hostname and TLS front in front of `next start`. The earlier
+`https://127.0.0.1:3100` recipe is rejected by current production validation; do
+not weaken that guard. Provision the hostname/certificate and set both
+`APP_ORIGIN` and `LOAD_ORIGIN` to its exact origin at build/runtime before using
+the historical test topology below; it is not a currently validated runnable
+deployment recipe.
 
-1. `npm run build`, then start `next start --hostname 127.0.0.1 --port 3101` with `APP_ORIGIN=https://127.0.0.1:3100` and the Supabase variables (and the corporate CA variables if your network inspects TLS).
-2. Run any TLS terminator on port 3100 that forwards to 3101 with a self-signed certificate (the test ignores certificate errors for this local address).
-3. `LOAD_LIVE=1 LOAD_ORIGIN=https://127.0.0.1:3100 npx playwright test -c playwright.load.config.ts`
+1. With the approved staging origin and isolated Supabase settings injected, run `npm run build`, then `next start --hostname 127.0.0.1 --port 3101` behind the approved HTTPS front.
+2. Verify the front's hostname, certificate and forwarding rules. Use approved CA configuration where required; ignore-certificate test flags do not prove trusted production TLS.
+3. With `LOAD_LIVE=1` and `LOAD_ORIGIN` set to that same approved origin, run `npx playwright test -c playwright.load.config.ts`. Validate this host-specific recipe before recording new results.
 
 Hosted Auth allows only a limited number of token verifications per IP per few minutes: if sign-in answers 429, wait about five minutes.

@@ -75,3 +75,113 @@ Close H1-H7 with evidence, resolve M1 for full requirement conformance, harden t
 Pilot adoption targets such as turnout and first-attempt login success are measured after an approved pilot; they are not incorrectly treated here as prerequisites to starting that pilot.
 
 Audit-owned local database and browser servers were stopped after testing. Synthetic fixture records in the disposable hosted project are deliberately not deleted by an unapproved project reset.
+
+## Public site checklist: 26 October 2026
+
+This follow-up adds the requested public launch surface. It does **not** close
+the production blockers above, deploy the service or verify provider ownership.
+The home route remains the protected resident dashboard, not a marketing page.
+
+| # | Requested control | Implementation and evidence boundary |
+|---|---|---|
+| 1 | SSR or static public pages | Sign-in, privacy and contact render their content and metadata on the server. The session-aware shell makes these dynamic SSR pages; robots, sitemap and share artwork can be generated statically. |
+| 2 | robots.txt | Added explicit public-route allowances and application-route exclusions. Not access control. |
+| 3 | sitemap.xml | Added only `/sign-in`, `/privacy`, `/contact`, based on canonical `APP_ORIGIN`. No resident or administrator record URLs. |
+| 4 | Unique title | Distinct route titles; private detail titles include validated record references, not personal data or choices. Redirect-only `/admin` does not render a page. |
+| 5 | Meta description | Every rendered page template has a description, including the custom 404. Private pages remain no-indexed. |
+| 6 | One H1 | Public rendered pages checked for exactly one H1; existing private templates use the shared PageHeader or alternate error/ballot state. Live authenticated heading checks were not rerun without a healthy database. |
+| 7 | Canonical tags | Exact public/static-private URLs and validated private record URLs. Query filters are excluded. Unknown/invalid URLs and the 404 are deliberately not canonicalized. |
+| 8 | Open Graph image/tags | Per-public-page OG/Twitter metadata and a generated 1200 by 630 PNG share card. Dimensions, actual PNG response and public alt metadata tested. |
+| 9 | Custom 404 | Existing custom 404 retained, with title/description and sign-in/contact recovery links. Actual HTTP 404 checked. |
+| 10 | 301 for changed URLs | No URLs were renamed; no speculative redirects added. Historical deployment/domain-alias inventory remains an operator task. See deployment for 301 versus Next.js 308 behavior. |
+| 11 | Image alt | No in-app content images currently exist. The share image has descriptive alt metadata. Browser checks reject missing alt attributes. |
+| 12 | WebP | No content raster images exist to convert. Share artwork intentionally uses PNG for social-crawler compatibility. Use Next.js Image WebP/AVIF negotiation for future content images, not cosmetic conversion of documentation screenshots. |
+| 13 | Lazy loading | No below-fold content images exist. Future content images must use the default lazy behavior; do not defer the above-fold primary image. |
+| 14 | Organization JSON-LD | Added escaped public Organization schema using the service name, without invented legal identity/address. Actual operator identity still needs approval. |
+| 15 | Breadcrumbs | Added visible contextual navigation and public BreadcrumbList JSON-LD. Private crumbs use generic record labels and correct member list links. |
+| 16 | Related internal links | Footer and public-page links connect sign-in/privacy/contact. Full document links intentionally isolate information-page analytics from auth/voting. |
+| 17 | Google Analytics | Optional GA4, consent off by default, only privacy/contact manual path views, no query/referrer/form content. Controlled script, consent withdrawal and sign-in isolation checked. Real stream ID, Enhanced Measurement disablement and production receipt remain unconfigured/unverified. |
+| 18 | Search Console | Optional `GOOGLE_SITE_VERIFICATION` emits the HTML tag. Real token, Google ownership verification and sitemap submission remain unconfigured/unverified. |
+| 19 | Privacy policy | Added public notice explaining OPEN/CLOSED data, cookies, analytics, support mail and privacy limits. Legal operator details, approved regions and exact retention remain deployment approval gates, not fabricated policy terms. |
+| 20 | Sending contact form | Added real Resend transport behind Origin/CSRF checks, strict validation, shared email/global budgets, timeout and honest provider-acceptance state. Controlled route/transport and browser failure/recovery tests pass. All three mail settings are absent locally, so real acceptance and inbox receipt were **not tested**; sending stays disabled until configured. |
+
+### Follow-up verification
+
+- New unit coverage: metadata/canonical policy and 16 contact route/transport cases,
+	including CSRF/origin, validation, limiter exhaustion/outage, missing settings,
+	provider errors, malformed acceptance, network failures and unsupported methods.
+- Chromium public checks cover SSR HTML, one H1, unique metadata, canonicals,
+	robots/sitemap, schema, actual share-image bytes, footer navigation, mobile/desktop
+	reflow and axe. Configured contact failure/success and analytics consent/isolation
+	were exercised with synthetic settings and intercepted providers, never real email
+	or analytics collection.
+- The initial full foundation browser run had **20 passed, 1 failed**: the existing
+	database health assertion expected 200 but the database probe returned 503.
+	Do not reinterpret dependency unavailability as a passing readiness check.
+- The header audit finds **91 pre-existing source files** without a purpose header.
+	Touched/new source files have headers; unrelated source files were not rewritten.
+- Final gates: **374 unit tests passed** in 21 files; **21 Chromium foundation
+	tests passed** with synthetic contact/Google settings and the known failing
+	database-health case explicitly excluded. The initial full-run health failure
+	above remains open, not waived. The final typography adjustment separately
+	passed both configured mobile/desktop reflow and axe checks.
+- `npm run build`, `npm run lint`, `npm run typecheck`, `git diff --check` and
+	all **4 documentation-renderer tests** passed. The build confirms public pages
+	use SSR and robots/sitemap/share artwork are statically generated. Updated
+	Markdown guides were regenerated into their existing offline HTML copies.
+- Mobile contact and desktop privacy screenshots were inspected. Real-device/
+	manual accessibility, authenticated live checks and real external provider
+	verification remain outside this local evidence. The API access sweep's public
+	inventory includes contact; the live sweep itself was not rerun.
+
+Activation instructions and required settings are in
+[Deployment](./DEPLOYMENT.md#public-site-integrations); endpoint behavior is in
+[API](./API.md#public-contact-endpoint).
+
+### Documentation consistency follow-up
+
+On 26 October 2026, the documentation review checked all Markdown files under
+`docs/`, README and the root instructions against these public launch changes.
+Missing follow-ups were added to the PRD, design system, database notes,
+implementation plan, local setup, operations, readiness register and technical/
+user guides. The existing API, architecture, deployment and 20-item audit remain
+the detailed implementation and activation references. Both offline HTML guides
+were regenerated; older screenshots are explicitly labelled as predating the
+public footer/pages instead of being presented as current delivery evidence.
+
+The scaffold-era agent instructions and implementation-plan status were
+corrected. The invalid loopback production-origin recipe is now identified as
+historical and requires an approved non-loopback staging origin. These changes
+resolve those documentation-drift descriptions in original finding L1; they do
+not validate a new hosted load-test run or close any security/provider gate.
+
+Root [AGENTS.md](../AGENTS.md#keep-documentation-in-sync) now requires automatic,
+same-turn updates of affected docs, file/route/configuration inventories, source
+comments and existing HTML guides for future repository changes. This follow-up
+is documentation-only: four renderer tests passed, guide generation checked its
+local links/assets, and a repository-wide check resolved all 223 local links and
+Markdown anchors across 16 Markdown documents. Application build/lint results
+above belong to the preceding code-change run, not a new application test run
+for these documentation edits. No production approvals or live integration
+results were changed.
+
+### Footer user guide follow-up
+
+The shared Information footer now links to `/user-guide.html` in the same tab.
+The documentation generator publishes `public/user-guide.html` from the existing
+user-guide Markdown and embedded synthetic screenshots. `predev` and `prebuild`
+regenerate it automatically along with the offline HTML guides. The web edition
+keeps Contents/print support and provides **Back to Civic Pulse**; repository-only
+links are non-clickable. It contains no scripts/analytics, uses lazy screenshot
+loading and is no-indexed/excluded from the sitemap. The technical guide is not
+published. This footer-only change did not recapture or alter source screenshots.
+
+Actual focused verification: six renderer tests, a Chromium footer-to-guide
+journey (Contents anchors, loaded screenshots, return navigation, one H1,
+mobile/desktop reflow and axe), production build and lint passed. The first
+browser attempt was blocked by the preview dev-server lock; after stopping the
+agent-owned preview, the same focused test passed. These checks do not rerun or
+close the existing database-health/provider/production-readiness gates.
+The subsequent foundation rerun passed all 22 selected Chromium tests, with the
+previously unavailable database-health case explicitly excluded, not marked as
+passing. Editor diagnostics and `git diff --check` also passed.

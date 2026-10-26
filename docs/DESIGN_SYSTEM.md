@@ -3,6 +3,14 @@
 ## 01 Brand Identity
 Trustworthy, modern, calm, clear, inclusive.
 
+The chosen favicon is concept F, **Open Conversation**: a white conversation
+bubble and teal checkmark on an Accent-teal rounded square. Its scalable source
+is `src/app/icon.svg`; Next.js publishes it automatically for app pages, and the
+public user guide references the same `/icon.svg`. It is a brand mark, not a
+ballot-acceptance indicator. Do not replace it with another concept without a
+new design decision. No illustrated workflow or source screenshot changes are
+required for this browser-tab icon.
+
 Civic Pulse should feel like a well-run community notice board: confident but never flashy. Screens use generous whitespace, one clear action per screen, and plain language aimed at non-technical and older residents.
 
 This document is the visual and UX specification for [PRD.md](./PRD.md), implemented through the Supabase and Tailwind direction in [ARCHITECTURE.md](./ARCHITECTURE.md). It describes target behavior, not a claim that every component already exists.
@@ -183,6 +191,25 @@ Use Lucide React. Line icons only, 1.5px stroke. Always label icons with text un
 | Household register | Household, representative, email and eligibility; add/edit/suspend feedback and frozen-electorate explanation |
 | Lifecycle confirmation | Action-specific consequences; required reasons for early completion/cancellation |
 | Audit history | Readable actor/action/record/time/reason with pagination; no codes or CLOSED selections |
+| Privacy policy | Public, one H1 and logical section headings; explain OPEN/CLOSED handling, cookies, support mail, optional analytics and deployment-specific policy limits |
+| Contact | Public, labelled name/reply-email/message fields when configured; warning against sending choices/codes; clear unavailable, validation, pending, uncertain and provider-accepted states |
+
+The shared shell provides contextual breadcrumbs and footer links in this order:
+**Sign In**, **User Guide**, **Privacy Policy**, **Contact**. Footer labels and
+the credit use title case. **Civic Pulse By Abhishek Patel** sits outside the
+navigation: it is centered on its own row below the tablet breakpoint, and
+right-aligned beside the links at tablet/desktop widths. Links wrap without
+overlap; a stacked credit is never right-aligned. The guide opens in the same tab,
+with working Contents links and **Back to Civic Pulse** navigation. It retains
+its existing offline/print layout and screenshots; this footer-only addition
+does not require screenshot recapture. Breadcrumb record labels are generic, not resident data.
+Public-to-auth navigation intentionally loads a new document to prevent an
+executed tracker surviving into sign-in/voting. Optional public-page analytics
+uses an unchecked-by-default checkbox and supports withdrawal; it is not a
+prerequisite for contacting the administrator. Contact success is a polite
+status announcement, not an additional page heading. Preserve exactly one H1.
+Public pages use the same Tailwind tokens, including `text-section` and
+`md:text-section-lg`, not an independent design system.
 
 - Results never show active totals. CLOSED results contain aggregates only; OPEN named responses appear only after completion to authorised viewers.
 - Show denominator labels next to percentages. Keep abstention separate from candidates; zero denominators are not applicable rather than invalid arithmetic.

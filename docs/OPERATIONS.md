@@ -20,6 +20,8 @@ npm run ops -- <command> [options]      # = node --env-file-if-exists=.env.local
 | `MAINTENANCE_MODE=1`                    | the app                | Pages show a maintenance notice (HTTP 503), every API route answers 503, and `/api/internal/health` reports `unavailable`.                                                                |
 | `PDF_EXPORT_ENABLED=0`                  | the app                | Switches the PDF download off (the control disappears; the endpoint answers `EXPORT_FORMAT_UNAVAILABLE`). On by default.                                                                  |
 | `PG_BIN_DIR`                            | backup tools           | Folder holding `pg_dump`/`pg_restore` (PostgreSQL 17 client tools, matching Supabase). Optional if they are on `PATH`.                                                                     |
+| `RESEND_API_KEY`, `CONTACT_EMAIL_FROM`, `CONTACT_EMAIL_TO` | contact route | Optional server-only support-mail settings; set all three together. Separate from Supabase OTP SMTP. Restore from the secret/configuration store, not a database backup. |
+| `GOOGLE_ANALYTICS_ID`, `GOOGLE_SITE_VERIFICATION` | public pages | Optional public identifiers. GA4 is consent-gated on privacy/contact only; verification is not proof of Google property ownership. Set at build/runtime and rebuild after changes. |
 
 ## 2. Monitoring
 
@@ -37,6 +39,29 @@ npm run ops -- <command> [options]      # = node --env-file-if-exists=.env.local
 The probe aborts its outstanding database HTTP request after three seconds and clears its timer when the check finishes. Failures are reported through allowlisted operational logging without provider messages or credentials; the public response remains only a status and support ID.
 
 Run `status` and the health check from a scheduler you control (Windows Task Scheduler, cron, or a monitoring service) and alert on a non-zero exit. **Manual: no scheduler is configured by this repository.**
+
+### Public contact and discovery checks (manual)
+
+The health probe checks the database, **not** Resend, inbox receipt, Google
+collection/ownership or policy approval. Periodically check the public privacy
+and contact pages, the footer's `/user-guide.html` link and its embedded images,
+canonical `APP_ORIGIN`, robots/sitemap and the share image on
+the approved deployment. Do not add private record URLs to crawler checks.
+
+When contact is enabled, verify a synthetic enquiry reaches the approved test
+inbox and Reply-To works; a `202` only proves provider acceptance. Watch provider
+rejections, quotas, spam handling and the shared email/global budgets without
+capturing messages or addresses in application logs. A send timeout is uncertain:
+do not retry automatically. A contact outage does not invalidate an accepted
+ballot and must not introduce a provider dependency into vote acceptance.
+
+If Google settings are enabled, check consent refusal/withdrawal and a fresh
+sign-in document without tracking, and keep Enhanced Measurement/advertising
+disabled in GA4. Treat analytics, Search Console, mailbox retention and legal
+operator details as external configuration requiring named owners. No provider
+alerts or delivery webhooks are implemented by this manual checklist. Activation
+and actual delivery evidence are in
+[Deployment](./DEPLOYMENT.md#public-site-integrations).
 
 ## 3. Retention (automatic)
 
@@ -110,8 +135,9 @@ Run it on a schedule you choose (daily is typical) from a machine that is not th
 
 ### 4.3 What a backup does not contain (recover these separately)
 
-- **Secrets and keys:** the Supabase service-role key, `RATE_LIMIT_HMAC_KEY`, `BACKUP_ENCRYPTION_KEY`. Recover from the secret store.
+- **Secrets and keys:** the Supabase service-role key, `RATE_LIMIT_HMAC_KEY`, `BACKUP_ENCRYPTION_KEY` and optional `RESEND_API_KEY`. Recover from the secret store.
 - **External configuration:** the Auth settings (disabled signup, six-digit code, expiry), the custom SMTP provider and its templates, allowed redirect URLs, and any Cron job outside the database. Keep these in your configuration notes; the checklist in docs/LOCAL_SETUP.md section 4.2 and 8 lists them.
+- **Public integrations:** contact sender/recipient, verified domain/DNS, Resend access and mailbox retention; Google identifiers/property settings, disabled Enhanced Measurement, consent behavior and Search Console verification. Recover from approved configuration notes and recheck after deployment; database restore does not restore them.
 - **The application itself:** redeploy the reviewed build; never use a database restore as an application rollback.
 
 ## 5. Restore rehearsal and real restore

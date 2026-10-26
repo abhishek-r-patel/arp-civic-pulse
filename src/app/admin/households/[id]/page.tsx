@@ -1,3 +1,5 @@
+// Protected household maintenance preserving historical voting entitlements.
+import { privateRecordMetadata } from "@/shared/metadata";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
@@ -12,7 +14,11 @@ import { getHousehold } from "@/server/register/households";
 import { adminPageContext } from "@/server/register/page-context";
 import { idParamsSchema } from "@/shared/contracts/register";
 
-export const metadata = { title: "Edit household" };
+export const generateMetadata = privateRecordMetadata(
+  "Edit household",
+  "Update current household details without rewriting historical voting assignments.",
+  "/admin/households/[id]",
+);
 
 export default async function EditHouseholdPage({
   params,

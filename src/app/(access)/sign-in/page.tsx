@@ -1,4 +1,7 @@
+// Server-rendered registered-member entry with public discovery metadata.
 import { redirect } from "next/navigation";
+import { publicMetadata } from "@/shared/metadata";
+import { PublicStructuredData } from "@/components/ui/public-structured-data";
 import { SignInForm } from "@/components/access/sign-in-form";
 import { SignOutButton } from "@/components/access/sign-out-button";
 import { PageHeader } from "@/components/ui/layout";
@@ -6,7 +9,7 @@ import { Notice } from "@/components/ui/notice";
 import { getSessionState } from "@/server/authorization/account";
 import { getCsrfToken } from "@/server/http/csrf-cookie";
 
-export const metadata = { title: "Sign in" };
+export const metadata = publicMetadata("/sign-in");
 
 export default async function SignInPage() {
   const session = await getSessionState();
@@ -17,6 +20,7 @@ export default async function SignInPage() {
 
   return (
     <div className="mx-auto grid w-full max-w-ballot gap-8">
+      <PublicStructuredData path="/sign-in" />
       <PageHeader
         title="Sign in"
         description="Civic Pulse is for registered members of your Resident Welfare Association. There is no public sign-up. If you cannot sign in, contact your RWA administrator."

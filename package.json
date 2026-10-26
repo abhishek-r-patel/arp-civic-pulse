@@ -9,7 +9,9 @@
     "npm": ">=10"
   },
   "scripts": {
+    "predev": "node scripts/docs/render.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/docs/render.mjs",
     "build": "next build",
     "start": "next start",
     "deploy:check": "node --conditions=react-server scripts/deploy/check.ts",

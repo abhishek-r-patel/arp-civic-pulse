@@ -1,10 +1,15 @@
+// Protected workflow for provisioning a registered account.
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { AccountCreateForm } from "@/components/admin/account-forms";
 import { PageHeader } from "@/components/ui/layout";
 import { adminPageContext } from "@/server/register/page-context";
 
-export const metadata = { title: "Add account" };
+export const metadata = {
+  title: "Add account",
+  description: "Provision a registered member account for your association.",
+  alternates: { canonical: "/admin/accounts/new" },
+};
 
 export default async function NewAccountPage() {
   const deps = await adminPageContext();

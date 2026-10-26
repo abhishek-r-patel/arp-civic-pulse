@@ -2,7 +2,25 @@
 
 ## 1. Basis, current state, and scope
 
-**Status:** Proposed implementation sequence reconciled with the current source documents. Tasks below are not evidence of implemented behavior, passing tests, or RWA approval. This update changes planning documentation only.
+**Status:** Historical implementation sequence and acceptance criteria, not a current completion ledger or evidence of RWA approval. The application, locked dependencies, Supabase migrations, Tailwind UI and regression suites are now implemented. Use [LAUNCH_AUDIT.md](./LAUNCH_AUDIT.md) and [PILOT_READINESS.md](./PILOT_READINESS.md) for dated verification and outstanding work; do not treat the original scaffold observations below as current repository state.
+
+### Public launch follow-up: 26 October 2026
+
+The public SSR/metadata/discovery, privacy/contact, structured data, navigation,
+optional opt-in GA4 and Search Console additions are implemented and mapped in
+[Architecture](./ARCHITECTURE.md#public-discovery-and-contact-additions).
+Contact uses a separate Resend transport with CSRF, validation and shared
+email/global budgets; no migration, messaging queue or voting dependency was
+added. Existing URLs were not changed. Controlled tests establish implementation
+behavior, not inbox delivery or Google property ownership. Provider settings,
+privacy approval and real external verification remain open as recorded in the
+[20-item audit](./LAUNCH_AUDIT.md#public-site-checklist-26-october-2026).
+
+The subsequent footer-help addition publishes the existing illustrated user
+guide at `/user-guide.html`. Development/build lifecycle hooks regenerate the
+public HTML from the same Markdown/assets as the offline copy; no new screenshot
+capture, database migration or technical-document endpoint is needed. The help
+copy is no-indexed, has no scripts/analytics and removes repository-only links.
 
 ### Governing references
 
@@ -13,9 +31,9 @@
 - [API.md](./API.md): exact endpoint/request/response contracts, errors, integrations, configuration, and resource controls.
 - [AGENTS.md](./AGENTS.md): workspace-wide implementation and verification discipline.
 
-### Observed starting point
+### Historical scaffold inspection
 
-The workspace now contains an existing Next.js/TypeScript foundation, not just documents. Its manifest includes React, Zod, `pg`, and PDFKit; existing UI uses CSS Modules and shared styles. Configuration validation, a unit test, and a foundation browser test exist. Feature directories and the old SQL migration location largely contain placeholders. No lockfile was found during this planning inspection.
+At the original planning inspection, the workspace contained a Next.js/TypeScript foundation whose manifest included React, Zod, `pg`, and PDFKit; UI used CSS Modules and shared styles. Configuration validation, a unit test and a foundation browser test existed, feature directories largely contained placeholders, and no lockfile was found. These are historical migration inputs, not the present implementation or dependency state.
 
 Do not treat the scaffold's dependencies, directories, or tests as proof of implemented custom authentication, voting, database migrations, or verified behavior. Inspect actual callers before migration, retain reusable work, and replace only superseded responsibilities.
 

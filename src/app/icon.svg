@@ -1,0 +1,6 @@
+<!-- Civic Pulse favicon: selected concept F, a community conversation with a confirmed choice. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="13" fill="#0f766e" />
+  <path d="M13 13h38v29H31L19 53V42h-6z" fill="white" stroke="white" stroke-width="3" stroke-linejoin="round" />
+  <path d="m23 28 6 6 12-13" fill="none" stroke="#0f766e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

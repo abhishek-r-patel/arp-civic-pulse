@@ -1,3 +1,4 @@
+// Protected member vote list; never indexed or included in public discovery.
 import Link from "next/link";
 import { Clock } from "lucide-react";
 import {
@@ -25,7 +26,12 @@ import {
 import { formatInZone } from "@/shared/time/zoned";
 import { firstValues } from "@/components/admin/format";
 
-export const metadata = { title: "Votes" };
+export const metadata = {
+  title: "Votes",
+  description:
+    "View the polls and elections available to your registered household, with status and participation filters.",
+  alternates: { canonical: "/" },
+};
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 

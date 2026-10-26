@@ -1,3 +1,5 @@
+// Protected administrator account maintenance screen.
+import { privateRecordMetadata } from "@/shared/metadata";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
@@ -9,7 +11,11 @@ import { getAccount } from "@/server/register/accounts";
 import { adminPageContext } from "@/server/register/page-context";
 import { idParamsSchema } from "@/shared/contracts/register";
 
-export const metadata = { title: "Manage account" };
+export const generateMetadata = privateRecordMetadata(
+  "Manage account",
+  "Review and maintain a registered member's account and access status.",
+  "/admin/accounts/[id]",
+);
 
 export default async function AccountPage({
   params,

@@ -11,7 +11,7 @@
 - Server-rendered pages call application services directly, not the application's HTTP endpoints. Browser requests use the same services and authorization rules.
 - Voting types are `OPEN` and `CLOSED`. Lifecycle states are independently `DRAFT`, `ACTIVE`, `COMPLETED`, and `CANCELLED`.
 - There is no public registration, public results API, GraphQL API, separate API version, or API for retrieving CLOSED selections. Browser application journeys go through Next.js, but assume callers can access the Supabase API directly: RLS, grants, and RPC checks must independently enforce the same boundaries.
-- No payments, messaging, reminders, attachments, signatures, external PDF rendering, analytics, or AI integration is required.
+- No payments, resident messaging, reminders, attachments, signatures, external PDF rendering, or AI integration is required. The public launch additions provide support enquiries and optional opt-in public-page analytics only, never voting/authentication tracking.
 
 ## 2. Transport and common contracts
 
@@ -414,6 +414,34 @@ Disable unused provider webhooks; do not create an unauthenticated callback "for
 
 If a future approved integration requires webhooks, first extend this contract with the provider-specific signature algorithm and signed raw-body format, timestamp tolerance, replay/event-ID deduplication, key rotation, allowed event schema, and bounded processing/retry semantics. IP allowlisting alone is not verification. Do not accept events until that contract and verification tests exist.
 
+### Public contact endpoint
+
+`POST /api/contact` does not require member authentication. It requires the same
+exact Origin and CSRF cookie/token protections as other browser mutations, a
+JSON body within the 16 KiB small-body cap, and the strict payload below:
+
+| Field | Contract |
+|---|---|
+| `name` | Trimmed string, 1-100 characters |
+| `email` | Valid email, at most 254 characters, normalized to lowercase |
+| `message` | Trimmed string, 10-5000 characters; no attachments |
+
+Unknown fields are rejected. Shared atomic budgets are 3 requests per normalized
+email per hour and 30 globally per hour. Limiter failure refuses sending; these
+budgets do not implement the unresolved trusted-IP release requirement.
+
+The server posts plain text to Resend with a fixed subject, configured sender
+and recipient, and the validated sender address as `reply_to`. Delivery has a
+10-second timeout and a provider idempotency key derived from the request ID.
+There are no automatic retries; an uncertain network result can already have
+sent mail, and a later manual request has a different key. No payload or provider
+diagnostic is logged. `202` with `data.message` means the provider returned a
+message ID, not confirmed inbox delivery. `503 DEPENDENCY_UNAVAILABLE` covers
+disabled configuration, provider rejection, timeout and malformed acceptance;
+`429 RATE_LIMITED` carries `Retry-After`. Common `403`, `413`, `415`, `422`,
+maintenance and method restrictions still apply. Missing all three contact
+settings disables the form; incomplete settings fail startup validation.
+
 ## 9. Rate limiting and resource protection
 
 Supabase Auth enforces its own OTP request/verification limits. Shared PostgreSQL `rate_limit_buckets` supplement those controls only where needed for application endpoint/export limits and additional request-abuse protection; they do not replace Auth. In-memory counters are not authoritative. Commit abuse accounting independently of rejected domain transactions and deny direct public API writes to buckets.
@@ -453,10 +481,14 @@ Validate server configuration at startup. Store credentials in the hosting secre
 | `RATE_LIMIT_HMAC_KEY` | Versioned digest key for supplemental application rate limits | Server secret |
 | `LOG_LEVEL` | Privacy-safe operational logging level | Server runtime |
 | `TRUSTED_PROXY_CONFIG` | Explicit trusted proxy/source-IP interpretation | Server runtime |
+| `RESEND_API_KEY` | Optional contact-only Resend credential; required with both contact addresses | Server secret |
+| `CONTACT_EMAIL_FROM`, `CONTACT_EMAIL_TO` | Optional bare sender/administrator email addresses; all contact settings are required together | Server-only configuration |
+| `GOOGLE_ANALYTICS_ID` | Optional GA4 `G-...` identifier; privacy/contact only after opt-in | Public identifier supplied by the server; build/runtime |
+| `GOOGLE_SITE_VERIFICATION` | Optional Google HTML-tag verification token | Public identifier; build/runtime |
 
 The public-key name above is the target convention, not a reason to duplicate an existing supported anon-key variable during implementation. Public Supabase URL/key visibility is safe only with correct RLS/grants; it never replaces authorization. Privileged credentials must never use a `NEXT_PUBLIC_` prefix.
 
-Configure SMTP host/port, approved sender, username/password or provider credential, six-digit template, OTP expiry/cooldown/limits, and allowed Auth URLs through Supabase Auth/provider configuration, not browser variables or a parallel Next.js email sender. Configure Cron jobs/grants through reviewed Supabase migrations/operations. Application runtime does not require `OTP_HMAC_KEY`, `SCHEDULER_SECRET`, `DB_POOL_MAX`, a raw runtime database URL, or an email-send API key.
+Configure SMTP host/port, approved sender, username/password or provider credential, six-digit template, OTP expiry/cooldown/limits, and allowed Auth URLs through Supabase Auth/provider configuration, not browser variables or a parallel Next.js OTP sender. The separate optional Resend sender handles support enquiries only. Configure Cron jobs/grants through reviewed Supabase migrations/operations. Application runtime does not require `OTP_HMAC_KEY`, `SCHEDULER_SECRET`, `DB_POOL_MAX`, or a raw runtime database URL. An email-send API key is required only when public contact delivery is enabled.
 
 Manage rate-limit key versions and still-needed keys in secret management. Validate source-IP forwarding and operational thresholds; they are not client-selectable.
 

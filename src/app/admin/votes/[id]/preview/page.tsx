@@ -1,3 +1,5 @@
+// Protected administrator preview of draft ballot content.
+import { privateRecordMetadata } from "@/shared/metadata";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
@@ -14,7 +16,11 @@ import type { BlockerSection } from "@/shared/contracts/drafts";
 import { idParamsSchema } from "@/shared/contracts/register";
 import { revision as revisionSchema } from "@/shared/validation/primitives";
 
-export const metadata = { title: "Preview ballot" };
+export const generateMetadata = privateRecordMetadata(
+  "Preview ballot",
+  "Preview the resident ballot before activating an association poll or election.",
+  "/admin/votes/[id]/preview",
+);
 
 // Where each blocker is fixed in the editor.
 const SECTION_ANCHORS: Record<BlockerSection, string | null> = {

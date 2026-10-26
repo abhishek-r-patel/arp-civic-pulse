@@ -657,6 +657,41 @@
           </tbody>
         </table>
       </div>
+      <p>
+        Public launch additions are mapped in
+        <a href="./ARCHITECTURE.md#public-discovery-and-contact-additions"
+          >Architecture</a
+        >: server-rendered privacy/contact pages, a public metadata allowlist,
+        robots/sitemap, an Open Graph image, escaped JSON-LD, breadcrumbs,
+        opt-in public-only analytics and CSRF/rate-limited contact email. See
+        <a href="./DEPLOYMENT.md#public-site-integrations">Deployment</a> for
+        provider settings and real delivery verification. Full document
+        navigation between public information and authentication is intentional:
+        an executed analytics script cannot be unloaded by simply removing a
+        React component. Mocked delivery checks never prove inbox receipt.
+      </p>
+      <p>
+        The footer&#39;s <strong>User Guide</strong> link opens
+        <code>/user-guide.html</code>, generated at
+        <code>public/user-guide.html</code> from the same Markdown and
+        screenshots as the offline edition. <code>npm run dev</code>/<code
+          >npm run build</code
+        >
+        run the generator through lifecycle hooks. The public edition disables
+        repository-only links, contains no analytics/scripts, uses a
+        return-to-app anchor and defers screenshot loading. It is no-indexed and
+        not included in the sitemap. Do not publish the technical guide or serve
+        arbitrary repository files. A footer-only addition does not require
+        screenshot recapture.
+      </p>
+      <p>
+        The selected F/<strong>Open Conversation</strong> favicon lives in
+        <a href="../src/app/icon.svg">src/app/icon.svg</a>. Next.js emits its
+        metadata link for all app pages. The web guide references the same
+        asset; offline HTML does not depend on an app server for its icon. The
+        SVG preserves the selected teal conversation bubble/check artwork at
+        browser-tab sizes without a separate icon package.
+      </p>
       <p>Useful server entry points:</p>
       <ul>
         <li>
@@ -1444,6 +1479,23 @@
               <td>Supabase/provider configuration.</td>
             </tr>
             <tr>
+              <td>Contact-only Resend key, sender and recipient</td>
+              <td>
+                Server-only hosting settings: <code>RESEND_API_KEY</code>,
+                <code>CONTACT_EMAIL_FROM</code>, <code>CONTACT_EMAIL_TO</code>;
+                all required together when enabled.
+              </td>
+            </tr>
+            <tr>
+              <td>Optional public analytics and Google verification</td>
+              <td>
+                <code>GOOGLE_ANALYTICS_ID</code>,
+                <code>GOOGLE_SITE_VERIFICATION</code>; public identifiers
+                configured at build/runtime. GA4 requires consent and disabled
+                Enhanced Measurement.
+              </td>
+            </tr>
+            <tr>
               <td>RWA timezone, policy approvals, retention</td>
               <td>Controlled database settings/procedures.</td>
             </tr>
@@ -1579,6 +1631,19 @@
         integration tests, with selected live browser/capacity evidence. Counts
         change over time: report your own actual results rather than quoting
         this number as certification.
+      </p>
+      <p>
+        The 26 October 2026 launch-change run recorded 374 passing unit tests
+        and 21 configured Chromium foundation/public checks. The database-health
+        case returned 503 and was excluded from that final browser run; live
+        authenticated checks were not rerun. Provider traffic was
+        synthetic/intercepted, not real delivery or Google verification. See the
+        <a href="./LAUNCH_AUDIT.md#public-site-checklist-26-october-2026"
+          >dated audit</a
+        >
+        instead of treating earlier counts as a current certification. Future
+        changes must follow the documentation-sync checklist in
+        <a href="../AGENTS.md#keep-documentation-in-sync">root instructions</a>.
       </p>
       <h3 id="rebuild-these-illustrated-documents">
         Rebuild these illustrated documents

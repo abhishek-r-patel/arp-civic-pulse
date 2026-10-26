@@ -63,10 +63,35 @@ These are proposed operating defaults, not recorded RWA approvals. Development m
 - Atomic one-time submission, participation monitoring, completed on-screen results, CSV exports and administrative audit history.
 - PDF export is optional and may be deferred; it does not block version 1 or pilot readiness.
 
+### Public launch surface
+
+The requested launch additions are a public service surface, not new voting or
+notification capabilities. Sign-in, privacy and contact pages use server
+rendering, page-specific titles/descriptions/canonicals, public social metadata,
+Organization/breadcrumb schema and related navigation. Discovery files list only
+public pages; member, ballot, results and administrator routes remain no-indexed
+and authorization-protected. No existing URLs were renamed.
+
+Public contact sends a bounded enquiry through a separately configured provider,
+with Origin/CSRF protection, shared send budgets and no message storage in the
+application database. Provider acceptance must not be presented as confirmed
+inbox delivery. This does not add vote reminders, messaging or ballot emails.
+Optional Google Analytics is opt-in on privacy/contact only, never authentication
+or voting workflows; Search Console uses a configured public verification token.
+Deployment-specific legal identity, retention, providers and actual delivery
+still require approval and external evidence. See the
+[launch checklist](./LAUNCH_AUDIT.md#public-site-checklist-26-october-2026).
+
+Residents and administrators can open the illustrated **User Guide** from the
+footer without signing in. `/user-guide.html` is a generated, no-index help
+document with embedded synthetic screenshots, Contents navigation and a return
+link to the app. It does not expose technical/source documents or collect
+analytics. Existing screenshots need not change for a footer-only addition.
+
 ### Out of scope
 - Multiple RWAs or societies; native iOS/Android apps.
 - Public self-registration, social login, or SMS/WhatsApp login.
-- Reminders and notifications by email, SMS or WhatsApp, apart from login-code delivery.
+- Voting reminders and notifications by email, SMS or WhatsApp, apart from login-code delivery. User-initiated public support enquiries are separate from these excluded notifications.
 - Bulk CSV import of the register, planned after the pilot; CSV results export remains in scope.
 - Proxy/delegated, weighted, ranked-choice, multi-seat or multi-select voting; quorum rules and recurring polls.
 - Candidate nominations, campaigning pages, comments and attachments.

@@ -1,3 +1,5 @@
+// Protected administrator vote detail and lifecycle controls.
+import { privateRecordMetadata } from "@/shared/metadata";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
@@ -15,7 +17,11 @@ import { getVote, listSelectableHouseholds } from "@/server/votes/drafts";
 import { idParamsSchema } from "@/shared/contracts/register";
 import { VOTE_STATUS_LABELS } from "@/shared/contracts/voting";
 
-export const metadata = { title: "Vote" };
+export const generateMetadata = privateRecordMetadata(
+  "Manage vote",
+  "Review a vote's configuration and administer its permitted lifecycle actions.",
+  "/admin/votes/[id]",
+);
 
 export default async function VotePage({
   params,

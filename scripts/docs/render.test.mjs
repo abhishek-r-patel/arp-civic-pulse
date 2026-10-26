@@ -1,11 +1,41 @@
+// Regression checks for safe offline and public guide rendering.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { renderMarkdown } from "./render.mjs";
+import { guideDocument, guideLink, renderMarkdown } from "./render.mjs";
 
 const options = {
   link: (target) => target,
   image: () => ({ src: "data:image/png;base64,AA==", mobile: true }),
 };
+
+test("web guide shares the app favicon without adding network dependencies to offline editions", () => {
+  const rendered = renderMarkdown("# Guide\n", options);
+  const icon = '<link rel="icon" href="/icon.svg" type="image/svg+xml" sizes="any">';
+  assert.ok(guideDocument(rendered, true).includes(icon));
+  assert.ok(!guideDocument(rendered).includes('href="/icon.svg"'));
+});
+
+test("web guide links retain contents and HTTPS but do not expose repository documents", () => {
+  assert.equal(guideLink("./USER_GUIDE.md#1-start", true), "/user-guide.html#1-start");
+  assert.equal(guideLink("./USER_GUIDE.html", true), "/user-guide.html");
+  assert.equal(guideLink("#1-start", true), "#1-start");
+  assert.equal(guideLink("https://example.test/help", true), "https://example.test/help");
+  for (const target of ["./TECHNICAL_GUIDE.md", "./LAUNCH_AUDIT.md", "../src/app/page.tsx", "javascript:alert"]) {
+    assert.equal(guideLink(target, true), null);
+  }
+  assert.equal(guideLink("./TECHNICAL_GUIDE.md#stack"), "./TECHNICAL_GUIDE.html#stack");
+  const { html } = renderMarkdown("# Guide\n\n[Technical guide](./TECHNICAL_GUIDE.md) and [Contents](#start).", { ...options, link: (target) => guideLink(target, true) });
+  assert.ok(html.includes("Technical guide and"));
+  assert.ok(!html.includes('href="./TECHNICAL_GUIDE'));
+  assert.ok(html.includes('href="#start"'));
+});
+
+test("public screenshots can defer loading without changing offline screenshots", () => {
+  const source = "# Guide\n\n![Example screen](./image.png)\n";
+  const { html } = renderMarkdown(source, { ...options, image: () => ({ ...options.image(), lazy: true }) });
+  assert.ok(html.includes('loading="lazy" decoding="async"'));
+  assert.ok(!renderMarkdown(source, options).html.includes('loading="lazy"'));
+});
 
 test("renders accessible headings, lists, tables, links and fenced code", () => {
   const { html, headings } = renderMarkdown(

@@ -4,7 +4,7 @@ This guide takes you from a fresh checkout to a running app you can sign in to, 
 
 **What you will have at the end:** the app running at `http://localhost:3000`, connected to your own Supabase project, with one administrator who can sign in, manage accounts and households, and create and preview votes.
 
-**What the app can do today (be clear on scope):** sign-in with an emailed code, accounts and household register administration, vote drafts with a resident preview (both OPEN and CLOSED), the vote lifecycle (activation, early completion, cancellation, automatic completion at the deadline), **resident voting screens** (your votes, ballot, review, one final submission, recovery from an unclear outcome), **completed results**, a **CSV download**, and administrator **participation** and **audit history** screens. a **PDF download** (A4, grayscale, printable), automatic **retention** clean-up, encrypted **backups** with a tested restore, a **health** route and **maintenance mode** (see [OPERATIONS.md](./OPERATIONS.md)). What is left is people and environment work, not code: real approvals, real email, hosting, real-device checks and the pilot itself (see [PILOT_READINESS.md](./PILOT_READINESS.md)).
+**What the app can do today (be clear on scope):** sign-in with an emailed code, accounts and household register administration, vote drafts with a resident preview (both OPEN and CLOSED), the vote lifecycle (activation, early completion, cancellation, automatic completion at the deadline), **resident voting screens** (your votes, ballot, review, one final submission, recovery from an unclear outcome), **completed results**, **CSV/PDF downloads**, administrator **participation** and **audit history**, automatic **retention** clean-up, encrypted **backups** with a tested local restore, a **health** route and **maintenance mode** (see [OPERATIONS.md](./OPERATIONS.md)). Public privacy/contact pages, discovery metadata and optional contact/Google integrations are also implemented. Code gaps (including trusted-client-IP enforcement), production configuration, approvals and external verification still block launch; see [LAUNCH_AUDIT.md](./LAUNCH_AUDIT.md) and [PILOT_READINESS.md](./PILOT_READINESS.md).
 
 ---
 
@@ -112,6 +112,44 @@ Important details:
 - `APP_ORIGIN` must **exactly** match the address in your browser. If you browse to `http://localhost:3000`, use that; `127.0.0.1` is a different origin and will fail the app's security check ("Your page has expired. Reload it and try again.").
 - `NEXT_PUBLIC_*` values are visible to browsers. Only the publishable key belongs there. The secret key and `LIVE_DATABASE_URL` are server-side only.
 - If your database password contains special characters, URL-encode them in the connection string.
+
+### 5.1 Optional public contact and Google integrations
+
+The public `/sign-in`, `/privacy` and `/contact` pages are server-rendered.
+The footer's **User Guide** opens `/user-guide.html` without sign-in. The guide
+generator runs before `npm run dev` and `npm run build`, publishing a standalone
+HTML copy with embedded synthetic screenshots. Edit the Markdown guide rather
+than the generated public file; run `node scripts/docs/render.mjs` to regenerate
+it while a development server is already running. The technical guide remains
+repository-only. This help page is no-indexed and is not part of the sitemap.
+`/robots.txt`, `/sitemap.xml` and `/opengraph-image` use `APP_ORIGIN`; verify that
+their canonical URLs match your local address. Member and admin routes remain
+no-indexed and are not listed in the sitemap.
+
+Leave these optional `.env.example` settings blank for ordinary local work:
+
+| Setting | When needed |
+|---|---|
+| `RESEND_API_KEY` | Server-only contact-email credential, separate from Supabase OTP SMTP |
+| `CONTACT_EMAIL_FROM` | Bare sender email on a verified Resend domain |
+| `CONTACT_EMAIL_TO` | Controlled administrator/test inbox; never use a production recipient for synthetic tests |
+| `GOOGLE_ANALYTICS_ID` | Optional GA4 `G-...` identifier, public information pages only after opt-in |
+| `GOOGLE_SITE_VERIFICATION` | Google HTML verification token, not the complete meta tag |
+
+Configure all three contact settings together or startup validation fails. With
+all three blank, `/contact` explicitly says online contact is not available.
+Never use a fake key to send real requests or paste secrets into chat. Tests use
+synthetic settings with intercepted providers. A provider acceptance response
+is not proof of inbox receipt.
+
+Analytics is off by default and never tracks sign-in, voting or administration.
+If enabling it, disable all GA4 Enhanced Measurement and advertising features;
+check refusal, opt-in and withdrawal. Public-to-auth links intentionally load a
+new document so an executed Google script does not survive into sign-in.
+Restart development after changing settings; production needs matching build
+and runtime settings plus a rebuild. Real delivery, provider approval and Google
+property verification are separate steps in
+[Deployment](./DEPLOYMENT.md#public-site-integrations).
 
 ---
 

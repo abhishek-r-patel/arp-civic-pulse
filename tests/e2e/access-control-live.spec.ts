@@ -1,3 +1,4 @@
+// Source-discovered protected API access checks against an explicitly enabled disposable project.
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import {
@@ -73,12 +74,13 @@ function discoverRoutes(): ApiRoute[] {
   return found;
 }
 
-// Public by design: they establish a session or report liveness, and have their own tests.
+// Public by design: session establishment, liveness and support have their own protection tests.
 const PUBLIC = [
   "/api/auth/code",
   "/api/auth/verify",
   "/api/auth/sign-out",
   "/api/internal/health",
+  "/api/contact",
 ];
 const routes = discoverRoutes();
 const protectedRoutes = routes.filter((r) => !PUBLIC.includes(r.path));

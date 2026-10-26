@@ -1,3 +1,4 @@
+// Builds offline guides and a self-contained, public user guide from the same Markdown and synthetic screenshots.
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,6 +37,16 @@ function contained(directory, path) {
   );
 }
 
+export function guideLink(target, web = false) {
+  if (web) {
+    if (target.startsWith("#") || target.startsWith("https://")) return target;
+    if (/^\.\/USER_GUIDE\.(md|html)(?=#|$)/.test(target))
+      return target.replace(/^\.\/USER_GUIDE\.(md|html)/, "/user-guide.html");
+    return null;
+  }
+  return target.replace(/^\.\/(USER_GUIDE|TECHNICAL_GUIDE)\.md(?=#|$)/, "./$1.html");
+}
+
 // This is a renderer for our two authored guides, not a general Markdown engine.
 export function renderMarkdown(source, { link, image }) {
   function inline(value) {
@@ -51,7 +62,8 @@ export function renderMarkdown(source, { link, image }) {
         rendered += `<strong>${escape(token.slice(2, -2))}</strong>`;
       } else {
         const parts = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token);
-        rendered += `<a href="${escape(link(parts[2]))}">${escape(parts[1])}</a>`;
+        const target = link(parts[2]);
+        rendered += target === null ? escape(parts[1]) : `<a href="${escape(target)}">${escape(parts[1])}</a>`;
       }
       start = match.index + token.length;
     }
@@ -94,7 +106,7 @@ export function renderMarkdown(source, { link, image }) {
     if (picture) {
       const asset = image(picture[2]);
       blocks.push(
-        `<figure class="${asset.mobile ? "phone" : "wide"}"><img src="${escape(asset.src)}" alt="${escape(picture[1])}"><figcaption>${escape(picture[1])}</figcaption></figure>`,
+        `<figure class="${asset.mobile ? "phone" : "wide"}"><img src="${escape(asset.src)}" alt="${escape(picture[1])}"${asset.lazy ? ' loading="lazy" decoding="async"' : ""}><figcaption>${escape(picture[1])}</figcaption></figure>`,
       );
       index++;
       continue;
@@ -199,6 +211,22 @@ th { background: #edf4f5; }
 }
 `;
 
+export function guideDocument({ html, headings }, web = false) {
+  const toc = headings
+    .filter(({ level }) => level === 2)
+    .map(({ id, title }) => `<li><a href="#${id}">${escape(title)}</a></li>`)
+    .join("");
+  return `<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light">${web ? '<meta name="robots" content="noindex, follow"><meta name="description" content="The illustrated Civic Pulse user guide for residents and administrators: sign in, vote, review results and get help."><link rel="icon" href="/icon.svg" type="image/svg+xml" sizes="any">' : ""}<title>${escape(headings[0].title)}</title><style>${css}</style></head>
+<body><main>
+${web ? '<a href="/sign-in" style="display:inline-flex;align-items:center;min-height:48px">Back to Civic Pulse</a>' : '<p class="notice">Offline / print edition. Images are embedded; no internet or JavaScript is required. Use your browser\'s Print / Save as PDF. Source-code and supporting-document links require the original repository layout.</p>'}
+<nav aria-label="Contents"><strong>Contents</strong><ol>${toc}</ol></nav>
+${html}
+</main></body></html>
+`;
+}
+
 export async function renderGuide(name) {
   if (!guides.includes(name)) throw new Error("Unknown guide");
   const directory = resolve(root, "docs");
@@ -238,31 +266,16 @@ export async function renderGuide(name) {
       mobile: extname(path) === ".png" && bytes.readUInt32BE(16) <= 480,
     });
   }
-  const { html, headings } = renderMarkdown(source, {
-    link: (target) =>
-      target.replace(
-        /^\.\/(USER_GUIDE|TECHNICAL_GUIDE)\.md(?=#|$)/,
-        "./$1.html",
-      ),
-    image: (target) => {
+  function image(target) {
       const asset = assets.get(target);
       if (!asset) throw new Error(`Image not loaded: ${target}`);
       return asset;
-    },
+  }
+  const rendered = renderMarkdown(source, {
+    link: (target) => guideLink(target),
+    image,
   });
-  const toc = headings
-    .filter(({ level }) => level === 2)
-    .map(({ id, title }) => `<li><a href="#${id}">${escape(title)}</a></li>`)
-    .join("");
-  const document = `<!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><title>${escape(headings[0].title)}</title><style>${css}</style></head>
-<body><main>
-<p class="notice">Offline / print edition. Images are embedded; no internet or JavaScript is required. Use your browser's Print / Save as PDF. Source-code and supporting-document links require the original repository layout.</p>
-<nav aria-label="Contents"><strong>Contents</strong><ol>${toc}</ol></nav>
-${html}
-</main></body></html>
-`;
+  const document = guideDocument(rendered);
   const output = resolve(directory, `${name}.html`);
   await writeFile(
     output,
@@ -272,8 +285,19 @@ ${html}
     }),
   );
   console.log(
-    `${name}: ${headings.length} headings, ${assets.size} images, ${localLinks.size} checked local links`,
+    `${name}: ${rendered.headings.length} headings, ${assets.size} images, ${localLinks.size} checked local links`,
   );
+  if (name === "USER_GUIDE") {
+    const webGuide = renderMarkdown(source, {
+      link: (target) => guideLink(target, true),
+      image: (target) => ({ ...image(target), lazy: true }),
+    });
+    const webOutput = resolve(root, "public", "user-guide.html");
+    await writeFile(webOutput, await format(guideDocument(webGuide, true), {
+      ...(await resolveConfig(webOutput)), filepath: webOutput,
+    }));
+    console.log("USER_GUIDE: published public/user-guide.html without repository-only links");
+  }
 }
 
 if (

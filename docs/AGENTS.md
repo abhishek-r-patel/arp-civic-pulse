@@ -1,11 +1,11 @@
 # Agent Instructions
 
 ## 01 Scope and Project Context
-This is the canonical workspace-wide instruction file for tools that support root-level `AGENTS.md`. Do not maintain a duplicate under `docs`; verify instruction loading when using a different tool.
+This file contains the detailed engineering guidance referenced by root `AGENTS.md`, which also defines the repository-wide documentation-sync rule. Keep detailed rules here rather than duplicating them in another customization file; verify root instruction loading when using a different tool.
 
 Civic Pulse is a mobile-first, single-RWA voting application. OPEN polls publish attributable responses after completion; CLOSED elections expose aggregate choices only. Integrity and privacy take priority over convenience.
 
-The approved target is Next.js, TypeScript, **Supabase Auth/PostgreSQL/RLS/SQL functions/Cron**, and **Tailwind CSS**. The previously inspected scaffold used `pg`, custom authentication and CSS Modules, but the workspace currently contains only documentation. Inspect actual code and manifests when available; implement or migrate in reviewed stages, not through unrelated wholesale rewrites.
+The implemented stack is Next.js App Router, TypeScript, **Supabase Auth/PostgreSQL/RLS/SQL functions/Cron**, and **Tailwind CSS**. Application source, scripts and tests are present. Inspect the actual code and manifests; do not apply historical custom-auth/scaffold assumptions or perform unrelated wholesale rewrites.
 
 Supabase PostgreSQL is authoritative. CSV is required; PDF is an optional printable export that may be deferred. PDFs are not backups, signatures or a source of truth.
 
@@ -69,7 +69,7 @@ Distinguish proposed, implemented, tested and approved behavior. Never fabricate
 ## 07 Verification and Commands
 Inspect the actual dependency manifest, lockfiles and tool configuration before running commands. Install/restore dependencies only when needed; do not upgrade unrelated packages. Use locked installs in CI.
 
-There is currently no `package.json` in the workspace. The following scripts existed in the earlier scaffold; verify or configure them when application code is restored or created, rather than claiming they are currently runnable:
+The repository's `package.json` defines the following scripts. Inspect it for the current commands and use the exact environment and dependency requirements documented in README and the setup/deployment guides:
 
 ```text
 npm run dev           # Development server; not a validation command

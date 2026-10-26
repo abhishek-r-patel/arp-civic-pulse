@@ -1,6 +1,8 @@
+// Security headers; optional public analytics uses narrowly scoped Google endpoints.
 import type { NextConfig } from "next";
 
 const isProduction = process.env.NODE_ENV === "production";
+const analyticsEnabled = Boolean(process.env.GOOGLE_ANALYTICS_ID);
 
 function supabaseOrigin(): string | undefined {
   const value = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -18,11 +20,11 @@ function supabaseOrigin(): string | undefined {
 // until a nonce-based policy is adopted. Everything else stays restrictive.
 const contentSecurityPolicy = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isProduction ? "" : " 'unsafe-eval'"}`,
+  `script-src 'self' 'unsafe-inline'${isProduction ? "" : " 'unsafe-eval'"}${analyticsEnabled ? " https://www.googletagmanager.com" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   "font-src 'self'",
-  `connect-src 'self'${supabaseOrigin() ? ` ${supabaseOrigin()}` : ""}${isProduction ? "" : " ws: wss:"}`,
+  `connect-src 'self'${supabaseOrigin() ? ` ${supabaseOrigin()}` : ""}${isProduction ? "" : " ws: wss:"}${analyticsEnabled ? " https://www.google-analytics.com https://region1.google-analytics.com https://www.googletagmanager.com" : ""}`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

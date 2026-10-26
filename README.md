@@ -8,6 +8,7 @@ The application implements registered-member email OTP access, household/account
 
 | Document                                                             | Authority                                                   |
 | -------------------------------------------------------------------- | ----------------------------------------------------------- |
+| [AGENTS.md](./AGENTS.md) | Root instructions and automatic documentation-sync checklist |
 | [docs/AGENTS.md](./docs/AGENTS.md)                                   | Workspace-wide engineering rules                            |
 | [docs/PRD.md](./docs/PRD.md)                                         | Scope, behaviour and acceptance criteria                    |
 | [docs/DESIGN_SYSTEM.md](./docs/DESIGN_SYSTEM.md)                     | Visual tokens, accessibility and responsive behaviour       |
@@ -23,6 +24,7 @@ The application implements registered-member email OTP access, household/account
 - [Junior-developer technical guide](./docs/TECHNICAL_GUIDE.md) — architecture, source map, authentication, database invariants, feature walkthroughs, tests and deployment boundaries. [Printable/offline HTML](./docs/TECHNICAL_GUIDE.html).
 - [Illustrated resident and administrator guide](./docs/USER_GUIDE.md) — step-by-step main flows, recovery guidance, 47 synthetic screenshots and flow diagrams. [Printable/offline HTML](./docs/USER_GUIDE.html).
 - HTML copies embed their images, require no CDN/JavaScript, and support browser Print / Save as PDF. Supporting source/document links require the repository layout.
+- The application footer opens `/user-guide.html`, a self-contained public copy generated at `public/user-guide.html`. It embeds the same synthetic screenshots, disables repository-only links and includes a return-to-app link. `npm run dev` and `npm run build` regenerate guides first; footer-only changes do not require new screenshots.
 - Regenerate HTML with `node scripts\docs\render.mjs`; test the small renderer with `node --test scripts\docs\render.test.mjs`.
 - Screenshot capture is deliberately separate from normal tests: set `LIVE_AUTH=1` and `DOC_SCREENSHOTS=1`, then run `npx playwright test -c playwright.docs.config.ts`. Use **only a disposable fixture project**: the run creates synthetic accounts, households, votes and submissions and supplies test-only policy settings. Do not use a production project. See the technical guide for details and coverage limitations.
 
@@ -83,14 +85,27 @@ Server configuration is validated when the server starts (`src/instrumentation.t
 
 ## Layout
 
+Public `/sign-in`, `/privacy` and `/contact` pages are server-rendered and have
+canonical metadata, social cards and structured data. `/robots.txt` and
+`/sitemap.xml` list only the public surface; resident and administrator screens
+default to `noindex, nofollow`. Contact email (Resend), opt-in public-page GA4 and
+Search Console verification require the optional settings in `.env.example`.
+See the [launch checklist audit](./docs/LAUNCH_AUDIT.md#public-site-checklist-26-october-2026)
+and [activation steps](./docs/DEPLOYMENT.md#public-site-integrations).
+
 ```text
 src/app            Routes, route groups ((access), (member)), admin, api handlers
+				   privacy/contact pages; robots.ts, sitemap.ts, opengraph-image.tsx, icon.svg
 src/components     ui (shared primitives), votes, admin
+				   access/contact-form.tsx; ui public metadata/analytics/navigation
 src/server         Server-only modules: config, auth, db, results, audit, ...
+				   contact.ts (support email only)
 src/shared         Browser-safe contracts and validation
+				   metadata.ts (public page inventory); contracts/contact.ts
 src/styles         Tailwind theme and design tokens (globals.css)
 supabase           config.toml and migrations (reviewed, versioned SQL)
 tests              unit, integration, e2e, fixtures
+public/user-guide.html Generated public user help; do not edit separately from the Markdown guide
 ```
 
 Real voting requires approval of PRD assumptions A1–A7, providers, region, retention and recovery objectives. Follow the [deployment runbook](./docs/DEPLOYMENT.md); a successful build or configuration check alone does not establish production readiness.

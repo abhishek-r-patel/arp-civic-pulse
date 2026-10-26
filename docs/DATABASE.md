@@ -255,6 +255,16 @@ PK `(scope, subject_digest, digest_key_version, window_start)`. Use shared appli
 
 Use a dedicated secret-manager HMAC key for rate-limit subjects, not Auth signing material. Do not store raw IP addresses or raw unregistered emails. Key rotation must preserve enforcement for existing windows, not reset abuse budgets. Exact endpoint thresholds are controlled operational configuration validated during the pilot. Follow Supabase's supported trusted-IP forwarding setup for proxied Auth calls; never trust arbitrary forwarded headers. These counters do not replace Auth's own limits and must not be directly writable through the public API.
 
+The public launch additions introduce **no schema migration or contact-message
+table**. Contact enquiries use the existing `consume_rate_limit` routine and
+buckets with `contact.email` (3 per normalized email per hour) and `contact.global`
+(30 per hour, using a fixed HMAC subject) before sending through Resend. Names,
+reply addresses and message bodies are not stored in application tables or audit
+events. Provider/mailbox retention is separate from database retention and needs
+approval. Public metadata and Google verification are configuration, not RWA
+settings records. The optional analytics preference is browser-local consent,
+not ballot state; it does not permit storing selections in browser storage.
+
 ## 4. Relationships and ER diagram
 
 ```mermaid

@@ -1,3 +1,5 @@
+// Protected completed-result projection and authorised downloads.
+import { privateRecordMetadata } from "@/shared/metadata";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
@@ -12,7 +14,11 @@ import { getResults } from "@/server/votes/member";
 import { listQuerySchema } from "@/shared/contracts/pagination";
 import { idParamsSchema } from "@/shared/contracts/register";
 
-export const metadata = { title: "Results" };
+export const generateMetadata = privateRecordMetadata(
+  "Results",
+  "View completed voting results and authorised CSV or PDF downloads.",
+  "/votes/[id]/results",
+);
 
 const querySchema = listQuerySchema({});
 

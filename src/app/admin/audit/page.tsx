@@ -1,3 +1,4 @@
+// Protected administrative audit history with server-side filters.
 import { formatInstant, firstValues } from "@/components/admin/format";
 import { Button, LinkButton } from "@/components/ui/button";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -11,7 +12,12 @@ import { listAuditEvents } from "@/server/votes/monitoring";
 import { auditQuerySchema } from "@/shared/contracts/admin-votes";
 import type { AuditEvent } from "@/shared/contracts/member-votes";
 
-export const metadata = { title: "Audit history" };
+export const metadata = {
+  title: "Audit history",
+  description:
+    "Review authorised administrative changes and voting lifecycle audit events.",
+  alternates: { canonical: "/admin/audit" },
+};
 
 const ACTIONS = [
   "BOOTSTRAP_ADMIN",

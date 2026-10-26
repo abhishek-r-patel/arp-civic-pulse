@@ -1,4 +1,12 @@
+// Accessible custom 404 without exposing whether a private record exists.
 import Link from "next/link";
+
+export const metadata = {
+  title: "Page not found",
+  description:
+    "The requested Civic Pulse page is unavailable. Return to sign-in or contact the administrator.",
+  robots: { index: false, follow: false },
+};
 
 export default function NotFound() {
   return (
@@ -10,10 +18,16 @@ export default function NotFound() {
         This page does not exist or you do not have access to it.
       </p>
       <Link
-        href="/"
+        href="/sign-in"
         className="inline-flex touch-target items-center font-semibold text-accent underline underline-offset-4"
       >
-        Go to the home page
+        Go to sign in
+      </Link>
+      <Link
+        href="/contact"
+        className="inline-flex touch-target items-center text-accent underline underline-offset-4"
+      >
+        Contact the administrator
       </Link>
     </div>
   );

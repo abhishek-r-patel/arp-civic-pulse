@@ -1,3 +1,4 @@
+// Protected workflow for adding a household to the register.
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { HouseholdForm } from "@/components/admin/household-form";
@@ -8,7 +9,12 @@ import {
 } from "@/server/register/accounts";
 import { adminPageContext } from "@/server/register/page-context";
 
-export const metadata = { title: "Add household" };
+export const metadata = {
+  title: "Add household",
+  description:
+    "Add a household and its representative details to the association register.",
+  alternates: { canonical: "/admin/households/new" },
+};
 
 export default async function NewHouseholdPage() {
   const deps = await adminPageContext();

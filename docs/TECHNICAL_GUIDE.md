@@ -80,6 +80,22 @@ Never disable certificate verification to solve corporate TLS problems. Configur
 | [tests](../tests)                                   | Unit, integration, live-service, browser and capacity suites.                                                           |
 | [.github](../.github)                               | Validation, CodeQL and Dependabot configuration.                                                                        |
 
+Public launch additions are mapped in [Architecture](./ARCHITECTURE.md#public-discovery-and-contact-additions): server-rendered privacy/contact pages, a public metadata allowlist, robots/sitemap, an Open Graph image, escaped JSON-LD, breadcrumbs, opt-in public-only analytics and CSRF/rate-limited contact email. See [Deployment](./DEPLOYMENT.md#public-site-integrations) for provider settings and real delivery verification. Full document navigation between public information and authentication is intentional: an executed analytics script cannot be unloaded by simply removing a React component. Mocked delivery checks never prove inbox receipt.
+
+The footer's **User Guide** link opens `/user-guide.html`, generated at
+`public/user-guide.html` from the same Markdown and screenshots as the offline
+edition. `npm run dev`/`npm run build` run the generator through lifecycle hooks.
+The public edition disables repository-only links, contains no analytics/scripts,
+uses a return-to-app anchor and defers screenshot loading. It is no-indexed and
+not included in the sitemap. Do not publish the technical guide or serve arbitrary
+repository files. A footer-only addition does not require screenshot recapture.
+
+The selected F/**Open Conversation** favicon lives in
+[src/app/icon.svg](../src/app/icon.svg). Next.js emits its metadata link for all
+app pages. The web guide references the same asset; offline HTML does not depend
+on an app server for its icon. The SVG preserves the selected teal conversation
+bubble/check artwork at browser-tab sizes without a separate icon package.
+
 Useful server entry points:
 
 - [authorization/account.ts](../src/server/authorization/account.ts): verified identity, enabled profile and current role.
@@ -322,6 +338,8 @@ Read [environment validation](../src/server/config/environment.ts), [.env.exampl
 | --------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | Canonical origin, public Supabase URL/key, server Auth credential, HMAC key | Hosting environment/secret manager; isolated per environment. |
 | SMTP credentials, code template/expiry/limits, Auth URLs                    | Supabase/provider configuration.                              |
+| Contact-only Resend key, sender and recipient | Server-only hosting settings: `RESEND_API_KEY`, `CONTACT_EMAIL_FROM`, `CONTACT_EMAIL_TO`; all required together when enabled. |
+| Optional public analytics and Google verification | `GOOGLE_ANALYTICS_ID`, `GOOGLE_SITE_VERIFICATION`; public identifiers configured at build/runtime. GA4 requires consent and disabled Enhanced Measurement. |
 | RWA timezone, policy approvals, retention                                   | Controlled database settings/procedures.                      |
 | Migration credentials                                                       | Deployment runner only, not ordinary app runtime.             |
 | Backup database URL/encryption key/destination                              | Approved isolated operations runner and secret store.         |
@@ -353,6 +371,14 @@ Logs accept only bounded allowlisted metadata. Do not add request bodies, raw pr
 The validation workflow uses a disposable PostgreSQL 17 service, synthetic build values and signed-out browser tests without production secrets. Restore/hosted workflows remain separate. CodeQL advanced workflow and Dependabot are configured; do not enable a competing CodeQL default setup at the same time.
 
 Before these guides, the current baseline was 355 unit tests and 225 integration tests, with selected live browser/capacity evidence. Counts change over time: report your own actual results rather than quoting this number as certification.
+
+The 26 October 2026 launch-change run recorded 374 passing unit tests and 21
+configured Chromium foundation/public checks. The database-health case returned
+503 and was excluded from that final browser run; live authenticated checks were
+not rerun. Provider traffic was synthetic/intercepted, not real delivery or Google
+verification. See the [dated audit](./LAUNCH_AUDIT.md#public-site-checklist-26-october-2026)
+instead of treating earlier counts as a current certification. Future changes
+must follow the documentation-sync checklist in [root instructions](../AGENTS.md#keep-documentation-in-sync).
 
 ### Rebuild these illustrated documents
 

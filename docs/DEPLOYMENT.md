@@ -51,6 +51,73 @@ SMTP credentials belong in Supabase's provider settings, not application/public 
 
 `NEXT_PUBLIC_*` values and the CSP origin are bound when building. Rebuild for the final environment/domain; do not promote a staging build with staging public values or only edit runtime variables after building.
 
+### Public site integrations
+
+Set `APP_ORIGIN` to the final canonical origin at **build and runtime**: metadata,
+robots and sitemap must not publish localhost or a preview domain. Rebuild after
+changing it or the optional Google settings. Protect preview deployments from
+public crawlers at the hosting access layer; do not assume robots is access control.
+
+1. Contact: approve Resend and its processing region/retention, verify a sender
+   domain including SPF/DKIM and applicable DMARC, and configure server-only
+   `RESEND_API_KEY`, `CONTACT_EMAIL_FROM` and `CONTACT_EMAIL_TO` together. Addresses
+   must be bare emails, not display-name forms. Use a controlled test recipient
+   in staging. The sender is fixed; user email becomes Reply-To. Supabase OTP
+   SMTP remains separate. Without these settings the contact page clearly states
+   that online contact is unavailable.
+2. Submit a uniquely identifiable **synthetic** enquiry through the real staging
+   form. Record the support ID, provider acceptance ID/status and receipt in the
+   intended inbox, including reply routing and spam handling. A `202` or a mocked
+   test alone does not prove delivery. Test provider rejection/rate exhaustion and
+   visible retry guidance without putting real resident content into evidence.
+3. Analytics: approve the provider and notice, create a GA4 web stream and set
+   `GOOGLE_ANALYTICS_ID=G-...`. **Disable all Enhanced Measurement**, including
+   history page views, form interactions, site search, scroll and outbound events;
+   disable Google Signals/advertising features. The application sends manual,
+   sanitized privacy/contact page views only after a visitor opts in. Do not add
+   Tag Manager containers, auto-event tags, replay or tracking to auth/voting.
+   Verify consent refusal, withdrawal and a full navigation back to sign-in with
+   no Google script. The CSP admits only the configured Google script/collection
+   hosts when this setting is enabled; approve any regional endpoint changes
+   explicitly rather than adding wildcard hosts.
+4. Search Console: choose URL-prefix HTML-tag verification for the canonical
+   property and set only the token in `GOOGLE_SITE_VERIFICATION`. Deploy/rebuild,
+   inspect the `google-site-verification` tag and complete verification in Google.
+   Submit `/sitemap.xml` there; code cannot prove property ownership or submission.
+5. Review `/privacy` with the actual legal operator, contact details, approved
+   providers/regions and retention periods before admitting residents. The current
+   notice describes behavior and refers deployment-specific policy requests to
+   the RWA; it is not evidence of legal approval. Organization schema uses the
+   public service name Civic Pulse, not an invented legal RWA identity.
+6. No URLs were renamed by this launch work, so there is no 301 mapping to invent.
+   Inventory historical deployed URLs before changing any. Use explicit permanent
+   redirects for verified old-to-new mappings and test a **301** response (Next.js
+   `permanent: true` conventionally emits **308**, not 301). Domain aliases require
+   equivalent canonical-domain redirects at the approved host.
+
+Only `/sign-in`, `/privacy` and `/contact` belong in the sitemap. Private routes
+inherit no-index directives; their canonical tags do not make them crawlable.
+Private detail titles use the URL's record reference rather than resident names
+or ballot content. Invalid identifiers receive no canonical tag. Keep existing
+private/no-store caching and do not publish private URLs in social metadata.
+Voting/access screens have no content images to convert or lazy-load. The public
+user guide reuses the existing embedded PNG/SVG documentation illustrations;
+screenshots are preserved without recapture/conversion for this footer-only
+change and use lazy loading/async decoding in the web edition. Future content images
+must use Next.js Image with meaningful alt text (empty only for genuinely
+decorative images), WebP/AVIF negotiation and default lazy loading below the fold;
+the share card is PNG for social crawler compatibility.
+
+The footer serves public help at `/user-guide.html`. The `predev`/`prebuild`
+lifecycle runs `node scripts/docs/render.mjs`, which regenerates both offline
+guides and `public/user-guide.html`. Keep the Markdown, guide images, scripts and
+locked development dependencies available during the build; do not deploy a
+hand-edited or stale public HTML copy. Only the user guide is published: repository
+links become non-clickable text, the technical guide/source are not exposed,
+and the web edition contains no tracking/scripts. It has `noindex, follow` and
+is intentionally absent from the sitemap. Smoke-test the footer link, Contents,
+embedded images, print layout and **Back to Civic Pulse** on the deployed host.
+
 ## 4. Production database and migrations
 
 There are **12 immutable migrations**, from `20261024100000_core_schema.sql` through `20261024160000_retention_maintenance.sql`. See [supabase/README.md](../supabase/README.md) and [DATABASE.md](./DATABASE.md). The app never migrates at startup or during the Vercel build.

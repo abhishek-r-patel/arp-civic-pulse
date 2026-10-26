@@ -1,3 +1,4 @@
+// Protected administrator vote inventory.
 import Link from "next/link";
 import { Vote } from "lucide-react";
 import {
@@ -25,7 +26,12 @@ import {
 } from "@/shared/contracts/voting";
 import { formatInZone } from "@/shared/time/zoned";
 
-export const metadata = { title: "Manage votes" };
+export const metadata = {
+  title: "Manage votes",
+  description:
+    "Manage draft, active, completed and cancelled association polls and elections.",
+  alternates: { canonical: "/admin/votes" },
+};
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 

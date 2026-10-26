@@ -1,3 +1,4 @@
+// Protected administrator household register.
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import {
@@ -20,7 +21,12 @@ import {
   type HouseholdProjection,
 } from "@/shared/contracts/register";
 
-export const metadata = { title: "Households" };
+export const metadata = {
+  title: "Households",
+  description:
+    "Maintain the association household register and representative assignments.",
+  alternates: { canonical: "/admin/households" },
+};
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 

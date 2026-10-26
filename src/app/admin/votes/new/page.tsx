@@ -1,10 +1,16 @@
+// Protected workflow for creating a poll or election draft.
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { NewDraftForm } from "@/components/admin/vote-forms";
 import { PageHeader } from "@/components/ui/layout";
 import { adminPageContext } from "@/server/register/page-context";
 
-export const metadata = { title: "New vote" };
+export const metadata = {
+  title: "New vote",
+  description:
+    "Create a new association poll or election draft for review before activation.",
+  alternates: { canonical: "/admin/votes/new" },
+};
 
 export default async function NewVotePage() {
   const deps = await adminPageContext();
