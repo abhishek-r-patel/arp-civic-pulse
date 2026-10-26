@@ -50,9 +50,9 @@ describe.skipIf(!hasLive || !hasSql)("live: vote drafts", () => {
     listVotes(deps, voteListQuerySchema.parse(query));
 
   it("creates a revision-1 draft that the administrator can read and list", async () => {
-    const draft = await createDraft(adminDeps, "OPEN");
+    const draft = await createDraft(adminDeps, "PUBLIC");
     expect(draft).toMatchObject({
-      votingType: "OPEN",
+      votingType: "PUBLIC",
       status: "DRAFT",
       draftRevision: 1,
       title: "",
@@ -64,13 +64,13 @@ describe.skipIf(!hasLive || !hasSql)("live: vote drafts", () => {
     expect(draft.timezone).toBeTruthy();
 
     expect(await getVote(adminDeps, draft.id)).toEqual(draft);
-    const page = await list({ status: "DRAFT", votingType: "OPEN" });
+    const page = await list({ status: "DRAFT", votingType: "PUBLIC" });
     expect(page.data.some((row) => row.id === draft.id)).toBe(true);
-    expect(page.data.every((row) => row.votingType === "OPEN")).toBe(true);
+    expect(page.data.every((row) => row.votingType === "PUBLIC")).toBe(true);
   });
 
-  it("round-trips a full OPEN draft through the guarded routine", async () => {
-    const draft = await createDraft(adminDeps, "OPEN");
+  it("round-trips a full PUBLIC draft through the guarded routine", async () => {
+    const draft = await createDraft(adminDeps, "PUBLIC");
     const households = await listSelectableHouseholds(adminDeps);
     const mine = households.find((h) => h.id !== undefined && h.isEligible);
     expect(mine).toBeDefined();
@@ -96,7 +96,7 @@ describe.skipIf(!hasLive || !hasSql)("live: vote drafts", () => {
   });
 
   it("refuses a stale revision and leaves the draft untouched", async () => {
-    const draft = await createDraft(adminDeps, "CLOSED");
+    const draft = await createDraft(adminDeps, "PRIVATE");
     await updateDraft(adminDeps, draft.id, {
       expectedRevision: 1,
       title: "First save",
@@ -115,7 +115,7 @@ describe.skipIf(!hasLive || !hasSql)("live: vote drafts", () => {
   });
 
   it("previews an incomplete draft with safe blockers and never changes the revision", async () => {
-    const draft = await createDraft(adminDeps, "CLOSED");
+    const draft = await createDraft(adminDeps, "PRIVATE");
     const preview = await previewDraft(adminDeps, draft.id, 1);
     expect(preview.readyToActivate).toBe(false);
     expect(preview.blockers.map((b) => b.code)).toEqual(
@@ -134,10 +134,10 @@ describe.skipIf(!hasLive || !hasSql)("live: vote drafts", () => {
   });
 
   it("keeps drafts invisible to residents and every routine closed to them", async () => {
-    const draft = await createDraft(adminDeps, "OPEN");
+    const draft = await createDraft(adminDeps, "PUBLIC");
 
     for (const attempt of [
-      () => createDraft(residentDeps, "OPEN"),
+      () => createDraft(residentDeps, "PUBLIC"),
       () => getVote(residentDeps, draft.id),
       () => previewDraft(residentDeps, draft.id, 1),
       () =>
@@ -155,7 +155,7 @@ describe.skipIf(!hasLive || !hasSql)("live: vote drafts", () => {
     expect((await getVote(adminDeps, draft.id)).title).toBe("");
   });
 
-  it("lets a resident read only the RWA name and time zone", async () => {
+  it("lets a resident read the RWA name and time zone", async () => {
     expect(await getRwaDisplay(residentDeps)).toEqual({
       name: expect.any(String),
       timezone: expect.any(String),
@@ -169,9 +169,9 @@ describe.skipIf(!hasLive || !hasSql)("live: vote drafts", () => {
 
   it("pages through the list without repeats", async () => {
     await Promise.all([
-      createDraft(adminDeps, "OPEN"),
-      createDraft(adminDeps, "OPEN"),
-      createDraft(adminDeps, "OPEN"),
+      createDraft(adminDeps, "PUBLIC"),
+      createDraft(adminDeps, "PUBLIC"),
+      createDraft(adminDeps, "PUBLIC"),
     ]);
     const first = await list({ limit: "2" });
     expect(first.data).toHaveLength(2);
@@ -186,12 +186,12 @@ describe.skipIf(!hasLive || !hasSql)("live: vote drafts", () => {
   });
 
   it("rejects a cursor from different filters", async () => {
-    const first = await list({ limit: "1", votingType: "OPEN" });
+    const first = await list({ limit: "1", votingType: "PUBLIC" });
     expect(first.page.nextCursor).toBeTruthy();
     const error = await apiError(
       list({
         limit: "1",
-        votingType: "CLOSED",
+        votingType: "PRIVATE",
         cursor: first.page.nextCursor ?? "",
       }),
     );

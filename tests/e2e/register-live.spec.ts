@@ -37,7 +37,7 @@ test.describe("sign-in screen", () => {
     await page
       .getByLabel(/Registered email address/)
       .fill(plusEmail().replace("+cp", "+unknown"));
-    await page.getByRole("button", { name: "Send sign-in code" }).click();
+    await page.getByRole("button", { name: "Send Sign-In Code" }).click();
 
     await expect(
       page.getByText("Check your email", { exact: true }),
@@ -55,7 +55,7 @@ test.describe("sign-in screen", () => {
     await page
       .getByLabel(/Registered email address/)
       .fill("someone@example.com");
-    await page.getByRole("button", { name: "Send sign-in code" }).click();
+    await page.getByRole("button", { name: "Send Sign-In Code" }).click();
 
     const code = page.getByLabel(/Six-digit code/);
     await expect(code).toBeFocused();
@@ -65,7 +65,7 @@ test.describe("sign-in screen", () => {
 
     await code.fill("012 345 99");
     await expect(code).toHaveValue("012345");
-    const verify = page.getByRole("button", { name: "Verify and sign in" });
+    const verify = page.getByRole("button", { name: "Verify and Sign In" });
     await expect(verify).toBeEnabled();
 
     await code.fill("0123");
@@ -81,14 +81,14 @@ test.describe("sign-in screen", () => {
     await page
       .getByLabel(/Registered email address/)
       .fill("someone@example.com");
-    await page.getByRole("button", { name: "Send sign-in code" }).click();
+    await page.getByRole("button", { name: "Send Sign-In Code" }).click();
     await page.getByLabel(/Six-digit code/).fill("000000");
-    await page.getByRole("button", { name: "Verify and sign in" }).click();
+    await page.getByRole("button", { name: "Verify and Sign In" }).click();
 
     await expect(page.getByText(/not valid or has expired/)).toBeVisible();
     await expect(page.getByText(/Sent to someone@example.com/)).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Send a new code" }),
+      page.getByRole("button", { name: "Send a New Code" }),
     ).toBeDisabled();
   });
 
@@ -105,7 +105,7 @@ test.describe("sign-in screen", () => {
     await expect(nav.getByRole("link", { name: "Households" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "Accounts" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Sign out" }).click();
+    await page.getByRole("button", { name: "Sign Out" }).click();
     await expect(page).toHaveURL(/\/sign-in$/u);
     await expect(page.getByRole("navigation", { name: "Main" })).toHaveCount(0);
 
@@ -132,7 +132,7 @@ test.describe("register screens", () => {
     const residentEmail = plusEmail();
     await page.getByLabel(/Email address/).fill(residentEmail);
     await page.getByLabel(/Representative name/).fill("Browser Resident");
-    await page.getByRole("button", { name: "Create account" }).click();
+    await page.getByRole("button", { name: "Create Account" }).click();
 
     await expect(
       page.getByRole("heading", { level: 1, name: "Browser Resident" }),
@@ -143,13 +143,13 @@ test.describe("register screens", () => {
     // Earlier runs leave similar accounts behind, so return by URL, not by list position.
     const accountPath = new URL(page.url()).pathname;
     // A resident cannot be enabled without a household: explained, not just refused.
-    await page.getByRole("button", { name: "Enable account" }).click();
+    await page.getByRole("button", { name: "Enable Account" }).click();
     await page
       .getByRole("dialog")
-      .getByRole("button", { name: "Enable account" })
+      .getByRole("button", { name: "Enable Account" })
       .click();
     await expect(
-      page.getByText("A household is needed first", { exact: true }),
+      page.getByText("Household needed first", { exact: true }),
     ).toBeVisible();
 
     // Add the household for that account.
@@ -162,7 +162,7 @@ test.describe("register screens", () => {
     expect(offered, "the new account should be offered").toBeTruthy();
     await representative.selectOption({ label: offered ?? "" });
     await page.getByLabel("Eligible to vote").check();
-    await page.getByRole("button", { name: "Add household" }).click();
+    await page.getByRole("button", { name: "Add Household" }).click();
 
     await expect(page.getByText("Household added.")).toBeVisible();
     const row = page.getByRole("link", {
@@ -179,14 +179,14 @@ test.describe("register screens", () => {
     ).toBeVisible();
 
     await page.goto(accountPath);
-    await page.getByRole("button", { name: "Enable account" }).click();
+    await page.getByRole("button", { name: "Enable Account" }).click();
     await page
       .getByRole("dialog")
-      .getByRole("button", { name: "Enable account" })
+      .getByRole("button", { name: "Enable Account" })
       .click();
     await expect(page.getByText("Account updated.")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Suspend account" }),
+      page.getByRole("button", { name: "Suspend Account" }),
     ).toBeVisible();
   });
 
@@ -203,7 +203,7 @@ test.describe("register screens", () => {
       await page
         .getByLabel(/Representative name/)
         .fill(`Dup Resident ${attempt}`);
-      await page.getByRole("button", { name: "Create account" }).click();
+      await page.getByRole("button", { name: "Create Account" }).click();
       await expect(page.getByRole("heading", { level: 1 })).toContainText(
         "Dup Resident",
       );
@@ -218,7 +218,7 @@ test.describe("register screens", () => {
         text.startsWith(`Dup Resident ${attempt}`),
       );
       await representative.selectOption({ label: offered ?? "" });
-      await page.getByRole("button", { name: "Add household" }).click();
+      await page.getByRole("button", { name: "Add Household" }).click();
       if (attempt === 1) {
         // Let the first creation finish; navigating away would abort the request.
         await expect(page.getByText("Household added.")).toBeVisible();
@@ -251,12 +251,12 @@ test.describe("confirmation dialog", () => {
     await page.getByLabel(/Email address/).fill(plusEmail());
     await page.getByLabel(/Representative name/).fill("Dialog Subject");
     await page.getByLabel("Administrator").check();
-    await page.getByRole("button", { name: "Create account" }).click();
+    await page.getByRole("button", { name: "Create Account" }).click();
     await expect(
       page.getByRole("heading", { level: 1, name: "Dialog Subject" }),
     ).toBeVisible();
 
-    const opener = page.getByRole("button", { name: "Delete account" });
+    const opener = page.getByRole("button", { name: "Delete Account" });
     await opener.click();
 
     const dialog = page.getByRole("dialog", { name: "Delete this account?" });
@@ -286,8 +286,8 @@ test.describe("confirmation dialog", () => {
     await page.goto("/admin/accounts/new");
     await page.getByLabel(/Email address/).fill(plusEmail());
     await page.getByLabel(/Representative name/).fill("Focus Subject");
-    await page.getByRole("button", { name: "Create account" }).click();
-    await page.getByRole("button", { name: "Delete account" }).click();
+    await page.getByRole("button", { name: "Create Account" }).click();
+    await page.getByRole("button", { name: "Delete Account" }).click();
 
     const dialog = page.getByRole("dialog");
     // A modal dialog may hand focus to the browser itself (activeElement is then
@@ -324,7 +324,7 @@ test.describe("responsive and accessible", () => {
     await page
       .getByLabel(/Representative name/)
       .fill("Layout Subject With A Rather Long Name That Must Wrap Not Clip");
-    await page.getByRole("button", { name: "Create account" }).click();
+    await page.getByRole("button", { name: "Create Account" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
       "Layout Subject",
     );
@@ -432,7 +432,7 @@ test("a fresh code for the same address still verifies after the first was used"
 }) => {
   const { email, code } = await provisionAdmin();
   await signInThroughUi(page, email, code);
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("button", { name: "Sign Out" }).click();
   await expect(page).toHaveURL(/\/sign-in$/u);
 
   await signInThroughUi(page, email, await freshCode(email));

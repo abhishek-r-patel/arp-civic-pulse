@@ -182,7 +182,7 @@ function parseCsv(csv: string): string[][] {
 }
 
 test.describe("voting", () => {
-  test("an OPEN vote: unselected choices, review, one submission, nothing kept", async ({
+  test("a PUBLIC vote: review, replace the response, and keep one participation", async ({
     page,
   }) => {
     const resident = await seedHousehold();
@@ -198,7 +198,10 @@ test.describe("voting", () => {
       page.getByRole("heading", { level: 1, name: "Submission API vote" }),
     ).toBeVisible();
     await expect(page.getByText(/Your choice is not private/)).toBeVisible();
-    await expect(page.getByText(/Your submission is final/)).toBeVisible();
+    await expect(
+      page.getByText(/You can change your choice until voting closes/),
+    ).toBeVisible();
+    await expect(page.getByRole("timer")).toBeVisible();
 
     // Native radios, none selected.
     for (const label of ["Yes", "No"]) {
@@ -206,14 +209,14 @@ test.describe("voting", () => {
     }
 
     // Reviewing without a choice is refused with a pointer to the problem.
-    await page.getByRole("button", { name: "Review selections" }).click();
+    await page.getByRole("button", { name: "Review Selections" }).click();
     await expect(
       page.getByText("Make a choice before reviewing"),
     ).toBeVisible();
     await expect(page.getByText("Choose one option.")).toBeVisible();
 
     await page.getByRole("radio", { name: "Yes" }).check();
-    await page.getByRole("button", { name: "Review selections" }).click();
+    await page.getByRole("button", { name: "Review Selections" }).click();
     await expect(
       page.getByRole("heading", { name: "Review your selections" }),
     ).toBeFocused();
@@ -222,7 +225,7 @@ test.describe("voting", () => {
     // Back keeps the selection; nothing has been sent.
     await page.getByRole("button", { name: "Back" }).click();
     await expect(page.getByRole("radio", { name: "Yes" })).toBeChecked();
-    await page.getByRole("button", { name: "Review selections" }).click();
+    await page.getByRole("button", { name: "Review Selections" }).click();
 
     // Repeated activation sends exactly one request.
     const sent: string[] = [];
@@ -234,10 +237,11 @@ test.describe("voting", () => {
         sent.push(request.url());
       }
     });
-    await page.getByRole("button", { name: "Submit vote" }).dblclick();
+    await page.getByRole("button", { name: "Submit Vote" }).dblclick();
     await expect(
-      page.getByRole("heading", { name: "Vote submitted." }),
+      page.getByRole("heading", { name: "Your vote is recorded." }),
     ).toBeVisible();
+    await expect(page.getByRole("timer")).toBeVisible();
     expect(sent).toHaveLength(1);
     expect(await participationCount(vote.id)).toBe(1);
 
@@ -248,18 +252,30 @@ test.describe("voting", () => {
       await page.evaluate(() => localStorage.length + sessionStorage.length),
     ).toBe(0);
 
-    // A reload shows the committed state, still without any selection.
+    // A reload allows a replacement without retrieving the previous selection.
     await page.reload();
+    await expect(page.getByText("Your current vote is recorded")).toBeVisible();
+    await expect(page.getByRole("timer")).toBeVisible();
+    await expect(page.getByRole("radio")).toHaveCount(2);
+    await expect(page.getByRole("radio", { name: "Yes" })).not.toBeChecked();
+    await page.getByRole("radio", { name: "No" }).check();
+    await page.getByRole("button", { name: "Review Selections" }).click();
+    await page.getByRole("button", { name: "Update Vote" }).click();
     await expect(
-      page.getByRole("heading", { name: "Vote submitted." }),
+      page.getByRole("heading", { name: "Your vote is recorded." }),
     ).toBeVisible();
-    await expect(page.getByRole("radio")).toHaveCount(0);
+    expect(await participationCount(vote.id)).toBe(1);
+    const [current] = await sql<{ option_id: string }>(
+      "select option_id from public.open_responses where vote_id = $1",
+      [vote.id],
+    );
+    expect(current?.option_id).toBe(vote.options[1]?.id);
     expect(await page.content()).not.toContain(vote.options[0]?.id ?? "x");
     await page.goto("/");
     await expect(page.getByText("Submitted", { exact: true })).toBeVisible();
   });
 
-  test("a CLOSED vote: per-office abstain, review and a private submission", async ({
+  test("a PRIVATE vote: NOTA, review and a private submission", async ({
     page,
   }) => {
     const resident = await seedHousehold();
@@ -267,7 +283,7 @@ test.describe("voting", () => {
     const vote = await activateVoteFor(
       adminUser.id,
       [resident.householdId],
-      "CLOSED",
+      "PRIVATE",
     );
     await signInResident(page, resident);
     await page.goto(`/votes/${vote.id}`);
@@ -276,24 +292,24 @@ test.describe("voting", () => {
     await expect(
       page.getByText(/not against privileged infrastructure access/),
     ).toBeVisible();
-    for (const name of ["Asha", "Ravi", "Abstain"]) {
+    for (const name of ["Asha", "Ravi", "NOTA (None of the Above)"]) {
       await expect(page.getByRole("radio", { name })).not.toBeChecked();
     }
 
-    await page.getByRole("button", { name: "Review selections" }).click();
-    await expect(
-      page.getByText("Choose a candidate or Abstain."),
-    ).toBeVisible();
+    await page.getByRole("button", { name: "Review Selections" }).click();
+    await expect(page.getByText("Choose a candidate or NOTA.")).toBeVisible();
 
-    await page.getByRole("radio", { name: "Abstain" }).check();
-    await page.getByRole("button", { name: "Review selections" }).click();
-    await expect(page.getByRole("definition")).toHaveText("Abstain");
-    await page.getByRole("button", { name: "Submit vote" }).click();
+    await page.getByRole("radio", { name: "NOTA (None of the Above)" }).check();
+    await page.getByRole("button", { name: "Review Selections" }).click();
+    await expect(page.getByRole("definition")).toHaveText(
+      "NOTA (None of the Above)",
+    );
+    await page.getByRole("button", { name: "Submit Vote" }).click();
     await expect(
       page.getByRole("heading", { name: "Vote submitted." }),
     ).toBeVisible();
 
-    // Participation is recorded; the counters hold the abstention, nothing identifies the voter.
+    // Participation is recorded; the counters hold NOTA, nothing identifies the voter.
     expect(await participationCount(vote.id)).toBe(1);
     const tallies = await sql<{ candidate_id: string | null; n: string }>(
       "select candidate_id, accepted_count::text n from public.closed_tallies where vote_id = $1",
@@ -315,13 +331,13 @@ test.describe("voting", () => {
     const reviewYes = async (id: string) => {
       await page.goto(`/votes/${id}`);
       await page.getByRole("radio", { name: "Yes" }).check();
-      await page.getByRole("button", { name: "Review selections" }).click();
+      await page.getByRole("button", { name: "Review Selections" }).click();
     };
 
     // 1. The request never reaches the server: status says "not recorded", and a retry works.
     await reviewYes(first.id);
     await page.route("**/api/votes/*/submission", (route) => route.abort());
-    await page.getByRole("button", { name: "Submit vote" }).click();
+    await page.getByRole("button", { name: "Submit Vote" }).click();
     await expect(
       page.getByRole("heading", {
         name: "Your vote has not been recorded yet",
@@ -329,14 +345,52 @@ test.describe("voting", () => {
     ).toBeVisible();
     expect(await participationCount(first.id)).toBe(0);
     await page.unroute("**/api/votes/*/submission");
-    await page.getByRole("button", { name: "Review and try again" }).click();
-    await page.getByRole("button", { name: "Submit vote" }).click();
+    await page.getByRole("button", { name: "Review and Try Again" }).click();
+    await page.getByRole("button", { name: "Submit Vote" }).click();
     await expect(
-      page.getByRole("heading", { name: "Vote submitted." }),
+      page.getByRole("heading", { name: "Your vote is recorded." }),
     ).toBeVisible();
     expect(await participationCount(first.id)).toBe(1);
 
-    // 2. The server commits but the answer is lost: status finds it, no second attempt is made.
+    // 2. A lost acknowledgement after a PUBLIC replacement keeps the previous
+    // participation and permits retrying the same replacement while active.
+    await page.getByRole("button", { name: "Change Your Vote" }).click();
+    await page.getByRole("radio", { name: "No" }).check();
+    await page.getByRole("button", { name: "Review Selections" }).click();
+    await page.route("**/api/votes/*/submission", async (route) => {
+      await route.fetch();
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: { code: "INTERNAL_ERROR", message: "Lost" },
+          requestId: "lost-open-change",
+        }),
+      });
+    });
+    await page.getByRole("button", { name: "Submit Vote" }).click();
+    await expect(
+      page.getByRole("heading", {
+        name: "We could not confirm your vote change",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Try This Choice Again" }),
+    ).toBeVisible();
+    expect(await participationCount(first.id)).toBe(1);
+    await page.unroute("**/api/votes/*/submission");
+    await page.getByRole("button", { name: "Try This Choice Again" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Your vote is recorded." }),
+    ).toBeVisible();
+    expect(await participationCount(first.id)).toBe(1);
+    const [latestResponse] = await sql<{ option_id: string }>(
+      "select option_id from public.open_responses where vote_id = $1",
+      [first.id],
+    );
+    expect(latestResponse?.option_id).toBe(first.options[1]?.id);
+
+    // 3. The server commits but the first-submission answer is lost: status finds it.
     const second = await activateVoteFor(adminUser.id, [resident.householdId]);
     await reviewYes(second.id);
     await page.route("**/api/votes/*/submission", async (route) => {
@@ -350,34 +404,34 @@ test.describe("voting", () => {
         }),
       });
     });
-    await page.getByRole("button", { name: "Submit vote" }).click();
+    await page.getByRole("button", { name: "Submit Vote" }).click();
     await expect(
-      page.getByRole("heading", { name: "Vote submitted." }),
+      page.getByRole("heading", { name: "Your vote is recorded." }),
     ).toBeVisible();
     expect(await participationCount(second.id)).toBe(1);
     await page.unroute("**/api/votes/*/submission");
 
-    // 3. Neither the answer nor the status can be read: the state stays unknown, with no retry.
+    // 4. Neither the answer nor the status can be read: the state stays unknown, with no retry.
     const third = await activateVoteFor(adminUser.id, [resident.householdId]);
     await reviewYes(third.id);
     await page.route("**/api/votes/*/submission", (route) => route.abort());
     await page.route("**/api/votes/*/participation", (route) => route.abort());
-    await page.getByRole("button", { name: "Submit vote" }).click();
+    await page.getByRole("button", { name: "Submit Vote" }).click();
     await expect(
       page.getByRole("heading", {
         name: "We could not confirm your submission",
       }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /Submit vote|Review and try again/ }),
+      page.getByRole("button", { name: /Submit Vote|Review and Try Again/ }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Check again" }),
+      page.getByRole("button", { name: "Check Again" }),
     ).toBeVisible();
 
     // Once the status is readable again, it reports the truth.
     await page.unroute("**/api/votes/*/participation");
-    await page.getByRole("button", { name: "Check again" }).click();
+    await page.getByRole("button", { name: "Check Again" }).click();
     await expect(
       page.getByRole("heading", {
         name: "Your vote has not been recorded yet",
@@ -394,7 +448,7 @@ test.describe("voting", () => {
     await signInResident(page, resident);
     await page.goto(`/votes/${vote.id}`);
     await page.getByRole("radio", { name: "Yes" }).check();
-    await page.getByRole("button", { name: "Review selections" }).click();
+    await page.getByRole("button", { name: "Review Selections" }).click();
     let submissions = 0;
     await page.route("**/api/votes/*/submission", async (route) => {
       submissions += 1;
@@ -406,9 +460,9 @@ test.describe("voting", () => {
         body: "null",
       });
     });
-    await page.getByRole("button", { name: "Submit vote" }).click();
+    await page.getByRole("button", { name: "Submit Vote" }).click();
     await expect(
-      page.getByRole("heading", { name: "Vote submitted." }),
+      page.getByRole("heading", { name: "Your vote is recorded." }),
     ).toBeVisible();
     expect(submissions).toBe(1);
     expect(await participationCount(vote.id)).toBe(1);
@@ -423,10 +477,10 @@ test.describe("voting", () => {
     await signInResident(page, resident);
     await page.goto(`/votes/${vote.id}`);
     await page.getByRole("radio", { name: "Yes" }).check();
-    await page.getByRole("button", { name: "Review selections" }).click();
+    await page.getByRole("button", { name: "Review Selections" }).click();
 
     await suspend(resident.id);
-    await page.getByRole("button", { name: "Submit vote" }).click();
+    await page.getByRole("button", { name: "Submit Vote" }).click();
     await expect(
       page.getByRole("heading", { name: "You can no longer vote here" }),
     ).toBeVisible();
@@ -443,7 +497,7 @@ test.describe("voting", () => {
     const vote = await activateVoteFor(adminUser.id, [insider.householdId]);
     const draft = await asUser<{ id: string }>(
       adminUser.id,
-      "public.create_draft('OPEN')",
+      "public.create_draft('PUBLIC')",
     );
     await signInResident(page, outsider);
 
@@ -466,6 +520,63 @@ test.describe("voting", () => {
 });
 
 test.describe("results and download", () => {
+  test("shows live PRIVATE turnout to voters without office totals", async ({
+    page,
+  }) => {
+    const a = await seedHousehold();
+    const b = await seedHousehold();
+    const c = await seedHousehold();
+    const adminUser = await provisionAdmin();
+    const vote = await activateVoteFor(
+      adminUser.id,
+      [a, b, c].map((resident) => resident.householdId),
+      "PRIVATE",
+    );
+    const office = vote.offices[0];
+    await castFor(a.id, vote.id, {
+      confirmed: true,
+      selections: [
+        { officeId: office?.id, candidateId: office?.candidates[0]?.id },
+      ],
+    });
+
+    await signInResident(page, b);
+    await page.goto(`/votes/${vote.id}`);
+    await page.getByRole("link", { name: "View Live Turnout" }).click();
+    await expect(
+      page.getByRole("heading", { level: 1, name: /Results:/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("list", { name: "Turnout" }).getByRole("listitem"),
+    ).toContainText("1/3");
+    await expect(
+      page.getByRole("heading", {
+        name: "Turnout only while voting is open",
+      }),
+    ).toBeVisible();
+    await expect(page.getByRole("list", { name: /Results for/ })).toHaveCount(
+      0,
+    );
+
+    const response = await page.request.get(`/api/votes/${vote.id}/results`);
+    expect(response.status()).toBe(200);
+    const json = await response.json();
+    expect(json.data).toMatchObject({
+      vote: { status: "ACTIVE", votingType: "PRIVATE" },
+      eligibleCount: "3",
+      submittedCount: "1",
+      options: [],
+      offices: [],
+      namedResponses: null,
+      namedPage: null,
+    });
+    expect(JSON.stringify(json)).not.toContain(a.name);
+    expect(JSON.stringify(json)).not.toContain(a.identifier);
+    expect(
+      (await page.request.get(`/api/votes/${vote.id}/exports/csv`)).status(),
+    ).toBe(409);
+  });
+
   test("the screen, the API and the CSV agree exactly", async ({ page }) => {
     const [a, b, c, d] = [
       await seedHousehold(),
@@ -485,12 +596,37 @@ test.describe("results and download", () => {
     await castFor(c.id, vote.id, { confirmed: true, optionId: no });
 
     await signInResident(page, a);
-    // Nothing is published while the vote is open.
-    await page.goto(`/votes/${vote.id}/results`);
-    await expect(page.getByText("Results are not available yet")).toBeVisible();
-    expect(
-      (await page.request.get(`/api/votes/${vote.id}/results`)).status(),
-    ).toBe(409);
+    // An eligible voter can open live results after voting while the poll is active.
+    await page.goto(`/votes/${vote.id}`);
+    await expect(page.getByText("Submitted", { exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "View Live Results" }).click();
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: /Results: Submission API vote/,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("list", { name: "Turnout" }).getByRole("listitem"),
+    ).toContainText("3/4");
+    const liveRows = page
+      .getByRole("list", { name: "Votes for each option" })
+      .getByRole("listitem");
+    await expect(liveRows).toHaveCount(2);
+    const liveScreen = await liveRows.allInnerTexts();
+    expect(liveScreen[0]).toMatch(/Yes\s*Leading\s+2\/4\s+50%/u);
+    expect(liveScreen[1]).toMatch(/No\s+1\/4\s+25%/u);
+    await expect(
+      page.getByRole("heading", { name: "Who chose what" }),
+    ).toHaveCount(0);
+    const liveApi = await page.request.get(`/api/votes/${vote.id}/results`);
+    expect(liveApi.status()).toBe(200);
+    const liveData = await liveApi.json();
+    expect(liveData.data).toMatchObject({
+      vote: { status: "ACTIVE", votingType: "PUBLIC" },
+      submittedCount: "3",
+      namedResponses: [],
+    });
     expect(
       (await page.request.get(`/api/votes/${vote.id}/exports/csv`)).status(),
     ).toBe(409);
@@ -506,7 +642,9 @@ test.describe("results and download", () => {
         name: /Results: Submission API vote/,
       }),
     ).toBeVisible();
-    await expect(page.getByText(/3 of 4/)).toBeVisible();
+    await expect(
+      page.getByRole("list", { name: "Turnout" }).getByRole("listitem"),
+    ).toContainText("3/4");
     await expect(
       page.getByText("Completed early by an administrator"),
     ).toBeVisible();
@@ -514,12 +652,12 @@ test.describe("results and download", () => {
 
     // Screen.
     const optionRows = page
-      .getByRole("table", { name: "Votes for each option" })
-      .getByRole("row");
-    await expect(optionRows).toHaveCount(3); // header + two options
+      .getByRole("list", { name: "Votes for each option" })
+      .getByRole("listitem");
+    await expect(optionRows).toHaveCount(2);
     const screen = await optionRows.allInnerTexts();
-    expect(screen[1]).toMatch(/Yes\s+2\s+66\.67%/u);
-    expect(screen[2]).toMatch(/No\s+1\s+33\.33%/u);
+    expect(screen[0]).toMatch(/Yes\s*Leading\s+2\/4\s+50%/u);
+    expect(screen[1]).toMatch(/No\s+1\/4\s+25%/u);
     for (const resident of [a, b, c]) {
       await expect(
         page.locator("#main-content").getByText(resident.name),
@@ -546,12 +684,12 @@ test.describe("results and download", () => {
       }
     ).data;
     expect(api.options.map((o) => [o.label, o.count, o.percent])).toEqual([
-      ["Yes", "2", "66.67"],
-      ["No", "1", "33.33"],
+      ["Yes", "2", "67"],
+      ["No", "1", "33"],
     ]);
     expect(api.eligibleCount).toBe("4");
     expect(api.submittedCount).toBe("3");
-    expect(api.turnout.percent).toBe("75.00");
+    expect(api.turnout.percent).toBe("75");
     expect(api.outcome).toBe("LEADER");
 
     // CSV (downloaded through the real button).
@@ -599,7 +737,7 @@ test.describe("results and download", () => {
     );
     const pdf = await pdfText(await readFile(await pdfDownload.path()));
     expect(pdf).toContain("3of4eligiblehouseholds");
-    expect(pdf).toContain("(75.00%)");
+    expect(pdf).toContain("(75%)");
     for (const option of api.options) {
       expect(pdf).toContain(`${option.label}${option.count}${option.percent}%`);
     }
@@ -611,16 +749,17 @@ test.describe("results and download", () => {
     expect(pdf).not.toContain(a.email);
   });
 
-  test("a CLOSED result shows totals and abstentions, with no names", async ({
+  test("a PRIVATE result elects the candidate even when NOTA has more votes", async ({
     page,
   }) => {
     const a = await seedHousehold();
     const b = await seedHousehold();
+    const c = await seedHousehold();
     const adminUser = await provisionAdmin();
     const vote = await activateVoteFor(
       adminUser.id,
-      [a, b].map((r) => r.householdId),
-      "CLOSED",
+      [a, b, c].map((r) => r.householdId),
+      "PRIVATE",
     );
     const office = vote.offices[0];
     await castFor(a.id, vote.id, {
@@ -633,19 +772,36 @@ test.describe("results and download", () => {
       confirmed: true,
       selections: [{ officeId: office?.id, candidateId: null }],
     });
+    await castFor(c.id, vote.id, {
+      confirmed: true,
+      selections: [{ officeId: office?.id, candidateId: null }],
+    });
     await complete(adminUser.id, vote.id);
 
     await signInResident(page, b);
     await page.goto(`/votes/${vote.id}/results`);
     await expect(page.getByText("Totals only", { exact: true })).toBeVisible();
-    await expect(page.getByText("Leading candidate")).toBeVisible();
-    const table = page.getByRole("table", { name: "Results for Chair" });
-    await expect(table.getByRole("row", { name: /Abstained/ })).toContainText(
-      "1",
-    );
+    await expect(page.getByText("Elected candidate")).toBeVisible();
+    await expect(
+      page.getByText(/NOTA.*cannot win.*even if NOTA receives more votes/),
+    ).toBeVisible();
+    const chairList = page.getByRole("list", { name: "Results for Chair" });
+    await expect(
+      chairList
+        .getByRole("listitem")
+        .filter({ hasText: "NOTA (None of the Above)" }),
+    ).toContainText("2/");
+    const apiResult = await page.request.get(`/api/votes/${vote.id}/results`);
+    expect(apiResult.status()).toBe(200);
+    const apiData = await apiResult.json();
+    expect(apiData.data.offices[0]).toMatchObject({
+      nota: { count: "2", percent: "67" },
+      outcome: "LEADER",
+      leaderCandidateIds: [office?.candidates[0]?.id],
+    });
     await expect(page.getByText("Who chose what")).toHaveCount(0);
     const main = await page.locator("#main-content").innerText();
-    for (const resident of [a, b]) {
+    for (const resident of [a, b, c]) {
       expect(main).not.toContain(resident.name);
       expect(main).not.toContain(resident.identifier);
     }
@@ -655,7 +811,7 @@ test.describe("results and download", () => {
     ).text();
     expect(csv).not.toContain("NAMED_RESPONSE");
     expect(csv).not.toContain(a.identifier);
-    // PDF is included: control present, CLOSED document carries aggregates only; unknown formats are refused.
+    // PDF is included: control present, PRIVATE document carries aggregates only; unknown formats are refused.
     await expect(
       page.getByRole("link", { name: "Download PDF" }),
     ).toBeVisible();
@@ -666,7 +822,7 @@ test.describe("results and download", () => {
     expect(pdfResponse.headers()["content-type"]).toBe("application/pdf");
     const closedText = await pdfText(await pdfResponse.body());
     expect(closedText).toContain("Chair");
-    expect(closedText).toContain("Abstained");
+    expect(closedText).toContain("NOTA");
     expect(closedText).not.toContain(a.identifier);
     expect(closedText).not.toContain(a.name.replace(/\s+/gu, ""));
     expect(
@@ -693,7 +849,7 @@ test.describe("results and download", () => {
     await expect(
       page.getByText("Cancelled; results not valid.").first(),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "View results" })).toHaveCount(
+    await expect(page.getByRole("link", { name: "View Results" })).toHaveCount(
       0,
     );
 
@@ -721,10 +877,14 @@ test.describe("administrator monitoring", () => {
     const vote = await activateVoteFor(
       adminUser.id,
       [a, b].map((r) => r.householdId),
+      "PRIVATE",
     );
+    const office = vote.offices[0];
     await castFor(a.id, vote.id, {
       confirmed: true,
-      optionId: vote.options[0]?.id,
+      selections: [
+        { officeId: office?.id, candidateId: office?.candidates[0]?.id },
+      ],
     });
 
     await signInThroughUi(
@@ -746,7 +906,7 @@ test.describe("administrator monitoring", () => {
     ).toContainText("Not voted");
 
     await page.getByLabel("Show").selectOption("false");
-    await page.getByRole("button", { name: "Apply filter" }).click();
+    await page.getByRole("button", { name: "Apply Filter" }).click();
     await expect(page.getByText(b.identifier, { exact: true })).toBeVisible();
     await expect(page.getByText(a.identifier, { exact: true })).toHaveCount(0);
 
@@ -754,18 +914,18 @@ test.describe("administrator monitoring", () => {
     const json = await (
       await page.request.get(`/api/admin/votes/${vote.id}/participation`)
     ).text();
-    expect(json).not.toContain(vote.options[0]?.id ?? "x");
+    expect(json).not.toContain(office?.candidates[0]?.id ?? "x");
     expect(json).not.toContain("@");
     expect(json).not.toContain("accepted");
 
     await page.goto("/admin/audit");
     await expect(
-      page.getByRole("heading", { level: 1, name: "Audit history" }),
+      page.getByRole("heading", { level: 1, name: "Audit History" }),
     ).toBeVisible();
     const events = page.getByRole("table", { name: "Audit events" });
     await expect(events.getByText("Vote activated").first()).toBeVisible();
     await page.getByLabel("Action").selectOption("VOTE_ACTIVATED");
-    await page.getByRole("button", { name: "Apply filters" }).click();
+    await page.getByRole("button", { name: "Apply Filters" }).click();
     await expect(events.getByText("Vote activated").first()).toBeVisible();
     const auditText = await page.locator("#main-content").innerText();
     expect(auditText).not.toMatch(/optionId|\botp\b|ballot:/iu);
@@ -805,7 +965,7 @@ test.describe("responsive and accessible", () => {
     const doneClosed = await activateVoteFor(
       adminUser.id,
       [resident.householdId],
-      "CLOSED",
+      "PRIVATE",
     );
     const cancelled = await activateVoteFor(adminUser.id, [
       resident.householdId,
@@ -862,17 +1022,17 @@ test.describe("responsive and accessible", () => {
       await page.getByRole("radio", { name: "Yes" }).focus();
       await page.keyboard.press("Space");
       await expect(page.getByRole("radio", { name: "Yes" })).toBeChecked();
-      await page.getByRole("button", { name: "Review selections" }).focus();
+      await page.getByRole("button", { name: "Review Selections" }).focus();
       await page.keyboard.press("Enter");
       await expect(
         page.getByRole("heading", { name: "Review your selections" }),
       ).toBeFocused();
       await scan(page, "review step");
       await page.getByRole("button", { name: "Back" }).click();
-      await page.getByRole("button", { name: "Review selections" }).click();
-      await page.getByRole("button", { name: "Submit vote" }).click();
+      await page.getByRole("button", { name: "Review Selections" }).click();
+      await page.getByRole("button", { name: "Submit Vote" }).click();
       await expect(
-        page.getByRole("heading", { name: "Vote submitted." }),
+        page.getByRole("heading", { name: "Your vote is recorded." }),
       ).toBeFocused();
       await scan(page, "submitted state");
     }

@@ -12,7 +12,9 @@ const PERMISSION_DENIED = "42501";
 
 interface Detail {
   id: string;
-  votingType: "OPEN" | "CLOSED";
+  votingType: "PUBLIC" | "PRIVATE";
+  openSelectionMode: "SINGLE" | "MULTIPLE";
+  openSelectionLimit: number | null;
   status: string;
   title: string;
   instructions: string | null;
@@ -100,7 +102,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     people.map((p) => p.householdId as string);
 
   describe("get_rwa_display", () => {
-    it("shows enabled members only the name and time zone", async () => {
+    it("shows enabled members the name and time zone", async () => {
       for (const sub of [world.admin.id, world.alice.id]) {
         expect(await call(sub, "public.get_rwa_display()")).toEqual({
           name: "Lakeview RWA",
@@ -132,9 +134,11 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
 
   describe("authorization", () => {
     it("requires a current enabled administrator for every routine", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       for (const sub of [world.alice.id, world.carol.id, UNKNOWN]) {
-        expect((await dbError(create("OPEN", sub))).message).toBe("FORBIDDEN");
+        expect((await dbError(create("PUBLIC", sub))).message).toBe(
+          "FORBIDDEN",
+        );
         expect(
           (await dbError(update(draft.id, 1, { title: "x" }, sub))).message,
         ).toBe("FORBIDDEN");
@@ -146,9 +150,9 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
 
     it("denies anonymous callers at the grant level", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       for (const sql of [
-        () => create("OPEN", null),
+        () => create("PUBLIC", null),
         () => update(draft.id, 1, { title: "x" }, null),
         () => read(draft.id, null),
         () => call(null, "public.preview_draft($1, 1)", [draft.id]),
@@ -174,7 +178,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
 
     it("cannot be bypassed by writing the tables directly", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       const error = await dbError(
         db.asRole("authenticated", { sub: world.admin.id }, (c) =>
           c.query("update public.votes set title = 'x' where id = $1", [
@@ -188,9 +192,9 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
 
   describe("create_draft", () => {
     it("creates an incomplete revision-1 draft with the explicit type, and audits it", async () => {
-      const open = await create("OPEN");
+      const open = await create("PUBLIC");
       expect(open).toMatchObject({
-        votingType: "OPEN",
+        votingType: "PUBLIC",
         status: "DRAFT",
         title: "",
         draftRevision: 1,
@@ -200,10 +204,10 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
         options: [],
         eligibleHouseholdIds: [],
       });
-      const closed = await create("CLOSED");
-      expect(closed.votingType).toBe("CLOSED");
+      const closed = await create("PRIVATE");
+      expect(closed.votingType).toBe("PRIVATE");
       expect(await audit(open.id)).toMatchObject([
-        { action: "DRAFT_CREATED", details: { votingType: "OPEN" } },
+        { action: "DRAFT_CREATED", details: { votingType: "PUBLIC" } },
       ]);
     });
 
@@ -224,8 +228,33 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
   });
 
   describe("revision control", () => {
+    it("stores only valid selection rules on PUBLIC drafts", async () => {
+      const draft = await create("PUBLIC");
+      const updated = await update(draft.id, 1, {
+        openSelectionMode: "MULTIPLE",
+        openSelectionLimit: 2,
+      });
+      expect(updated).toMatchObject({
+        openSelectionMode: "MULTIPLE",
+        openSelectionLimit: 2,
+        draftRevision: 2,
+      });
+
+      for (const changes of [
+        { openSelectionMode: "MULTIPLE" },
+        { openSelectionLimit: null },
+        { openSelectionMode: "MULTIPLE", openSelectionLimit: 1 },
+        { openSelectionMode: "SINGLE", openSelectionLimit: null },
+        { openSelectionMode: "MULTIPLE", openSelectionLimit: 101 },
+      ]) {
+        expect((await dbError(update(draft.id, 2, changes))).message).toBe(
+          "VALIDATION_FAILED",
+        );
+      }
+    });
+
     it("increments the revision once per edit and audits the changed fields", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       const one = await update(draft.id, 1, {
         title: "  Park renovation?  ",
         instructions: "Pick one.\r\nThen review.",
@@ -254,7 +283,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
 
     it("rejects a missing or malformed revision, and a stale one without changing anything", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       for (const revision of [null, 0, -1]) {
         expect(
           (await dbError(update(draft.id, revision, { title: "x" }))).message,
@@ -270,14 +299,14 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
 
     it("treats an empty change set as no edit", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       const same = await update(draft.id, 1, {});
       expect(same.draftRevision).toBe(1);
       expect(await audit(draft.id)).toHaveLength(1);
     });
 
     it("lets exactly one of two concurrent edits at the same revision win", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       const results = await Promise.allSettled([
         update(draft.id, 1, { title: "First" }),
         update(draft.id, 1, { title: "Second" }),
@@ -294,7 +323,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
       expect((await dbError(update(UNKNOWN, 1, { title: "x" }))).message).toBe(
         "NOT_FOUND",
       );
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       for (const changes of [
         { status: "ACTIVE" },
         { draftRevision: 9 },
@@ -312,7 +341,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
 
     it("rejects markup and control characters", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       for (const title of ["<b>Hi</b>", "bad\u0007title"]) {
         expect((await dbError(update(draft.id, 1, { title }))).message).toBe(
           "VALIDATION_FAILED",
@@ -321,9 +350,9 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
   });
 
-  describe("OPEN ballots", () => {
+  describe("PUBLIC ballots", () => {
     it("replaces the options collection and keeps supplied ids stable", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       const first = await update(draft.id, 1, {
         options: [
           { label: "Yes", position: 1 },
@@ -337,13 +366,13 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
         options: [
           { id: no?.id, label: "No", position: 1 },
           { id: yes?.id, label: "Yes, please", position: 2 },
-          { label: "Abstain later", position: 3 },
+          { label: "Candidate extra", position: 3 },
         ],
       });
       expect(second.options.map((o) => [o.id, o.label, o.position])).toEqual([
         [no?.id, "No", 1],
         [yes?.id, "Yes, please", 2],
-        [expect.any(String), "Abstain later", 3],
+        [expect.any(String), "Candidate extra", 3],
       ]);
 
       const third = await update(draft.id, 3, {
@@ -353,7 +382,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
 
     it("leaves collections alone when omitted and empties them when supplied empty", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       await update(draft.id, 1, {
         options: [
           { label: "A", position: 1 },
@@ -367,8 +396,8 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
 
     it("rejects duplicate normalised labels, positions and ids, and foreign ids", async () => {
-      const draft = await create("OPEN");
-      const other = await create("OPEN");
+      const draft = await create("PUBLIC");
+      const other = await create("PUBLIC");
       const theirs = await update(other.id, 1, {
         options: [{ label: "Theirs", position: 1 }],
       });
@@ -398,8 +427,8 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
       expect((await read(draft.id)).draftRevision).toBe(1);
     });
 
-    it("rejects offices on an OPEN vote and does not reinterpret options", async () => {
-      const draft = await create("OPEN");
+    it("rejects offices on a PUBLIC vote and does not reinterpret options", async () => {
+      const draft = await create("PUBLIC");
       const error = await dbError(
         update(draft.id, 1, {
           offices: [
@@ -415,7 +444,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
   });
 
-  describe("CLOSED ballots", () => {
+  describe("PRIVATE ballots", () => {
     const ballot = {
       offices: [
         {
@@ -434,8 +463,8 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
       ],
     };
 
-    it("stores offices with candidates, in order, with no abstention rows", async () => {
-      const draft = await create("CLOSED");
+    it("stores offices with candidates, in order, without adding NOTA as a candidate", async () => {
+      const draft = await create("PRIVATE");
       const saved = await update(draft.id, 1, ballot);
       expect(
         saved.offices.map((o) => [o.name, o.candidates.map((c) => c.name)]),
@@ -452,7 +481,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
 
     it("swaps office and candidate positions atomically", async () => {
-      const draft = await create("CLOSED");
+      const draft = await create("PRIVATE");
       const saved = await update(draft.id, 1, ballot);
       const [chair, treasurer] = saved.offices;
       const swapped = await update(draft.id, 2, {
@@ -485,7 +514,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
 
     it("requires supplied candidate ids to belong to that very office", async () => {
-      const draft = await create("CLOSED");
+      const draft = await create("PRIVATE");
       const saved = await update(draft.id, 1, ballot);
       const [chair, treasurer] = saved.offices;
       const moved = await dbError(
@@ -523,7 +552,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
 
     it("rejects duplicate normalised names within an office and across offices", async () => {
-      const draft = await create("CLOSED");
+      const draft = await create("PRIVATE");
       const duplicateCandidate = {
         offices: [
           {
@@ -550,7 +579,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
 
     it("allows the same candidate name in different offices", async () => {
-      const draft = await create("CLOSED");
+      const draft = await create("PRIVATE");
       const saved = await update(draft.id, 1, {
         offices: [
           {
@@ -568,8 +597,8 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
       expect(saved.offices).toHaveLength(2);
     });
 
-    it("rejects options on a CLOSED vote", async () => {
-      const draft = await create("CLOSED");
+    it("rejects options on a PRIVATE vote", async () => {
+      const draft = await create("PRIVATE");
       expect(
         (
           await dbError(
@@ -582,16 +611,16 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
 
   describe("type changes", () => {
     it("atomically removes the incompatible children and never reinterprets them", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       await update(draft.id, 1, {
         options: [
           { label: "Yes", position: 1 },
           { label: "No", position: 2 },
         ],
       });
-      const closed = await update(draft.id, 2, { votingType: "CLOSED" });
+      const closed = await update(draft.id, 2, { votingType: "PRIVATE" });
       expect(closed).toMatchObject({
-        votingType: "CLOSED",
+        votingType: "PRIVATE",
         options: [],
         offices: [],
         draftRevision: 3,
@@ -606,9 +635,9 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
           },
         ],
       });
-      const open = await update(draft.id, 4, { votingType: "OPEN" });
+      const open = await update(draft.id, 4, { votingType: "PUBLIC" });
       expect(open).toMatchObject({
-        votingType: "OPEN",
+        votingType: "PUBLIC",
         offices: [],
         options: [],
       });
@@ -622,9 +651,9 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
 
     it("accepts the new type's collection in the same edit", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       const saved = await update(draft.id, 1, {
-        votingType: "CLOSED",
+        votingType: "PRIVATE",
         offices: [
           {
             name: "Chair",
@@ -633,12 +662,12 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
           },
         ],
       });
-      expect(saved.votingType).toBe("CLOSED");
+      expect(saved.votingType).toBe("PRIVATE");
       expect(saved.offices).toHaveLength(1);
     });
 
     it("rejects a mixed shape in a single edit", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       const error = await dbError(
         update(draft.id, 1, {
           options: [{ label: "Yes", position: 1 }],
@@ -657,7 +686,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
 
   describe("electorate", () => {
     it("replaces the selected set and rejects duplicates and unknown households", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       const two = await update(draft.id, 1, {
         eligibleHouseholdIds: households(world.alice, world.bob),
       });
@@ -692,7 +721,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
           [world.dave.householdId],
         ),
       );
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       expect(
         (
           await dbError(
@@ -732,7 +761,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
 
     it("writes no representative snapshot while drafting", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       await update(draft.id, 1, {
         eligibleHouseholdIds: households(world.alice),
       });
@@ -750,7 +779,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
 
   describe("frozen votes", () => {
     it("rejects edits with VOTE_FROZEN once the vote is no longer a draft", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       await update(draft.id, 1, {
         title: "Frozen",
         closesAt: FUTURE,
@@ -787,7 +816,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
         { title: "Changed" },
         { options: [] },
         { eligibleHouseholdIds: [] },
-        { votingType: "CLOSED" },
+        { votingType: "PRIVATE" },
       ]) {
         expect(
           (await dbError(update(draft.id, detail.draftRevision, changes)))
@@ -802,7 +831,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
 
   describe("preview", () => {
     it("lists safe blockers for an incomplete draft without changing the revision", async () => {
-      const draft = await create("CLOSED");
+      const draft = await create("PRIVATE");
       const result = await preview(draft.id, 1);
       expect(result.readyToActivate).toBe(false);
       expect(result.revision).toBe(1);
@@ -821,7 +850,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
 
     it("rejects a stale revision and reports the previewed revision exactly", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       await update(draft.id, 1, { title: "Revised" });
       expect((await dbError(preview(draft.id, 1))).message).toBe(
         "STALE_REVISION",
@@ -830,7 +859,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
 
     it("flags selected households that are no longer eligible or lack an enabled representative", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       await update(draft.id, 1, {
         eligibleHouseholdIds: households(world.alice, world.bob),
       });
@@ -855,14 +884,14 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
       );
     });
 
-    it("requires two distinct options for OPEN and a candidate in every office for CLOSED", async () => {
-      const open = await create("OPEN");
+    it("requires two distinct options for PUBLIC and a candidate in every office for PRIVATE", async () => {
+      const open = await create("PUBLIC");
       await update(open.id, 1, { options: [{ label: "Only", position: 1 }] });
       expect((await preview(open.id, 2)).blockers.map((b) => b.code)).toContain(
         "OPTIONS_REQUIRED",
       );
 
-      const closed = await create("CLOSED");
+      const closed = await create("PRIVATE");
       await update(closed.id, 1, {
         offices: [{ name: "Chair", position: 1, candidates: [] }],
       });
@@ -872,7 +901,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     });
 
     it("reports a past deadline", async () => {
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       await update(draft.id, 1, { closesAt: "2020-01-01T00:00:00Z" });
       expect(
         (await preview(draft.id, 2)).blockers.map((b) => b.code),
@@ -891,7 +920,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
           "select app_private.deployment_set_retention(365, 365, 365, 30, 90)",
         );
       });
-      const draft = await create("OPEN");
+      const draft = await create("PUBLIC");
       await update(draft.id, 1, {
         title: "Ready?",
         closesAt: FUTURE,

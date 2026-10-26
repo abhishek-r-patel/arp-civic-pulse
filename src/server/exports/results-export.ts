@@ -11,7 +11,9 @@ import {
 import { ApiError } from "@/server/http/errors";
 import { BASE_HEADERS } from "@/server/http/response";
 import { log } from "@/server/observability/logger";
+import { getRwaBranding } from "@/server/settings/rwa-profile";
 import type { RegisterDeps } from "@/server/register/shared";
+import { buildHouseholdTerms } from "@/shared/contracts/household-terms";
 import { getCompleteResults, getMemberVote } from "@/server/votes/member";
 
 /*
@@ -56,6 +58,12 @@ export async function exportResults(
   try {
     // The database read is not the scarce resource; rendering is.
     const results = await getCompleteResults(deps, voteId);
+    const branding = await getRwaBranding(deps.client);
+    const { address, email, phone } = branding;
+    const terms = buildHouseholdTerms(
+      branding.householdLabel,
+      branding.identifierKind,
+    );
     const release = await RENDER_SLOTS[format]
       .acquire(MAX_WAIT_MS)
       .catch(() => {
@@ -66,8 +74,13 @@ export async function exportResults(
     try {
       body =
         format === "csv"
-          ? renderResultsCsv(results, generatedAt)
-          : new Uint8Array(await renderResultsPdf(results, generatedAt));
+          ? renderResultsCsv(results, generatedAt, terms)
+          : new Uint8Array(
+              await renderResultsPdf(results, generatedAt, {
+                terms,
+                rwaContact: { address, email, phone },
+              }),
+            );
     } finally {
       release();
     }

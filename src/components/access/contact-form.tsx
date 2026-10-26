@@ -106,7 +106,7 @@ export function ContactForm({
         className="sm:w-fit"
       >
         <Send aria-hidden="true" className="size-5" />
-        Send message
+        Send Message
       </Button>
       {!csrfToken ? (
         <p role="alert" className="text-error">

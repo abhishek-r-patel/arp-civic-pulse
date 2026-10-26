@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 const resultsQuerySchema = listQuerySchema({});
 
-// Completed votes only. Totals always cover every response; limit and cursor page the named OPEN list.
+// Active aggregates and completed results. Totals cover every response; limit and cursor page the named PUBLIC list.
 export const { GET, POST, PUT, PATCH, DELETE } = route({
   GET: async ({ request, requestId, params }) => {
     const { id } = parseParams(params, idParamsSchema);

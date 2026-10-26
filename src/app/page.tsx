@@ -10,9 +10,11 @@ import { Button, LinkButton } from "@/components/ui/button";
 import { SelectField } from "@/components/ui/field";
 import { EmptyState, PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
+import { WelcomeMessage } from "@/components/ui/rwa-branding";
 import { Pagination } from "@/components/ui/pagination";
 import { ApiError } from "@/server/http/errors";
 import { memberPageContext } from "@/server/register/page-context";
+import { loadHouseholdTerms } from "@/server/settings/rwa-profile";
 import { listMemberVotes } from "@/server/votes/member";
 import {
   memberVoteListQuerySchema,
@@ -26,12 +28,14 @@ import {
 import { formatInZone } from "@/shared/time/zoned";
 import { firstValues } from "@/components/admin/format";
 
-export const metadata = {
-  title: "Votes",
-  description:
-    "View the polls and elections available to your registered household, with status and participation filters.",
-  alternates: { canonical: "/" },
-};
+export async function generateMetadata() {
+  const terms = await loadHouseholdTerms();
+  return {
+    title: "Votes",
+    description: `View the polls and elections available to your registered ${terms.household}, with status and participation filters.`,
+    alternates: { canonical: "/" },
+  };
+}
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -137,22 +141,23 @@ export default async function HomePage({
     <div className="grid gap-8">
       <PageHeader
         title="Votes"
-        description={`Signed in as ${account.representativeName}. These are the votes your household is eligible for.`}
+        description={`${deps.branding.fullName}. Signed in as ${account.representativeName}. These are the votes your ${deps.terms.household} is eligible for.`}
       />
+      <WelcomeMessage message={deps.branding.welcomeMessage} />
 
       {account.isAdmin ? (
         <Notice tone="info" heading="Administrator tools">
           <p>
-            Maintain the household register, accounts and votes. Administrator
-            access does not make you eligible to vote; eligibility comes from
-            the household register.
+            Maintain the {deps.terms.households} register, accounts and votes.
+            Administrator access does not make you eligible to vote; eligibility
+            comes from the {deps.terms.households} register.
           </p>
           <div className="mt-3 flex flex-col gap-3 sm:flex-row">
             <LinkButton href="/admin/votes" variant="secondary">
-              Manage votes
+              Manage Votes
             </LinkButton>
             <LinkButton href="/admin/households" variant="secondary">
-              Household register
+              {deps.terms.Households} Register
             </LinkButton>
             <LinkButton href="/admin/accounts" variant="secondary">
               Accounts
@@ -198,7 +203,7 @@ export default async function HomePage({
           ))}
         </SelectField>
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Button type="submit">Apply filters</Button>
+          <Button type="submit">Apply Filters</Button>
           {filtersActive ? (
             <LinkButton href="/" variant="secondary">
               Clear
@@ -218,7 +223,7 @@ export default async function HomePage({
             title="No votes match these filters"
             action={
               <LinkButton href="/" variant="secondary">
-                Clear filters
+                Clear Filters
               </LinkButton>
             }
           >
@@ -228,8 +233,8 @@ export default async function HomePage({
           <EmptyState title="No votes yet">
             <p>
               There are no votes for you to take part in right now. When your
-              RWA opens one that includes your household, it will be listed here
-              with its deadline.
+              RWA opens one that includes your {deps.terms.household}, it will
+              be listed here with its deadline.
             </p>
           </EmptyState>
         )

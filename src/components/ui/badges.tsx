@@ -28,11 +28,11 @@ const baseClasses =
   "inline-flex max-w-full items-center gap-1.5 rounded-control border px-2 py-1 text-caption font-semibold";
 
 const typeConfig: Record<VotingType, { icon: LucideIcon; classes: string }> = {
-  OPEN: {
+  PUBLIC: {
     icon: Eye,
     classes: "border-secondary/40 bg-secondary/10 text-secondary",
   },
-  CLOSED: {
+  PRIVATE: {
     icon: Lock,
     classes: "border-primary/40 bg-primary/10 text-primary",
   },

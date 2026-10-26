@@ -18,16 +18,16 @@ This document is the visual and UX specification for [PRD.md](./PRD.md), impleme
 - Make eligibility, privacy, deadlines, consequences and the next safe action understandable.
 - Keep voting type, lifecycle status and personal participation visually and verbally distinct.
 - Require deliberate review/confirmation for ballots and consequential admin actions.
-- Never show provisional choice totals or claim submission success before acknowledgement.
+- Never show active PRIVATE candidate/NOTA totals or claim submission success before acknowledgement. Active PUBLIC polls may show aggregate option counts/turnout; active PRIVATE elections may show aggregate turnout only. Never show active choices.
 - Design administration as carefully for phones as the resident journey.
 - Use restrained surfaces, borders and whitespace rather than decorative charts, gradients, nested cards or motion-heavy effects.
 
 ## 02 Colour Palette
 | Name | Hex | Use for |
 |----------------|---------|--------------------------------------------------------|
-| Primary | #0F172A | Main text, headings, key UI, CLOSED badge |
+| Primary | #0F172A | Main text, headings, key UI, PRIVATE badge |
 | Accent | #0F766E | Primary buttons, links, highlights, selected options |
-| Secondary | #4F46E5 | Secondary actions, OPEN badge, focus ring |
+| Secondary | #4F46E5 | Secondary actions, PUBLIC badge, focus ring |
 | Background | #F8FAFC | Page background |
 | Surface | #FFFFFF | Cards, inputs, sheets |
 | Success | #15803D | Success states, "Submitted", confirmations |
@@ -38,8 +38,8 @@ This document is the visual and UX specification for [PRD.md](./PRD.md), impleme
 | Control Border | #64748B | Input, radio and secondary-button borders (3:1 contrast) |
 
 - **Tints:** For badge and notice backgrounds, use a palette colour at 10% opacity on Surface. The text on it uses the full colour.
-- **Colour is never the only signal.** Always pair it with an icon and a label (for example, a lock icon and "CLOSED voting").
-- **Voting type:** OPEN is Secondary with an Eye icon. CLOSED is Primary with a Lock icon.
+- **Colour is never the only signal.** Always pair it with an icon and a label (for example, a lock icon and "PRIVATE voting").
+- **Voting type:** PUBLIC is Secondary with an Eye icon. PRIVATE is Primary with a Lock icon.
 - **Status:** Draft is Muted, Active is Accent, Completed is Success, and Cancelled is Error.
 - Use Border for decorative dividers and Control Border for essential input/control boundaries; do not substitute the lighter divider colour for controls.
 - Verify actual foreground/background pairings, including tinted notices, selected states and focus indicators. Tokens alone do not establish accessibility.
@@ -55,7 +55,7 @@ This document is the visual and UX specification for [PRD.md](./PRD.md), impleme
 - Line height is 1.5 for body text and 1.25 for headings. Keep line length to 70 characters or fewer.
 - Show dates in the RWA timezone with a timezone label, for example "Sat 2 Nov, 6:00 PM IST".
 - Use one semantic page-level heading and logical heading order; heading appearance does not dictate its HTML level.
-- Use sentence case and plain action labels. Do not use long uppercase passages; keep OPEN/CLOSED terminology consistent.
+- Use sentence case and plain action labels. Do not use long uppercase passages; keep PUBLIC/PRIVATE terminology consistent.
 - Use tabular numerals for counts/percentages and keep their denominators visible. Never shrink important instructions to caption size merely to fit a layout.
 
 ## 04 Spacing
@@ -81,8 +81,8 @@ Use the existing 8px-led scale with a 4px half-step: 4, 8, 16, 24, 32, 48, 64px.
 - **Type badge and status badge:** 8px radius, icon plus text, using a tint with full-colour text.
 - **Ballot option:** A full-width radio card at least 56px high. The selected state uses an Accent border, a check icon and a tint, so it is not colour-only.
 - **Privacy notice:** A readable Warning-tint callout with an icon before selection and again at review. Use the approved copy in section 09; never promise secrecy from all infrastructure operators.
-- **Review and confirm screen:** A summary list of choices, "Back" and "Submit vote" buttons, and a final warning that submission cannot be changed.
-- **Results bar:** Completed results only, with label, count, percentage and denominator available as text. Use "Winner" only when approved election rules establish one, and "Tie" for tied positive leaders. Never show live bars or a "Leading" state.
+- **Review and confirm screen:** A summary list of choices, "Back" and "Submit Vote" buttons, and a final warning that submission cannot be changed.
+- **Results bar** (`ResultBars`): one row per option, candidate, NOTA or turnout, with the label (and optional tag) on the left, `count/eligible percent%` in tabular numerals on the right, and a full-width bar below. Leaders use the accent fill with a "Leading" (live PUBLIC), "Elected" (completed PRIVATE) or "Tied" tag; other rows use a neutral fill; NOTA uses a muted striped fill because it cannot win. The text carries the meaning and is read as "count of total eligible households"; bars are decorative and hidden from assistive technology. Never show candidate bars for a live PRIVATE election, only turnout. The PDF draws the same rows in greyscale with a hatched NOTA bar.
 - **Data table:** Semantic headers and right-aligned numeric values. Prefer stacked label/value rows on mobile while preserving reading order and associations. A labelled contained scroller is acceptable only where a genuinely two-dimensional table needs it; never create page-level horizontal scrolling or truncate decision-relevant text. Header rows repeat when printed.
 - **Confirmation dialog:** A bottom sheet on mobile and a centred modal on desktop. Focus is trapped, Esc closes it, and the destructive action is named explicitly ("Cancel vote").
 - **Feedback:** An inline Success or Error banner for form results. Skeleton loaders for lists, and every list has an empty state with a next step.
@@ -97,7 +97,7 @@ Use the existing 8px-led scale with a 4px half-step: 4, 8, 16, 24, 32, 48, 64px.
 - Radio cards use native radio inputs, visible labels and semantic groups. A decorative check/icon does not replace the input's accessible state.
 
 ## 07 Icons
-Use Lucide React. Line icons only, 1.5px stroke. Always label icons with text unless the control has an accessible name. Hide decorative icons from assistive technology. Defaults: `Lock` (CLOSED), `Eye` (OPEN), `Vote`, `CheckCircle2` (submitted), `Clock` (deadline), `FileDown` (exports), `Users`, `ShieldCheck`, `AlertTriangle` (notices).
+Use Lucide React. Line icons only, 1.5px stroke. Always label icons with text unless the control has an accessible name. Hide decorative icons from assistive technology. Defaults: `Lock` (PRIVATE), `Eye` (PUBLIC), `Vote`, `CheckCircle2` (submitted), `Clock` (deadline), `FileDown` (exports), `Users`, `ShieldCheck`, `AlertTriangle` (notices).
 
 ## 08 Breakpoints
 - Mobile: under 640px
@@ -105,6 +105,7 @@ Use Lucide React. Line icons only, 1.5px stroke. Always label icons with text un
 - Desktop: 1024px and above
 
 - Mobile: a single column and a simple header. A sticky primary action is optional, not mandatory.
+- Header (all widths): the first row holds "Civic Pulse for {alias}" and the signed-in name; the second row holds the navigation tabs on the left and **Sign Out** right-aligned on the same line, so the button never drops onto its own row. Tabs wrap beneath one another while Sign Out stays at the top right of that row.
 - Tablet and desktop: add a sidebar or top navigation for admins and a two-column layout for results and the admin dashboard.
 - Test 320-430 CSS-pixel phone widths and 1280-1440 CSS-pixel laptop widths, plus intermediate widths and enlarged text.
 - Sticky actions must not obscure the last row, instructions, errors or keyboard focus. Account for safe-area insets and the mobile on-screen keyboard; use normal document flow if space is insufficient.
@@ -112,19 +113,19 @@ Use Lucide React. Line icons only, 1.5px stroke. Always label icons with text un
 - Do not require a mouse or hover for any member/admin journey. Verify mobile Safari, Android Chrome and supported laptop browsers.
 
 ## 09 Voting Language and Privacy Copy
-- Always display OPEN or CLOSED as the voting type and lifecycle status separately. Do not substitute "anonymous" or "named poll" for the type.
+- Always display PUBLIC or PRIVATE as the voting type and lifecycle status separately. Do not substitute "anonymous" or "named poll" for the type.
 - Vote summaries carry a short privacy explanation; detail and review show the full notice before submission.
-- **OPEN notice:** "After voting ends, eligible members and RWA admins can see your name, flat and choice, including in downloadable results."
-- **CLOSED notice:** "Your selections are not shown to residents or RWA admins. Results show totals only."
-- **CLOSED privacy limits:** Provide an accessible explanation: "This protects choices within the app, not against privileged infrastructure access. Results from very small elections may allow people to infer choices." Do not hide this behind hover-only content.
-- **Final submission:** "Your submission is final. You cannot change or withdraw it."
-- **Accepted:** "Vote submitted." CLOSED acknowledgement shows participation only, never selections or a link to retrieve the ballot.
+- **PUBLIC notice:** "While voting is open, eligible members and RWA admins can see aggregate counts only. You can change your choice until voting closes. After it ends, your name, flat and final choice are visible in results and downloads."
+- **PRIVATE notice:** "Your selections are not shown to residents or RWA admins. Results show totals only."
+- **PRIVATE privacy limits:** Provide an accessible explanation: "This protects choices within the app, not against privileged infrastructure access. Results from very small elections may allow people to infer choices." Do not hide this behind hover-only content.
+- **Final submission (PRIVATE only):** "Your PRIVATE election submission is final. You cannot change or withdraw it." PUBLIC ballots never show it because their selections can be changed until closing.
+- **Accepted:** PUBLIC acknowledgement confirms the current choice and offers a change action while active. PRIVATE acknowledgement shows participation only, never selections or a link to retrieve the ballot.
 - **Cancelled:** "Cancelled; results not valid." Do not publish choices or offer results exports.
-- Use "Submit vote", "Review selections", "Activate vote", "Complete vote early" and "Cancel vote", not technical labels such as "Commit ballot" or vague "OK".
+- Write button labels in Title Case (minor words such as "a", "and", "to" stay lowercase unless first), for example "Submit Vote", "Review Selections", "Activate Vote", "Complete Vote Early", "Cancel Vote" and "Sign Out", not technical labels such as "Commit ballot" or vague "OK".
 
 ## 10 Navigation and Information Architecture
 - **Members:** Votes, account context and sign-out. Show eligible current votes first and keep authorised completed results accessible.
-- **Admins:** Clearly identified Votes, Households and Audit history, with a visible way back to the member experience. Share the application shell rather than creating a separate app.
+- **Admins:** Clearly identified Votes, Households and Audit History tabs, with a visible way back to the member experience. Share the application shell rather than creating a separate app.
 - Admin capability does not imply eligibility to vote; show personal submission status only for the admin's own entitlement.
 - Unauthenticated screens do not reveal the register, ballot catalogue or results. Members do not get a general resident directory.
 - Use descriptive titles and breadcrumbs for deeper admin workflows. Always provide a visible Back/Cancel route.
@@ -147,34 +148,38 @@ Use Lucide React. Line icons only, 1.5px stroke. Always label icons with text un
 
 ### Admin setup
 - Organize into voting type, ballot content, electorate, deadline and preview.
-- Explain OPEN/CLOSED before type selection. For elections, group candidates by office; for polls, show the single-choice options.
+- Provide an administrator-only RWA Settings page for the full name, alias, address, email, phone, optional website, accent palette, welcome message, household label (free text with suggestions such as Flat, Apartment or Villa) and identifier label (a Number/ID radio group). Explain where each value appears, preview the chosen accent on the form, show a live wording preview (singular, plural, identifier and plural identifier), and warn that changes apply everywhere immediately. Use Title Case for the page title, section headings and field labels (for example “RWA Full Name”). Mark only the required fields (RWA Full Name, RWA Alias, Household Label and Identifier Label) with `*`; show no marker on optional fields, and hide any blank optional value (address, email, phone, website, welcome message) everywhere it would appear. Accent palettes are a fixed set of presets that each meet 4.5:1 contrast on the surface and background; only the accent token changes through a `data-palette` wrapper. The header reads “Civic Pulse for {alias}” (plain “Civic Pulse” when no RWA identity is available). User-visible copy never hard-codes “household”: it uses the configured household terms (capitalised for headings and labels, lower case mid-sentence). Residents never see this page; the footer contact block and welcome message use plain text with 48px link targets.
+- Explain PUBLIC/PRIVATE before type selection. For PUBLIC polls, let admins set single-select or multi-select and show the optional multi-select maximum. For elections, group candidates by office.
 - Preview the complete resident-facing ballot, notices and timezone-labelled deadline.
 - Before activation, explain that ballot content, type, electorate, representative assignments and deadline freeze. A stale preview requires refresh/review, not silent activation of a newer draft.
 
 ### Resident ballot
 - Show title, type, lifecycle status, eligibility, deadline/timezone and instructions before controls.
-- Use a labelled radio group per office or poll, with an explicit Abstain option for each election office. No candidate/option should be preselected.
-- Require one choice or abstention for every office and submit the election as one whole ballot.
+- Show an informational `HH:MM:SS` deadline countdown on active voter and administrator vote pages, including after submission; include days for longer intervals and display "Deadline reached" at zero. Render the countdown text and clock icon in the semibold error (red) colour so the deadline stands out; the clock icon and wording keep the meaning from relying on colour alone. Refresh state at zero and keep the database as the only submission authority.
+- Use a labelled radio group for single-select polls and a checkbox group for multi-select polls; show the required minimum and any maximum. Use a labelled radio group per PRIVATE office with an explicit NOTA (None of the Above) option. The NOTA rule sits behind an (i) disclosure button beside the office-choice heading: it opens on mouse hover or click/tap, exposes `aria-expanded`, and closes on Escape (returning focus) or an outside click. No candidate/option should be preselected.
+- Require at least one PUBLIC choice within the configured maximum, or a candidate/NOTA choice for every PRIVATE office; submit one whole ballot.
 - Review all selections before final confirmation; Back permits correction before submission.
-- Do not restore CLOSED selections from server records after submission. Refresh/navigation may discard unsent selections; explain this where needed without persisting them.
+- Do not restore PRIVATE selections from server records after submission. Refresh/navigation may discard unsent selections; explain this where needed without persisting them.
+- Explain that each multi-select option count is a selection, not another household turnout; option shares use submitted households and can sum above 100%.
 - When the deadline passes or access/state changes, prevent further selection/submission and explain the state. The displayed clock is informative; the server decides acceptance.
+- Name identifier-value columns and form fields with the current RWA-configured label; keep "household" for the household as a voting/eligibility entity.
 
 ## 12 Loading, Empty and Recovery States
 ### Submission states
 | State | Required presentation |
 |-------|-----------------------|
 | Submitting | "Submitting vote..." with repeat submission disabled; no optimistic success |
-| Accepted | Persistent participation acknowledgement; no CLOSED selection receipt |
+| Accepted | Persistent participation acknowledgement; no PRIVATE selection receipt |
 | Already submitted | Confirm submitted status; do not offer a replacement ballot |
 | Outcome unknown | "We could not confirm whether your vote was received. Checking submission status." |
-| Status check unavailable | Explain uncertainty and offer "Check submission status"; do not invite blind resubmission |
+| Status check unavailable | For a first submission, explain uncertainty and offer "Check submission status"; do not invite blind resubmission. For a PUBLIC replacement, preserve the prior-participation assurance and allow retrying the same intended choice only while the poll remains active |
 | Confirmed not submitted | Offer retry only if the current eligibility/state/deadline still permit it |
 | Confirmed rejection | Explain the safe reason and next step without echoing sensitive selections |
 
 - Keep unsent choices only in page memory while resolving uncertainty. Never falsely declare failure because the network response was lost.
 - Use stable skeletons for lists/results without placeholder choice totals or misleading zero counts.
-- Distinguish no eligible votes, no current votes, empty register, no admin votes, incomplete draft, zero turnout and no OPEN named responses.
-- Empty states explain context and next steps. Zero turnout is not a winning outcome; CLOSED states never suggest individual responses are inspectable.
+- Distinguish no eligible votes, no current votes, empty register, no admin votes, incomplete draft, zero turnout and no PUBLIC named responses.
+- Empty states explain context and next steps. Zero turnout is not a winning outcome; PRIVATE states never suggest individual responses are inspectable.
 - Cover invalid/expired codes, suspension, ineligibility, forbidden access, validation, stale drafts, duplicate submissions, terminal votes and dependency failures.
 - Keep completed results visible when an export fails; offer export retry without changing data or resubmitting a ballot.
 - Never auto-dismiss important errors/acknowledgements. Distinguish a draft-save success from an accepted ballot.
@@ -185,13 +190,13 @@ Use Lucide React. Line icons only, 1.5px stroke. Always label icons with text un
 | Sign-in / verify | Registered-member context, labelled email/code, resend/recovery, safe generic messages |
 | Member home | Eligible votes, distinct type/status, deadline or completion time, own participation and authorised results links |
 | Ballot / review | Privacy notice, eligibility, timezone deadline, grouped selections, full review and final confirmation |
-| Results | Completion context, frozen eligible count, submitted count, turnout, counts/denominators, abstentions and approved tie/no-votes outcomes |
+| Results | Completion context, frozen eligible count, submitted count, turnout, counts/denominators, NOTA and tie/no-votes outcomes |
 | Admin vote list | Clear drafts/active/completed/cancelled grouping and next valid action, without live choices |
 | Draft editor | Sectioned setup, validation, electorate selection, preview and explicit activation |
 | Household register | Household, representative, email and eligibility; add/edit/suspend feedback and frozen-electorate explanation |
 | Lifecycle confirmation | Action-specific consequences; required reasons for early completion/cancellation |
-| Audit history | Readable actor/action/record/time/reason with pagination; no codes or CLOSED selections |
-| Privacy policy | Public, one H1 and logical section headings; explain OPEN/CLOSED handling, cookies, support mail, optional analytics and deployment-specific policy limits |
+| Audit History | Readable actor/action/record/time/reason with pagination; no codes or PRIVATE selections |
+| Privacy policy | Public, one H1 and logical section headings; explain PUBLIC/PRIVATE handling, cookies, support mail, optional analytics and deployment-specific policy limits |
 | Contact | Public, labelled name/reply-email/message fields when configured; warning against sending choices/codes; clear unavailable, validation, pending, uncertain and provider-accepted states |
 
 The shared shell provides contextual breadcrumbs and footer links in this order:
@@ -211,13 +216,13 @@ status announcement, not an additional page heading. Preserve exactly one H1.
 Public pages use the same Tailwind tokens, including `text-section` and
 `md:text-section-lg`, not an independent design system.
 
-- Results never show active totals. CLOSED results contain aggregates only; OPEN named responses appear only after completion to authorised viewers.
-- Show denominator labels next to percentages. Keep abstention separate from candidates; zero denominators are not applicable rather than invalid arithmetic.
-- Zero ballots have no winner. Tied positive leaders show Tie; use "No candidate elected" for all-abstain offices only after the governance rule is approved.
+- Active PUBLIC results show aggregate option counts and turnout; active PRIVATE results show aggregate turnout only. Refresh live aggregates automatically and do not reveal active choices. Hide PRIVATE candidate/NOTA totals until completion. Completed PRIVATE results contain aggregates only; PUBLIC named responses appear only after completion to authorised viewers.
+- Show denominator labels next to percentages. Keep NOTA separate from candidates; zero denominators are not applicable rather than invalid arithmetic.
+- Zero ballots have no winner. Tied positive candidate leaders show Tie. NOTA is counted separately but cannot win; the highest-count candidate is elected even if NOTA has more votes. If no candidate receives a vote, no candidate is elected.
 - Label early completion and display its reason. Completed poll outcomes do not imply spending authorisation or legal approval.
 - Cancelled details display the invalid-result notice without publishing choices.
-- For long OPEN response lists, use accessible pagination and complete labels; an export contains the whole authorised dataset, not just the visible page.
-- Admin monitoring may show participation/non-participation but never active choices. Do not expose another member's active participation in member views.
+- For long PUBLIC response lists, use accessible pagination and complete labels; an export contains the whole authorised dataset, not just the visible page.
+- Admin monitoring may show participation/non-participation for follow-up but never active choices. During active PRIVATE elections, members see aggregate turnout only and never another household's participation status.
 
 ## 14 Accessibility and Interaction
 - Meet WCAG 2.2 AA for core member/admin journeys. The 48px touch target is a project standard, not a claim about the exact WCAG minimum.
@@ -236,8 +241,8 @@ Public pages use the same Tailwind tokens, including `text-section` and
 - A missing PDF feature does not block voting, results viewing or pilot readiness.
 - Export generation shows progress and prevents duplicate in-progress requests. Errors keep results visible and provide safe retry.
 - If PDF is included, support A4 portrait, grayscale, wrapped long text, repeated headers, page numbers and the complete maximum-electorate response list without clipping.
-- Reports include RWA/title/type, question or offices, timezone-labelled activation/completion times, turnout/denominators, totals, abstentions/ties/no-votes, generation time and early-completion context.
-- OPEN exports include authorised names, household identifiers and choices without emails. CLOSED exports contain aggregates only, never household/voter lists.
+- Reports include RWA/title/type, question or offices, timezone-labelled activation/completion times, turnout/denominators, totals, NOTA/ties/no-votes, generation time and early-completion context.
+- PUBLIC exports include authorised names, household identifiers and choices without emails. PRIVATE exports contain aggregates only, never household/voter lists.
 - Validate long names and approved scripts in the application and, when included, PDF. Font availability alone does not prove readable shaping/rendering.
 - Printable exports are derived outcomes, not backups, signatures or legal certifications. No signature-replacement workflow is required for version 1.
 
@@ -247,7 +252,7 @@ Public pages use the same Tailwind tokens, including `text-section` and
 - Add reusable components only where repeated UI needs them. Do not introduce a paid component kit or another design framework.
 - Keep voting type/status and privacy vocabulary consistent across member, admin, review and results screens.
 - Before release, verify both voting types and member/admin journeys at specified widths, including long labels, enlarged text, keyboard focus and mobile-keyboard/sticky-action behavior.
-- Verify OTP paste/autofill/leading zeros, all submission states, cancellation and early-completion confirmations, hidden active totals, and no CLOSED selection receipt.
+- Verify OTP paste/autofill/leading zeros, PUBLIC vote replacement and active aggregate refresh, PRIVATE one-time submission/hidden active totals, cancellation and early-completion confirmations, and no PRIVATE selection receipt.
 - Check every implemented component's states and actual contrast combinations, plus manual assistive-technology checks.
 - Verify CSV authorization/completeness and export failures; PDF-specific checks apply only when the feature is included.
 - This documentation update does not itself migrate components, Tailwind configuration or application behavior.

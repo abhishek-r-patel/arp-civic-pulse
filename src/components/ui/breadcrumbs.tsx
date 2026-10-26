@@ -4,8 +4,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronRight } from "lucide-react";
+import { useHouseholdTerms } from "./household-terms";
 
-const labels: Record<string, string> = {
+const baseLabels: Record<string, string> = {
   "sign-in": "Sign in",
   privacy: "Privacy policy",
   contact: "Contact",
@@ -13,15 +14,23 @@ const labels: Record<string, string> = {
   votes: "Votes",
   accounts: "Accounts",
   households: "Households",
-  audit: "Audit history",
+  settings: "RWA Settings",
+  audit: "Audit History",
   new: "New",
   results: "Results",
-  preview: "Preview ballot",
+  preview: "Preview Ballot",
   participation: "Participation",
 };
 
-export function Breadcrumbs() {
+export function Breadcrumbs({
+  homeLabel = "Civic Pulse",
+}: Readonly<{ homeLabel?: string }>) {
   const pathname = usePathname();
+  const terms = useHouseholdTerms();
+  const labels: Record<string, string> = {
+    ...baseLabels,
+    households: terms.Households,
+  };
   const parts = pathname.split("/").filter(Boolean);
   if (
     !parts.length ||
@@ -38,7 +47,7 @@ export function Breadcrumbs() {
             }
             className="inline-flex min-h-12 items-center text-accent underline"
           >
-            Civic Pulse
+            {homeLabel}
           </a>
         </li>
         {parts.map((part, index) => (

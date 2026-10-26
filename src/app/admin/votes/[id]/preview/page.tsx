@@ -17,7 +17,7 @@ import { idParamsSchema } from "@/shared/contracts/register";
 import { revision as revisionSchema } from "@/shared/validation/primitives";
 
 export const generateMetadata = privateRecordMetadata(
-  "Preview ballot",
+  "Preview Ballot",
   "Preview the resident ballot before activating an association poll or election.",
   "/admin/votes/[id]/preview",
 );
@@ -84,7 +84,7 @@ export default async function PreviewPage({
       className="inline-flex touch-target w-fit items-center gap-1 font-semibold text-accent underline underline-offset-2"
     >
       <ChevronLeft aria-hidden="true" className="size-5" />
-      Back to editing
+      Back to Editing
     </Link>
   );
 
@@ -92,7 +92,7 @@ export default async function PreviewPage({
     return (
       <div className="grid gap-8">
         {back}
-        <PageHeader title="Preview ballot" />
+        <PageHeader title="Preview Ballot" />
         <Notice tone="warning" heading="This preview is out of date">
           <p>
             The draft changed after this preview was opened, so it is not shown
@@ -101,10 +101,10 @@ export default async function PreviewPage({
           </p>
           <div className="mt-3 flex flex-col gap-3 sm:flex-row">
             <LinkButton href={`/admin/votes/${id}/preview`}>
-              Preview the latest version
+              Preview the Latest Version
             </LinkButton>
             <LinkButton href={`/admin/votes/${id}`} variant="secondary">
-              Back to editing
+              Back to Editing
             </LinkButton>
           </div>
         </Notice>
@@ -118,7 +118,7 @@ export default async function PreviewPage({
     <div className="grid gap-8">
       {back}
       <PageHeader
-        title="Preview ballot"
+        title="Preview Ballot"
         description={`You are previewing version ${preview.revision} of this draft, exactly as residents will see it. Previewing changes nothing and is not saved.`}
       />
 
@@ -162,8 +162,10 @@ export default async function PreviewPage({
         </h2>
         <p className="text-body">
           {electorate.selected}{" "}
-          {electorate.selected === 1 ? "household" : "households"} selected;{" "}
-          {electorate.eligibleWithEnabledRepresentative} currently{" "}
+          {electorate.selected === 1
+            ? deps.terms.household
+            : deps.terms.households}{" "}
+          selected; {electorate.eligibleWithEnabledRepresentative} currently{" "}
           {electorate.eligibleWithEnabledRepresentative === 1 ? "has" : "have"}{" "}
           an eligible register entry and an enabled representative.
         </p>
@@ -171,8 +173,9 @@ export default async function PreviewPage({
 
       <Notice tone="info" heading="What freezes when the vote is activated">
         <p>
-          The voting type, ballot content, electorate, each household&apos;s
-          representative and the deadline cannot be changed afterwards.
+          The voting type, ballot content, electorate, each{" "}
+          {deps.terms.household}&apos;s representative and the deadline cannot
+          be changed afterwards.
         </p>
       </Notice>
 
@@ -183,12 +186,12 @@ export default async function PreviewPage({
         <p className="text-body text-muted">
           This is read-only. Nothing on it can be selected or submitted.
         </p>
-        <BallotPreview vote={vote} />
+        <BallotPreview vote={vote} terms={deps.terms} />
       </section>
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <LinkButton href={`/admin/votes/${id}`} variant="secondary">
-          Back to editing
+          Back to Editing
         </LinkButton>
       </div>
 

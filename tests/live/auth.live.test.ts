@@ -286,7 +286,7 @@ describe.skipIf(!hasLive)("live: Supabase Auth and API posture", () => {
             .eq("id", user.id),
           user.client
             .from("votes")
-            .insert({ voting_type: "OPEN", created_by_profile_id: user.id }),
+            .insert({ voting_type: "PUBLIC", created_by_profile_id: user.id }),
           user.client.from("audit_events").delete().gte("id", 0),
         ];
         for (const result of await Promise.all(writes)) {

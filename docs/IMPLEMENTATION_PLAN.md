@@ -91,7 +91,7 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Tasks**
 1. Inventory existing configuration, UI components/styles, dependencies, callers, SQL, tests, and scripts. Mark each responsibility retain/adapt/replace; distinguish placeholders from working implementations. Check whether any real identities/votes or active elections exist before planning cutover.
-2. Review A1-A7 and record actual approval status, authority/date/version, owner, and blocker. Include all-abstain behavior, permission/reason for early completion, persistent-session policy, retention/recovery, and the revised limits of optional printable exports.
+2. Review A1-A7 and record actual approval status, authority/date/version, owner, and blocker. Include the NOTA winner rule, permission/reason for early completion, persistent-session policy, retention/recovery, and the revised limits of optional printable exports.
 3. Confirm RWA name/timezone, approved household register, scripts used in names/labels, 500-household/about-100-concurrent-user capacity, and the pilot measurement checklist.
 4. Validate initial Supabase/Vercel eligibility, region, custom SMTP peak capacity, free-tier pausing/session restrictions, and automated encrypted off-site backup options. Do not select services on monthly quotas alone.
 5. Record technical configuration owners: Auth expiry/cooldown/limits, trusted IP forwarding, supplemental limiter budgets, request/list bounds, database wait bounds, export memory/concurrency, backup cadence/expiry, and RPO/RTO. Do not invent election-rule caps.
@@ -133,7 +133,7 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Tasks**
 1. Retain/adapt strict Zod contracts for identifiers, type/state, field bounds, normalization, offset-bearing times, revisions, and type-discriminated ballots. Reject unknown fields and match SQL checks.
-2. Centralize decimal-string bigint handling and two-decimal half-up percentages, with `null` for zero denominators. Define candidate/option outcomes from API.md, not old assumptions.
+2. Centralize decimal-string bigint handling and whole-number half-up percentages, with `null` for zero denominators. Define candidate/option outcomes from API.md, not old assumptions.
 3. Implement documented success/error envelopes, random support IDs, safe field errors, methods/media/body validation, endpoint/filter/parent-bound keyset cursors, and pagination bounds.
 4. Adapt existing environment validation/tests to Supabase public URL/key, isolated server-only Auth administrative credential, rate-limit HMAC key, canonical origin, safe logs, and trusted proxies. Keep migration/CLI credentials deployment-only; manage SMTP/Auth/Cron in provider configuration.
 5. Replace obsolete runtime raw-database, custom OTP, scheduler-secret, and direct email-send configuration only after confirming callers no longer depend on it. Validate mandatory operational thresholds without inventing unsupported Auth/session controls.
@@ -155,7 +155,7 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Tasks**
 1. Create reviewed immutable migrations under the supported Supabase migration workflow with deployment-only execution/advisory locking. Adapt any real existing SQL; preserve historical references if present.
-2. Add Auth-linked `profiles`, households, settings, rate buckets, and audit records; add votes, ballot configuration, electorate, participation, OPEN responses, and CLOSED counters with documented constraints/indexes.
+2. Add Auth-linked `profiles`, households, settings, rate buckets, and audit records; add votes, ballot configuration, electorate, participation, PUBLIC responses, and PRIVATE counters with documented constraints/indexes.
 3. Enable RLS on every application table with default-deny grants/policies. Allow only required safe reads; never expose direct protected writes, choice-table reads, or private Realtime feeds, even to application admins.
 4. Define non-recursive current-profile/capability/visibility helpers. Isolate deployment, restricted non-login function owners, authenticated users, privileged Auth provisioning, and Cron scheduling capabilities.
 5. Establish guarded mutation entry points, parent-lock/freeze guards, and the invariant-verification basis. Use fixed trusted search paths, schema-qualified SQL, explicit `auth.uid()`/profile checks, and revoked default execution.
@@ -169,7 +169,7 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Tests required:** Fresh install/upgrade, Auth/profile FK restrictions, uniqueness/composite ownership, check constraints/indexes, anonymous/member/admin direct REST/RPC behavior, suspended-profile reads, recursion/owner bypass, safe-column access, function grants/search paths, and private Realtime exclusion.
 
-**Completion criteria:** No caller can bypass eligibility/privacy through direct Supabase access. Definer functions enforce caller checks independently of RLS; no individual CLOSED ballot storage exists.
+**Completion criteria:** No caller can bypass eligibility/privacy through direct Supabase access. Definer functions enforce caller checks independently of RLS; no individual PRIVATE ballot storage exists.
 
 ## Phase 5 - Retry-safe provisioning, settings approvals, and audit
 
@@ -262,9 +262,9 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 **Goal:** Enable independently verifiable setup for both types without prematurely opening a vote.
 
 **Tasks**
-1. Implement admin vote list/create/detail and incomplete drafts with explicit OPEN/CLOSED type.
+1. Implement admin vote list/create/detail and incomplete drafts with explicit PUBLIC/PRIVATE type.
 2. Implement revision-checked guarded draft edits, supplied-child ownership, replacement collections, positive unique positions, selected household sets, and atomic removal of incompatible children on type change.
-3. Build CLOSED offices/candidates/instructions with built-in abstention and OPEN question/context/distinct options. Require unambiguous deadline input/display in the RWA timezone.
+3. Build PRIVATE offices/candidates/instructions with built-in NOTA and PUBLIC question/context/distinct options. Require unambiguous deadline input/display in the RWA timezone.
 4. Add complete read-only resident preview with the approved type-specific notices, review context, readiness/blockers, and exact previewed revision.
 5. Preserve valid admin draft inputs and provide stale-edit recovery; preview never increments revision or guarantees later activation.
 
@@ -284,8 +284,8 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Tasks**
 1. Implement activation under the parent vote lock: current admin/revision, complete ballot, future deadline, selected eligible households/enabled profiles, current approvals, and retention settings.
-2. Lock/re-read register/settings consistently, freeze identity/RWA/timezone/policy snapshots, initialize CLOSED counters, and commit lifecycle/audit atomically.
-3. Complete deferred OPEN response/participation and CLOSED per-office tally/membership invariants; share the verifier with completion/publication.
+2. Lock/re-read register/settings consistently, freeze identity/RWA/timezone/policy snapshots, initialize PRIVATE counters, and commit lifecycle/audit atomically.
+3. Complete deferred PUBLIC response/participation and PRIVATE per-office tally/membership invariants; share the verifier with completion/publication.
 4. Implement idempotent due completion and confirmed early completion/cancellation with required reasons. Reconcile due state first; effective automatic completion time is the frozen deadline.
 5. Configure Supabase Cron SQL completion initially once per minute with a dedicated restricted scheduling role. Keep cleanup separately unavailable until Phase 15 is approved/implemented; completion must not depend on cleanup readiness.
 6. Add narrowly scoped authorized service reconciliation and responsive action confirmations. Explain paused-database/Cron limitations and prohibit reopening, active edits, deadline extension, and manual totals.
@@ -300,14 +300,14 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Completion criteria:** Only legal transitions occur; frozen data/type remain unchanged; invalid counts cannot publish; delayed/paused Cron never weakens transactional deadlines or implies guaranteed availability.
 
-## Phase 11 - Atomic guarded OPEN and CLOSED submissions
+## Phase 11 - Atomic guarded PUBLIC and PRIVATE submissions
 
-**Goal:** Prove exactly-one durable participation with aggregate-only CLOSED choice storage.
+**Goal:** Prove exactly-one durable participation with aggregate-only PRIVATE choice storage.
 
 **Tasks**
 1. Implement `cast_vote` using the verified user's session: require `auth.uid()`, lock vote then caller profile, recheck enabled status and frozen entitlement, and validate complete type-specific selections.
 2. Perform the authoritative `clock_timestamp()` check after all admission locks immediately before acceptance. Admit only strictly before the cutoff; a request waiting past it fails, while an admitted transaction may commit afterwards.
-3. Atomically insert participation plus one owned OPEN option response, or participation plus all CLOSED candidate/explicit-abstention increments with stable subordinate lock order.
+3. Atomically insert one participation plus the full owned PUBLIC option set, or participation plus all PRIVATE candidate/explicit-NOTA increments with stable subordinate lock order. PUBLIC submissions may replace their set while active without creating another participation.
 4. Expose participation-only final acknowledgement and own-status lookup. Reject caller identity/timestamps/counts/idempotency payload IDs and any mixed/unknown ballot input.
 5. Preserve committed overdue reconciliation on domain rejection without rolling it back through an exception; roll back actual database/invariant failures completely. Verify durable commit and actual provider durability settings.
 6. Add bounded waits/rate budgets and explicit unknown-commit handling. Never retry an uncertain commit as if it were known rejected or use service-role access for submission.
@@ -318,9 +318,9 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Database/API changes:** `cast_vote`/own-participation RPCs; `POST /api/votes/{id}/submission`, `GET /api/votes/{id}/participation`. No selection retrieval, edit/withdrawal, receipt, or direct protected writes.
 
-**Tests required:** Concurrent retries/multiple devices, unique participation, wrong/missing/repeated offices, foreign choices, explicit null abstention, suspended-existing-JWT/admin-without-entitlement denial, exact deadline, lock waits, admitted-before/committed-after cutoff, lifecycle races, mid-transaction fault injection, and committed submission with lost HTTP acknowledgement.
+**Tests required:** Concurrent retries/multiple devices, unique participation, wrong/missing/repeated offices, foreign choices, explicit null NOTA choice, NOTA count greater than candidate counts, suspended-existing-JWT/admin-without-entitlement denial, exact deadline, lock waits, admitted-before/committed-after cutoff, lifecycle races, mid-transaction fault injection, and committed submission with lost HTTP acknowledgement.
 
-**Completion criteria:** All-office updates and participation commit together exactly once. No individual CLOSED records, correlatable choice timestamps/IDs, sensitive errors, audits, logs, or acknowledgements expose selections.
+**Completion criteria:** All-office updates and participation commit together exactly once. No individual PRIVATE records, correlatable choice timestamps/IDs, sensitive errors, audits, logs, or acknowledgements expose selections.
 
 ## Phase 12 - Member discovery, review, and uncertain-outcome recovery
 
@@ -328,30 +328,30 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Tasks**
 1. Implement authorized member vote list/detail with frozen-electorate discovery, supported filtering/pagination, separate type/state/participation, and timezone-labelled deadlines.
-2. Build native unselected radio choices, per-office abstention, full review/Back, final confirmation, and privacy notices before selection and submission.
-3. Wire submitting, accepted, duplicate, denied, terminal, and expired-access states. Clear unsent choices after acknowledged acceptance, sign-out, or access revocation.
+2. Build native unselected radio choices, per-office NOTA, full review/Back, confirmation, and privacy notices before selection and submission.
+3. Allow a PUBLIC response to be replaced while active; keep PRIVATE submissions one-shot. Wire submitting, accepted, denied, terminal, and expired-access states. Clear unsent choices after acknowledgement, sign-out, or access revocation.
 4. On transport/commit uncertainty, check participation before a deliberate retry. Unavailable status remains unknown; `submitted: false` is current committed state, not proof an earlier in-flight request cannot still commit.
-5. Keep selections in page memory only; no URLs, browser/offline storage, telemetry, persistent ballot drafts, or later CLOSED retrieval. Disable selection/submission when access/state/deadline no longer permits it.
+5. Keep selections in page memory only; no URLs, browser/offline storage, telemetry, persistent ballot drafts, or later PRIVATE retrieval. Disable selection/submission when access/state/deadline no longer permits it.
 
 **Likely files/modules:** `src\app\(member)`, `src\components\votes`, `src\server\votes`, member list/detail API handlers, browser tests.
 
 **Dependencies/prerequisites:** Phases 6-7 and 9-11.
 
-**Database/API changes:** Authorized safe read/RPC projections; `GET /api/votes` and `GET /api/votes/{id}`. Reuse own participation/submission contracts; expose no active totals or other members' participation.
+**Database/API changes:** Authorized safe read/RPC projections; `GET /api/votes` and `GET /api/votes/{id}`. Reuse own participation/submission contracts; expose no individual active responses or other members' participation.
 
 **Tests required:** Both full journeys, all-office review, no preselection, notice copy, repeated clicks, response/status-check failure, revocation mid-flow, inaccessible IDs, JSON/rendered-HTML privacy, memory-only selections, keyboard/axe, mobile and browser-engine coverage.
 
-**Completion criteria:** Eligible representatives can review and submit knowingly once; uncertain outcomes are never fabricated; CLOSED acknowledgement shows participation only.
+**Completion criteria:** Eligible representatives can review and submit knowingly; PUBLIC responses can be replaced until closure; uncertain outcomes are never fabricated; PRIVATE acknowledgement shows participation only.
 
 ## Phase 13 - Authoritative results, safe monitoring, and audit history
 
 **Goal:** Publish reconciled completed results with correct outcomes and restricted administrative oversight.
 
 **Tasks**
-1. Implement one completion-gated SQL RPC projection from a consistent database snapshot. Reuse it for screen/API/CSV and optional PDF; separate Supabase HTTP calls are not a shared transaction.
+1. Implement one authorized SQL RPC projection from a consistent database snapshot. Reuse it for active PUBLIC and PRIVATE-turnout screens and completed screen/API/CSV/optional PDF; separate Supabase HTTP calls are not a shared transaction.
 2. Verify invariants before completion/publication and block/alert on mismatch. Calculate frozen eligible/submitted counts, turnout, explicit denominators, shared rounding, and zero-denominator states.
-3. Implement CLOSED LEADER/TIE/NO_WINNER with abstention separate from candidates and A5-approved all-abstain wording. Implement OPEN LEADER/TIE/NO_VOTES and leader option IDs without implying spending authority.
-4. Add completed-only frozen OPEN named responses with keyset pagination and full-dataset totals. CLOSED results omit named responses, households, and participation lists.
+3. Implement PRIVATE LEADER/TIE/NO_WINNER using candidate counts only; NOTA is tallied separately and never wins. No candidate votes means NO_WINNER; ties among top candidates remain ties. Implement PUBLIC LEADER/TIE/NO_VOTES and leader option IDs without implying spending authority.
+4. Add completed-only frozen PUBLIC named responses with keyset pagination and full-dataset totals. Active PRIVATE results expose turnout only; household-level participation remains in the administrator-only monitor and is never attached to results/exports.
 5. Show effective completion context and early-completion label/reason consistently; show cancelled-invalid state without choices.
 6. Implement paginated administrator participation and audit views. Monitoring omits selections, emails, and per-submission timestamps; audit uses safe allowlisted actor/action/target/reason fields.
 
@@ -359,18 +359,18 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Dependencies/prerequisites:** Phases 8 and 10-12.
 
-**Database/API changes:** Completed-result/monitoring/audit RPCs; documented results GET, administrator participation GET, and audit GET. No editable results table or active tally endpoint.
+**Database/API changes:** Active PUBLIC aggregate, active PRIVATE turnout, completed-result, administrator participation, and audit RPCs; documented results GET, administrator participation GET, and audit GET. No editable results table or individual active-choice endpoint.
 
-**Tests required:** Candidate and option ties, all-abstain approval/outcome, zero turnout, unopposed office, bigint/half-up boundaries, early-completion parity, snapshot consistency, frozen identities after edits, suspended access denial, pagination-independent totals, invariant-error blocking, direct choice-storage denial, and exact page/API agreement.
+**Tests required:** Candidate and option ties, NOTA higher than candidates, all-NOTA office outcome, zero turnout, unopposed office, bigint/half-up boundaries, early-completion parity, snapshot consistency, frozen identities after edits, suspended access denial, pagination-independent totals, invariant-error blocking, direct choice-storage denial, and exact page/API agreement.
 
-**Completion criteria:** Completed results reconcile exactly and obey publication permissions. Eligible denominators include later-suspended households; active/cancelled choices and CLOSED identities never publish.
+**Completion criteria:** Active PUBLIC aggregates and active PRIVATE turnout expose no identities; only admins can access active PRIVATE household participation for follow-up. Completed results reconcile exactly and obey publication permissions. Eligible denominators include later-suspended households; active PRIVATE candidate/NOTA totals and cancelled choices remain hidden.
 
 ## Phase 14 - Mandatory complete CSV export
 
 **Goal:** Complete version 1 downloads independently of optional PDF work.
 
 **Tasks**
-1. Fetch the full authorized completed projection through Phase 13's consistent RPC, including all OPEN named responses regardless of UI page. Release database work before rendering.
+1. Fetch the full authorized completed projection through Phase 13's consistent RPC, including all PUBLIC named responses regardless of UI page. Release database work before rendering.
 2. Implement API.md's exact rectangular CSV schema/record types, including `completionMode`/`completionReason`, poll outcome in SUMMARY, instructions/disclaimers in NOTICE, counts, denominators, and generation time.
 3. Apply UTF-8 escaping, consistent line endings, spreadsheet-formula protection, safe generated attachment filenames, MIME/nosniff/no-store headers, and complete bounded-memory rendering before success.
 4. Enforce per-account request budgets and bounded render concurrency/memory. Exports are not stored, emailed, or distributed through bearer links.
@@ -382,7 +382,7 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Database/API changes:** `GET /api/votes/{id}/exports/{format}` with required CSV support; reject pagination/identity-selection inputs. No report table/file persistence, unrelated download mutation, or mandatory PDF dependency.
 
-**Tests required:** Exact header/row schema, screen/API/CSV counts and identities, 500-household full OPEN list, early completion and poll/candidate ties, blank CLOSED identity columns/no named rows, formula/header injection, authorization/terminal restrictions, renderer failure before success headers, unavailable PDF, resource limits, and phone/laptop download recovery.
+**Tests required:** Exact header/row schema, screen/API/CSV counts and identities, 500-household full PUBLIC list, early completion and poll/candidate ties, blank PRIVATE identity columns/no named rows, formula/header injection, authorization/terminal restrictions, renderer failure before success headers, unavailable PDF, resource limits, and phone/laptop download recovery.
 
 **Completion criteria:** Complete CSVs match authoritative results exactly and expose only authorized fields. Failures never return truncated successful reports or modify voting data. Version 1 exports are complete without PDF.
 
@@ -418,9 +418,9 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 2. Verify authorization/privacy through Next.js and direct anonymous/member/admin Supabase REST/RPC/Realtime paths, existing JWTs, ordinary storage, rendered HTML, errors, audits/logs, CSV, and optional PDF only if included.
 3. Validate WCAG 2.2 AA core journeys with axe plus manual keyboard/focus/screen reader/contrast/zoom/reduced-motion checks. Exercise mobile administration and resident journeys on real mobile Safari, Android Chrome, and supported laptop browsers, including Chrome/Edge/Firefox/Safari where supported.
 4. Load-test 500 households/about 100 concurrent users with same-vote contention, Auth/login bursts, monitoring/results pages, and exports. Require p95 page/API under two seconds and acknowledgement within three seconds, excluding email/poor client connectivity. Tune measured query plans/indexes/RPC/capacity without weakening locks.
-5. **Pilot-readiness gate:** Record genuine A1-A7/provider/region approvals, actual session policy, approved all-abstain/early-completion rules, retention/recovery settings, custom SMTP/Auth peak limits, hosting eligibility/cost, CSV correctness, mobile/accessibility evidence, backup restoration/completeness, incident runbooks, and safe deployment/migration evidence.
+5. **Pilot-readiness gate:** Record genuine A1-A7/provider/region approvals, actual session policy, bylaw confirmation of NOTA and early-completion rules, retention/recovery settings, custom SMTP/Auth peak limits, hosting eligibility/cost, CSV correctness, mobile/accessibility evidence, backup restoration/completeness, incident runbooks, and safe deployment/migration evidence.
 6. Deploy the reviewed Next.js build through staging/production on the approved hosting plan; apply deployment-only Supabase migrations and configuration outside active votes. Smoke-test with synthetic data before admitting real voters. Never use database restoration as application rollback.
-7. **Pilot evaluation after readiness:** Run at least one real OPEN poll and one CLOSED election. Measure admin setup under ten minutes, first-attempt login at least 90% with non-attempts separate, unaided sign-in/first submission at least 90%, and median mobile ballot-open-to-acknowledgement under 60 seconds without collecting selections.
+7. **Pilot evaluation after readiness:** Run at least one real PUBLIC poll and one PRIVATE election. Measure admin setup under ten minutes, first-attempt login at least 90% with non-attempts separate, unaided sign-in/first submission at least 90%, and median mobile ballot-open-to-acknowledgement under 60 seconds without collecting selections.
 8. Report the at-least-60% turnout adoption target and zero-monthly-cost feasibility objective separately from correctness gates. Review pilot findings/capacity/fixes before wider rollout; no adoption or budget target excuses an integrity/privacy failure.
 
 **Likely files/modules:** Existing CI/framework/test configuration, deployment configuration, test suites/fixtures, directly affected feature modules for verified fixes, acceptance/operations documentation.
@@ -431,7 +431,7 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Tests required:** Full FR1-FR8 matrix, real Supabase authorization/concurrency/deadline evidence, exact output agreement, measured p95 thresholds, real-device/accessibility evidence, SMTP/hosting feasibility, backup restore/completeness, and schema-compatible rollback/staged cutover checks.
 
-**Completion criteria:** Mandatory readiness evidence exists before real voting; pilot metrics are measured afterwards and guide rollout. Lost/duplicate/partial or late-admitted ballots, wrong tallies, unauthorized disclosure, or CLOSED identity-to-choice exposure block release. Unknown recovery completeness blocks resumption.
+**Completion criteria:** Mandatory readiness evidence exists before real voting; pilot metrics are measured afterwards and guide rollout. Lost/duplicate/partial or late-admitted ballots, wrong tallies, unauthorized disclosure, or PRIVATE identity-to-choice exposure block release. Unknown recovery completeness blocks resumption.
 
 ## Phase 17 - Optional PDF enhancement, outside the version 1 critical path
 
@@ -450,7 +450,7 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Database/API changes:** Enable `pdf` on the existing export endpoint; no report entity, ballot change, database backup mechanism, or signature workflow.
 
-**Tests required:** Exact screen/API/CSV/PDF agreement, full 500-household OPEN list, no CLOSED voter identities, actual long/multiscript shaping, multi-page continuation, A4/grayscale visual inspection, header/page numbering, unavailable/unauthorized requests, pre-header rendering failure, resource bounds, and physical-phone/laptop download/print checks.
+**Tests required:** Exact screen/API/CSV/PDF agreement, full 500-household PUBLIC list, no PRIVATE voter identities, actual long/multiscript shaping, multi-page continuation, A4/grayscale visual inspection, header/page numbering, unavailable/unauthorized requests, pre-header rendering failure, resource bounds, and physical-phone/laptop download/print checks.
 
 **Completion criteria:** Enabled PDFs are complete, authorized, legible, and identical to authoritative completed data. They are clearly derived outcomes, not backups/signatures/certifications. If deferred, version 1 readiness is unaffected.
 
@@ -459,14 +459,14 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 | Governing requirement | Primary phases | Evidence needed |
 |---|---|---|
 | FR1: register and access | 4-8 | Six-digit managed OTP, disabled signup, retry-safe provisioning, current-profile/JWT checks, validated individual register |
-| FR2-FR3: CLOSED/OPEN setup | 7, 9-10 | Type-specific validation, privacy preview, reviewed activation, both mobile admin flows |
+| FR2-FR3: PRIVATE/PUBLIC setup | 7, 9-10 | Type-specific validation, privacy preview, reviewed activation, both mobile admin flows |
 | FR4: lifecycle and freeze | 9-11, 15 | Revision/freeze/snapshot tests, legal transitions, Cron effective times, confirmed reasons, no extensions/reopening |
 | FR5: final atomic submission | 11-12 | Real RPC locks/rollback/uniqueness, exact admission cutoff, completion races, lost-ack recovery |
-| FR6: results and counting | 10, 13 | Reconciled counters/responses, candidate/option ties, approved all-abstain behavior, denominators/rounding, frozen OPEN identities |
+| FR6: results and counting | 10, 13 | Reconciled counters/responses, candidate/option ties, NOTA winner rule, denominators/rounding, frozen PUBLIC identities |
 | FR7: administration and audit | 5, 8, 10, 13 | Safe monitoring without choices, database audit atomicity, explicit cross-service partial failures, historical preservation |
-| FR8: exports | 14; 17 only if included | Complete CSV and optional PDF parity, full OPEN lists, no CLOSED identities, failure recovery, early-completion context |
+| FR8: exports | 14; 17 only if included | Complete CSV and optional PDF parity, full PUBLIC lists, no PRIVATE identities, failure recovery, early-completion context |
 | Supabase/Tailwind migration | 1-8, 16 | Reviewed caller conversion, Auth-linked profiles, default-deny RLS, direct API/RPC safety, target tokens, no obsolete runtime dependencies |
-| Privacy and accessibility | 3-16; 17 if included | No ordinary identity-to-CLOSED-choice mapping, approved A2 limits, manual/device WCAG checks, 48px targets/16px inputs |
+| Privacy and accessibility | 3-16; 17 if included | No ordinary identity-to-PRIVATE-choice mapping, approved A2 limits, manual/device WCAG checks, 48px targets/16px inputs |
 | Capacity, free-tier feasibility, and recovery | 1, 6, 15-16 | Exact p95 measurements, peak SMTP/Auth capacity, plan eligibility, approved costs, encrypted off-site backups, tested completeness |
 | Pilot versus wider rollout | 16 | Readiness before real pilot; separate first-attempt/unaided/setup/voting-speed/adoption measurements and rollout review |
 

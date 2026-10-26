@@ -16,30 +16,31 @@ describe("percentage", () => {
     expect(percentage("0", "0")).toBeNull();
   });
 
-  it("formats exactly two decimal places", () => {
-    expect(percentage(0, 7)).toBe("0.00");
-    expect(percentage(1, 1)).toBe("100.00");
-    expect(percentage(1, 2)).toBe("50.00");
-    expect(percentage(1, 3)).toBe("33.33");
-    expect(percentage(2, 3)).toBe("66.67");
+  it("formats whole numbers without decimals", () => {
+    expect(percentage(0, 7)).toBe("0");
+    expect(percentage(1, 1)).toBe("100");
+    expect(percentage(1, 2)).toBe("50");
+    expect(percentage(1, 3)).toBe("33");
+    expect(percentage(2, 3)).toBe("67");
   });
 
-  it("rounds half up at the third decimal", () => {
-    expect(percentage(1, 8)).toBe("12.50");
-    expect(percentage(1, 16)).toBe("6.25");
-    // 1/32 = 3.125% rounds up, not to even.
-    expect(percentage(1, 32)).toBe("3.13");
-    // 1/200000 = 0.0005% is below half a hundredth.
-    expect(percentage(1, 200_000)).toBe("0.00");
-    // 1/20000 = 0.005% is exactly half a hundredth and rounds up.
-    expect(percentage(1, 20_000)).toBe("0.01");
+  it("rounds half up at the first decimal", () => {
+    // 3/8 = 37.5% rounds up, not to even.
+    expect(percentage(3, 8)).toBe("38");
+    // 1/8 = 12.5% rounds up too.
+    expect(percentage(1, 8)).toBe("13");
+    // 1/201 = 0.497...% is below a half.
+    expect(percentage(1, 201)).toBe("0");
+    // 1/200 = 0.5% is exactly a half and rounds up.
+    expect(percentage(1, 200)).toBe("1");
+    // 199/200 = 99.5% rounds up to 100.
+    expect(percentage(199, 200)).toBe("100");
   });
 
   it("stays exact beyond double precision", () => {
-    expect(percentage("9007199254740993", "9007199254740993")).toBe("100.00");
-    expect(percentage("4503599627370497", "9007199254740993")).toBe("50.00");
+    expect(percentage("9007199254740993", "9007199254740993")).toBe("100");
+    expect(percentage("4503599627370497", "9007199254740993")).toBe("50");
   });
-
   it("rejects a numerator above the denominator", () => {
     expect(() => percentage(3, 2)).toThrow(RangeError);
   });

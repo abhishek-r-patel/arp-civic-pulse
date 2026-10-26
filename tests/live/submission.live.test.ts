@@ -87,7 +87,7 @@ describe.skipIf(!hasLive || !hasSql)("live: member submission", () => {
   });
 
   async function activeOpen(closesInMs = 3_600_000): Promise<AdminVoteDetail> {
-    const draft = await createDraft(adminDeps, "OPEN");
+    const draft = await createDraft(adminDeps, "PUBLIC");
     const ready = await updateDraft(adminDeps, draft.id, {
       expectedRevision: 1,
       title: "Live submission vote",
@@ -102,7 +102,7 @@ describe.skipIf(!hasLive || !hasSql)("live: member submission", () => {
   }
 
   async function activeClosed(): Promise<AdminVoteDetail> {
-    const draft = await createDraft(adminDeps, "CLOSED");
+    const draft = await createDraft(adminDeps, "PRIVATE");
     const ready = await updateDraft(adminDeps, draft.id, {
       expectedRevision: 1,
       title: "Live election",
@@ -145,7 +145,7 @@ describe.skipIf(!hasLive || !hasSql)("live: member submission", () => {
       return { participation: Number(p.rows[0]?.n), tallies: t.rows };
     });
 
-  it("accepts one OPEN ballot, acknowledges participation only, and reports it", async () => {
+  it("accepts one PUBLIC ballot, acknowledges participation only, and reports it", async () => {
     const vote = await activeOpen();
     const ack = await submitBallot(memberDeps, vote.id, {
       confirmed: true,
@@ -158,18 +158,15 @@ describe.skipIf(!hasLive || !hasSql)("live: member submission", () => {
       submitted: true,
     });
 
-    const duplicate = await apiError(
-      submitBallot(memberDeps, vote.id, {
-        confirmed: true,
-        optionId: vote.options[1]?.id ?? "",
-      }),
-    );
-    expect(duplicate.code).toBe("ALREADY_SUBMITTED");
-    expect(duplicate.context).toBeUndefined();
+    const replacement = await submitBallot(memberDeps, vote.id, {
+      confirmed: true,
+      optionId: vote.options[1]?.id ?? "",
+    });
+    expect(replacement).toEqual({ voteId: vote.id, submitted: true });
     expect((await counts(vote.id)).participation).toBe(1);
   });
 
-  it("increments exactly the chosen CLOSED counters, including an explicit abstention", async () => {
+  it("increments exactly the chosen PRIVATE counters, including NOTA", async () => {
     const vote = await activeClosed();
     const [chair, treasurer] = vote.offices;
     const ack = await submitBallot(memberDeps, vote.id, {
@@ -208,7 +205,7 @@ describe.skipIf(!hasLive || !hasSql)("live: member submission", () => {
 
     // Another resident with a household that is not in this vote, an administrator
     // with no household, and a draft all look the same: not found.
-    const draft = await createDraft(adminDeps, "OPEN");
+    const draft = await createDraft(adminDeps, "PUBLIC");
     for (const [deps, id] of [
       [outsiderDeps, vote.id],
       [adminDeps, vote.id],
@@ -270,7 +267,7 @@ describe.skipIf(!hasLive || !hasSql)("live: member submission", () => {
     expect((await counts(vote.id)).participation).toBe(0);
   });
 
-  it("lets exactly one of several concurrent submissions win", async () => {
+  it("serializes concurrent PUBLIC changes without duplicating participation", async () => {
     const vote = await activeOpen();
     const results = await Promise.allSettled(
       Array.from({ length: 5 }, (_, index) =>
@@ -280,12 +277,7 @@ describe.skipIf(!hasLive || !hasSql)("live: member submission", () => {
         }),
       ),
     );
-    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
-    for (const failure of results.filter((r) => r.status === "rejected")) {
-      expect((failure as PromiseRejectedResult).reason.code).toBe(
-        "ALREADY_SUBMITTED",
-      );
-    }
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(5);
     expect((await counts(vote.id)).participation).toBe(1);
   });
 

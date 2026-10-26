@@ -30,28 +30,48 @@ export const optionProjection = z.object({
   position: z.number().int(),
 });
 
-export const adminVoteDetailSchema = z.object({
-  id: z.uuid(),
-  votingType: z.enum(VOTING_TYPES),
-  status: z.enum(VOTE_STATUSES),
-  title: z.string(),
-  instructions: z.string().nullable(),
-  closesAt: instant.nullable(),
-  draftRevision: z.number().int().min(1),
-  createdAt: instant,
-  updatedAt: instant,
-  activatedAt: instant.nullable(),
-  completedAt: instant.nullable(),
-  completionMode: z.enum(["DEADLINE", "EARLY"]).nullable(),
-  completionReason: z.string().nullable(),
-  cancelledAt: instant.nullable(),
-  cancellationReason: z.string().nullable(),
-  rwaName: z.string().nullable(),
-  timezone: z.string().nullable(),
-  offices: z.array(officeProjection),
-  options: z.array(optionProjection),
-  eligibleHouseholdIds: z.array(z.uuid()),
-});
+export const adminVoteDetailSchema = z
+  .object({
+    id: z.uuid(),
+    votingType: z.enum(VOTING_TYPES),
+    openSelectionMode: z.enum(["SINGLE", "MULTIPLE"]),
+    openSelectionLimit: z.number().int().min(1).max(100).nullable(),
+    status: z.enum(VOTE_STATUSES),
+    title: z.string(),
+    instructions: z.string().nullable(),
+    closesAt: instant.nullable(),
+    draftRevision: z.number().int().min(1),
+    createdAt: instant,
+    updatedAt: instant,
+    activatedAt: instant.nullable(),
+    completedAt: instant.nullable(),
+    completionMode: z.enum(["DEADLINE", "EARLY"]).nullable(),
+    completionReason: z.string().nullable(),
+    cancelledAt: instant.nullable(),
+    cancellationReason: z.string().nullable(),
+    rwaName: z.string().nullable(),
+    timezone: z.string().nullable(),
+    offices: z.array(officeProjection),
+    options: z.array(optionProjection),
+    eligibleHouseholdIds: z.array(z.uuid()),
+  })
+  .superRefine((vote, context) => {
+    const validModeLimit =
+      vote.openSelectionMode === "SINGLE"
+        ? vote.openSelectionLimit === 1
+        : vote.openSelectionLimit === null || vote.openSelectionLimit >= 2;
+    if (
+      !validModeLimit ||
+      (vote.votingType === "PRIVATE" &&
+        (vote.openSelectionMode !== "SINGLE" || vote.openSelectionLimit !== 1))
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["openSelectionLimit"],
+        message: "The selection limit must match the PUBLIC voting mode.",
+      });
+    }
+  });
 export type AdminVoteDetail = z.output<typeof adminVoteDetailSchema>;
 
 export const BLOCKER_SECTIONS = [

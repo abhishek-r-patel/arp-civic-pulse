@@ -8,6 +8,10 @@ import { PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { getSessionState } from "@/server/authorization/account";
 import { getCsrfToken } from "@/server/http/csrf-cookie";
+import {
+  loadHouseholdTerms,
+  loadPublicRwaIdentity,
+} from "@/server/settings/rwa-profile";
 
 export const metadata = publicMetadata("/sign-in");
 
@@ -17,13 +21,20 @@ export default async function SignInPage() {
     redirect("/");
   }
   const csrfToken = await getCsrfToken();
+  const [identity, terms] = await Promise.all([
+    loadPublicRwaIdentity(),
+    loadHouseholdTerms(),
+  ]);
+  const organisation = identity
+    ? `${identity.fullName} (${identity.alias})`
+    : "your Resident Welfare Association";
 
   return (
     <div className="mx-auto grid w-full max-w-ballot gap-8">
       <PublicStructuredData path="/sign-in" />
       <PageHeader
         title="Sign in"
-        description="Civic Pulse is for registered members of your Resident Welfare Association. There is no public sign-up. If you cannot sign in, contact your RWA administrator."
+        description={`Civic Pulse is for registered members of ${organisation}. Residents need an assigned ${terms.household}; administrators may sign in without one. There is no public sign-up. If you cannot sign in, contact your RWA administrator.`}
       />
 
       {session.state === "blocked" ? (

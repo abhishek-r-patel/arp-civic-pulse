@@ -12,13 +12,19 @@ import {
 } from "@/server/register/accounts";
 import { getHousehold } from "@/server/register/households";
 import { adminPageContext } from "@/server/register/page-context";
+import { loadHouseholdTerms } from "@/server/settings/rwa-profile";
 import { idParamsSchema } from "@/shared/contracts/register";
 
-export const generateMetadata = privateRecordMetadata(
-  "Edit household",
-  "Update current household details without rewriting historical voting assignments.",
-  "/admin/households/[id]",
-);
+export async function generateMetadata({
+  params,
+}: Readonly<{ params: Promise<{ id: string }> }>) {
+  const terms = await loadHouseholdTerms();
+  return privateRecordMetadata(
+    `Edit ${terms.Household}`,
+    `Update current ${terms.household} details without rewriting historical voting assignments.`,
+    "/admin/households/[id]",
+  )({ params });
+}
 
 export default async function EditHouseholdPage({
   params,
@@ -50,14 +56,15 @@ export default async function EditHouseholdPage({
         className="inline-flex touch-target w-fit items-center gap-1 font-semibold text-accent underline underline-offset-2"
       >
         <ChevronLeft aria-hidden="true" className="size-5" />
-        Households
+        {deps.terms.Households}
       </Link>
       <PageHeader
-        title={`Edit household ${household.identifier}`}
-        description="Change the label, the representative or eligibility."
+        title={`Edit ${deps.identifierLabel} ${household.identifier}`}
+        description={`Change the ${deps.identifierLabel.toLowerCase()}, the representative or eligibility.`}
       />
       <HouseholdForm
         csrfToken={deps.csrfToken}
+        identifierLabel={deps.identifierLabel}
         accounts={accounts}
         household={household}
         limited={accounts.length >= MAX_ASSIGNABLE}

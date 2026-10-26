@@ -83,7 +83,7 @@ describe.skipIf(!hasLive || !hasSql)("live: vote lifecycle", () => {
   });
 
   async function readyDraft(closesInMs = 3_600_000) {
-    const draft = await createDraft(adminDeps, "OPEN");
+    const draft = await createDraft(adminDeps, "PUBLIC");
     return updateDraft(adminDeps, draft.id, {
       expectedRevision: 1,
       title: "Live lifecycle vote",
@@ -154,7 +154,7 @@ describe.skipIf(!hasLive || !hasSql)("live: vote lifecycle", () => {
         .code,
     ).toBe("STALE_REVISION");
 
-    const bare = await createDraft(adminDeps, "CLOSED");
+    const bare = await createDraft(adminDeps, "PRIVATE");
     expect((await apiError(activateVote(adminDeps, bare.id, 1))).code).toBe(
       "ACTIVATION_BLOCKED",
     );

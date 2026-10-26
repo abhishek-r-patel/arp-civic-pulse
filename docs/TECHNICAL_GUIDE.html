@@ -322,13 +322,17 @@
       </p>
       <ul>
         <li>
-          <strong>OPEN poll:</strong> one choice. Authorized completed results
-          contain representative names, household identifiers and choices.
+          <strong>PUBLIC poll:</strong> configured single-select or
+          multi-select; one ballot and participation per household. Authorized
+          completed results contain representative names, household identifiers
+          and the final selected option set.
         </li>
         <li>
-          <strong>CLOSED election:</strong> one candidate or explicit abstention
-          for every office. Storage and results use aggregate counters, not
-          retrievable individual ballots.
+          <strong>PRIVATE election:</strong> one candidate or NOTA (None of the
+          Above) for every office. Storage and results use aggregate counters,
+          not retrievable individual ballots. NOTA is counted separately and
+          never wins; the highest-count candidate is elected even if NOTA
+          receives more votes.
         </li>
         <li>
           <strong>Lifecycle:</strong> Draft, Active, Completed or Cancelled.
@@ -346,13 +350,13 @@
       </ul>
       <figure class="wide">
         <img
-          src="data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMTAwMCIKICBoZWlnaHQ9IjM1MCIKICB2aWV3Qm94PSIwIDAgMTAwMCAzNTAiCiAgcm9sZT0iaW1nIgogIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyIKPgogIDx0aXRsZSBpZD0idGl0bGUiPkNpdmljIFB1bHNlOiBmcm9tIHJlZ2lzdGVyIHRvIHJlc3VsdHM8L3RpdGxlPgogIDxkZXNjIGlkPSJkZXNjIj4KICAgIFRoZSBhZG1pbmlzdHJhdG9yIHNldHMgdXAgaG91c2Vob2xkcywgY3JlYXRlcyBhbmQgcHJldmlld3MgYSBkcmFmdCwgdGhlbgogICAgYWN0aXZhdGVzIGl0LiBSZXNpZGVudHMgc2lnbiBpbiwgcmV2aWV3IGFuZCBzdWJtaXQgb25jZS4gQ29tcGxldGlvbgogICAgcHVibGlzaGVzIGF1dGhvcml6ZWQgcmVzdWx0cyBhbmQgZG93bmxvYWRzLgogIDwvZGVzYz4KICA8ZGVmcz4KICAgIDxtYXJrZXIKICAgICAgaWQ9ImFycm93IgogICAgICBtYXJrZXJXaWR0aD0iMTAiCiAgICAgIG1hcmtlckhlaWdodD0iMTAiCiAgICAgIHJlZlg9IjgiCiAgICAgIHJlZlk9IjMiCiAgICAgIG9yaWVudD0iYXV0byIKICAgID4KICAgICAgPHBhdGggZD0iTTAgMCBMMCA2IEw4IDNaIiBmaWxsPSIjNDc1NTY5IiAvPgogICAgPC9tYXJrZXI+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSIxMDAwIiBoZWlnaHQ9IjM1MCIgcng9IjEyIiBmaWxsPSIjZjhmYWZjIiAvPgogIDxnIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzBmMTcyYSI+CiAgICA8dGV4dCB4PSI1MDAiIHk9IjMyIiBmb250LXNpemU9IjIyIiBmb250LXdlaWdodD0iYm9sZCI+CiAgICAgIE9uZSBob3VzZWhvbGQuIE9uZSBmaW5hbCBzdWJtaXNzaW9uIHBlciB2b3RlLgogICAgPC90ZXh0PgogICAgPGcgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjMGY3NjZlIiBzdHJva2Utd2lkdGg9IjIiPgogICAgICA8cmVjdCB4PSIyMCIgeT0iNjUiIHdpZHRoPSIyMTAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iMjcwIiB5PSI2NSIgd2lkdGg9IjIxMCIgaGVpZ2h0PSI5MCIgcng9IjEwIiAvPgogICAgICA8cmVjdCB4PSI1MjAiIHk9IjY1IiB3aWR0aD0iMjEwIiBoZWlnaHQ9IjkwIiByeD0iMTAiIC8+CiAgICAgIDxyZWN0IHg9Ijc3MCIgeT0iNjUiIHdpZHRoPSIyMTAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iMjcwIiB5PSIyMTUiIHdpZHRoPSIyMTAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iNTIwIiB5PSIyMTUiIHdpZHRoPSIyMTAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iNzcwIiB5PSIyMTUiIHdpZHRoPSIyMTAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgLz4KICAgIDwvZz4KICAgIDxnIGZvbnQtc2l6ZT0iMTciPgogICAgICA8dGV4dCB4PSIxMjUiIHk9Ijk5Ij5SZWdpc3RlciBhY2NvdW50czwvdGV4dD4KICAgICAgPHRleHQgeD0iMTI1IiB5PSIxMjUiPmFuZCBob3VzZWhvbGRzPC90ZXh0PgogICAgICA8dGV4dCB4PSIzNzUiIHk9Ijk5Ij5DcmVhdGUgZHJhZnQ8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjM3NSIgeT0iMTI1Ij5PUEVOIG9yIENMT1NFRDwvdGV4dD4KICAgICAgPHRleHQgeD0iNjI1IiB5PSI5OSI+U2F2ZSBhbmQgcHJldmlldzwvdGV4dD4KICAgICAgPHRleHQgeD0iNjI1IiB5PSIxMjUiPkNvcnJlY3QgYW55IGJsb2NrZXJzPC90ZXh0PgogICAgICA8dGV4dCB4PSI4NzUiIHk9Ijk5Ij5BY3RpdmF0ZSBleHBsaWNpdGx5PC90ZXh0PgogICAgICA8dGV4dCB4PSI4NzUiIHk9IjEyNSI+QmFsbG90IGFuZCB2b3RlcnMgZnJlZXplPC90ZXh0PgogICAgICA8dGV4dCB4PSIzNzUiIHk9IjI1MCI+UmVzaWRlbnRzIHNpZ24gaW48L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjM3NSIgeT0iMjc2Ij5DaG9vc2UgYW5kIHJldmlldzwvdGV4dD4KICAgICAgPHRleHQgeD0iNjI1IiB5PSIyNTAiPlN1Ym1pdCBvbmNlPC90ZXh0PgogICAgICA8dGV4dCB4PSI2MjUiIHk9IjI3NiI+V2FpdCBmb3IgY29uZmlybWF0aW9uPC90ZXh0PgogICAgICA8dGV4dCB4PSI4NzUiIHk9IjI1MCI+QWZ0ZXIgY29tcGxldGlvbjwvdGV4dD4KICAgICAgPHRleHQgeD0iODc1IiB5PSIyNzYiPlJlc3VsdHMsIENTViBhbmQgUERGKjwvdGV4dD4KICAgIDwvZz4KICAgIDx0ZXh0IHg9IjUwMCIgeT0iMzM1IiBmb250LXNpemU9IjE0Ij4KICAgICAgKiBQREYgaXMgb3B0aW9uYWwuIEFjdGl2ZSBjaG9pY2VzIGFyZSBuZXZlciBwdWJsaXNoZWQuIE9ubHkgYXV0aG9yaXplZAogICAgICB2aWV3ZXJzIGNhbiBzZWUgcmVzdWx0cy4KICAgIDwvdGV4dD4KICA8L2c+CiAgPGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjIiIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIj4KICAgIDxwYXRoIGQ9Ik0yMzAgMTEwSDI2MCIgLz4KICAgIDxwYXRoIGQ9Ik00ODAgMTEwSDUxMCIgLz4KICAgIDxwYXRoIGQ9Ik03MzAgMTEwSDc2MCIgLz4KICAgIDxwYXRoIGQ9Ik04NzUgMTU1VjE4NUgzNzVWMjA1IiAvPgogICAgPHBhdGggZD0iTTQ4MCAyNjBINTEwIiAvPgogICAgPHBhdGggZD0iTTczMCAyNjBINzYwIiAvPgogIDwvZz4KPC9zdmc+Cg=="
+          src="data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMTAwMCIKICBoZWlnaHQ9IjM1MCIKICB2aWV3Qm94PSIwIDAgMTAwMCAzNTAiCiAgcm9sZT0iaW1nIgogIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyIKPgogIDx0aXRsZSBpZD0idGl0bGUiPkNpdmljIFB1bHNlOiBmcm9tIHJlZ2lzdGVyIHRvIHJlc3VsdHM8L3RpdGxlPgogIDxkZXNjIGlkPSJkZXNjIj4KICAgIFRoZSBhZG1pbmlzdHJhdG9yIHNldHMgdXAgaG91c2Vob2xkcywgY3JlYXRlcyBhbmQgcHJldmlld3MgYSBkcmFmdCwgdGhlbgogICAgYWN0aXZhdGVzIGl0LiBSZXNpZGVudHMgc2lnbiBpbiwgcmV2aWV3IGFuZCBzdWJtaXQgb25jZS4gQ29tcGxldGlvbgogICAgcHVibGlzaGVzIGF1dGhvcml6ZWQgcmVzdWx0cyBhbmQgZG93bmxvYWRzLgogIDwvZGVzYz4KICA8ZGVmcz4KICAgIDxtYXJrZXIKICAgICAgaWQ9ImFycm93IgogICAgICBtYXJrZXJXaWR0aD0iMTAiCiAgICAgIG1hcmtlckhlaWdodD0iMTAiCiAgICAgIHJlZlg9IjgiCiAgICAgIHJlZlk9IjMiCiAgICAgIG9yaWVudD0iYXV0byIKICAgID4KICAgICAgPHBhdGggZD0iTTAgMCBMMCA2IEw4IDNaIiBmaWxsPSIjNDc1NTY5IiAvPgogICAgPC9tYXJrZXI+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSIxMDAwIiBoZWlnaHQ9IjM1MCIgcng9IjEyIiBmaWxsPSIjZjhmYWZjIiAvPgogIDxnIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzBmMTcyYSI+CiAgICA8dGV4dCB4PSI1MDAiIHk9IjMyIiBmb250LXNpemU9IjIyIiBmb250LXdlaWdodD0iYm9sZCI+CiAgICAgIE9uZSBjdXJyZW50IHJlc3BvbnNlIHBlciBob3VzZWhvbGQuIE9QRU4gY2hvaWNlcyBjYW4gY2hhbmdlIHVudGlsIGNsb3NpbmcuCiAgICA8L3RleHQ+CiAgICA8ZyBmaWxsPSIjZmZmIiBzdHJva2U9IiMwZjc2NmUiIHN0cm9rZS13aWR0aD0iMiI+CiAgICAgIDxyZWN0IHg9IjIwIiB5PSI2NSIgd2lkdGg9IjIxMCIgaGVpZ2h0PSI5MCIgcng9IjEwIiAvPgogICAgICA8cmVjdCB4PSIyNzAiIHk9IjY1IiB3aWR0aD0iMjEwIiBoZWlnaHQ9IjkwIiByeD0iMTAiIC8+CiAgICAgIDxyZWN0IHg9IjUyMCIgeT0iNjUiIHdpZHRoPSIyMTAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iNzcwIiB5PSI2NSIgd2lkdGg9IjIxMCIgaGVpZ2h0PSI5MCIgcng9IjEwIiAvPgogICAgICA8cmVjdCB4PSIyNzAiIHk9IjIxNSIgd2lkdGg9IjIxMCIgaGVpZ2h0PSI5MCIgcng9IjEwIiAvPgogICAgICA8cmVjdCB4PSI1MjAiIHk9IjIxNSIgd2lkdGg9IjIxMCIgaGVpZ2h0PSI5MCIgcng9IjEwIiAvPgogICAgICA8cmVjdCB4PSI3NzAiIHk9IjIxNSIgd2lkdGg9IjIxMCIgaGVpZ2h0PSI5MCIgcng9IjEwIiAvPgogICAgPC9nPgogICAgPGcgZm9udC1zaXplPSIxNyI+CiAgICAgIDx0ZXh0IHg9IjEyNSIgeT0iOTkiPlJlZ2lzdGVyIGFjY291bnRzPC90ZXh0PgogICAgICA8dGV4dCB4PSIxMjUiIHk9IjEyNSI+YW5kIGhvdXNlaG9sZHM8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjM3NSIgeT0iOTkiPkNyZWF0ZSBkcmFmdDwvdGV4dD4KICAgICAgPHRleHQgeD0iMzc1IiB5PSIxMjUiPk9QRU4gb3IgQ0xPU0VEPC90ZXh0PgogICAgICA8dGV4dCB4PSI2MjUiIHk9Ijk5Ij5TYXZlIGFuZCBwcmV2aWV3PC90ZXh0PgogICAgICA8dGV4dCB4PSI2MjUiIHk9IjEyNSI+Q29ycmVjdCBhbnkgYmxvY2tlcnM8L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg3NSIgeT0iOTkiPkFjdGl2YXRlIGV4cGxpY2l0bHk8L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg3NSIgeT0iMTI1Ij5CYWxsb3QgYW5kIHZvdGVycyBmcmVlemU8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjM3NSIgeT0iMjUwIj5SZXNpZGVudHMgc2lnbiBpbjwvdGV4dD4KICAgICAgPHRleHQgeD0iMzc1IiB5PSIyNzYiPkNob29zZSBhbmQgcmV2aWV3PC90ZXh0PgogICAgICA8dGV4dCB4PSI2MjUiIHk9IjI1MCI+U3VibWl0IC8gdXBkYXRlIE9QRU48L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjYyNSIgeT0iMjc2Ij5XYWl0IGZvciBjb25maXJtYXRpb248L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg3NSIgeT0iMjUwIj5BY3RpdmUgLyBjb21wbGV0ZWQ8L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg3NSIgeT0iMjc2Ij5MaXZlIHRvdGFscyAvIGZpbmFsIHJlc3VsdHMqPC90ZXh0PgogICAgPC9nPgogICAgPHRleHQgeD0iNTAwIiB5PSIzMzUiIGZvbnQtc2l6ZT0iMTQiPgogICAgICAqIFBERiBpcyBvcHRpb25hbC4gQWN0aXZlIE9QRU4gcmVzdWx0cyBzaG93IGFnZ3JlZ2F0ZXMsIG5ldmVyIGlkZW50aXRpZXMuCiAgICA8L3RleHQ+CiAgPC9nPgogIDxnIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIyIiBtYXJrZXItZW5kPSJ1cmwoI2Fycm93KSI+CiAgICA8cGF0aCBkPSJNMjMwIDExMEgyNjAiIC8+CiAgICA8cGF0aCBkPSJNNDgwIDExMEg1MTAiIC8+CiAgICA8cGF0aCBkPSJNNzMwIDExMEg3NjAiIC8+CiAgICA8cGF0aCBkPSJNODc1IDE1NVYxODVIMzc1VjIwNSIgLz4KICAgIDxwYXRoIGQ9Ik00ODAgMjYwSDUxMCIgLz4KICAgIDxwYXRoIGQ9Ik03MzAgMjYwSDc2MCIgLz4KICA8L2c+Cjwvc3ZnPgo="
           alt="Application overview"
         />
         <figcaption>Application overview</figcaption>
       </figure>
       <p>
-        Application-level CLOSED privacy is not cryptographic anonymity.
+        Application-level PRIVATE privacy is not cryptographic anonymity.
         Privileged infrastructure operators, WAL/backups and very small
         electorates can allow inference. Never describe the system as secret
         from all operators.
@@ -494,7 +498,7 @@
             <tr>
               <td>Participation</td>
               <td>
-                The fact that a frozen household submitted. For CLOSED votes
+                The fact that a frozen household submitted. For PRIVATE votes
                 this is not a record of its selections.
               </td>
             </tr>
@@ -502,7 +506,7 @@
               <td>Acknowledgement</td>
               <td>
                 The application says the transaction committed; it does not
-                expose a CLOSED selection receipt.
+                expose a PRIVATE selection receipt.
               </td>
             </tr>
           </tbody>
@@ -589,9 +593,68 @@
             </tr>
             <tr>
               <td>
+                <a href="../src/components/admin/rwa-profile-form.tsx"
+                  >src/components/admin/rwa-profile-form.tsx</a
+                >
+              </td>
+              <td>
+                Administrator form for RWA identity, contact, palette, welcome
+                message and identifier wording.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/components/ui/rwa-branding.tsx"
+                  >src/components/ui/rwa-branding.tsx</a
+                >
+              </td>
+              <td>
+                Plain-text signed-in footer contact block and welcome message
+                shown to residents and administrators.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/components/ui/info-tip.tsx"
+                  >src/components/ui/info-tip.tsx</a
+                >
+              </td>
+              <td>
+                Compact (i) disclosure that opens on mouse hover or click/tap
+                and closes on Escape or an outside click; used for the NOTA
+                rule.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/components/votes/nota-explanation.tsx"
+                  >src/components/votes/nota-explanation.tsx</a
+                >
+              </td>
+              <td>
+                Shared NOTA rule text for the resident ballot and the
+                administrator preview.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/components/votes/result-bars.tsx"
+                  >src/components/votes/result-bars.tsx</a
+                >
+              </td>
+              <td>
+                Shared result rows (&quot;Label 4/10 40%&quot; above a bar) for
+                options, candidates, NOTA and turnout.
+              </td>
+            </tr>
+            <tr>
+              <td>
                 <a href="../src/components/votes">src/components/votes</a>
               </td>
-              <td>Resident ballots, privacy notices and completed results.</td>
+              <td>
+                Resident ballots, privacy notices, active deadline countdowns
+                and results.
+              </td>
             </tr>
             <tr>
               <td><a href="../src/server">src/server</a></td>
@@ -601,10 +664,79 @@
               </td>
             </tr>
             <tr>
+              <td><a href="../src/server/settings">src/server/settings</a></td>
+              <td>
+                Guarded RWA settings services and member-safe projections.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/server/settings/rwa-profile.ts"
+                  >src/server/settings/rwa-profile.ts</a
+                >
+              </td>
+              <td>
+                Admin-only profile read/update, enabled-member branding
+                projection, per-request branding cache, the service-role public
+                identity read and <code>loadHouseholdTerms()</code> for
+                server-rendered household wording.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/shared/contracts/household-terms.ts"
+                  >src/shared/contracts/household-terms.ts</a
+                >
+              </td>
+              <td>
+                Household label and Number/ID identifier-kind contracts,
+                suggestions, and <code>buildHouseholdTerms</code> (singular,
+                plural, sentence-case and identifier wording).
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/components/ui/household-terms.tsx"
+                  >src/components/ui/household-terms.tsx</a
+                >
+              </td>
+              <td>
+                Client provider and <code>useHouseholdTerms()</code> hook; the
+                app shell supplies the current terms.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/shared/contracts/rwa-profile.ts"
+                  >src/shared/contracts/rwa-profile.ts</a
+                >
+              </td>
+              <td>
+                Strict RWA profile, member branding and public identity
+                projections, palette list and telephone link helper.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/app/admin/settings/page.tsx"
+                  >src/app/admin/settings/page.tsx</a
+                >
+              </td>
+              <td>Protected RWA Settings screen.</td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/app/api/admin/settings/route.ts"
+                  >src/app/api/admin/settings/route.ts</a
+                >
+              </td>
+              <td>CSRF-protected administrator profile update endpoint.</td>
+            </tr>
+            <tr>
               <td><a href="../src/shared">src/shared</a></td>
               <td>
-                Browser-safe contracts, validation, HTTP client and time
-                formatting.
+                Browser-safe contracts, validation, HTTP client, time formatting
+                and countdown arithmetic.
               </td>
             </tr>
             <tr>
@@ -781,7 +913,60 @@
           <a href="../supabase/migrations/20261024140000_cast_vote.sql"
             >cast_vote migration</a
           >
-          locks/rechecks/validates/writes atomically.
+          locks/rechecks/validates/writes atomically;
+          <a href="../supabase/migrations/20261027100000_open_multi_select.sql"
+            >the PUBLIC multi-select migration</a
+          >
+          adds selection-set replacement and dispatches single- versus
+          multi-select submissions;
+          <a
+            href="../supabase/migrations/20261028100000_nota_closed_elections.sql"
+            >the NOTA migration</a
+          >
+          names the built-in PRIVATE choice and changes its result projection;
+          <a
+            href="../supabase/migrations/20261029100000_live_closed_turnout.sql"
+            >the live PRIVATE turnout migration</a
+          >
+          returns turnout without exposing office totals while the election is
+          active.
+        </li>
+        <li>
+          <a
+            href="../supabase/migrations/20261030100000_configurable_identifier_label.sql"
+            >Identifier label migration</a
+          >
+          added the first RWA-wide display label;
+          <a
+            href="../supabase/migrations/20261103110000_household_label_and_identifier_kind.sql"
+            >the household label migration</a
+          >
+          replaces it with a household label and a Number/ID identifier kind
+          returned by the profile, branding and public identity routines.
+          <a
+            href="../supabase/migrations/20261103100000_public_private_voting.sql"
+            >The PUBLIC/PRIVATE migration</a
+          >
+          renames the stored voting types.
+        </li>
+        <li>
+          <a
+            href="../supabase/migrations/20261031100000_rwa_profile_settings.sql"
+            >RWA profile migration</a
+          >
+          adds guarded admin-only profile settings, and
+          <a
+            href="../supabase/migrations/20261101100000_rwa_branding_and_public_identity.sql"
+            >the branding migration</a
+          >
+          adds the accent palette, welcome message, the member branding
+          projection and the service-role-only public identity routine.
+          <a
+            href="../supabase/migrations/20261102100000_optional_rwa_contact_fields.sql"
+            >The optional contact migration</a
+          >
+          lets administrators leave the address, email and phone blank so they
+          are hidden.
         </li>
         <li>
           After commit the response is participation-only:
@@ -801,13 +986,13 @@
   -&gt; user-session RPC cast_vote
        -&gt; lock vote, recheck entitlement/status/deadline
        -&gt; insert unique participation
-       -&gt; OPEN: insert response
-          CLOSED: increment one counter per office
+       -&gt; PUBLIC: insert or replace the selected response set
+          PRIVATE: increment one counter per office
        -&gt; whole transaction commits, or all changes roll back
-  -&gt; safe acknowledgement (no CLOSED selections)</code></pre>
+  -&gt; safe acknowledgement (no PRIVATE selections)</code></pre>
       <figure class="wide">
         <img
-          src="data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMTAwMCIKICBoZWlnaHQ9IjQ3MCIKICB2aWV3Qm94PSIwIDAgMTAwMCA0NzAiCiAgcm9sZT0iaW1nIgogIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyIKPgogIDx0aXRsZSBpZD0idGl0bGUiPlNhZmUgdm90aW5nIGFuZCBjb25uZWN0aW9uIHJlY292ZXJ5PC90aXRsZT4KICA8ZGVzYyBpZD0iZGVzYyI+CiAgICBDaG9vc2UsIHJldmlldyBhbmQgc3VibWl0LiBBIGNvbmZpcm1lZCBhY2NlcHRhbmNlIGlzIGZpbmFsLiBJZiB0aGUKICAgIGFja25vd2xlZGdlbWVudCBpcyB1bmNsZWFyLCBjaGVjayBwYXJ0aWNpcGF0aW9uLiBSZWNvcmRlZCBtZWFucyBkb25lLCBub3QKICAgIHJlY29yZGVkIHBlcm1pdHMgcmV2aWV3IGFuZCByZXRyeSBvbmx5IHdoaWxlIGFsbG93ZWQsIGFuZCBhbiB1bmF2YWlsYWJsZQogICAgY2hlY2sgbWVhbnMgd2FpdCBhbmQgY2hlY2sgYWdhaW4gd2l0aG91dCBzdWJtaXR0aW5nIGJsaW5kbHkuCiAgPC9kZXNjPgogIDxkZWZzPgogICAgPG1hcmtlcgogICAgICBpZD0iYSIKICAgICAgbWFya2VyV2lkdGg9IjEwIgogICAgICBtYXJrZXJIZWlnaHQ9IjEwIgogICAgICByZWZYPSI4IgogICAgICByZWZZPSIzIgogICAgICBvcmllbnQ9ImF1dG8iCiAgICA+CiAgICAgIDxwYXRoIGQ9Ik0wIDAgTDAgNiBMOCAzWiIgZmlsbD0iIzQ3NTU2OSIgLz4KICAgIDwvbWFya2VyPgogIDwvZGVmcz4KICA8cmVjdCB3aWR0aD0iMTAwMCIgaGVpZ2h0PSI0NzAiIHJ4PSIxMiIgZmlsbD0iI2Y4ZmFmYyIgLz4KICA8ZyBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMwZjE3MmEiPgogICAgPHRleHQgeD0iNTAwIiB5PSIzMiIgZm9udC1zaXplPSIyMiIgZm9udC13ZWlnaHQ9ImJvbGQiPgogICAgICBBIGxvc3QgcmVzcG9uc2UgaXMgbm90IHByb29mIHRoYXQgYSB2b3RlIGZhaWxlZAogICAgPC90ZXh0PgogICAgPGcgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjMGY3NjZlIiBzdHJva2Utd2lkdGg9IjIiPgogICAgICA8cmVjdCB4PSIyMCIgeT0iNjUiIHdpZHRoPSIyMDAiIGhlaWdodD0iNjUiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iMjgwIiB5PSI2NSIgd2lkdGg9IjIwMCIgaGVpZ2h0PSI2NSIgcng9IjEwIiAvPgogICAgICA8cmVjdCB4PSI1NDAiIHk9IjY1IiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjY1IiByeD0iMTAiIC8+CiAgICAgIDxyZWN0IHg9Ijc4MCIgeT0iNjUiIHdpZHRoPSIyMDAiIGhlaWdodD0iNjUiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iNTQwIiB5PSIyMTUiIHdpZHRoPSIyMDAiIGhlaWdodD0iNzUiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iMjAiIHk9IjM2NSIgd2lkdGg9IjI1MCIgaGVpZ2h0PSI3NSIgcng9IjEwIiAvPgogICAgICA8cmVjdCB4PSIzNzUiIHk9IjM2NSIgd2lkdGg9IjI1MCIgaGVpZ2h0PSI3NSIgcng9IjEwIiAvPgogICAgICA8cmVjdCB4PSI3MzAiIHk9IjM2NSIgd2lkdGg9IjI1MCIgaGVpZ2h0PSI3NSIgcng9IjEwIiAvPgogICAgPC9nPgogICAgPGcgZm9udC1zaXplPSIxNyI+CiAgICAgIDx0ZXh0IHg9IjEyMCIgeT0iMTA0Ij5DaG9vc2UgYWxsIHJlcXVpcmVkIGZpZWxkczwvdGV4dD4KICAgICAgPHRleHQgeD0iMzgwIiB5PSIxMDQiPlJldmlldyBzZWxlY3Rpb25zPC90ZXh0PgogICAgICA8dGV4dCB4PSI2NDAiIHk9IjEwNCI+U3VibWl0IG9uY2U8L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg4MCIgeT0iMTA0Ij5Wb3RlIHN1Ym1pdHRlZC48L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjY0MCIgeT0iMjQ1Ij5VbmNsZWFyIHJlc3BvbnNlPzwvdGV4dD4KICAgICAgPHRleHQgeD0iNjQwIiB5PSIyNzIiPkNoZWNrIHBhcnRpY2lwYXRpb248L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjE0NSIgeT0iMzk1Ij5SZWNvcmRlZDwvdGV4dD4KICAgICAgPHRleHQgeD0iMTQ1IiB5PSI0MjMiPkZpbmlzaGVkOyBkbyBub3Qgdm90ZSBhZ2FpbjwvdGV4dD4KICAgICAgPHRleHQgeD0iNTAwIiB5PSIzOTUiPkNvbmZpcm1lZCBub3QgcmVjb3JkZWQ8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjUwMCIgeT0iNDIzIj5SZXZpZXcgYW5kIHJldHJ5IGlmIGFsbG93ZWQ8L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg1NSIgeT0iMzk1Ij5DaGVjayBhbHNvIHVuYXZhaWxhYmxlPC90ZXh0PgogICAgICA8dGV4dCB4PSI4NTUiIHk9IjQyMyI+V2FpdDsgdXNlIENoZWNrIGFnYWluPC90ZXh0PgogICAgPC9nPgogICAgPGcgZm9udC1zaXplPSIxNCI+CiAgICAgIDx0ZXh0IHg9IjY0MCIgeT0iMTgxIj5Db25uZWN0aW9uIHByb2JsZW08L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg1MCIgeT0iMTU1Ij5DbGVhciBhY2NlcHRhbmNlIG9ubHk8L3RleHQ+CiAgICA8L2c+CiAgPC9nPgogIDxnIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIiBtYXJrZXItZW5kPSJ1cmwoI2EpIj4KICAgIDxwYXRoIGQ9Ik0yMjAgOTdIMjcwIiAvPgogICAgPHBhdGggZD0iTTQ4MCA5N0g1MzAiIC8+CiAgICA8cGF0aCBkPSJNNzQwIDk3SDc3MCIgLz4KICAgIDxwYXRoIGQ9Ik02NDAgMTMwVjIwNSIgLz4KICAgIDxwYXRoIGQ9Ik02NDAgMjkwVjMyNUgxNDVWMzU1IiAvPgogICAgPHBhdGggZD0iTTY0MCAyOTBWMzI1SDUwMFYzNTUiIC8+CiAgICA8cGF0aCBkPSJNNjQwIDI5MFYzMjVIODU1VjM1NSIgLz4KICA8L2c+Cjwvc3ZnPgo="
+          src="data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMTAwMCIKICBoZWlnaHQ9IjQ3MCIKICB2aWV3Qm94PSIwIDAgMTAwMCA0NzAiCiAgcm9sZT0iaW1nIgogIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyIKPgogIDx0aXRsZSBpZD0idGl0bGUiPlNhZmUgdm90aW5nIGFuZCBjb25uZWN0aW9uIHJlY292ZXJ5PC90aXRsZT4KICA8ZGVzYyBpZD0iZGVzYyI+CiAgICBDaG9vc2UsIHJldmlldyBhbmQgc3VibWl0LiBBIGNvbmZpcm1lZCBhY2NlcHRhbmNlIGlzIGZpbmFsLiBJZiB0aGUKICAgIGFja25vd2xlZGdlbWVudCBpcyB1bmNsZWFyLCBjaGVjayBwYXJ0aWNpcGF0aW9uLiBGb3IgYSBmaXJzdCBzdWJtaXNzaW9uLAogICAgYW4gdW5hdmFpbGFibGUgY2hlY2sgbWVhbnMgd2FpdCBhbmQgY2hlY2sgYWdhaW4gd2l0aG91dCBzdWJtaXR0aW5nIGJsaW5kbHkuCiAgICBGb3IgYW4gT1BFTiByZXBsYWNlbWVudCwgdGhlIHByZXZpb3VzIHJlc3BvbnNlIHJlbWFpbnMgcmVjb3JkZWQsIGFuZCB0aGUKICAgIHNhbWUgaW50ZW5kZWQgcmVwbGFjZW1lbnQgbWF5IGJlIHJldHJpZWQgd2hpbGUgdGhlIHBvbGwgaXMgYWN0aXZlLgogIDwvZGVzYz4KICA8ZGVmcz4KICAgIDxtYXJrZXIKICAgICAgaWQ9ImEiCiAgICAgIG1hcmtlcldpZHRoPSIxMCIKICAgICAgbWFya2VySGVpZ2h0PSIxMCIKICAgICAgcmVmWD0iOCIKICAgICAgcmVmWT0iMyIKICAgICAgb3JpZW50PSJhdXRvIgogICAgPgogICAgICA8cGF0aCBkPSJNMCAwIEwwIDYgTDggM1oiIGZpbGw9IiM0NzU1NjkiIC8+CiAgICA8L21hcmtlcj4KICA8L2RlZnM+CiAgPHJlY3Qgd2lkdGg9IjEwMDAiIGhlaWdodD0iNDcwIiByeD0iMTIiIGZpbGw9IiNmOGZhZmMiIC8+CiAgPGcgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMGYxNzJhIj4KICAgIDx0ZXh0IHg9IjUwMCIgeT0iMzIiIGZvbnQtc2l6ZT0iMjIiIGZvbnQtd2VpZ2h0PSJib2xkIj4KICAgICAgQSBsb3N0IHJlc3BvbnNlIGlzIG5vdCBwcm9vZiB0aGF0IGEgdm90ZSBmYWlsZWQKICAgIDwvdGV4dD4KICAgIDxnIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzBmNzY2ZSIgc3Ryb2tlLXdpZHRoPSIyIj4KICAgICAgPHJlY3QgeD0iMjAiIHk9IjY1IiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjY1IiByeD0iMTAiIC8+CiAgICAgIDxyZWN0IHg9IjI4MCIgeT0iNjUiIHdpZHRoPSIyMDAiIGhlaWdodD0iNjUiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iNTQwIiB5PSI2NSIgd2lkdGg9IjIwMCIgaGVpZ2h0PSI2NSIgcng9IjEwIiAvPgogICAgICA8cmVjdCB4PSI3ODAiIHk9IjY1IiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjY1IiByeD0iMTAiIC8+CiAgICAgIDxyZWN0IHg9IjU0MCIgeT0iMjE1IiB3aWR0aD0iMjAwIiBoZWlnaHQ9Ijc1IiByeD0iMTAiIC8+CiAgICAgIDxyZWN0IHg9IjIwIiB5PSIzNjUiIHdpZHRoPSIyNTAiIGhlaWdodD0iNzUiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iMzc1IiB5PSIzNjUiIHdpZHRoPSIyNTAiIGhlaWdodD0iNzUiIHJ4PSIxMCIgLz4KICAgICAgPHJlY3QgeD0iNzMwIiB5PSIzNjUiIHdpZHRoPSIyNTAiIGhlaWdodD0iNzUiIHJ4PSIxMCIgLz4KICAgIDwvZz4KICAgIDxnIGZvbnQtc2l6ZT0iMTciPgogICAgICA8dGV4dCB4PSIxMjAiIHk9IjEwNCI+Q2hvb3NlIGFsbCByZXF1aXJlZCBmaWVsZHM8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjM4MCIgeT0iMTA0Ij5SZXZpZXcgc2VsZWN0aW9uczwvdGV4dD4KICAgICAgPHRleHQgeD0iNjQwIiB5PSIxMDQiPlN1Ym1pdCAvIHVwZGF0ZSBPUEVOPC90ZXh0PgogICAgICA8dGV4dCB4PSI4ODAiIHk9IjEwNCI+UmVzcG9uc2UgYWNjZXB0ZWQ8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjY0MCIgeT0iMjQ1Ij5VbmNsZWFyIHJlc3BvbnNlPzwvdGV4dD4KICAgICAgPHRleHQgeD0iNjQwIiB5PSIyNzIiPkNoZWNrIHBhcnRpY2lwYXRpb248L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjE0NSIgeT0iMzk1Ij5SZWNvcmRlZDwvdGV4dD4KICAgICAgPHRleHQgeD0iMTQ1IiB5PSI0MjMiPkNoYW5nZSBPUEVOIGNob2ljZSBiZWZvcmUgY2xvc2U8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjUwMCIgeT0iMzk1Ij5Db25maXJtZWQgbm90IHJlY29yZGVkPC90ZXh0PgogICAgICA8dGV4dCB4PSI1MDAiIHk9IjQyMyI+UmV2aWV3IGFuZCByZXRyeSBpZiBhbGxvd2VkPC90ZXh0PgogICAgICA8dGV4dCB4PSI4NTUiIHk9IjM5NSI+Q2hlY2sgYWxzbyB1bmF2YWlsYWJsZTwvdGV4dD4KICAgICAgPHRleHQgeD0iODU1IiB5PSI0MTgiPkZpcnN0IHZvdGU6IHdhaXQvY2hlY2sgYWdhaW48L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg1NSIgeT0iNDM4Ij5PUEVOIGNoYW5nZTogcmV0cnkgaWYgYWN0aXZlPC90ZXh0PgogICAgPC9nPgogICAgPGcgZm9udC1zaXplPSIxNCI+CiAgICAgIDx0ZXh0IHg9IjY0MCIgeT0iMTgxIj5Db25uZWN0aW9uIHByb2JsZW08L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg1MCIgeT0iMTU1Ij5DbGVhciBhY2NlcHRhbmNlIG9ubHk8L3RleHQ+CiAgICA8L2c+CiAgPC9nPgogIDxnIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIiBtYXJrZXItZW5kPSJ1cmwoI2EpIj4KICAgIDxwYXRoIGQ9Ik0yMjAgOTdIMjcwIiAvPgogICAgPHBhdGggZD0iTTQ4MCA5N0g1MzAiIC8+CiAgICA8cGF0aCBkPSJNNzQwIDk3SDc3MCIgLz4KICAgIDxwYXRoIGQ9Ik02NDAgMTMwVjIwNSIgLz4KICAgIDxwYXRoIGQ9Ik02NDAgMjkwVjMyNUgxNDVWMzU1IiAvPgogICAgPHBhdGggZD0iTTY0MCAyOTBWMzI1SDUwMFYzNTUiIC8+CiAgICA8cGF0aCBkPSJNNjQwIDI5MFYzMjVIODU1VjM1NSIgLz4KICA8L2c+Cjwvc3ZnPgo="
           alt="Submission and recovery branches"
         />
         <figcaption>Submission and recovery branches</figcaption>
@@ -908,13 +1093,13 @@
               <td>Yes</td>
             </tr>
             <tr>
-              <td>Active choice totals</td>
+              <td>Active PUBLIC aggregates</td>
               <td>No</td>
-              <td>No</td>
-              <td>No</td>
+              <td>Eligible voters: yes</td>
+              <td>Yes</td>
             </tr>
             <tr>
-              <td>Individual CLOSED selections</td>
+              <td>Individual PRIVATE selections</td>
               <td>No</td>
               <td>No</td>
               <td>No</td>
@@ -964,27 +1149,28 @@
             <tr>
               <td><code>rwa_settings</code></td>
               <td>
-                Singleton RWA name/timezone, actual A1-A7 approvals and approved
+                Singleton RWA identity/contact profile, household label,
+                identifier kind, timezone, actual A1-A7 approvals and approved
                 retention periods.
               </td>
             </tr>
             <tr>
               <td><code>votes</code></td>
               <td>
-                Type, status, revision, deadline, terminal reasons and frozen
-                display metadata.
+                Type, PUBLIC selection mode/limit, status, revision, deadline,
+                terminal reasons and frozen display metadata.
               </td>
             </tr>
             <tr>
               <td><code>offices</code> / <code>candidates</code></td>
               <td>
-                CLOSED ballot structure with parent ownership and ordered
+                PRIVATE ballot structure with parent ownership and ordered
                 positions.
               </td>
             </tr>
             <tr>
               <td><code>poll_options</code></td>
-              <td>OPEN ballot choices.</td>
+              <td>PUBLIC ballot choices.</td>
             </tr>
             <tr>
               <td><code>electorate</code></td>
@@ -996,21 +1182,20 @@
             <tr>
               <td><code>participation</code></td>
               <td>
-                One accepted submission per entitlement. No CLOSED choices.
+                One accepted submission per entitlement. No PRIVATE choices.
               </td>
             </tr>
             <tr>
               <td><code>open_responses</code></td>
               <td>
-                Attributable option response. Published only through authorized
-                completed results.
+                Attributable selected-option rows. Published only through
+                authorized completed results.
               </td>
             </tr>
             <tr>
               <td><code>closed_tallies</code></td>
               <td>
-                Candidate/abstention counters per office. No per-voter CLOSED
-                record.
+                Candidate/NOTA counters per office. No per-voter PRIVATE record.
               </td>
             </tr>
             <tr>
@@ -1038,10 +1223,10 @@
                                |
                          participation
                          /           \
-                OPEN response    CLOSED aggregate counters*
+                PUBLIC response    PRIVATE aggregate counters*
 
 * Diagram shows the atomic workflow, NOT a stored per-person link
-  from participation to a particular CLOSED choice.</code></pre>
+  from participation to a particular PRIVATE choice.</code></pre>
       <p>Critical constraints:</p>
       <ul>
         <li>
@@ -1054,12 +1239,14 @@
         </li>
         <li>Candidate IDs must belong to the submitted office/vote.</li>
         <li>
-          For each completed CLOSED office, candidates plus abstentions equal
+          For each completed PRIVATE office, candidate counts plus NOTA equal
           submitted ballots.
         </li>
         <li>
-          OPEN response counts equal accepted participation. Invariant failure
-          withholds results rather than fabricating a fix.
+          Every PUBLIC participation has at least one selected option and obeys
+          its configured cap. Multi-select option counts can exceed
+          participation. Invariant failure withholds results rather than
+          fabricating a fix.
         </li>
         <li>
           Terminal votes cannot reopen. Accepted submissions cannot be edited,
@@ -1155,12 +1342,70 @@
                 Bounded retention, readiness/status and maintenance scheduling.
               </td>
             </tr>
+            <tr>
+              <td><code>261000_open_poll_live_results_and_changes</code></td>
+              <td>
+                Active PUBLIC aggregates and guarded response replacement.
+              </td>
+            </tr>
+            <tr>
+              <td><code>271000_open_multi_select</code></td>
+              <td>
+                PUBLIC selection configuration, multi-option storage, grouped
+                named results.
+              </td>
+            </tr>
+            <tr>
+              <td><code>281000_nota_closed_elections</code></td>
+              <td>Built-in NOTA choice and PRIVATE results projection.</td>
+            </tr>
+            <tr>
+              <td><code>291000_live_closed_turnout</code></td>
+              <td>Aggregate turnout during active PRIVATE elections.</td>
+            </tr>
+            <tr>
+              <td><code>301000_configurable_identifier_label</code></td>
+              <td>
+                RWA-wide configurable display label for identifier values.
+              </td>
+            </tr>
+            <tr>
+              <td><code>311000_rwa_profile_settings</code></td>
+              <td>Admin-only RWA profile fields and audited update RPC.</td>
+            </tr>
+            <tr>
+              <td><code>1101000_rwa_branding_and_public_identity</code></td>
+              <td>
+                Accent palette, welcome message, member branding projection and
+                service-role-only public identity.
+              </td>
+            </tr>
+            <tr>
+              <td><code>20261102100000_optional_rwa_contact_fields</code></td>
+              <td>Optional (blank, hidden) RWA address, email and phone.</td>
+            </tr>
+            <tr>
+              <td><code>20261103100000_public_private_voting</code></td>
+              <td>
+                Renames stored voting types OPEN/CLOSED to PUBLIC/PRIVATE in
+                data, checks and routines.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>20261103110000_household_label_and_identifier_kind</code>
+              </td>
+              <td>
+                Household label and Number/ID identifier kind replace the
+                identifier label.
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
       <p>
-        All files start with <code>20261024</code>; use the exact filenames in
-        <a href="../supabase/migrations">migrations</a>. Do not rewrite an
+        Use the exact ordered filenames in
+        <a href="../supabase/migrations">migrations</a>; do not rewrite an
         applied migration. New changes require a new versioned migration and
         fresh/upgrade tests. Never run migrations at application startup or use
         a reset on an existing real database.
@@ -1253,7 +1498,8 @@
             <tr>
               <td><code>/votes/{id}/results</code></td>
               <td>
-                Completed totals, authorized named OPEN responses and downloads.
+                Completed totals, authorized named PUBLIC responses and
+                downloads.
               </td>
             </tr>
             <tr>
@@ -1408,20 +1654,23 @@
       <ul>
         <li>Frozen eligible households are the turnout denominator.</li>
         <li>
-          Per-office percentages use submitted ballots; zero denominators are
-          not applicable.
+          Per-office <code>percent</code> uses submitted ballots and
+          <code>eligiblePercent</code> uses eligible households (shown in the
+          bars); zero denominators are not applicable.
         </li>
         <li>
-          Zero ballots have no winner. Positive tied leaders remain ties.
-          Abstention is not a candidate.
+          Zero ballots or zero candidate votes have no winner. Positive tied
+          candidate leaders remain ties. NOTA is not a candidate and cannot win.
         </li>
         <li>
-          All-abstain and early-completion semantics require real A5 approval.
+          Verify the NOTA winner rule against bylaws, along with the
+          early-completion rule, before real voting.
         </li>
         <li>
-          OPEN names/households are frozen snapshots, with no email in exports.
+          PUBLIC names/households are frozen snapshots, with no email in
+          exports.
         </li>
-        <li>CLOSED exports contain aggregate data only.</li>
+        <li>PRIVATE exports contain aggregate data only.</li>
         <li>
           Rendering completes before success headers. A render error returns a
           clean failure, not a partially successful document.
@@ -1541,8 +1790,8 @@
       <p>
         Logs accept only bounded allowlisted metadata. Do not add request
         bodies, raw provider errors, emails, cookies, codes, SQL bind values or
-        CLOSED selections. Provider/APM payload capture must also be disabled in
-        the actual deployment.
+        PRIVATE selections. Provider/APM payload capture must also be disabled
+        in the actual deployment.
       </p>
       <h2 id="12-tests-what-to-run-and-what-they-prove">
         12. Tests: what to run and what they prove
@@ -1652,15 +1901,38 @@
         The <a href="../scripts/docs/capture.spec.ts">capture spec</a> is
         outside the ordinary e2e directory and is explicitly opt-in:
       </p>
-      <pre><code>$env:LIVE_AUTH = &quot;1&quot;
+      <pre><code># On a network with TLS inspection, let Node trust the system store first (see LOCAL_SETUP troubleshooting).
+$env:NODE_USE_SYSTEM_CA = &quot;1&quot;
+$env:LIVE_AUTH = &quot;1&quot;
 $env:DOC_SCREENSHOTS = &quot;1&quot;
 npx playwright test -c playwright.docs.config.ts
 node scripts\docs\render.mjs</code></pre>
       <p>
+        Before capturing, apply every migration to the fixture project (<code
+          >npx supabase db push --db-url $env:LIVE_DATABASE_URL</code
+        >, review the <code>--dry-run</code> first), run
+        <code>npm run test:live</code>, and make sure no other
+        <code>next dev</code> server is running in this folder: Playwright
+        starts its own on port 3100 and Next allows one per folder.
+      </p>
+      <p>
         Use only the approved disposable fixture project. Capturing creates
         synthetic Auth users, profiles, households, votes, participation and
         fixture policy/retention data; never run it against production. It
-        reuses existing fixture helpers. Email/code fields are masked,
+        reuses existing fixture helpers. Before capturing, it sets a synthetic
+        RWA profile (Lakeview names, example address and phone, a blank email
+        and website so the pictures show empty optional fields hidden, Teal
+        palette, a welcome message, the <strong>Flat</strong> household label
+        and the <strong>Number</strong> identifier label) and restores the
+        previous profile afterwards; each change is audited as
+        <code>RWA_PROFILE_UPDATED</code>. It also creates a PRIVATE election
+        with NOTA and a multi-select PUBLIC poll for the live-turnout and
+        live-results pictures. The illustrated flats use realistic synthetic
+        numbers (<strong>H-513</strong> for the example resident and
+        <strong>H-514</strong> for the added flat, or another unused realistic
+        number when those already exist); other fixture households get random
+        numbers in the same style. Email/code fields that hold a value and email
+        text are masked (an intentionally blank field stays visibly blank),
         trace/video are off, and screenshots are stored in the documentation
         image folder. The code-error response and connection failures are
         deliberately simulated; the rest of the principal voting/administration
@@ -1763,7 +2035,8 @@ node scripts\docs\render.mjs</code></pre>
               <td>Submission appears uncertain</td>
               <td>Own participation check and support ID.</td>
               <td>
-                Blindly resubmit or reconstruct CLOSED selections from counters.
+                Blindly resubmit or reconstruct PRIVATE selections from
+                counters.
               </td>
             </tr>
             <tr>

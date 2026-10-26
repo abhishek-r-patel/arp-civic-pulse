@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { expect, type Page } from "@playwright/test";
 import { Client } from "pg";
@@ -88,19 +88,60 @@ export async function signInThroughUi(
   await stubCodeRequest(page);
   await page.goto("/sign-in");
   await page.getByLabel(/Registered email address/).fill(email);
-  await page.getByRole("button", { name: "Send sign-in code" }).click();
+  await page.getByRole("button", { name: "Send Sign-In Code" }).click();
   await page.getByLabel(/Six-digit code/).fill(code);
-  await page.getByRole("button", { name: "Verify and sign in" }).click();
+  await page.getByRole("button", { name: "Verify and Sign In" }).click();
   await expect(
     page.getByRole("heading", { level: 1, name: "Votes" }),
   ).toBeVisible();
+}
+
+// A realistic flat-style identifier such as "H-513" (block, floor, unit).
+function realisticIdentifier(): string {
+  const block = "ABCDEFGHJK"[randomInt(10)];
+  return `${block}-${randomInt(1, 20)}${String(randomInt(1, 21)).padStart(2, "0")}`;
+}
+
+function liveSql(): Client {
+  return new Client({
+    connectionString: process.env.LIVE_DATABASE_URL,
+    // TLS is used; verification is relaxed because this is a throwaway test project.
+    ssl: { rejectUnauthorized: false },
+  });
+}
+
+/**
+ * Returns `preferred` when no household uses it yet, otherwise an unused
+ * realistic identifier, so repeated runs on the same project do not collide.
+ */
+export async function unusedIdentifier(preferred?: string): Promise<string> {
+  const sql = liveSql();
+  await sql.connect();
+  try {
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      const candidate =
+        attempt === 0 && preferred ? preferred : realisticIdentifier();
+      const taken = await sql.query(
+        "select 1 from public.households where identifier_normalized = app_private.normalize_key($1)",
+        [candidate],
+      );
+      if (taken.rowCount === 0) {
+        return candidate;
+      }
+    }
+  } finally {
+    await sql.end();
+  }
+  throw new Error("No unused synthetic identifier was found.");
 }
 
 /**
  * An enabled resident with an eligible household, so a draft can select it.
  * Synthetic data only; the disposable project is reset afterwards.
  */
-export async function seedHousehold(): Promise<{
+export async function seedHousehold(
+  options: { identifier?: string } = {},
+): Promise<{
   identifier: string;
   name: string;
   id: string;
@@ -109,7 +150,7 @@ export async function seedHousehold(): Promise<{
 }> {
   const client = admin();
   const email = plusEmail();
-  const identifier = `E2E-${randomBytes(3).toString("hex").toUpperCase()}`;
+  const identifier = await unusedIdentifier(options.identifier);
   const name = `Resident ${identifier}`;
 
   const created = await client.auth.admin.createUser({
@@ -188,7 +229,7 @@ export async function asUser<T>(
 export async function activateVoteFor(
   adminId: string,
   householdIds: string[],
-  type: "OPEN" | "CLOSED" = "OPEN",
+  type: "PUBLIC" | "PRIVATE" = "PUBLIC",
   closesInMs = 3_600_000,
 ): Promise<{
   id: string;
@@ -203,7 +244,7 @@ export async function activateVoteFor(
   );
   const closesAt = new Date(Date.now() + closesInMs).toISOString();
   const changes =
-    type === "OPEN"
+    type === "PUBLIC"
       ? {
           title: "Submission API vote",
           closesAt,
@@ -282,13 +323,13 @@ export async function ensureFixturePolicy(adminId: string): Promise<void> {
 
 export async function createDraftThroughUi(
   page: Page,
-  type: "OPEN" | "CLOSED",
+  type: "PUBLIC" | "PRIVATE",
 ): Promise<string> {
   await page.goto("/admin/votes/new");
   await page
     .getByRole("radio", { name: new RegExp(`^${type} voting`) })
     .check();
-  await page.getByRole("button", { name: "Create draft" }).click();
+  await page.getByRole("button", { name: "Create Draft" }).click();
   await expect(
     page.getByRole("heading", { level: 1, name: "Untitled draft" }),
   ).toBeVisible();
@@ -300,9 +341,9 @@ export async function addOpenBallot(
   question: string,
 ): Promise<void> {
   await page.getByLabel(/^Question/).fill(question);
-  await page.getByRole("button", { name: "Add option" }).click();
+  await page.getByRole("button", { name: "Add Option" }).click();
   await page.getByLabel(/^Option 1/).fill("Yes");
-  await page.getByRole("button", { name: "Add option" }).click();
+  await page.getByRole("button", { name: "Add Option" }).click();
   await page.getByLabel(/^Option 2/).fill("No");
 }
 
@@ -310,13 +351,13 @@ export async function saveDraft(
   page: Page,
   expectedVersion: number,
 ): Promise<void> {
-  await page.getByRole("button", { name: "Save draft" }).click();
+  await page.getByRole("button", { name: "Save Draft" }).click();
   await expect(
     page.getByText(`Draft saved as version ${expectedVersion}.`),
   ).toBeVisible();
 }
 
-/** A saved OPEN draft that previews as ready (one eligible household, a deadline, two options). */
+/** A saved PUBLIC draft that previews as ready (one eligible household, a deadline, two options). */
 export async function buildReadyOpenDraft(
   page: Page,
   adminId: string,
@@ -324,7 +365,7 @@ export async function buildReadyOpenDraft(
 ): Promise<string> {
   await ensureFixturePolicy(adminId);
   const household = await seedHousehold();
-  const editor = await createDraftThroughUi(page, "OPEN");
+  const editor = await createDraftThroughUi(page, "PUBLIC");
   await addOpenBallot(page, "Lifecycle question");
   await page.getByLabel("Find a household").fill(household.identifier);
   await page

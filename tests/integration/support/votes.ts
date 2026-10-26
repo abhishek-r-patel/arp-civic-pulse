@@ -7,7 +7,9 @@ import type { Person, World } from "./fixtures";
  */
 export interface Detail {
   id: string;
-  votingType: "OPEN" | "CLOSED";
+  votingType: "PUBLIC" | "PRIVATE";
+  openSelectionMode: "SINGLE" | "MULTIPLE";
+  openSelectionLimit: number | null;
   status: string;
   draftRevision: number;
   closesAt: string | null;
@@ -53,8 +55,14 @@ export function votingApi(db: TestDatabase, world: World) {
 
   /** Creates, completes and ACTIVATES a vote through the guarded routines. */
   async function activeVote(
-    type: "OPEN" | "CLOSED" = "OPEN",
-    options: { closesInMs?: number; people?: Person[] } = {},
+    type: "PUBLIC" | "PRIVATE" = "PUBLIC",
+    options: {
+      closesInMs?: number;
+      people?: Person[];
+      openSelectionMode?: "SINGLE" | "MULTIPLE";
+      openSelectionLimit?: number | null;
+      optionLabels?: string[];
+    } = {},
   ): Promise<Detail> {
     const draft = await call<Detail>(admin(), "public.create_draft($1)", [
       type,
@@ -64,14 +72,22 @@ export function votingApi(db: TestDatabase, world: World) {
     ).toISOString();
     const people = options.people ?? [world.alice, world.bob, world.dave];
     const changes =
-      type === "OPEN"
+      type === "PUBLIC"
         ? {
             title: "Repaint?",
             closesAt,
-            options: [
-              { label: "Yes", position: 1 },
-              { label: "No", position: 2 },
-            ],
+            ...(options.openSelectionMode
+              ? {
+                  openSelectionMode: options.openSelectionMode,
+                  openSelectionLimit:
+                    options.openSelectionMode === "SINGLE"
+                      ? 1
+                      : (options.openSelectionLimit ?? null),
+                }
+              : {}),
+            options: (options.optionLabels ?? ["Yes", "No"]).map(
+              (label, index) => ({ label, position: index + 1 }),
+            ),
             eligibleHouseholdIds: ids(people),
           }
         : {

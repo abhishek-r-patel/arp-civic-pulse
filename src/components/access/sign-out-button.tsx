@@ -39,10 +39,10 @@ export function SignOutButton({
         variant="secondary"
         onClick={signOut}
         loading={pending}
-        className="sm:w-auto"
+        className="w-auto!"
       >
         <LogOut aria-hidden="true" className="size-5" />
-        Sign out
+        Sign Out
       </Button>
       {error ? (
         <p role="alert" className="text-caption font-semibold text-error">

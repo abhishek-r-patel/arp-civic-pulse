@@ -30,7 +30,7 @@ for exact scope; the Firefox/WebKit counts below predate the public additions.
 | Browser suites, Firefox                                  | ✅     | The foundation and resident/admin voting journeys (26 tests) pass: `--project=firefox tests/e2e/foundation.spec.ts tests/e2e/voting-live.spec.ts`.                                                                          |
 | Browser suites, WebKit (Safari engine)                   | 🟡     | The same 26 pass **except** two steps the automated WebKit build cannot do (Tab to the skip link; keyboard operation of radios), which are skipped for WebKit and are on the real-Safari checklist in section 3. Running WebKit found a real bug, fixed: text typed or chosen before the page finished loading was lost (the sign-in email, the ballot choice). |
 | Direct Data API as anonymous / member / administrator / suspended member | ✅ | `tests/live/rest-privacy.live.test.ts` against the hosted project: every table denied to anonymous callers; every routine denied to anonymous callers; choices, counters, settings and rate buckets unreadable by any signed-in role including an administrator; the audit log readable by administrators only; participation rows (vote, household, acceptance time, no choice) readable only by their owner or an administrator; a member sees only their own entitlement; no API role has a write privilege; a still-valid token of a suspended member is refused on every vote path; nothing is published to Realtime; the hosted privileges equal the migrations (the platform's default privileges did not add anything). |
-| Privacy of choices in rendered HTML, URLs, storage, errors, CSV, PDF | ✅ | Browser tests assert no selection in the page, URL, storage or JSON after submission; CLOSED results, CSV and PDF contain no names or households; OPEN exports contain no emails.                                         |
+| Privacy of choices in rendered HTML, URLs, storage, errors, CSV, PDF | ✅ | Browser tests assert no selection in the page, URL, storage or JSON after submission; PRIVATE results, CSV and PDF contain no names or households; PUBLIC exports contain no emails.                                         |
 | Exact agreement of screen, API, CSV and PDF               | ✅     | `tests/e2e/voting-live.spec.ts` (“the screen, the API and the CSV agree exactly”, which also reads the downloaded PDF).                                                                                                     |
 | Core journeys accessible (WCAG 2.2 AA, automatic part)    | 🟡     | axe at 320/375/768/1280 px, 48 px targets, 200% text, keyboard operation of the ballot (Chromium, Firefox) on every resident and administrator screen. The manual part is open (section 3).                                  |
 | Backup and restore rehearsal                              | 🟡     | `tests/integration/restore.test.ts` (encrypted backup, verification, restore into a separate database, reconciliation, tampering, lost ballot, elapsed deadline, recovery record) and one real backup of the hosted project. Open: restore of the hosted project into a second project from the real off-site store (docs/OPERATIONS.md, section 5). |
@@ -44,8 +44,8 @@ Targets (provisional, from the plan): p95 under **2 s** for pages and API calls,
 
 | Operation (all with 100 in flight)           | p50      | p95      | Notes                                                    |
 | -------------------------------------------- | -------- | -------- | -------------------------------------------------------- |
-| Submit an OPEN ballot (one shared vote)      | 96 ms    | 152 ms   | 500 accepted, exactly once each                          |
-| Submit a CLOSED ballot (5 offices, shared counters) | 341 ms | 457 ms | Every office's counters add up to exactly 500            |
+| Submit a PUBLIC ballot (one shared vote)      | 96 ms    | 152 ms   | 500 accepted, exactly once each                          |
+| Submit a PRIVATE ballot (5 offices, shared counters) | 341 ms | 457 ms | Every office's counters add up to exactly 500            |
 | Open ballot / own status / list votes        | 51–58 ms | 85–232 ms |                                                         |
 | Administrator participation (during the burst) | 77 ms  | 159 ms   |                                                          |
 | Repeat submission (refused)                  | 26 ms    | 44 ms    | Nothing changes                                          |
@@ -81,7 +81,7 @@ Operational remote database connections now require verified TLS, and backup man
 | #   | Gate                                                                                                                                                                                  | State |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
 | 1   | Real approvals **A1–A7**, provider and region, recorded by the real approving authority (today they exist only as **fixtures on the disposable project**)                               | ⬜     |
-| 2   | Approved session policy (the app caps the session cookie at 14 days of inactivity as a provisional default; confirm or change it, and decide whether Pro-tier idle/absolute timeouts are needed), all-abstain wording (A5) and early-completion rule, retention periods and backup expiry, RPO/RTO                                                                | ⬜     |
+| 2   | Approved session policy (the app caps the session cookie at 14 days of inactivity as a provisional default; confirm or change it, and decide whether Pro-tier idle/absolute timeouts are needed), bylaw confirmation of the NOTA winner rule (A5) and early-completion rule, retention periods and backup expiry, RPO/RTO                                                                | ⬜     |
 | 3   | Custom SMTP provider with enough sending/peak capacity, and its Auth limits (Gmail was deferred; the built-in hosted mail cannot carry a code to arbitrary users)                      | ⬜     |
 | 4   | Hosting plan eligibility and cost, TLS, trusted-proxy configuration (`TRUSTED_PROXY_CONFIG`; the per-IP limiter is not implemented until this is approved)                              | ⬜     |
 | 5   | Real-device checks: Safari on iPhone, Chrome on Android, and the supported laptop browsers (including keyboard use of radios and the skip link in Safari), CSV and **PDF** download and print on real phones and a laptop | ⬜     |
@@ -95,7 +95,7 @@ Operational remote database connections now require verified TLS, and backup man
 
 ## 4. Pilot evaluation (after the gates above, with real residents)
 
-Run at least one real OPEN poll and one real CLOSED election, then measure **without recording anyone's selection**:
+Run at least one real PUBLIC poll and one real PRIVATE election, then measure **without recording anyone's selection**:
 
 | Measure                                                        | Target            | How                                                                                          |
 | -------------------------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------- |
@@ -106,7 +106,7 @@ Run at least one real OPEN poll and one real CLOSED election, then measure **wit
 | Turnout (adoption target)                                      | at least 60%      | From the turnout figure on the results page. Reported separately from correctness.           |
 | Cost                                                           | zero-monthly-cost feasibility | Reported separately.                                                                |
 
-No adoption or budget target excuses an integrity or privacy failure. A lost, duplicate, partial or late-admitted ballot, a wrong tally, unauthorised disclosure, a CLOSED identity-to-choice exposure, or unknown completeness after a recovery blocks release.
+No adoption or budget target excuses an integrity or privacy failure. A lost, duplicate, partial or late-admitted ballot, a wrong tally, unauthorised disclosure, a PRIVATE identity-to-choice exposure, or unknown completeness after a recovery blocks release.
 
 ## 5. Running the HTTP load test
 

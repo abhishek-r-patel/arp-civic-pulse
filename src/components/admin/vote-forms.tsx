@@ -26,9 +26,15 @@ import {
 import { Button, LinkButton } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { ErrorSummary } from "@/components/ui/error-summary";
-import { CheckboxField, TextAreaField, TextField } from "@/components/ui/field";
+import {
+  CheckboxField,
+  SelectField,
+  TextAreaField,
+  TextField,
+} from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
-import { PRIVACY_COPY } from "@/components/votes/privacy-notice";
+import { useHouseholdTerms } from "@/components/ui/household-terms";
+import { privacyCopy } from "@/components/votes/privacy-notice";
 import type {
   AdminVoteDetail,
   SelectableHousehold,
@@ -50,21 +56,21 @@ const DEADLINE_MESSAGES = {
     "That time happens twice on the day the clocks change. Choose a different time.",
 } as const;
 
-const TYPE_DESCRIPTIONS: Record<
-  VotingType,
-  { summary: string; privacy: string }
-> = {
-  OPEN: {
-    summary:
-      "One question with options, such as a yes/no decision. Each household picks one option.",
-    privacy: PRIVACY_COPY.OPEN,
-  },
-  CLOSED: {
-    summary:
-      "An election with offices and candidates. Each household picks one candidate, or abstains, for every office.",
-    privacy: PRIVACY_COPY.CLOSED,
-  },
-};
+function typeDescriptions(
+  terms: ReturnType<typeof useHouseholdTerms>,
+): Record<VotingType, { summary: string; privacy: string }> {
+  const copy = privacyCopy(terms);
+  return {
+    PUBLIC: {
+      summary: `One question with options, such as a yes/no decision. Each ${terms.household} picks one option, or several if you allow it.`,
+      privacy: copy.PUBLIC,
+    },
+    PRIVATE: {
+      summary: `An election with offices and candidates. Each ${terms.household} picks one candidate or NOTA for every office.`,
+      privacy: copy.PRIVATE,
+    },
+  };
+}
 
 const buttonInline = "sm:w-auto";
 
@@ -72,6 +78,7 @@ type NewDraftProps = Readonly<{ csrfToken: string | undefined }>;
 
 export function NewDraftForm({ csrfToken }: NewDraftProps) {
   const router = useRouter();
+  const terms = useHouseholdTerms();
   const [type, setType] = useState<VotingType | "">("");
   const [failure, setFailure] = useState<ApiFailure | null>(null);
   const [missing, setMissing] = useState(false);
@@ -122,7 +129,7 @@ export function NewDraftForm({ csrfToken }: NewDraftProps) {
           The type decides what residents see and how choices are kept. It
           cannot be changed once the vote is activated.
         </p>
-        {(["OPEN", "CLOSED"] as const).map((value) => (
+        {(["PUBLIC", "PRIVATE"] as const).map((value) => (
           <label
             key={value}
             htmlFor={`type-${value}`}
@@ -145,17 +152,18 @@ export function NewDraftForm({ csrfToken }: NewDraftProps) {
                 {VOTING_TYPE_LABELS[value]}
               </span>
               <span className="text-body">
-                {TYPE_DESCRIPTIONS[value].summary}
+                {typeDescriptions(terms)[value].summary}
               </span>
               <span className="text-body text-muted">
-                What residents are told: {TYPE_DESCRIPTIONS[value].privacy}
+                What residents are told:{" "}
+                {typeDescriptions(terms)[value].privacy}
               </span>
             </span>
           </label>
         ))}
         {missing ? (
           <p id="type-error" className="text-caption font-semibold text-error">
-            Choose OPEN or CLOSED voting to continue.
+            Choose PUBLIC or PRIVATE voting to continue.
           </p>
         ) : null}
       </fieldset>
@@ -163,7 +171,7 @@ export function NewDraftForm({ csrfToken }: NewDraftProps) {
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button type="submit" loading={pending}>
           <Vote aria-hidden="true" className="size-5" />
-          Create draft
+          Create Draft
         </Button>
         <LinkButton href="/admin/votes" variant="secondary">
           Cancel
@@ -234,6 +242,7 @@ function moved<T>(items: readonly T[], index: number, delta: -1 | 1): T[] {
 
 type EditorProps = Readonly<{
   csrfToken: string | undefined;
+  identifierLabel: string;
   initial: AdminVoteDetail;
   households: readonly SelectableHousehold[];
   flash?: string | undefined;
@@ -245,11 +254,13 @@ function localDeadline(detail: AdminVoteDetail): string {
 
 export function DraftEditor({
   csrfToken,
+  identifierLabel,
   initial,
   households,
   flash,
 }: EditorProps) {
   const router = useRouter();
+  const terms = useHouseholdTerms();
   const timezone = initial.timezone;
   const counter = useRef(0);
   const nextKey = () => {
@@ -368,7 +379,13 @@ export function DraftEditor({
       router.refresh();
       return;
     }
-    const merged = mergeOnto(baseline, state, latest, localDeadline(latest));
+    const merged = mergeOnto(
+      baseline,
+      state,
+      latest,
+      localDeadline(latest),
+      terms,
+    );
     setServer(latest);
     setBaseline(merged.baseline);
     setState(merged.state);
@@ -398,19 +415,37 @@ export function DraftEditor({
       return;
     }
     const hasBallot =
-      state.votingType === "CLOSED"
+      state.votingType === "PRIVATE"
         ? state.offices.length > 0
         : state.options.length > 0;
     if (hasBallot) {
       setTypeChange(next);
       return;
     }
-    patch({ votingType: next });
+    patch(
+      next === "PRIVATE"
+        ? {
+            votingType: next,
+            openSelectionMode: "SINGLE",
+            openSelectionLimit: 1,
+          }
+        : { votingType: next },
+    );
   }
 
   function confirmTypeChange() {
     if (typeChange) {
-      patch({ votingType: typeChange, offices: [], options: [] });
+      patch(
+        typeChange === "PRIVATE"
+          ? {
+              votingType: typeChange,
+              openSelectionMode: "SINGLE",
+              openSelectionLimit: 1,
+              offices: [],
+              options: [],
+            }
+          : { votingType: typeChange, offices: [], options: [] },
+      );
     }
     setTypeChange(null);
   }
@@ -470,7 +505,7 @@ export function DraftEditor({
   const summaryLabels = Object.fromEntries(
     (failure?.fieldErrors ?? []).map((error) => [
       fieldIdForPath(error.field),
-      describeFieldPath(error.field),
+      describeFieldPath(error.field, terms),
     ]),
   );
   const errorAt = (path: string) => fieldErrorFor(failure, path);
@@ -511,14 +546,14 @@ export function DraftEditor({
           </p>
           <div className="mt-3 flex flex-col gap-3 sm:flex-row">
             <Button onClick={() => void keepMyChanges()} loading={pending}>
-              Review latest and keep my changes
+              Review Latest and Keep My Changes
             </Button>
             <Button
               variant="secondary"
               onClick={() => void discardMine()}
               disabled={pending}
             >
-              Discard my changes and load latest
+              Discard My Changes and Load Latest
             </Button>
           </div>
         </Notice>
@@ -558,7 +593,7 @@ export function DraftEditor({
             role="radiogroup"
             aria-labelledby="type-heading"
           >
-            {(["OPEN", "CLOSED"] as const).map((value) => (
+            {(["PUBLIC", "PRIVATE"] as const).map((value) => (
               <label
                 key={value}
                 htmlFor={`type-${value}`}
@@ -577,7 +612,7 @@ export function DraftEditor({
                     {VOTING_TYPE_LABELS[value]}
                   </span>
                   <span className="text-body">
-                    {TYPE_DESCRIPTIONS[value].summary}
+                    {typeDescriptions(terms)[value].summary}
                   </span>
                 </span>
               </label>
@@ -585,7 +620,9 @@ export function DraftEditor({
           </div>
           <p className="text-caption text-muted">
             Changing the type removes the{" "}
-            {state.votingType === "OPEN" ? "options" : "offices and candidates"}{" "}
+            {state.votingType === "PUBLIC"
+              ? "options"
+              : "offices and candidates"}{" "}
             you have entered, because the other type uses a different ballot.
           </p>
         </section>
@@ -597,9 +634,9 @@ export function DraftEditor({
           <TextField
             id="title"
             name="title"
-            label={state.votingType === "OPEN" ? "Question" : "Title"}
+            label={state.votingType === "PUBLIC" ? "Question" : "Title"}
             hint={
-              state.votingType === "OPEN"
+              state.votingType === "PUBLIC"
                 ? "The question residents will answer."
                 : "For example: Managing committee election 2026."
             }
@@ -614,16 +651,16 @@ export function DraftEditor({
             id="instructions"
             name="instructions"
             label={
-              state.votingType === "OPEN"
+              state.votingType === "PUBLIC"
                 ? "Background"
                 : "Instructions for voters"
             }
             hint={
-              state.votingType === "OPEN"
+              state.votingType === "PUBLIC"
                 ? "Optional context residents should read before choosing."
                 : "Required before activation. Plain text only."
             }
-            required={state.votingType === "CLOSED"}
+            required={state.votingType === "PRIVATE"}
             maxLength={10000}
             value={state.instructions}
             onChange={(event) => patch({ instructions: event.target.value })}
@@ -635,18 +672,98 @@ export function DraftEditor({
           <h2 id="ballot-heading" className="text-section font-semibold">
             3. Ballot
           </h2>
-          {state.votingType === "OPEN" ? (
-            <OptionsEditor
-              options={state.options}
-              errorAt={errorAt}
-              onChange={(options) => patch({ options })}
-              onAdd={() =>
-                patch({
-                  options: [...state.options, { key: nextKey(), label: "" }],
-                })
-              }
-              onUpdate={updateOption}
-            />
+          {state.votingType === "PUBLIC" ? (
+            <>
+              <fieldset className="grid gap-3 rounded-card border border-border bg-surface p-3">
+                <legend className="px-1 text-card-heading font-semibold">
+                  Choices per {terms.household}
+                </legend>
+                <p className="text-body text-muted">
+                  Each {terms.household} submits one ballot. Choose whether that
+                  ballot contains one option or several.
+                </p>
+                {(["SINGLE", "MULTIPLE"] as const).map((mode) => (
+                  <label
+                    key={mode}
+                    className="flex min-h-12 cursor-pointer items-center gap-3 rounded-control border border-border px-3 has-[:checked]:border-accent has-[:checked]:bg-accent/5"
+                  >
+                    <input
+                      type="radio"
+                      name="openSelectionMode"
+                      value={mode}
+                      checked={state.openSelectionMode === mode}
+                      onChange={() =>
+                        patch(
+                          mode === "SINGLE"
+                            ? {
+                                openSelectionMode: "SINGLE",
+                                openSelectionLimit: 1,
+                              }
+                            : {
+                                openSelectionMode: "MULTIPLE",
+                                openSelectionLimit: null,
+                              },
+                        )
+                      }
+                      className="size-5 shrink-0 accent-accent"
+                    />
+                    <span className="text-body">
+                      {mode === "SINGLE"
+                        ? "Select exactly one option"
+                        : "Select multiple options"}
+                    </span>
+                  </label>
+                ))}
+                {state.openSelectionMode === "MULTIPLE" ? (
+                  <>
+                    <CheckboxField
+                      id="open-selection-unlimited"
+                      label="Allow any number of options"
+                      hint="Voters must still select at least one."
+                      checked={state.openSelectionLimit === null}
+                      onChange={(event) =>
+                        patch({
+                          openSelectionLimit: event.target.checked ? null : 2,
+                        })
+                      }
+                    />
+                    {state.openSelectionLimit !== null ? (
+                      <SelectField
+                        id="open-selection-limit"
+                        label={`Maximum options per ${terms.household}`}
+                        hint="Choose a limit from 2 to 100."
+                        value={String(state.openSelectionLimit)}
+                        onChange={(event) =>
+                          patch({
+                            openSelectionLimit: Number(event.target.value),
+                          })
+                        }
+                      >
+                        {Array.from(
+                          { length: 99 },
+                          (_, index) => index + 2,
+                        ).map((limit) => (
+                          <option key={limit} value={limit}>
+                            {limit}
+                          </option>
+                        ))}
+                      </SelectField>
+                    ) : null}
+                  </>
+                ) : null}
+              </fieldset>
+              <OptionsEditor
+                options={state.options}
+                errorAt={errorAt}
+                onChange={(options) => patch({ options })}
+                onAdd={() =>
+                  patch({
+                    options: [...state.options, { key: nextKey(), label: "" }],
+                  })
+                }
+                onUpdate={updateOption}
+              />
+            </>
           ) : (
             <OfficesEditor
               offices={state.offices}
@@ -663,9 +780,9 @@ export function DraftEditor({
             4. Electorate
           </h2>
           <p className="text-body text-muted">
-            Choose the households that may vote. Each household votes once,
-            through its representative. The selection and each representative
-            are frozen when the vote is activated.
+            Choose the {terms.households} that may vote. Each {terms.household}{" "}
+            votes once, through its representative. The selection and each
+            representative are frozen when the vote is activated.
           </p>
           {errorAt("eligibleHouseholdIds") ? (
             <p className="text-caption font-semibold text-error">
@@ -673,14 +790,17 @@ export function DraftEditor({
             </p>
           ) : null}
           {eligibleCount === 0 && selected.size === 0 ? (
-            <Notice tone="warning" heading="No household is eligible yet">
+            <Notice
+              tone="warning"
+              heading={`No ${terms.Household} is eligible yet`}
+            >
               <p>
-                Mark households as eligible in the{" "}
+                Mark {terms.households} as eligible in the{" "}
                 <Link
                   href="/admin/households"
                   className="font-semibold text-accent underline underline-offset-2"
                 >
-                  household register
+                  {terms.households} register
                 </Link>{" "}
                 before selecting them here.
               </p>
@@ -689,8 +809,8 @@ export function DraftEditor({
             <>
               <TextField
                 id="household-filter"
-                label="Find a household"
-                hint="Search by household identifier or representative name."
+                label={`Find a ${terms.household}`}
+                hint={`Search by ${identifierLabel.toLowerCase()} or representative name.`}
                 autoComplete="off"
                 type="search"
                 value={filter}
@@ -707,14 +827,14 @@ export function DraftEditor({
                     })
                   }
                 >
-                  Select all {eligibleCount} eligible
+                  Select All {eligibleCount} Eligible
                 </Button>
                 <Button
                   variant="secondary"
                   onClick={() => patch({ selectedHouseholdIds: [] })}
                   disabled={selected.size === 0}
                 >
-                  Clear selection
+                  Clear Selection
                 </Button>
                 <p role="status" className="text-body font-semibold">
                   {selected.size} selected
@@ -722,11 +842,11 @@ export function DraftEditor({
               </div>
               <fieldset className="grid gap-1 rounded-card border border-border bg-surface p-3">
                 <legend className="px-1 text-body font-semibold">
-                  Eligible households
+                  Eligible {terms.Households}
                 </legend>
                 {visibleHouseholds.length === 0 ? (
                   <p className="p-2 text-body text-muted">
-                    No household matches that search.
+                    No {terms.Household} matches that search.
                   </p>
                 ) : (
                   <div className="grid max-h-96 gap-1 overflow-y-auto p-1">
@@ -801,12 +921,12 @@ export function DraftEditor({
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button type="submit" loading={pending}>
           <Save aria-hidden="true" className="size-5" />
-          Save draft
+          Save Draft
         </Button>
         {dirty ? (
           <Button variant="secondary" disabled>
             <Eye aria-hidden="true" className="size-5" />
-            Save to preview
+            Save to Preview
           </Button>
         ) : (
           <LinkButton
@@ -814,11 +934,11 @@ export function DraftEditor({
             variant="secondary"
           >
             <Eye aria-hidden="true" className="size-5" />
-            Preview ballot
+            Preview Ballot
           </LinkButton>
         )}
         <LinkButton href="/admin/votes" variant="secondary">
-          Back to votes
+          Back to Votes
         </LinkButton>
       </div>
       {dirty ? (
@@ -830,16 +950,19 @@ export function DraftEditor({
       <ConfirmDialog
         open={typeChange !== null}
         title={`Change to ${typeChange ? VOTING_TYPE_LABELS[typeChange] : ""}?`}
-        confirmLabel="Change type"
+        confirmLabel="Change Type"
         destructive
         onConfirm={confirmTypeChange}
         onCancel={() => setTypeChange(null)}
       >
         <p>
           This removes the{" "}
-          {state.votingType === "CLOSED" ? "offices and candidates" : "options"}{" "}
-          you have entered. The title, instructions, deadline and selected
-          households stay. The change is applied when you save the draft.
+          {state.votingType === "PRIVATE"
+            ? "offices and candidates"
+            : "options"}{" "}
+          you have entered. The title, instructions, deadline and selected{" "}
+          {terms.households} stay. The change is applied when you save the
+          draft.
         </p>
       </ConfirmDialog>
     </form>
@@ -865,7 +988,9 @@ function OptionsEditor({
   return (
     <div className="grid gap-4">
       <p className="text-body text-muted">
-        Residents pick exactly one option. Add at least two different options.
+        {options.length < 2
+          ? "Add at least two different options."
+          : "Add or reorder the options residents can select."}
       </p>
       {options.length === 0 ? (
         <p className="text-body text-muted">No options yet.</p>
@@ -902,7 +1027,7 @@ function OptionsEditor({
       <div>
         <Button variant="secondary" onClick={onAdd}>
           <Plus aria-hidden="true" className="size-5" />
-          Add option
+          Add Option
         </Button>
       </div>
     </div>
@@ -928,8 +1053,11 @@ function OfficesEditor({
   return (
     <div className="grid gap-4">
       <p className="text-body text-muted">
-        Residents choose one candidate for each office, or abstain. The Abstain
-        choice is added automatically; do not add it yourself.
+        Residents choose one candidate or NOTA (None of the Above) for each
+        office. NOTA is added automatically; do not add it yourself. It is
+        counted separately and cannot win; the candidate with the most votes
+        among candidates is elected. Tied top candidate counts remain a tie; if
+        no candidate receives a vote, no candidate is elected.
       </p>
       {offices.length === 0 ? (
         <p className="text-body text-muted">No offices yet.</p>
@@ -1037,7 +1165,7 @@ function OfficesEditor({
                 }
               >
                 <Plus aria-hidden="true" className="size-5" />
-                Add candidate to office {officeIndex + 1}
+                Add Candidate to Office {officeIndex + 1}
               </Button>
             </div>
           </div>
@@ -1051,7 +1179,7 @@ function OfficesEditor({
           }
         >
           <Plus aria-hidden="true" className="size-5" />
-          Add office
+          Add Office
         </Button>
       </div>
     </div>

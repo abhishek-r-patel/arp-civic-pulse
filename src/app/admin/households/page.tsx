@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import {
-  FLASH_NOTICES,
+  flashNotices,
   firstValues,
   formatInstant,
 } from "@/components/admin/format";
@@ -12,28 +12,32 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { SelectField, TextField } from "@/components/ui/field";
 import { EmptyState, PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
+import { WelcomeMessage } from "@/components/ui/rwa-branding";
 import { Pagination } from "@/components/ui/pagination";
 import { ApiError } from "@/server/http/errors";
 import { listHouseholds } from "@/server/register/households";
 import { adminPageContext } from "@/server/register/page-context";
+import { loadHouseholdTerms } from "@/server/settings/rwa-profile";
 import {
   householdListQuerySchema,
   type HouseholdProjection,
 } from "@/shared/contracts/register";
 
-export const metadata = {
-  title: "Households",
-  description:
-    "Maintain the association household register and representative assignments.",
-  alternates: { canonical: "/admin/households" },
-};
+export async function generateMetadata() {
+  const terms = await loadHouseholdTerms();
+  return {
+    title: terms.Households,
+    description: `Maintain the association ${terms.households} register and representative assignments.`,
+    alternates: { canonical: "/admin/households" },
+  };
+}
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-const columns: Column<HouseholdProjection>[] = [
+const columns = (identifierLabel: string): Column<HouseholdProjection>[] => [
   {
     key: "identifier",
-    header: "Household",
+    header: identifierLabel,
     cell: (household) => (
       <span className="font-semibold">{household.identifier}</span>
     ),
@@ -71,7 +75,10 @@ const columns: Column<HouseholdProjection>[] = [
         href={`/admin/households/${household.id}`}
         className="inline-flex touch-target items-center font-semibold text-accent underline underline-offset-2"
       >
-        Edit<span className="sr-only"> household {household.identifier}</span>
+        Edit
+        <span className="sr-only">
+          {identifierLabel} {household.identifier}
+        </span>
       </Link>
     ),
   },
@@ -82,7 +89,7 @@ export default async function HouseholdsPage({
 }: Readonly<{ searchParams: SearchParams }>) {
   const deps = await adminPageContext();
   const raw = firstValues(await searchParams);
-  const flash = raw.notice ? FLASH_NOTICES[raw.notice] : undefined;
+  const flash = raw.notice ? flashNotices(deps.terms)[raw.notice] : undefined;
 
   const parsed = householdListQuerySchema.safeParse({
     limit: raw.limit,
@@ -116,15 +123,16 @@ export default async function HouseholdsPage({
   return (
     <div className="grid gap-8">
       <PageHeader
-        title="Households"
-        description="The register of households and the one account that represents each. Edits apply to future votes only; a vote already active keeps the names and representatives it started with."
+        title={deps.terms.Households}
+        description={`The register of ${deps.terms.households} and the one account that represents each. Edits apply to future votes only; a vote already active keeps the names and representatives it started with.`}
         actions={
           <LinkButton href="/admin/households/new">
             <Plus aria-hidden="true" className="size-5" />
-            Add household
+            Add {deps.terms.Household}
           </LinkButton>
         }
       />
+      <WelcomeMessage message={deps.branding.welcomeMessage} />
 
       {flash ? (
         <Notice tone="success" heading={flash}>
@@ -147,20 +155,20 @@ export default async function HouseholdsPage({
           label="Eligibility"
           defaultValue={raw.isEligible ?? ""}
         >
-          <option value="">All households</option>
+          <option value="">All {deps.terms.households}</option>
           <option value="true">Eligible</option>
           <option value="false">Not eligible</option>
         </SelectField>
         <TextField
           id="identifier"
           name="identifier"
-          label="Exact household identifier"
-          hint="Matches the whole identifier."
+          label={`Exact ${deps.identifierLabel}`}
+          hint={`Matches the full ${deps.identifierLabel.toLowerCase()} value.`}
           defaultValue={raw.identifier ?? ""}
           autoComplete="off"
         />
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Button type="submit">Apply filters</Button>
+          <Button type="submit">Apply Filters</Button>
           {filtersActive ? (
             <LinkButton href="/admin/households" variant="secondary">
               Clear
@@ -177,35 +185,39 @@ export default async function HouseholdsPage({
       ) : result && result.data.length === 0 ? (
         filtersActive ? (
           <EmptyState
-            title="No households match these filters"
+            title={`No ${deps.terms.households} match these filters`}
             action={
               <LinkButton href="/admin/households" variant="secondary">
-                Clear filters
-              </LinkButton>
-            }
-          >
-            <p>Try a different eligibility option or identifier.</p>
-          </EmptyState>
-        ) : (
-          <EmptyState
-            title="The register has no households yet"
-            action={
-              <LinkButton href="/admin/households/new">
-                Add the first household
+                Clear Filters
               </LinkButton>
             }
           >
             <p>
-              Add each household and the account that represents it. Create the
-              representative&apos;s account first if it does not exist.
+              Try a different eligibility option or another{" "}
+              {deps.identifierLabel.toLowerCase()} value.
+            </p>
+          </EmptyState>
+        ) : (
+          <EmptyState
+            title={`The register has no ${deps.terms.households} yet`}
+            action={
+              <LinkButton href="/admin/households/new">
+                Add the First {deps.terms.Household}
+              </LinkButton>
+            }
+          >
+            <p>
+              Add each {deps.terms.household} and the account that represents
+              it. Create the representative&apos;s account first if it does not
+              exist.
             </p>
           </EmptyState>
         )
       ) : result ? (
         <>
           <DataTable
-            caption="Household register"
-            columns={columns}
+            caption={`${deps.terms.Household} register`}
+            columns={columns(deps.identifierLabel)}
             rows={result.data}
             rowKey={(household) => household.id}
           />

@@ -9,6 +9,7 @@ import {
   type RegisterDeps,
 } from "@/server/register/shared";
 import { reconcileOverdue } from "@/server/votes/lifecycle";
+import { getRwaBranding } from "@/server/settings/rwa-profile";
 import { availableExportFormats } from "@/server/exports/formats";
 import type { PageInfo } from "@/shared/contracts/pagination";
 import {
@@ -28,8 +29,8 @@ import {
 import { uuid } from "@/shared/validation/primitives";
 
 /*
- * Member discovery, ballot and completed results. Every read runs under the
- * member's OWN session; the routines derive identity from the verified JWT and
+ * Member discovery, ballot and authorized result reads. Every read runs under
+ * the member's OWN session; the routines derive identity from the verified JWT and
  * entitlement from the frozen electorate, so nothing here widens access. A
  * vote past its deadline that Cron has not yet finalised is finalised first
  * (the database clock decides), so a resident never sees a stale "Active".
@@ -139,7 +140,21 @@ export async function getMemberVote(
   // The database says whether a completed result can be downloaded; this deployment says in which formats.
   const exportFormats =
     vote.exportFormats.length > 0 ? availableExportFormats() : [];
-  return { ...vote, exportFormats, privacyNotice: vote.votingType };
+  return {
+    ...vote,
+    rwaName: await currentRwaName(deps),
+    exportFormats,
+    privacyNotice: vote.votingType,
+  };
+}
+
+// Screens and exports show the RWA's current official name; the vote's saved snapshot stays an internal record.
+async function currentRwaName(deps: RegisterDeps): Promise<string> {
+  return (await getRwaBranding(deps.client)).fullName;
+}
+
+function withCurrentName(raw: RawResults, rwaName: string): RawResults {
+  return { ...raw, vote: { ...raw.vote, rwaName } };
 }
 
 async function fetchResults(
@@ -182,8 +197,8 @@ async function fetchResultsReconciling(
 const namedPositionSchema = z.object({ key: z.string().max(100), id: uuid });
 
 /**
- * The authoritative completed result. Totals always describe ALL responses;
- * `limit`/`cursor` only page the named OPEN list.
+ * Authorized results. Active votes expose only their permitted aggregates;
+ * completed totals describe all responses and page the named PUBLIC list.
  */
 export async function getResults(
   deps: RegisterDeps,
@@ -200,7 +215,7 @@ export async function getResults(
     ...(after ? { after: { key: after.key, householdId: after.id } } : {}),
   });
 
-  const data = projectResults(raw);
+  const data = projectResults(withCurrentName(raw, await currentRwaName(deps)));
   if (!raw.namedPage || !raw.namedResponses) {
     return { data, page: null };
   }
@@ -219,5 +234,10 @@ export async function getCompleteResults(
   deps: RegisterDeps,
   id: string,
 ): Promise<VoteResults> {
-  return projectResults(await fetchResultsReconciling(deps, id));
+  return projectResults(
+    withCurrentName(
+      await fetchResultsReconciling(deps, id),
+      await currentRwaName(deps),
+    ),
+  );
 }

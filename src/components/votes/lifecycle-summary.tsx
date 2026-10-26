@@ -1,5 +1,6 @@
 import { Clock } from "lucide-react";
 import { Notice } from "@/components/ui/notice";
+import { DeadlineCountdown } from "@/components/votes/deadline-countdown";
 import type { AdminVoteDetail } from "@/shared/contracts/drafts";
 import { formatInZone } from "@/shared/time/zoned";
 
@@ -74,10 +75,15 @@ export function LifecycleSummary({
       <dl className="grid max-w-ballot gap-3 rounded-card border border-border bg-surface p-4 sm:grid-cols-2">
         <Fact label="Activated">{at(vote.activatedAt)}</Fact>
         <Fact label="Deadline">
-          <span className="inline-flex items-center gap-2">
-            <Clock aria-hidden="true" className="size-4 shrink-0" />
-            {at(vote.closesAt)}
-          </span>
+          <div className="grid gap-2">
+            <span className="inline-flex items-center gap-2">
+              <Clock aria-hidden="true" className="size-4 shrink-0" />
+              {at(vote.closesAt)}
+            </span>
+            {vote.status === "ACTIVE" && vote.closesAt ? (
+              <DeadlineCountdown deadline={vote.closesAt} />
+            ) : null}
+          </div>
         </Fact>
         {vote.status === "COMPLETED" ? (
           <>

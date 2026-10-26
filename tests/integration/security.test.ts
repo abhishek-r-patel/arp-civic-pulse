@@ -175,6 +175,7 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
       ).toEqual([
         "consume_rate_limit",
         "enable_profile",
+        "get_public_rwa_identity",
         "health_ping",
         "operational_status",
         "provision_profile",
@@ -203,7 +204,9 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
         "get_admin_vote",
         "get_member_vote",
         "get_my_participation",
+        "get_rwa_branding",
         "get_rwa_display",
+        "get_rwa_profile",
         "get_vote_participation",
         "get_vote_results",
         "list_audit_events",
@@ -213,6 +216,7 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
         "update_draft",
         "update_household",
         "update_profile",
+        "update_rwa_profile",
       ]);
     });
 
@@ -269,7 +273,7 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
 
     it("denies direct writes by members and administrators", async () => {
       const statements = [
-        "insert into public.votes (voting_type, created_by_profile_id) values ('OPEN', gen_random_uuid())",
+        "insert into public.votes (voting_type, created_by_profile_id) values ('PUBLIC', gen_random_uuid())",
         "update public.profiles set is_admin = true",
         "update public.votes set title = 'x'",
         "delete from public.households",
@@ -372,7 +376,7 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
       const daveOnly = await fixtureOpenVote(db, world, [world.dave]);
       const draftId = await db.asOwner(async (c) => {
         const row = await c.query<{ id: string }>(
-          "insert into public.votes (voting_type, created_by_profile_id) values ('OPEN', $1) returning id",
+          "insert into public.votes (voting_type, created_by_profile_id) values ('PUBLIC', $1) returning id",
           [world.admin.id],
         );
         return row.rows[0]?.id ?? "";

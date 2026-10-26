@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { UserPlus } from "lucide-react";
 import {
-  FLASH_NOTICES,
+  flashNotices,
   firstValues,
   formatInstant,
 } from "@/components/admin/format";
@@ -76,7 +76,7 @@ export default async function AccountsPage({
 }: Readonly<{ searchParams: SearchParams }>) {
   const deps = await adminPageContext();
   const raw = firstValues(await searchParams);
-  const flash = raw.notice ? FLASH_NOTICES[raw.notice] : undefined;
+  const flash = raw.notice ? flashNotices(deps.terms)[raw.notice] : undefined;
 
   const parsed = accountListQuerySchema.safeParse({
     limit: raw.limit,
@@ -105,11 +105,11 @@ export default async function AccountsPage({
     <div className="grid gap-8">
       <PageHeader
         title="Accounts"
-        description="People who can sign in. Each account is one sign-in identity plus its role and status. Residents also need a household before they can be enabled."
+        description={`People who can sign in. Each account is one sign-in identity plus its role and status. Residents also need a ${deps.terms.household} before they can be enabled.`}
         actions={
           <LinkButton href="/admin/accounts/new">
             <UserPlus aria-hidden="true" className="size-5" />
-            Add account
+            Add Account
           </LinkButton>
         }
       />
@@ -151,7 +151,7 @@ export default async function AccountsPage({
           <option value="false">Residents</option>
         </SelectField>
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Button type="submit">Apply filters</Button>
+          <Button type="submit">Apply Filters</Button>
           {filtersActive ? (
             <LinkButton href="/admin/accounts" variant="secondary">
               Clear
@@ -171,7 +171,7 @@ export default async function AccountsPage({
             title="No accounts match these filters"
             action={
               <LinkButton href="/admin/accounts" variant="secondary">
-                Clear filters
+                Clear Filters
               </LinkButton>
             }
           >
@@ -181,7 +181,7 @@ export default async function AccountsPage({
           <EmptyState
             title="There are no accounts yet"
             action={
-              <LinkButton href="/admin/accounts/new">Add an account</LinkButton>
+              <LinkButton href="/admin/accounts/new">Add an Account</LinkButton>
             }
           >
             <p>Create an account for each resident who will vote.</p>

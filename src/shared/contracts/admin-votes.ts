@@ -80,6 +80,8 @@ export const draftPatchSchema = z
   .strictObject({
     expectedRevision: revision,
     votingType: votingType.optional(),
+    openSelectionMode: z.enum(["SINGLE", "MULTIPLE"]).optional(),
+    openSelectionLimit: z.number().int().min(1).max(100).nullable().optional(),
     title: draftTitleText.optional(),
     instructions: longText.nullable().optional(),
     closesAt: offsetInstant.nullable().optional(),
@@ -91,12 +93,45 @@ export const draftPatchSchema = z
     options: z.array(optionSchema).max(COLLECTION_LIMITS.options).optional(),
   })
   .superRefine((draft, context) => {
+    const hasMode = draft.openSelectionMode !== undefined;
+    const hasLimit = Object.hasOwn(draft, "openSelectionLimit");
+    if (hasMode !== hasLimit) {
+      context.addIssue({
+        code: "custom",
+        path: [hasMode ? "openSelectionLimit" : "openSelectionMode"],
+        message: "Set the PUBLIC selection mode and limit together.",
+      });
+    } else if (hasMode) {
+      const validModeLimit =
+        (draft.openSelectionMode === "SINGLE" &&
+          draft.openSelectionLimit === 1) ||
+        (draft.openSelectionMode === "MULTIPLE" &&
+          (draft.openSelectionLimit === null ||
+            (draft.openSelectionLimit !== undefined &&
+              draft.openSelectionLimit >= 2)));
+      if (!validModeLimit) {
+        context.addIssue({
+          code: "custom",
+          path: ["openSelectionLimit"],
+          message:
+            "Single-select uses a limit of 1; multi-select uses 2 or more, or no limit.",
+        });
+      }
+    }
+    if (draft.votingType === "PRIVATE" && (hasMode || hasLimit)) {
+      context.addIssue({
+        code: "custom",
+        path: ["openSelectionMode"],
+        message: "PUBLIC selection settings do not apply to PRIVATE elections.",
+      });
+    }
+
     if (draft.eligibleHouseholdIds) {
       requireDistinct(
         context,
         ["eligibleHouseholdIds"],
         draft.eligibleHouseholdIds,
-        "Duplicate household.",
+        "Duplicate entries are not allowed.",
       );
     }
 
@@ -174,18 +209,18 @@ export const draftPatchSchema = z
         message: "A vote cannot contain both offices and options.",
       });
     }
-    if (draft.votingType === "OPEN" && hasOffices) {
+    if (draft.votingType === "PUBLIC" && hasOffices) {
       context.addIssue({
         code: "custom",
         path: ["offices"],
-        message: "OPEN votes have no offices.",
+        message: "PUBLIC votes have no offices.",
       });
     }
-    if (draft.votingType === "CLOSED" && hasOptions) {
+    if (draft.votingType === "PRIVATE" && hasOptions) {
       context.addIssue({
         code: "custom",
         path: ["options"],
-        message: "CLOSED votes have no options.",
+        message: "PRIVATE votes have no options.",
       });
     }
   });

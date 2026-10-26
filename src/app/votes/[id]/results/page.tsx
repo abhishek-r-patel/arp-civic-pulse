@@ -1,4 +1,4 @@
-// Protected completed-result projection and authorised downloads.
+// Protected live aggregate and completed-result projection.
 import { privateRecordMetadata } from "@/shared/metadata";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -16,7 +16,7 @@ import { idParamsSchema } from "@/shared/contracts/register";
 
 export const generateMetadata = privateRecordMetadata(
   "Results",
-  "View completed voting results and authorised CSV or PDF downloads.",
+  "View live poll aggregates, PRIVATE election turnout, or completed results.",
   "/votes/[id]/results",
 );
 
@@ -79,8 +79,9 @@ export default async function ResultsPage({
         ) : failure?.code === "RESULTS_UNAVAILABLE" ? (
           <Notice tone="info" heading="Results are not available yet">
             <p>
-              Results are published only after voting has ended. Nothing is
-              shown while a vote is still open.
+              PUBLIC polls show aggregate results while voting is active. During
+              a live PRIVATE election, only aggregate turnout is shown;
+              candidate and NOTA totals are published after voting ends.
             </p>
           </Notice>
         ) : failure?.code === "RESULTS_INTEGRITY_ERROR" ? (
@@ -116,7 +117,10 @@ export default async function ResultsPage({
         page={page}
         hasCursor={Boolean(raw.cursor)}
         basePath={`/votes/${id}/results`}
-        formats={availableExportFormats()}
+        formats={
+          data.vote.status === "COMPLETED" ? availableExportFormats() : []
+        }
+        identifierLabel={deps.identifierLabel}
       />
     </div>
   );

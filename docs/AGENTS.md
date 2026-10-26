@@ -3,7 +3,7 @@
 ## 01 Scope and Project Context
 This file contains the detailed engineering guidance referenced by root `AGENTS.md`, which also defines the repository-wide documentation-sync rule. Keep detailed rules here rather than duplicating them in another customization file; verify root instruction loading when using a different tool.
 
-Civic Pulse is a mobile-first, single-RWA voting application. OPEN polls publish attributable responses after completion; CLOSED elections expose aggregate choices only. Integrity and privacy take priority over convenience.
+Civic Pulse is a mobile-first, single-RWA voting application. PUBLIC polls show aggregate counts while active, allow a voter to replace their response before closure, and publish attributable responses after completion. PRIVATE elections keep aggregate choices private until completion and accepted ballots immutable. Integrity and privacy take priority over convenience.
 
 The implemented stack is Next.js App Router, TypeScript, **Supabase Auth/PostgreSQL/RLS/SQL functions/Cron**, and **Tailwind CSS**. Application source, scripts and tests are present. Inspect the actual code and manifests; do not apply historical custom-auth/scaffold assumptions or perform unrelated wholesale rewrites.
 
@@ -32,16 +32,19 @@ Distinguish proposed, implemented, tested and approved behavior. Never fabricate
 - Update directly affected documentation and contracts. Do not introduce new exact response shapes, rounding policies or pagination conventions solely through this file.
 
 ## 04 Non-Negotiable Voting Rules
-- OPEN/CLOSED are types; Draft/Active/Completed/Cancelled are separate statuses.
+- PUBLIC/PRIVATE are types; Draft/Active/Completed/Cancelled are separate statuses.
 - Submission and lifecycle changes use guarded database functions, never ad-hoc writes.
 - Derive identity from verified authentication. Recheck current suspension/role, frozen entitlement, state and choice ownership inside protected operations.
 - Lock the vote first and use the current database clock after acquiring the lock. Reject admission at or after the frozen deadline; browser time and transaction-start time are not authoritative.
-- Atomically record participation and either one OPEN response or every CLOSED office counter update. Enforce uniqueness and whole-transaction rollback; browser click prevention is not duplicate protection.
+- Atomically record participation and either one current PUBLIC response or every PRIVATE office counter update. PUBLIC voters may replace that response only while ACTIVE; keep one participation record and count only the latest choice. Enforce uniqueness and whole-transaction rollback; browser click prevention is not duplicate protection.
 - Freeze ballot, deadline, electorate and representative assignments on activation. Register edits never transfer active entitlements or rewrite historical identities.
-- Never reopen terminal votes, edit accepted ballots or manually alter totals. Early completion/cancellation require confirmation and recorded reasons.
-- CLOSED storage uses aggregate counters, no individual ballots or identity/ballot/timestamp-to-choice mappings. Do not offer selection receipts or retrieval endpoints.
-- Hide all choice totals until completion, including from admins. Completed results/exports require authorization and invariant checks; cancelled votes publish neither choices nor exports.
+- Never reopen terminal votes, edit accepted PRIVATE ballots or manually alter totals. A PUBLIC response may be replaced only before its deadline; retain only the latest response, not a change history. Early completion/cancellation require confirmation and recorded reasons.
+- PRIVATE storage uses aggregate counters, no individual ballots or identity/ballot/timestamp-to-choice mappings. Do not offer selection receipts or retrieval endpoints.
+- While voting is active, PUBLIC polls expose aggregate option counts and turnout; PRIVATE elections expose aggregate turnout only. Never expose active choices in either type. During an active PRIVATE election, only administrators may see the household participation list for follow-up; members see only aggregate turnout. Hide candidate/NOTA totals until completion. Completed results/exports require authorization and invariant checks; cancelled votes publish neither choices nor exports.
 - Use one authoritative result projection for screens and exports. Admin status does not confer voting entitlement.
+- Never hard-code the word "household" or the identifier name in user-visible text: use the configured household terms (`loadHouseholdTerms()`/`PageContext.terms` on the server, `useHouseholdTerms()` in client components, a `terms` argument in exports). Code identifiers, routes, API fields, CSV column keys and audit codes keep their `household` names.
+- RWA profile values (name, alias, address, email, phone, website, accent palette, welcome message) are editable only by administrators and are shown to residents on other pages through narrow projections, never by exposing the settings page. Show the current RWA name on screens and exports (the stored per-vote name snapshot is only an internal record). Public pages receive only name, alias, address and palette through the service-role-only routine; do not grant `anon` any routine. Branding failures must fall back to the product name and default palette.
+- Show a live, informational deadline countdown on active voter and administrator vote pages, including after submission. Refresh state when it reaches zero, but never use the browser timer to decide whether a ballot is accepted; the database deadline remains authoritative.
 - Explain application-level privacy and privileged-operator/small-election inference limits. Do not promise cryptographic anonymity.
 
 ## 05 Supabase and UI Boundaries
@@ -93,7 +96,7 @@ npx supabase migration new <name>
 - Add regression tests for changed behavior and run focused checks first, expanding according to risk.
 - Use real local Supabase/PostgreSQL for RLS, grants, Auth context, routines, constraints, transactions and locking; mocks/SQLite are not substitutes.
 - Test direct API/RPC access, suspension with existing JWTs, duplicate/concurrent submission, partial-update rollback, exact deadlines/lock waits, lifecycle races, frozen identities and lost acknowledgements.
-- Verify privacy in HTML, APIs, ordinary stored records, logs and exports, not just hidden controls. Test ties/abstentions/zero turnout and result reconciliation.
+- Verify privacy in HTML, APIs, ordinary stored records, logs and exports, not just hidden controls. Test candidate ties, NOTA-versus-candidate outcomes, zero turnout and result reconciliation.
 - Use Playwright/axe plus required manual keyboard/screen-reader and real-device checks. Automated tests do not prove full accessibility.
 - Verify performance and recovery against the architecture's exact thresholds before release. PDF acceptance applies only when included.
 - Documentation-only work needs no application tests unless documentation tooling exists. Never claim checks passed if not run.

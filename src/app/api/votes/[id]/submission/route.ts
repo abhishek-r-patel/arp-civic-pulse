@@ -9,10 +9,10 @@ import { idParamsSchema } from "@/shared/contracts/register";
 export const dynamic = "force-dynamic";
 
 /*
- * One final ballot. The body carries no identity, household, timestamp, count
- * or idempotency identifier: the guarded database routine derives everything
- * from the verified session and the frozen electorate. The acknowledgement is
- * participation only, sent after the commit.
+ * Submit or replace a response. The body carries no identity, household,
+ * timestamp, count or idempotency identifier: the guarded routine derives
+ * everything from the verified session and frozen electorate. Acknowledgement
+ * is participation only and follows commit.
  */
 export const { GET, POST, PUT, PATCH, DELETE } = route({
   POST: async ({ request, requestId, params }) => {

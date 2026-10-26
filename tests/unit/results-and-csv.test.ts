@@ -7,6 +7,7 @@ import {
 } from "@/server/exports/csv";
 import {
   projectResults,
+  rawResultsSchema,
   RESULTS_DISCLAIMER,
   type ClosedResults,
   type OpenResults,
@@ -20,7 +21,9 @@ const vote = (
   overrides: Partial<RawResults["vote"]> = {},
 ): RawResults["vote"] => ({
   id: ID(1),
-  votingType: "OPEN",
+  votingType: "PUBLIC",
+  openSelectionMode: "SINGLE",
+  openSelectionLimit: 1,
   status: "COMPLETED",
   title: "Repaint the clubhouse?",
   instructions: null,
@@ -51,8 +54,7 @@ function open(overrides: Partial<RawResults> = {}): RawResults {
       {
         representativeName: "Alice Rao",
         householdIdentifier: "A-101",
-        optionId: ID(10),
-        optionLabel: "Yes",
+        optionLabels: ["Yes"],
         cursor,
       },
     ],
@@ -63,7 +65,7 @@ function open(overrides: Partial<RawResults> = {}): RawResults {
 
 function closed(overrides: Partial<RawResults> = {}): RawResults {
   return {
-    vote: vote({ votingType: "CLOSED" }),
+    vote: vote({ votingType: "PRIVATE" }),
     eligibleCount: "4",
     submittedCount: "3",
     options: [],
@@ -72,7 +74,7 @@ function closed(overrides: Partial<RawResults> = {}): RawResults {
         id: ID(20),
         name: "Chair",
         position: 1,
-        abstentionCount: "1",
+        notaCount: "1",
         candidates: [
           { id: ID(21), name: "Asha", position: 1, count: "1" },
           { id: ID(22), name: "Ravi", position: 2, count: "1" },
@@ -82,7 +84,7 @@ function closed(overrides: Partial<RawResults> = {}): RawResults {
         id: ID(30),
         name: "Treasurer",
         position: 2,
-        abstentionCount: "3",
+        notaCount: "3",
         candidates: [{ id: ID(31), name: "Meera", position: 1, count: "0" }],
       },
     ],
@@ -98,14 +100,35 @@ describe("projectResults", () => {
     expect(r.turnout).toEqual({
       numerator: "3",
       denominator: "7",
-      percent: "42.86",
+      percent: "43",
     });
-    expect(r.options.map((o) => o.percent)).toEqual(["66.67", "33.33"]);
+    expect(r.options.map((o) => o.percent)).toEqual(["67", "33"]);
+    // Bars use the share of the whole electorate (7 eligible).
+    expect(r.options.map((o) => o.eligiblePercent)).toEqual(["29", "14"]);
     expect(r.outcome).toBe("LEADER");
     expect(r.leaderOptionIds).toEqual([ID(10)]);
     expect(r.disclaimer).toBe(RESULTS_DISCLAIMER);
     // The cursor is paging plumbing and never part of the projection.
     expect(JSON.stringify(r)).not.toContain('"cursor"');
+  });
+
+  it("uses participating households as the denominator for multi-select shares", () => {
+    const result = projectResults(
+      open({
+        vote: vote({
+          openSelectionMode: "MULTIPLE",
+          openSelectionLimit: null,
+        }),
+        options: [
+          { id: ID(10), label: "Monday", position: 1, count: "2" },
+          { id: ID(11), label: "Tuesday", position: 2, count: "2" },
+        ],
+      }),
+    ) as OpenResults;
+    expect(result.options.map((option) => option.percent)).toEqual([
+      "67",
+      "67",
+    ]);
   });
 
   it("reports ties, no votes and zero turnout without inventing numbers", () => {
@@ -134,16 +157,97 @@ describe("projectResults", () => {
     expect(none.options[0]?.percent).toBeNull();
   });
 
-  it("derives per-office outcomes with abstention separate from candidates", () => {
+  it("projects active PUBLIC polls as aggregates without named responses", () => {
+    const raw = open({
+      vote: vote({
+        status: "ACTIVE",
+        completedAt: null,
+        completionMode: null,
+      }),
+      namedResponses: null,
+      namedPage: null,
+    });
+    const parsed = rawResultsSchema.parse(raw);
+    const result = projectResults(parsed) as OpenResults;
+    expect(result.vote.status).toBe("ACTIVE");
+    expect(result.submittedCount).toBe("3");
+    expect(result.options.map((option) => option.count)).toEqual(["2", "1"]);
+    expect(result.namedResponses).toEqual([]);
+  });
+
+  it("projects active PRIVATE elections as turnout without any office totals", () => {
+    const raw = closed({
+      vote: vote({
+        votingType: "PRIVATE",
+        status: "ACTIVE",
+        completedAt: null,
+        completionMode: null,
+      }),
+      submittedCount: "2",
+      options: [],
+      offices: [],
+      namedResponses: null,
+      namedPage: null,
+    });
+    const parsed = rawResultsSchema.parse(raw);
+    const result = projectResults(parsed);
+    expect(result.votingType).toBe("PRIVATE");
+    expect(result.vote.status).toBe("ACTIVE");
+    expect(result.turnout).toEqual({
+      numerator: "2",
+      denominator: "4",
+      percent: "50",
+    });
+    if (result.votingType !== "PRIVATE") {
+      throw new Error("Active PRIVATE results must be a PRIVATE projection.");
+    }
+    expect(result.status).toBe("ACTIVE");
+    expect(result.offices).toEqual([]);
+    expect(
+      rawResultsSchema.safeParse({
+        ...raw,
+        offices: closed().offices,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("derives per-office outcomes with NOTA separate from candidates", () => {
     const r = projectResults(closed()) as ClosedResults;
     const [chair, treasurer] = r.offices;
     expect(chair?.outcome).toBe("TIE");
-    expect(chair?.abstention).toEqual({ count: "1", percent: "33.33" });
-    // All three abstained: no candidate leads.
+    expect(chair?.nota).toEqual({
+      count: "1",
+      percent: "33",
+      eligiblePercent: "25",
+    });
+    // All three chose NOTA: no candidate leads.
     expect(treasurer?.outcome).toBe("NO_WINNER");
     expect(treasurer?.leaderCandidateIds).toEqual([]);
-    expect(treasurer?.abstention.percent).toBe("100.00");
+    expect(treasurer?.nota.percent).toBe("100");
     expect("namedResponses" in r).toBe(false);
+  });
+
+  it("elects the leading candidate even when NOTA has more votes", () => {
+    const result = projectResults(
+      closed({
+        submittedCount: "4",
+        offices: [
+          {
+            id: ID(20),
+            name: "Chair",
+            position: 1,
+            notaCount: "3",
+            candidates: [
+              { id: ID(21), name: "Asha", position: 1, count: "1" },
+              { id: ID(22), name: "Ravi", position: 2, count: "0" },
+            ],
+          },
+        ],
+      }),
+    ) as ClosedResults;
+    expect(result.offices[0]?.outcome).toBe("LEADER");
+    expect(result.offices[0]?.leaderCandidateIds).toEqual([ID(21)]);
+    expect(result.offices[0]?.nota.count).toBe("3");
   });
 
   it("stays exact for counts beyond double precision", () => {
@@ -156,7 +260,7 @@ describe("projectResults", () => {
         ],
       }),
     ) as OpenResults;
-    expect(r.turnout.percent).toBe("100.00");
+    expect(r.turnout.percent).toBe("100");
     expect(r.options[0]?.count).toBe("9007199254740993");
   });
 });
@@ -271,7 +375,7 @@ describe("renderResultsCsv", () => {
       expect(row[household]).toBe("");
     }
     expect(rows.map((r) => r[0])).toEqual(
-      expect.arrayContaining(["CANDIDATE", "ABSTENTION", "OFFICE_OUTCOME"]),
+      expect.arrayContaining(["CANDIDATE", "NOTA", "OFFICE_OUTCOME"]),
     );
   });
 
@@ -300,8 +404,7 @@ describe("renderResultsCsv", () => {
             {
               representativeName: "@SUM(1+1)",
               householdIdentifier: "-2+3",
-              optionId: ID(10),
-              optionLabel: "Yes",
+              optionLabels: ["Yes"],
               cursor,
             },
           ],

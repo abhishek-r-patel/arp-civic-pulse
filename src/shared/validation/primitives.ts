@@ -54,6 +54,12 @@ export const nameText = singleLineText(FIELD_LIMITS.name);
 export const titleText = singleLineText(FIELD_LIMITS.title);
 // Drafts may have an empty title; activation validation requires one.
 export const draftTitleText = plainText(FIELD_LIMITS.title, false, true);
+// Optional plain-text paragraphs (for example a welcome message) may be empty.
+export const optionalMultilineText = (maxLength: number) =>
+  plainText(maxLength, true, true);
+// Optional single-line values (for example an RWA phone) may be empty.
+export const optionalSingleLineText = (maxLength: number) =>
+  plainText(maxLength, false, true);
 export const longText = multilineText(FIELD_LIMITS.longText);
 export const reasonText = multilineText(FIELD_LIMITS.reason);
 
@@ -66,6 +72,17 @@ export const emailAddress = z
       .string()
       .max(FIELD_LIMITS.email, `Use at most ${FIELD_LIMITS.email} characters.`)
       .pipe(z.email("Enter a valid email address.")),
+  );
+
+// Same normalization as `emailAddress`, but an empty value means "not provided".
+export const optionalEmailAddress = z
+  .string()
+  .transform((value) => value.trim().toLowerCase())
+  .pipe(
+    z
+      .string()
+      .max(FIELD_LIMITS.email, `Use at most ${FIELD_LIMITS.email} characters.`)
+      .pipe(z.union([z.literal(""), z.email("Enter a valid email address.")])),
   );
 
 export const uuid = z.uuid();

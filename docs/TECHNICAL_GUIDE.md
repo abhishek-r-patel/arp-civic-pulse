@@ -10,15 +10,15 @@ Companion: [illustrated end-user guide](./USER_GUIDE.md). Printable/offline vers
 
 Civic Pulse serves one Resident Welfare Association (RWA). Administrators register household representatives, create votes, preview them and explicitly activate them. Residents sign in with an emailed six-digit code and submit once for their frozen household entitlement.
 
-- **OPEN poll:** one choice. Authorized completed results contain representative names, household identifiers and choices.
-- **CLOSED election:** one candidate or explicit abstention for every office. Storage and results use aggregate counters, not retrievable individual ballots.
+- **PUBLIC poll:** configured single-select or multi-select; one ballot and participation per household. Authorized completed results contain representative names, household identifiers and the final selected option set.
+- **PRIVATE election:** one candidate or NOTA (None of the Above) for every office. Storage and results use aggregate counters, not retrievable individual ballots. NOTA is counted separately and never wins; the highest-count candidate is elected even if NOTA receives more votes.
 - **Lifecycle:** Draft, Active, Completed or Cancelled. Type and status are different concepts.
 - **Results:** private to entitled members and administrators; CSV is required and PDF is implemented but can be disabled.
 - **Operations:** audit history, bounded retention, encrypted backups/restore, health checks and maintenance mode.
 
 ![Application overview](./images/user-guide/overview.svg)
 
-Application-level CLOSED privacy is not cryptographic anonymity. Privileged infrastructure operators, WAL/backups and very small electorates can allow inference. Never describe the system as secret from all operators.
+Application-level PRIVATE privacy is not cryptographic anonymity. Privileged infrastructure operators, WAL/backups and very small electorates can allow inference. Never describe the system as secret from all operators.
 
 ## 2. Stack and boundaries
 
@@ -45,8 +45,8 @@ Key vocabulary:
 | RPC                | A database function called through Supabase; protected writes use these guarded routines.                                                        |
 | `SECURITY DEFINER` | A function executes with its owner's privileges. It must independently validate the caller and pin a trusted search path.                        |
 | Frozen electorate  | The households, representatives and historical names selected when a vote is activated. Later register edits do not transfer these entitlements. |
-| Participation      | The fact that a frozen household submitted. For CLOSED votes this is not a record of its selections.                                             |
-| Acknowledgement    | The application says the transaction committed; it does not expose a CLOSED selection receipt.                                                   |
+| Participation      | The fact that a frozen household submitted. For PRIVATE votes this is not a record of its selections.                                             |
+| Acknowledgement    | The application says the transaction committed; it does not expose a PRIVATE selection receipt.                                                   |
 
 ## 3. First hour in the repository
 
@@ -68,9 +68,21 @@ Never disable certificate verification to solve corporate TLS problems. Configur
 | [src/app](../src/app)                               | Pages, layouts, loading/error boundaries and HTTP route handlers. Route-group parentheses do not appear in URLs.        |
 | [src/components/ui](../src/components/ui)           | Buttons, fields, notices, dialogs, tables, pagination, badges and common layout.                                        |
 | [src/components/admin](../src/components/admin)     | Account/household forms, draft editing, preview and lifecycle interaction.                                              |
-| [src/components/votes](../src/components/votes)     | Resident ballots, privacy notices and completed results.                                                                |
+| [src/components/admin/rwa-profile-form.tsx](../src/components/admin/rwa-profile-form.tsx) | Administrator form for RWA identity, contact, palette, welcome message and identifier wording. |
+| [src/components/ui/rwa-branding.tsx](../src/components/ui/rwa-branding.tsx) | Plain-text signed-in footer contact block and welcome message shown to residents and administrators. |
+| [src/components/ui/info-tip.tsx](../src/components/ui/info-tip.tsx) | Compact (i) disclosure that opens on mouse hover or click/tap and closes on Escape or an outside click; used for the NOTA rule. |
+| [src/components/votes/nota-explanation.tsx](../src/components/votes/nota-explanation.tsx) | Shared NOTA rule text for the resident ballot and the administrator preview. |
+| [src/components/votes/result-bars.tsx](../src/components/votes/result-bars.tsx) | Shared result rows ("Label 4/10 40%" above a bar) for options, candidates, NOTA and turnout. |
+| [src/components/votes](../src/components/votes)     | Resident ballots, privacy notices, active deadline countdowns and results.                                               |
 | [src/server](../src/server)                         | Server-only services. Do not import these into client components.                                                       |
-| [src/shared](../src/shared)                         | Browser-safe contracts, validation, HTTP client and time formatting.                                                    |
+| [src/server/settings](../src/server/settings) | Guarded RWA settings services and member-safe projections. |
+| [src/server/settings/rwa-profile.ts](../src/server/settings/rwa-profile.ts) | Admin-only profile read/update, enabled-member branding projection, per-request branding cache, the service-role public identity read and `loadHouseholdTerms()` for server-rendered household wording. |
+| [src/shared/contracts/household-terms.ts](../src/shared/contracts/household-terms.ts) | Household label and Number/ID identifier-kind contracts, suggestions, and `buildHouseholdTerms` (singular, plural, sentence-case and identifier wording). |
+| [src/components/ui/household-terms.tsx](../src/components/ui/household-terms.tsx) | Client provider and `useHouseholdTerms()` hook; the app shell supplies the current terms. |
+| [src/shared/contracts/rwa-profile.ts](../src/shared/contracts/rwa-profile.ts) | Strict RWA profile, member branding and public identity projections, palette list and telephone link helper. |
+| [src/app/admin/settings/page.tsx](../src/app/admin/settings/page.tsx) | Protected RWA Settings screen. |
+| [src/app/api/admin/settings/route.ts](../src/app/api/admin/settings/route.ts) | CSRF-protected administrator profile update endpoint. |
+| [src/shared](../src/shared)                         | Browser-safe contracts, validation, HTTP client, time formatting and countdown arithmetic.                              |
 | [src/styles/globals.css](../src/styles/globals.css) | Shared Tailwind design tokens and global styling.                                                                       |
 | [src/proxy.ts](../src/proxy.ts)                     | Page-request CSRF context, pre-render session refresh and maintenance page handling. Not the final authorization layer. |
 | [src/instrumentation.ts](../src/instrumentation.ts) | Validate server environment on Node startup.                                                                            |
@@ -120,9 +132,11 @@ Read these files in order:
 3. [Browser API helper](../src/shared/http/api-client.ts) sends a same-origin JSON request with a CSRF token and validates the response envelope.
 4. [Submission route](../src/app/api/votes/[id]/submission/route.ts) checks Origin/CSRF, validates the ID/body and obtains an enabled member context.
 5. [Submission service](../src/server/votes/submission.ts) enforces a profile budget and calls `cast_vote` using the member's own client.
-6. [cast_vote migration](../supabase/migrations/20261024140000_cast_vote.sql) locks/rechecks/validates/writes atomically.
-7. After commit the response is participation-only: `voteId` and `submitted: true`, wrapped in the common envelope.
-8. A lost, malformed or unavailable acknowledgement triggers an own-participation check. The client must not blindly repeat a submission.
+6. [cast_vote migration](../supabase/migrations/20261024140000_cast_vote.sql) locks/rechecks/validates/writes atomically; [the PUBLIC multi-select migration](../supabase/migrations/20261027100000_open_multi_select.sql) adds selection-set replacement and dispatches single- versus multi-select submissions; [the NOTA migration](../supabase/migrations/20261028100000_nota_closed_elections.sql) names the built-in PRIVATE choice and changes its result projection; [the live PRIVATE turnout migration](../supabase/migrations/20261029100000_live_closed_turnout.sql) returns turnout without exposing office totals while the election is active.
+7. [Identifier label migration](../supabase/migrations/20261030100000_configurable_identifier_label.sql) added the first RWA-wide display label; [the household label migration](../supabase/migrations/20261103110000_household_label_and_identifier_kind.sql) replaces it with a household label and a Number/ID identifier kind returned by the profile, branding and public identity routines. [The PUBLIC/PRIVATE migration](../supabase/migrations/20261103100000_public_private_voting.sql) renames the stored voting types.
+8. [RWA profile migration](../supabase/migrations/20261031100000_rwa_profile_settings.sql) adds guarded admin-only profile settings, and [the branding migration](../supabase/migrations/20261101100000_rwa_branding_and_public_identity.sql) adds the accent palette, welcome message, the member branding projection and the service-role-only public identity routine. [The optional contact migration](../supabase/migrations/20261102100000_optional_rwa_contact_fields.sql) lets administrators leave the address, email and phone blank so they are hidden.
+9. After commit the response is participation-only: `voteId` and `submitted: true`, wrapped in the common envelope.
+10. A lost, malformed or unavailable acknowledgement triggers an own-participation check. The client must not blindly repeat a submission.
 
 ```text
 Browser POST /api/votes/{id}/submission
@@ -132,10 +146,10 @@ Browser POST /api/votes/{id}/submission
   -> user-session RPC cast_vote
        -> lock vote, recheck entitlement/status/deadline
        -> insert unique participation
-       -> OPEN: insert response
-          CLOSED: increment one counter per office
+       -> PUBLIC: insert or replace the selected response set
+          PRIVATE: increment one counter per office
        -> whole transaction commits, or all changes roll back
-  -> safe acknowledgement (no CLOSED selections)
+  -> safe acknowledgement (no PRIVATE selections)
 ```
 
 ![Submission and recovery branches](./images/user-guide/submission.svg)
@@ -163,8 +177,8 @@ CSRF context is a separate HttpOnly cookie; production uses a host-only Secure c
 | Member ballot                   | No         | Own frozen entitlement only | Only own frozen entitlement      |
 | Completed results/export        | No         | Entitled votes only         | Authorized administrative access |
 | Register/drafts/lifecycle/audit | No         | No                          | Yes                              |
-| Active choice totals            | No         | No                          | No                               |
-| Individual CLOSED selections    | No         | No                          | No                               |
+| Active PUBLIC aggregates           | No         | Eligible voters: yes        | Yes                              |
+| Individual PRIVATE selections    | No         | No                          | No                               |
 
 Suspended/deleted/unprovisioned identities do not gain access merely by holding a valid token. Admin pages use a plain not-found for non-admins; APIs use the appropriate safe status. Inaccessible vote IDs are indistinguishable from nonexistent ones.
 
@@ -175,14 +189,14 @@ Suspended/deleted/unprovisioned identities do not gain access merely by holding 
 | `auth.users`             | Managed Supabase identity; email/verification/session state is not duplicated in application profiles. |
 | `profiles`               | Stable Auth user ID, representative name, enabled/suspended/deleted status and admin flag.             |
 | `households`             | Unique normalized label and one current representative; controls future eligibility selection.         |
-| `rwa_settings`           | Singleton RWA name/timezone, actual A1-A7 approvals and approved retention periods.                    |
-| `votes`                  | Type, status, revision, deadline, terminal reasons and frozen display metadata.                        |
-| `offices` / `candidates` | CLOSED ballot structure with parent ownership and ordered positions.                                   |
-| `poll_options`           | OPEN ballot choices.                                                                                   |
+| `rwa_settings` | Singleton RWA identity/contact profile, household label, identifier kind, timezone, actual A1-A7 approvals and approved retention periods. |
+| `votes`                  | Type, PUBLIC selection mode/limit, status, revision, deadline, terminal reasons and frozen display metadata. |
+| `offices` / `candidates` | PRIVATE ballot structure with parent ownership and ordered positions.                                   |
+| `poll_options`           | PUBLIC ballot choices.                                                                                   |
 | `electorate`             | One frozen entitlement per vote/household, frozen representative and historical labels.                |
-| `participation`          | One accepted submission per entitlement. No CLOSED choices.                                            |
-| `open_responses`         | Attributable option response. Published only through authorized completed results.                     |
-| `closed_tallies`         | Candidate/abstention counters per office. No per-voter CLOSED record.                                  |
+| `participation`          | One accepted submission per entitlement. No PRIVATE choices.                                            |
+| `open_responses`         | Attributable selected-option rows. Published only through authorized completed results.                |
+| `closed_tallies`         | Candidate/NOTA counters per office. No per-voter PRIVATE record.                                         |
 | `audit_events`           | Administrative actor/action/record/time/reason, not payloads or OTPs.                                  |
 | `rate_limit_buckets`     | Shared atomic limiter state with HMAC-derived subjects rather than raw emails.                         |
 
@@ -195,10 +209,10 @@ auth.users -- profiles -- households
                                |
                          participation
                          /           \
-                OPEN response    CLOSED aggregate counters*
+                PUBLIC response    PRIVATE aggregate counters*
 
 * Diagram shows the atomic workflow, NOT a stored per-person link
-  from participation to a particular CLOSED choice.
+  from participation to a particular PRIVATE choice.
 ```
 
 Critical constraints:
@@ -206,8 +220,8 @@ Critical constraints:
 - Unique participation and whole-transaction rollback prevent duplicate/partial ballots.
 - Frozen content, representatives and deadlines cannot be edited after activation.
 - Candidate IDs must belong to the submitted office/vote.
-- For each completed CLOSED office, candidates plus abstentions equal submitted ballots.
-- OPEN response counts equal accepted participation. Invariant failure withholds results rather than fabricating a fix.
+- For each completed PRIVATE office, candidate counts plus NOTA equal submitted ballots.
+- Every PUBLIC participation has at least one selected option and obeys its configured cap. Multi-select option counts can exceed participation. Invariant failure withholds results rather than fabricating a fix.
 - Terminal votes cannot reopen. Accepted submissions cannot be edited, deleted manually or withdrawn.
 - Counts/audit bigints use decimal strings across API boundaries to avoid unsafe JavaScript coercion.
 - Current suspension blocks access without erasing accepted participation or changing the frozen turnout denominator.
@@ -234,8 +248,18 @@ The privileged client bypasses RLS: use it only in the established provisioning/
 | `140000_cast_vote`                   | Atomic submission and participation-status routine.                  |
 | `150000_member_votes_results`        | Authorized discovery, results, participation and audit projections.  |
 | `160000_retention_maintenance`       | Bounded retention, readiness/status and maintenance scheduling.      |
+| `261000_open_poll_live_results_and_changes` | Active PUBLIC aggregates and guarded response replacement. |
+| `271000_open_multi_select`           | PUBLIC selection configuration, multi-option storage, grouped named results. |
+| `281000_nota_closed_elections`       | Built-in NOTA choice and PRIVATE results projection. |
+| `291000_live_closed_turnout`         | Aggregate turnout during active PRIVATE elections. |
+| `301000_configurable_identifier_label` | RWA-wide configurable display label for identifier values. |
+| `311000_rwa_profile_settings` | Admin-only RWA profile fields and audited update RPC. |
+| `1101000_rwa_branding_and_public_identity` | Accent palette, welcome message, member branding projection and service-role-only public identity. |
+| `20261102100000_optional_rwa_contact_fields` | Optional (blank, hidden) RWA address, email and phone. |
+| `20261103100000_public_private_voting` | Renames stored voting types OPEN/CLOSED to PUBLIC/PRIVATE in data, checks and routines. |
+| `20261103110000_household_label_and_identifier_kind` | Household label and Number/ID identifier kind replace the identifier label. |
 
-All files start with `20261024`; use the exact filenames in [migrations](../supabase/migrations). Do not rewrite an applied migration. New changes require a new versioned migration and fresh/upgrade tests. Never run migrations at application startup or use a reset on an existing real database.
+Use the exact ordered filenames in [migrations](../supabase/migrations); do not rewrite an applied migration. New changes require a new versioned migration and fresh/upgrade tests. Never run migrations at application startup or use a reset on an existing real database.
 
 ## 8. Lifecycle and register workflows
 
@@ -264,7 +288,7 @@ Register changes span Auth and application records; they are not one distributed
 | `/sign-in`                           | Registered email, code verification, resend and recovery.                                 |
 | `/`                                  | Member's entitled votes, filters and own participation. Admins also see management links. |
 | `/votes/{id}`                        | Authorized ballot, submitted state or terminal context.                                   |
-| `/votes/{id}/results`                | Completed totals, authorized named OPEN responses and downloads.                          |
+| `/votes/{id}/results`                | Completed totals, authorized named PUBLIC responses and downloads.                          |
 | `/admin/accounts`, `/new`, `/{id}`   | Account list, provisioning, details, role/access changes.                                 |
 | `/admin/households`, `/new`, `/{id}` | Register, assignment, label and future eligibility.                                       |
 | `/admin/votes`, `/new`, `/{id}`      | Draft creation/editing or frozen lifecycle detail.                                        |
@@ -317,11 +341,11 @@ Lists use bounded keyset cursors tied to endpoint/filters. Never invent offsets,
 The database result projection is validated and transformed in [shared result contracts](../src/shared/contracts/results.ts). Screen, CSV and PDF derive from it, not separate counting implementations.
 
 - Frozen eligible households are the turnout denominator.
-- Per-office percentages use submitted ballots; zero denominators are not applicable.
-- Zero ballots have no winner. Positive tied leaders remain ties. Abstention is not a candidate.
-- All-abstain and early-completion semantics require real A5 approval.
-- OPEN names/households are frozen snapshots, with no email in exports.
-- CLOSED exports contain aggregate data only.
+- Per-office `percent` uses submitted ballots and `eligiblePercent` uses eligible households (shown in the bars); zero denominators are not applicable.
+- Zero ballots or zero candidate votes have no winner. Positive tied candidate leaders remain ties. NOTA is not a candidate and cannot win.
+- Verify the NOTA winner rule against bylaws, along with the early-completion rule, before real voting.
+- PUBLIC names/households are frozen snapshots, with no email in exports.
+- PRIVATE exports contain aggregate data only.
 - Rendering completes before success headers. A render error returns a clean failure, not a partially successful document.
 - Current process-local render slots: eight CSV, two PDF, bounded wait. These are not a global cross-instance queue.
 - PDF fonts are bundled and traced for deployment; unsupported text is explicitly refused, with CSV guidance.
@@ -352,7 +376,7 @@ Security headers, exact Origin/CSRF, private/no-store responses and Secure produ
 
 Operational commands are in [OPERATIONS.md](./OPERATIONS.md). Backup sets encrypt application/Auth/counts data with AES-GCM and validate manifest filenames/hashes. Keep encryption keys separately. A consistent restore can still omit acknowledged votes: completeness needs independent evidence. Never restore an old database simply to undo a code deployment.
 
-Logs accept only bounded allowlisted metadata. Do not add request bodies, raw provider errors, emails, cookies, codes, SQL bind values or CLOSED selections. Provider/APM payload capture must also be disabled in the actual deployment.
+Logs accept only bounded allowlisted metadata. Do not add request bodies, raw provider errors, emails, cookies, codes, SQL bind values or PRIVATE selections. Provider/APM payload capture must also be disabled in the actual deployment.
 
 ## 12. Tests: what to run and what they prove
 
@@ -385,13 +409,17 @@ must follow the documentation-sync checklist in [root instructions](../AGENTS.md
 The [capture spec](../scripts/docs/capture.spec.ts) is outside the ordinary e2e directory and is explicitly opt-in:
 
 ```powershell
+# On a network with TLS inspection, let Node trust the system store first (see LOCAL_SETUP troubleshooting).
+$env:NODE_USE_SYSTEM_CA = "1"
 $env:LIVE_AUTH = "1"
 $env:DOC_SCREENSHOTS = "1"
 npx playwright test -c playwright.docs.config.ts
 node scripts\docs\render.mjs
 ```
 
-Use only the approved disposable fixture project. Capturing creates synthetic Auth users, profiles, households, votes, participation and fixture policy/retention data; never run it against production. It reuses existing fixture helpers. Email/code fields are masked, trace/video are off, and screenshots are stored in the documentation image folder. The code-error response and connection failures are deliberately simulated; the rest of the principal voting/administration flows use the real test application and database. The capture does not prove SMTP delivery.
+Before capturing, apply every migration to the fixture project (`npx supabase db push --db-url $env:LIVE_DATABASE_URL`, review the `--dry-run` first), run `npm run test:live`, and make sure no other `next dev` server is running in this folder: Playwright starts its own on port 3100 and Next allows one per folder.
+
+Use only the approved disposable fixture project. Capturing creates synthetic Auth users, profiles, households, votes, participation and fixture policy/retention data; never run it against production. It reuses existing fixture helpers. Before capturing, it sets a synthetic RWA profile (Lakeview names, example address and phone, a blank email and website so the pictures show empty optional fields hidden, Teal palette, a welcome message, the **Flat** household label and the **Number** identifier label) and restores the previous profile afterwards; each change is audited as `RWA_PROFILE_UPDATED`. It also creates a PRIVATE election with NOTA and a multi-select PUBLIC poll for the live-turnout and live-results pictures. The illustrated flats use realistic synthetic numbers (**H-513** for the example resident and **H-514** for the added flat, or another unused realistic number when those already exist); other fixture households get random numbers in the same style. Email/code fields that hold a value and email text are masked (an intentionally blank field stays visibly blank), trace/video are off, and screenshots are stored in the documentation image folder. The code-error response and connection failures are deliberately simulated; the rest of the principal voting/administration flows use the real test application and database. The capture does not prove SMTP delivery.
 
 The renderer supports the deliberately small Markdown subset used by these two guides and embeds local images in the printable HTML. It fails on missing local linked files/images. Regenerate both HTML files whenever changing Markdown or screenshots. Do not hand-edit the generated HTML.
 
@@ -417,7 +445,7 @@ Example: adding a required draft field involves its shared Zod schema, editor, d
 | Signed out unexpectedly      | Proxy refresh, cookie attributes, Auth outcome and current profile.       | Print session cookies/tokens into console or chat.               |
 | Resident cannot see a vote   | Frozen electorate, current enabled status, correct project and lifecycle. | Use service-role reads to bypass the restriction.                |
 | Draft conflict               | Revision in editor/preview and another admin's edit.                      | Retry an overwrite with an invented latest revision.             |
-| Submission appears uncertain | Own participation check and support ID.                                   | Blindly resubmit or reconstruct CLOSED selections from counters. |
+| Submission appears uncertain | Own participation check and support ID.                                   | Blindly resubmit or reconstruct PRIVATE selections from counters. |
 | Results unavailable          | Completion gate and invariants; operations escalation.                    | Repair totals by hand or publish a best-effort approximation.    |
 | Export fails                 | Authorization, completion, capacity, supported fonts and safe error code. | Return truncated bytes with HTTP 200.                            |
 | DB tests skipped             | Confirm disposable `INTEGRATION_DATABASE_URL` is configured.              | Claim skipped tests passed.                                      |

@@ -8,6 +8,7 @@ import { ConfirmDialog } from "@/components/ui/dialog";
 import { ErrorSummary } from "@/components/ui/error-summary";
 import { TextAreaField } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
+import { useHouseholdTerms } from "@/components/ui/household-terms";
 import type { AdminVoteDetail } from "@/shared/contracts/drafts";
 import { apiRequest, type ApiFailure } from "@/shared/http/api-client";
 
@@ -29,6 +30,7 @@ export function ActivateVote({
   revision,
 }: ActionProps & Readonly<{ revision: number }>) {
   const router = useRouter();
+  const terms = useHouseholdTerms();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<ApiFailure | null>(null);
@@ -72,20 +74,21 @@ export function ActivateVote({
         </Notice>
       ) : null}
       <p className="max-w-ballot text-body text-muted">
-        Activating freezes the voting type, ballot content, electorate, each
-        household&apos;s representative and the deadline. It cannot be undone.
+        Activating freezes the voting type, ballot content, electorate, each{" "}
+        {terms.household}&apos;s representative and the deadline. It cannot be
+        undone.
       </p>
       <div>
         <Button onClick={() => setOpen(true)} disabled={pending}>
           <CirclePlay aria-hidden="true" className="size-5" />
-          Activate vote
+          Activate Vote
         </Button>
       </div>
 
       <ConfirmDialog
         open={open}
         title="Activate this vote?"
-        confirmLabel="Activate vote"
+        confirmLabel="Activate Vote"
         busy={pending}
         onConfirm={() => void activate()}
         onCancel={() => setOpen(false)}
@@ -116,26 +119,32 @@ export function ActivateVote({
 
 type Kind = "complete" | "cancel";
 
-const COPY: Record<
+function lifecycleCopy(
+  household: string,
+): Record<
   Kind,
   { title: string; confirm: string; body: string; label: string }
-> = {
-  complete: {
-    title: "Complete this vote early?",
-    confirm: "Complete vote early",
-    label: "Why is it being completed early?",
-    body: "Voting stops now and the results become final. Households that have not voted will not get another chance. This cannot be undone, and the reason is recorded.",
-  },
-  cancel: {
-    title: "Cancel this vote?",
-    confirm: "Cancel vote",
-    label: "Why is it being cancelled?",
-    body: "The vote is cancelled and shown as “Cancelled; results not valid.” No choices are published and nothing can be exported. This cannot be undone, and the reason is recorded.",
-  },
-};
+> {
+  return {
+    complete: {
+      title: "Complete this vote early?",
+      confirm: "Complete Vote Early",
+      label: "Why is it being completed early?",
+      body: `Voting stops now and the results become final. ${household} that have not voted will not get another chance. This cannot be undone, and the reason is recorded.`,
+    },
+    cancel: {
+      title: "Cancel this vote?",
+      confirm: "Cancel Vote",
+      label: "Why is it being cancelled?",
+      body: "The vote is cancelled and shown as “Cancelled; results not valid.” No choices are published and nothing can be exported. This cannot be undone, and the reason is recorded.",
+    },
+  };
+}
 
 export function LifecycleActions({ csrfToken, voteId }: ActionProps) {
   const router = useRouter();
+  const terms = useHouseholdTerms();
+  const COPY = lifecycleCopy(terms.Households);
   const [kind, setKind] = useState<Kind | null>(null);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState<string | null>(null);
@@ -191,11 +200,11 @@ export function LifecycleActions({ csrfToken, voteId }: ActionProps) {
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button variant="secondary" onClick={() => setKind("complete")}>
           <CircleStop aria-hidden="true" className="size-5" />
-          Complete vote early
+          Complete Vote Early
         </Button>
         <Button variant="destructive" onClick={() => setKind("cancel")}>
           <Ban aria-hidden="true" className="size-5" />
-          Cancel vote
+          Cancel Vote
         </Button>
       </div>
 

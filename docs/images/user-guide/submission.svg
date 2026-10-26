@@ -9,9 +9,10 @@
   <title id="title">Safe voting and connection recovery</title>
   <desc id="desc">
     Choose, review and submit. A confirmed acceptance is final. If the
-    acknowledgement is unclear, check participation. Recorded means done, not
-    recorded permits review and retry only while allowed, and an unavailable
-    check means wait and check again without submitting blindly.
+    acknowledgement is unclear, check participation. For a first submission,
+    an unavailable check means wait and check again without submitting blindly.
+    For an OPEN replacement, the previous response remains recorded, and the
+    same intended replacement may be retried while the poll is active.
   </desc>
   <defs>
     <marker
@@ -43,16 +44,17 @@
     <g font-size="17">
       <text x="120" y="104">Choose all required fields</text>
       <text x="380" y="104">Review selections</text>
-      <text x="640" y="104">Submit once</text>
-      <text x="880" y="104">Vote submitted.</text>
+      <text x="640" y="104">Submit / update OPEN</text>
+      <text x="880" y="104">Response accepted</text>
       <text x="640" y="245">Unclear response?</text>
       <text x="640" y="272">Check participation</text>
       <text x="145" y="395">Recorded</text>
-      <text x="145" y="423">Finished; do not vote again</text>
+      <text x="145" y="423">Change OPEN choice before close</text>
       <text x="500" y="395">Confirmed not recorded</text>
       <text x="500" y="423">Review and retry if allowed</text>
       <text x="855" y="395">Check also unavailable</text>
-      <text x="855" y="423">Wait; use Check again</text>
+      <text x="855" y="418">First vote: wait/check again</text>
+      <text x="855" y="438">OPEN change: retry if active</text>
     </g>
     <g font-size="14">
       <text x="640" y="181">Connection problem</text>

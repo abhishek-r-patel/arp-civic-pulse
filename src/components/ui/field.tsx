@@ -22,6 +22,8 @@ type FieldChrome = Readonly<{
   hint?: string;
   error?: string;
   required?: boolean;
+  /** Set false where a form marks only required fields (with *). */
+  showOptional?: boolean;
 }>;
 
 function Chrome({
@@ -30,6 +32,7 @@ function Chrome({
   hint,
   error,
   required,
+  showOptional = true,
   children,
 }: FieldChrome & Readonly<{ id: string; children: ReactNode }>) {
   return (
@@ -44,9 +47,9 @@ function Chrome({
             </span>
             <span className="sr-only"> (required)</span>
           </>
-        ) : (
+        ) : showOptional ? (
           <span className="font-normal text-muted"> (optional)</span>
-        )}
+        ) : null}
       </label>
       {hint ? (
         <p id={`${id}-hint`} className="text-caption text-muted">
@@ -88,6 +91,7 @@ export function TextField({
   hint,
   error,
   required = false,
+  showOptional,
   className,
   ref,
   ...rest
@@ -102,6 +106,7 @@ export function TextField({
       hint={hint}
       error={error}
       required={required}
+      showOptional={showOptional}
     >
       <input
         ref={ref}
@@ -187,6 +192,7 @@ export function TextAreaField({
   hint,
   error,
   required = false,
+  showOptional,
   className,
   ...rest
 }: TextAreaFieldProps) {
@@ -200,6 +206,7 @@ export function TextAreaField({
       hint={hint}
       error={error}
       required={required}
+      showOptional={showOptional}
     >
       <textarea
         id={fieldId}

@@ -17,7 +17,9 @@ const KOLKATA = "Asia/Kolkata";
 function detail(overrides: Partial<AdminVoteDetail> = {}): AdminVoteDetail {
   return {
     id: ID(1),
-    votingType: "CLOSED",
+    votingType: "PRIVATE",
+    openSelectionMode: "SINGLE",
+    openSelectionLimit: 1,
     status: "DRAFT",
     title: "Committee election",
     instructions: "Choose one per office.",
@@ -66,6 +68,55 @@ describe("buildPatch", () => {
       ok: true,
       patch: { title: "Renamed" },
       changed: ["title"],
+    });
+  });
+
+  it("sends the PUBLIC mode and limit as one coherent selection setting", () => {
+    const current = {
+      ...base(),
+      votingType: "PUBLIC" as const,
+      openSelectionMode: "MULTIPLE" as const,
+      openSelectionLimit: 3,
+      options: [
+        { key: "new-1", label: "Monday" },
+        { key: "new-2", label: "Tuesday" },
+      ],
+      offices: [],
+    };
+    expect(buildPatch(base(), current, KOLKATA)).toMatchObject({
+      patch: {
+        openSelectionMode: "MULTIPLE",
+        openSelectionLimit: 3,
+      },
+      changed: expect.arrayContaining(["selection"]),
+    });
+  });
+
+  it("does not send PUBLIC selection settings when changing to PRIVATE", () => {
+    const openBase = stateFromDetail(
+      detail({
+        votingType: "PUBLIC",
+        openSelectionMode: "MULTIPLE",
+        openSelectionLimit: null,
+        offices: [],
+        options: [{ id: ID(40), label: "Yes", position: 1 }],
+      }),
+      LOCAL,
+    );
+    const current = {
+      ...openBase,
+      votingType: "PRIVATE" as const,
+      openSelectionMode: "SINGLE" as const,
+      openSelectionLimit: 1,
+      options: [],
+    };
+    expect(buildPatch(openBase, current, KOLKATA)).toMatchObject({
+      patch: { votingType: "PRIVATE" },
+    });
+    expect(buildPatch(openBase, current, KOLKATA)).not.toMatchObject({
+      patch: expect.objectContaining({
+        openSelectionMode: expect.anything(),
+      }),
     });
   });
 
@@ -163,7 +214,7 @@ describe("buildPatch", () => {
   it("sends the type and leaves the removed shape to the server", () => {
     const current = {
       ...base(),
-      votingType: "OPEN" as const,
+      votingType: "PUBLIC" as const,
       offices: [],
       options: [
         { key: "new-1", label: "Yes" },
@@ -173,7 +224,7 @@ describe("buildPatch", () => {
     expect(buildPatch(base(), current, KOLKATA)).toEqual({
       ok: true,
       patch: {
-        votingType: "OPEN",
+        votingType: "PUBLIC",
         options: [
           { label: "Yes", position: 1 },
           { label: "No", position: 2 },
@@ -182,9 +233,9 @@ describe("buildPatch", () => {
       changed: ["type", "ballot"],
     });
 
-    const bare = { ...base(), votingType: "OPEN" as const, offices: [] };
+    const bare = { ...base(), votingType: "PUBLIC" as const, offices: [] };
     expect(buildPatch(base(), bare, KOLKATA)).toMatchObject({
-      patch: { votingType: "OPEN" },
+      patch: { votingType: "PUBLIC" },
       changed: ["type"],
     });
   });
@@ -307,12 +358,12 @@ describe("mergeOnto (stale-edit recovery)", () => {
     mine.offices[0]?.candidates.push({ key: "new-1", name: "Meera" });
     const latest = detail({
       draftRevision: 4,
-      votingType: "OPEN",
+      votingType: "PUBLIC",
       offices: [],
       options: [{ id: ID(40), label: "Yes", position: 1 }],
     });
     const merged = mergeOnto(oldBase, mine, latest, LOCAL);
-    expect(merged.state.votingType).toBe("OPEN");
+    expect(merged.state.votingType).toBe("PUBLIC");
     expect(merged.state.offices).toEqual([]);
     expect(merged.notes.join(" ")).toContain("were not kept");
   });

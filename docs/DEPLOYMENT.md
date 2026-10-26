@@ -120,7 +120,7 @@ embedded images, print layout and **Back to Civic Pulse** on the deployed host.
 
 ## 4. Production database and migrations
 
-There are **12 immutable migrations**, from `20261024100000_core_schema.sql` through `20261024160000_retention_maintenance.sql`. See [supabase/README.md](../supabase/README.md) and [DATABASE.md](./DATABASE.md). The app never migrates at startup or during the Vercel build.
+There are **13 immutable migrations**, from `20261024100000_core_schema.sql` through `20261026100000_open_poll_live_results_and_changes.sql`. See [supabase/README.md](../supabase/README.md) and [DATABASE.md](./DATABASE.md). The app never migrates at startup or during the Vercel build.
 
 Before any write:
 

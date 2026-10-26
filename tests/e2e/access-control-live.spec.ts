@@ -222,7 +222,7 @@ test.describe("unauthenticated callers", () => {
       await page.waitForLoadState("networkidle");
       const text = await page.locator("body").innerText();
       expect(text, path).not.toMatch(
-        /Manage votes|Audit history|Household register/u,
+        /Manage Votes|Audit History|Households? Register/u,
       );
     }
   });
@@ -277,10 +277,10 @@ test.describe("an enabled resident (not an administrator)", () => {
     }
     // And the navigation never offers them.
     await page.goto("/");
-    await expect(page.getByRole("link", { name: "Audit history" })).toHaveCount(
+    await expect(page.getByRole("link", { name: "Audit History" })).toHaveCount(
       0,
     );
-    await expect(page.getByRole("link", { name: "Manage votes" })).toHaveCount(
+    await expect(page.getByRole("link", { name: "Manage Votes" })).toHaveCount(
       0,
     );
   });

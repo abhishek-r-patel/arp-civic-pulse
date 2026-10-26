@@ -53,6 +53,37 @@
     sans-serif;
 }
 
+/*
+ * RWA accent palettes (selected in RWA Settings). Only the accent changes, and
+ * every preset keeps at least 4.5:1 contrast on the surface and background
+ * (tests/unit/rwa-profile.test.ts enforces this). TEAL matches the :root
+ * default and exists so a swatch can request it explicitly.
+ * The derived strong shade is restated because it resolves where it is declared.
+ */
+[data-palette="TEAL"] {
+  --color-accent: #0f766e;
+  --color-accent-strong: color-mix(in oklab, var(--color-accent) 80%, black);
+}
+[data-palette="BLUE"] {
+  --color-accent: #1d4ed8;
+  --color-accent-strong: color-mix(in oklab, var(--color-accent) 80%, black);
+}
+
+[data-palette="FOREST"] {
+  --color-accent: #166534;
+  --color-accent-strong: color-mix(in oklab, var(--color-accent) 80%, black);
+}
+
+[data-palette="PLUM"] {
+  --color-accent: #6b21a8;
+  --color-accent-strong: color-mix(in oklab, var(--color-accent) 80%, black);
+}
+
+[data-palette="SLATE"] {
+  --color-accent: #334155;
+  --color-accent-strong: color-mix(in oklab, var(--color-accent) 80%, black);
+}
+
 /* Minimum interactive target is 48 x 48 CSS pixels. */
 @utility touch-target {
   min-height: 3rem;

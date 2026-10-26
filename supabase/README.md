@@ -21,8 +21,18 @@ at start-up, and never uses the migration credentials.
 | `20261024130000_activation_lifecycle`     | Activation freeze, early completion/cancellation, due completion, `cp_scheduler` role and the Cron job        |
 | `20261024130100_deferred_trigger_definer` | Deferred invariant triggers made `SECURITY DEFINER` (PostgreSQL 17/18 behave differently otherwise)           |
 | `20261024140000_cast_vote`                | `cast_vote` and `get_my_participation`; fixes the activation guard and preview blockers that looked at other votes |
-| `20261024150000_member_votes_results`      | Member vote list/detail, completion-gated `get_vote_results`, admin participation monitor, audit history          |
+| `20261024150000_member_votes_results`      | Member vote list/detail, authorized `get_vote_results`, admin participation monitor, audit history                 |
 | `20261024160000_retention_maintenance`     | Retention execution (`run_maintenance`, Cron daily), operational status and health ping, retention guard exceptions |
+| `20261026100000_open_poll_live_results_and_changes` | Active PUBLIC aggregates and guarded PUBLIC response replacement; PRIVATE finality unchanged |
+| `20261027100000_open_multi_select` | Configurable PUBLIC single/multi-select, normalized option responses and household-grouped completed results |
+| `20261028100000_nota_closed_elections` | Uses NOTA for PRIVATE null-candidate tallies and exposes the NOTA count in result projections |
+| `20261029100000_live_closed_turnout` | Exposes aggregate turnout during active PRIVATE elections without candidate/NOTA totals; household participation remains admin-only |
+| `20261030100000_configurable_identifier_label` | RWA identifier display label, enabled-member read RPC and audited admin update RPC |
+| `20261031100000_rwa_profile_settings` | RWA identity/contact columns, audited admin profile RPCs and default values |
+| `20261101100000_rwa_branding_and_public_identity` | Accent palette and welcome message, member branding projection, service-role-only public identity routine; replaces the alias-only read |
+| `20261102100000_optional_rwa_contact_fields` | Makes RWA address, email and phone optional (empty text allowed and hidden); full name, alias and identifier label stay required |
+| `20261103100000_public_private_voting` | Renames voting types `OPEN`/`CLOSED` to `PUBLIC`/`PRIVATE` in data, checks and routines; internal names, error codes and audit history unchanged |
+| `20261103110000_household_label_and_identifier_kind` | Replaces the identifier label with a household label and a Number/ID identifier kind (backfilled), drops the old label RPCs, and returns the new values from the profile, branding and public identity routines |
 
 All objects are owned by `cp_owner` (non-login, no superuser, no BYPASSRLS, no access to the Supabase `auth`
 schema). `anon` and `authenticated` hold no write privileges; `service_role` can only execute the three

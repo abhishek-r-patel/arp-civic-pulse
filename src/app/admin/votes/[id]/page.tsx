@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { DraftEditor } from "@/components/admin/vote-forms";
 import { LifecycleActions } from "@/components/admin/lifecycle-actions";
-import { FLASH_NOTICES, firstValues } from "@/components/admin/format";
+import { flashNotices, firstValues } from "@/components/admin/format";
 import { PageHeader } from "@/components/ui/layout";
 import { LinkButton } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
@@ -36,6 +36,7 @@ export default async function VotePage({
   }
   const deps = await adminPageContext();
   const raw = firstValues(await searchParams);
+  const notices = flashNotices(deps.terms);
 
   let vote;
   try {
@@ -83,7 +84,7 @@ export default async function VotePage({
         householdsError || households === null ? (
           <Notice
             tone="error"
-            heading="The household register could not be loaded"
+            heading={`The ${deps.terms.households} register could not be loaded`}
           >
             Try again in a moment. If this keeps happening, quote this reference
             to support: {householdsError?.code ?? "UNKNOWN"}.
@@ -91,15 +92,16 @@ export default async function VotePage({
         ) : (
           <DraftEditor
             csrfToken={deps.csrfToken}
+            identifierLabel={deps.identifierLabel}
             initial={vote}
             households={households}
-            flash={raw.notice ? FLASH_NOTICES[raw.notice] : undefined}
+            flash={raw.notice ? notices[raw.notice] : undefined}
           />
         )
       ) : (
         <>
-          {raw.notice && FLASH_NOTICES[raw.notice] ? (
-            <Notice tone="success" heading={FLASH_NOTICES[raw.notice]}>
+          {raw.notice && notices[raw.notice] ? (
+            <Notice tone="success" heading={notices[raw.notice]}>
               <p>The change is recorded in the audit history.</p>
             </Notice>
           ) : null}
@@ -120,7 +122,7 @@ export default async function VotePage({
                   href={`/votes/${vote.id}/results`}
                   variant="secondary"
                 >
-                  Results and download
+                  Results and Download
                 </LinkButton>
               ) : null}
             </div>
@@ -136,7 +138,7 @@ export default async function VotePage({
               This is the ballot as it was activated. It can no longer be
               edited.
             </p>
-            <BallotPreview vote={vote} />
+            <BallotPreview vote={vote} terms={deps.terms} />
           </section>
         </>
       )}

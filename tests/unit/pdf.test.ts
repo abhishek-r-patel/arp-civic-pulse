@@ -21,7 +21,9 @@ const baseVote = (
   overrides: Partial<RawResults["vote"]> = {},
 ): RawResults["vote"] => ({
   id: ID(1),
-  votingType: "OPEN",
+  votingType: "PUBLIC",
+  openSelectionMode: "SINGLE",
+  openSelectionLimit: 1,
   status: "COMPLETED",
   title: "Repaint the clubhouse?",
   instructions: null,
@@ -54,8 +56,7 @@ function openRaw(
     namedResponses: Array.from({ length: count }, (_, i) => ({
       representativeName: name(i),
       householdIdentifier: `H-${String(i).padStart(4, "0")}`,
-      optionId: ID(i % 2 === 0 ? 10 : 11),
-      optionLabel: i % 2 === 0 ? "Yes, repaint" : "No",
+      optionLabels: [i % 2 === 0 ? "Yes, repaint" : "No"],
       cursor: { key: "k", householdId: ID(9) },
     })),
     namedPage: { hasMore: false },
@@ -65,7 +66,7 @@ function openRaw(
 function closedRaw(): RawResults {
   return {
     vote: baseVote({
-      votingType: "CLOSED",
+      votingType: "PRIVATE",
       instructions: "Choose one per office.",
     }),
     eligibleCount: "4",
@@ -76,7 +77,7 @@ function closedRaw(): RawResults {
         id: ID(20),
         name: "Chair",
         position: 1,
-        abstentionCount: "1",
+        notaCount: "1",
         candidates: [
           { id: ID(21), name: "Asha", position: 1, count: "1" },
           { id: ID(22), name: "Ravi", position: 2, count: "1" },
@@ -86,7 +87,7 @@ function closedRaw(): RawResults {
         id: ID(30),
         name: "Treasurer",
         position: 2,
-        abstentionCount: "3",
+        notaCount: "3",
         candidates: [{ id: ID(31), name: "Meera", position: 1, count: "0" }],
       },
     ],
@@ -170,11 +171,10 @@ describe("renderResultsPdf", () => {
       "Lakeview RWA",
       "Mon 20 Apr 2026, 10:30 AM IST",
       "Fri 1 May 2026, 5:30 PM IST",
-      "3 of 8 eligible households",
-      "(37.50%)",
+      "Households that voted 3/8 38%",
       "Leading option: Yes, repaint",
-      "66.67%",
-      "33.33%",
+      "Yes, repaint (Leading) 2/8 25%",
+      "No 1/8 13%",
       "Alice Rao",
       "H-0001",
       "Page 1 of 1",
@@ -207,7 +207,7 @@ describe("renderResultsPdf", () => {
     }
     // Header repeats on every continuation page.
     const withHeader = read.pages.filter((p) =>
-      squash(p).includes("RepresentativeHouseholdChoice"),
+      squash(p).includes("RepresentativeHouseholdNumberChoice"),
     );
     expect(withHeader.length).toBeGreaterThanOrEqual(read.pages.length - 1);
     // Page X of N on every page, N correct.
@@ -251,7 +251,7 @@ describe("renderResultsPdf", () => {
     expect(pdf.includes(Buffer.from("Inter"))).toBe(true);
   });
 
-  it("carries only aggregates for a CLOSED vote, with the instructions and no identity", async () => {
+  it("carries only aggregates for a PRIVATE vote, with the instructions and no identity", async () => {
     const results = projectResults(closedRaw());
     const pdf = await renderResultsPdf(results, generated);
     await keep("closed.pdf", pdf);
@@ -259,12 +259,14 @@ describe("renderResultsPdf", () => {
     for (const expected of [
       "Chair",
       "Treasurer",
-      "Abstained",
+      "NOTA (None of the Above)",
       "Tie. These candidates received the same highest count: Asha; Ravi",
       "No winner: no candidate received a vote.",
       "Choose one per office.",
-      "33.33%",
-      "100.00%",
+      "Asha (Tied) 1/4 25%",
+      "Ravi (Tied) 1/4 25%",
+      "Meera 0/4 0%",
+      "NOTA (None of the Above) 3/4 75%",
       "Your selections are not shown to residents or RWA admins",
     ]) {
       expect(text, expected).toContain(squash(expected));
@@ -295,8 +297,10 @@ describe("renderResultsPdf", () => {
       (await readPdf(await renderResultsPdf(projectResults(raw), generated)))
         .text,
     );
-    expect(text).toContain(squash("0 of 0 eligible households"));
-    expect(text).toContain(squash("(no households were eligible)"));
+    expect(text).toContain(
+      squash("No households were eligible for this vote."),
+    );
+    expect(text).toContain(squash("Yes, repaint 0/0 —"));
     expect(text).toContain(
       squash("No votes were submitted, so no option leads."),
     );

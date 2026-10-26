@@ -165,7 +165,7 @@ A restore is always into an **isolated** database first.
 | Situation                                                | Who                                | What                                                                                                                                                                                                  |
 | -------------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Results show "temporarily unavailable pending a review"  | The technical contact              | `INVARIANT_FAILURE`. Do **not** edit counters or responses. Preserve a backup first, then investigate from the audit history and a restore of the last good backup. Decide with the committee whether to cancel the vote. |
-| Suspected leak of a backup file or key                   | The technical contact + committee  | Rotate `BACKUP_ENCRYPTION_KEY`, take a new backup, delete the old sets, and treat the contents (names, household identifiers, OPEN choices) as disclosed.                                              |
+| Suspected leak of a backup file or key                   | The technical contact + committee  | Rotate `BACKUP_ENCRYPTION_KEY`, take a new backup, delete the old sets, and treat the contents (names, household identifiers, PUBLIC choices) as disclosed.                                              |
 | Database or hosting outage                               | The technical contact              | Set `MAINTENANCE_MODE=1` if the app is misbehaving; otherwise leave it. Deadlines keep passing and are **never extended**; the database clock decides who got in. Tell residents what happened.       |
 | Lost or wrong ballots after a restore                    | The committee                      | Section 5 step 3: cancel and replace. Never discard votes silently, extend a deadline, or reopen a finished vote.                                                                                     |
 | Member loses access mid-vote                             | An administrator                   | Suspend/enable the account in **Accounts**; it takes effect on the next request even with a valid session.                                                                                            |
@@ -176,7 +176,7 @@ The technical contact, the committee decision-maker and the escalation route are
 
 A vote cannot be reopened, edited or extended. If a vote must be redone (wrong electorate, wrong ballot, lost data):
 
-1. **Manage votes → the vote → Cancel vote**, with a written reason. Residents see "Cancelled; results not valid." and no results or download is possible.
+1. **Manage Votes → the vote → Cancel Vote**, with a written reason. Residents see "Cancelled; results not valid." and no results or download is possible.
 2. Create a new draft with the corrected ballot and electorate, preview it, activate it with a new deadline, and tell residents. The cancelled vote's data is removed by retention at the normal time.
 
 ## 8. Releases and migrations

@@ -7,8 +7,26 @@ import { NavLink } from "./nav-link";
 import { Breadcrumbs } from "./breadcrumbs";
 import { PublicAnalytics } from "./public-analytics";
 import { getEnvironment } from "@/server/config/environment";
+import { log } from "@/server/observability/logger";
+import {
+  loadCurrentBranding,
+  loadHouseholdTerms,
+  loadPublicRwaIdentity,
+} from "@/server/settings/rwa-profile";
+import { HouseholdTermsProvider } from "./household-terms";
+import { RwaContactBlock } from "./rwa-branding";
 
 export const MAIN_CONTENT_ID = "main-content";
+
+// Branding must never take the shell down: fall back to the product name.
+async function shellBranding() {
+  try {
+    return await loadCurrentBranding();
+  } catch {
+    log("warn", "settings.branding_unavailable", {});
+    return null;
+  }
+}
 
 // One shell is shared by member and administrator routes. Navigation depends
 // on the verified, current profile; unauthenticated screens show no navigation
@@ -20,96 +38,117 @@ export async function AppShell({
   const csrfToken =
     session.state === "anonymous" ? undefined : await getCsrfToken();
   const account = session.state === "account" ? session.account : null;
+  const branding = account ? await shellBranding() : null;
+  const publicIdentity = account ? null : await loadPublicRwaIdentity();
+  const rwaAlias = branding?.alias ?? publicIdentity?.alias ?? null;
+  const headerTitle = rwaAlias ? `Civic Pulse for ${rwaAlias}` : "Civic Pulse";
+  const palette = (branding ?? publicIdentity)?.accentPalette;
+  const terms = await loadHouseholdTerms();
 
   return (
-    <>
-      <a
-        href={`#${MAIN_CONTENT_ID}`}
-        className="sr-only touch-target rounded-control bg-surface px-4 py-3 font-semibold text-primary focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50"
-      >
-        Skip to main content
-      </a>
-      <header className="border-b border-border bg-surface">
-        <div className="mx-auto flex w-full max-w-content flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-2 md:px-6">
-          <a
-            href={account ? "/" : "/sign-in"}
-            className="inline-flex touch-target items-center text-card-heading font-bold text-primary"
-          >
-            Civic Pulse
-          </a>
-
-          {account ? (
-            <>
-              <nav
-                aria-label="Main"
-                className="order-3 flex w-full flex-wrap gap-1 md:order-none md:w-auto"
+    <HouseholdTermsProvider terms={terms}>
+      <div data-palette={palette}>
+        <a
+          href={`#${MAIN_CONTENT_ID}`}
+          className="sr-only touch-target rounded-control bg-surface px-4 py-3 font-semibold text-primary focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50"
+        >
+          Skip to main content
+        </a>
+        <header className="border-b border-border bg-surface">
+          {/* Row one: title and signed-in identity. Row two: tabs on the left
+              and Sign Out on the right, so the button stays beside the tabs
+              at every width instead of wrapping onto its own line. */}
+          <div className="mx-auto grid w-full max-w-content gap-1 px-4 py-2 md:px-6">
+            <div className="flex flex-wrap items-center justify-between gap-x-6">
+              <a
+                href={account ? "/" : "/sign-in"}
+                className="inline-flex touch-target items-center text-card-heading font-bold text-primary"
               >
-                <NavLink href="/">Votes</NavLink>
-                {account.isAdmin ? (
-                  <>
-                    <NavLink href="/admin/households">Households</NavLink>
-                    <NavLink href="/admin/accounts">Accounts</NavLink>
-                    <NavLink href="/admin/votes">Manage votes</NavLink>
-                    <NavLink href="/admin/audit">Audit history</NavLink>
-                  </>
-                ) : null}
-              </nav>
-              <div className="flex items-center gap-3">
+                {headerTitle}
+              </a>
+              {account ? (
                 <p className="hidden text-caption text-muted sm:block">
                   {account.representativeName}
                   {account.isAdmin ? " · Administrator" : ""}
                 </p>
-                <SignOutButton csrfToken={csrfToken} />
+              ) : null}
+            </div>
+
+            {account ? (
+              <div className="flex items-start justify-between gap-3">
+                <nav
+                  aria-label="Main"
+                  className="flex min-w-0 flex-1 flex-wrap gap-1"
+                >
+                  <NavLink href="/">Votes</NavLink>
+                  {account.isAdmin ? (
+                    <>
+                      <NavLink href="/admin/households">
+                        {terms.Households}
+                      </NavLink>
+                      <NavLink href="/admin/settings">RWA Settings</NavLink>
+                      <NavLink href="/admin/accounts">Accounts</NavLink>
+                      <NavLink href="/admin/votes">Manage Votes</NavLink>
+                      <NavLink href="/admin/audit">Audit History</NavLink>
+                    </>
+                  ) : null}
+                </nav>
+                <div className="shrink-0">
+                  <SignOutButton csrfToken={csrfToken} />
+                </div>
               </div>
-            </>
-          ) : null}
-        </div>
-      </header>
-      <main
-        id={MAIN_CONTENT_ID}
-        tabIndex={-1}
-        className="mx-auto w-full max-w-content px-4 py-8 focus:outline-none md:px-6 md:py-12"
-      >
-        <Breadcrumbs />
-        {children}
-      </main>
-      <footer className="border-t border-border px-4 py-6 md:px-6">
-        <div className="mx-auto flex max-w-content flex-col gap-x-8 gap-y-3 md:flex-row md:items-center">
-          <nav
-            aria-label="Information"
-            className="flex flex-wrap gap-x-6 gap-y-2 text-caption"
-          >
-            <a
-              href="/sign-in"
-              className="inline-flex min-h-12 items-center text-accent underline"
+            ) : null}
+          </div>{" "}
+        </header>
+        <main
+          id={MAIN_CONTENT_ID}
+          tabIndex={-1}
+          className="mx-auto w-full max-w-content px-4 py-8 focus:outline-none md:px-6 md:py-12"
+        >
+          <Breadcrumbs homeLabel={branding?.alias ?? "Civic Pulse"} />
+          {children}
+        </main>
+        <footer className="border-t border-border px-4 py-6 md:px-6">
+          {branding ? <RwaContactBlock branding={branding} /> : null}
+          <div className="mx-auto flex max-w-content flex-col gap-x-8 gap-y-3 md:flex-row md:items-center">
+            <nav
+              aria-label="Information"
+              className="flex flex-wrap gap-x-6 gap-y-2 text-caption"
             >
-              Sign In
-            </a>
-            <a
-              href="/user-guide.html"
-              className="inline-flex min-h-12 items-center text-accent underline"
-            >
-              User Guide
-            </a>
-            <a
-              href="/privacy"
-              className="inline-flex min-h-12 items-center text-accent underline"
-            >
-              Privacy Policy
-            </a>
-            <a
-              href="/contact"
-              className="inline-flex min-h-12 items-center text-accent underline"
-            >
-              Contact
-            </a>
-          </nav>
-          <p className="max-w-full text-center text-caption text-muted md:ml-auto md:shrink-0 md:text-right">
-            Civic Pulse By Abhishek Patel
-          </p>
-        </div>
-        <PublicAnalytics measurementId={getEnvironment().GOOGLE_ANALYTICS_ID} />
-      </footer>
-    </>
+              <a
+                href="/sign-in"
+                className="inline-flex min-h-12 items-center text-accent underline"
+              >
+                Sign In
+              </a>
+              <a
+                href="/user-guide.html"
+                className="inline-flex min-h-12 items-center text-accent underline"
+              >
+                User Guide
+              </a>
+              <a
+                href="/privacy"
+                className="inline-flex min-h-12 items-center text-accent underline"
+              >
+                Privacy Policy
+              </a>
+              <a
+                href="/contact"
+                className="inline-flex min-h-12 items-center text-accent underline"
+              >
+                Contact
+              </a>
+            </nav>
+            <p className="max-w-full text-center text-caption text-muted md:ml-auto md:shrink-0 md:text-right">
+              Civic Pulse By Abhishek Patel
+            </p>
+          </div>
+          <PublicAnalytics
+            measurementId={getEnvironment().GOOGLE_ANALYTICS_ID}
+          />
+        </footer>
+      </div>
+    </HouseholdTermsProvider>
   );
 }

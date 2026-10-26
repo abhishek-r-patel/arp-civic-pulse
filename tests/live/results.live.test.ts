@@ -103,7 +103,7 @@ describe.skipIf(!hasLive || !hasSql)("live: results and monitoring", () => {
   });
 
   async function activeOpen(): Promise<AdminVoteDetail> {
-    const draft = await createDraft(adminDeps, "OPEN");
+    const draft = await createDraft(adminDeps, "PUBLIC");
     const ready = await updateDraft(adminDeps, draft.id, {
       expectedRevision: 1,
       title: "Live results vote",
@@ -118,7 +118,7 @@ describe.skipIf(!hasLive || !hasSql)("live: results and monitoring", () => {
   }
 
   async function activeClosed(): Promise<AdminVoteDetail> {
-    const draft = await createDraft(adminDeps, "CLOSED");
+    const draft = await createDraft(adminDeps, "PRIVATE");
     const ready = await updateDraft(adminDeps, draft.id, {
       expectedRevision: 1,
       title: "Live results election",
@@ -139,15 +139,47 @@ describe.skipIf(!hasLive || !hasSql)("live: results and monitoring", () => {
     return activateVote(adminDeps, ready.id, ready.draftRevision);
   }
 
-  it("withholds results from everyone until the vote is completed", async () => {
+  it("shows live PUBLIC aggregates without identities and keeps exports gated", async () => {
     const vote = await activeOpen();
     await submitBallot(aliceDeps, vote.id, {
       confirmed: true,
       optionId: vote.options[0]?.id ?? "",
     });
     for (const deps of [aliceDeps, bobDeps, adminDeps]) {
-      const error = await apiError(getResults(deps, vote.id, { limit: 25 }));
-      expect(error.code).toBe("RESULTS_UNAVAILABLE");
+      const { data } = await getResults(deps, vote.id, { limit: 25 });
+      expect(data.vote.status).toBe("ACTIVE");
+      expect(data.submittedCount).toBe("1");
+      if (data.votingType !== "PUBLIC") {
+        throw new Error("Active results must be a PUBLIC poll.");
+      }
+      expect(data.namedResponses).toEqual([]);
+    }
+    const exportError = await apiError(
+      exportResults(aliceDeps, vote.id, "csv", "req"),
+    );
+    expect(exportError.code).toBe("RESULTS_UNAVAILABLE");
+  });
+
+  it("shows active PRIVATE turnout only and keeps exports gated", async () => {
+    const vote = await activeClosed();
+    await submitBallot(aliceDeps, vote.id, {
+      confirmed: true,
+      selections: vote.offices.map((office) => ({
+        officeId: office.id,
+        candidateId: office.candidates[0]?.id ?? null,
+      })),
+    });
+    for (const deps of [aliceDeps, bobDeps, adminDeps]) {
+      const { data } = await getResults(deps, vote.id, { limit: 25 });
+      expect(data.vote.status).toBe("ACTIVE");
+      expect(data.votingType).toBe("PRIVATE");
+      expect(data.eligibleCount).toBe("2");
+      expect(data.submittedCount).toBe("1");
+      if (data.votingType !== "PRIVATE") {
+        throw new Error("Active PRIVATE turnout must not contain PUBLIC data.");
+      }
+      expect(data.offices).toEqual([]);
+      expect(JSON.stringify(data)).not.toMatch(/L-|Asha|Ravi|candidate/iu);
     }
     const exportError = await apiError(
       exportResults(aliceDeps, vote.id, "csv", "req"),
@@ -172,15 +204,15 @@ describe.skipIf(!hasLive || !hasSql)("live: results and monitoring", () => {
     const detail = await getMemberVote(aliceDeps, vote.id);
     expect(detail).toMatchObject({
       submitted: true,
-      canSubmit: false,
-      privacyNotice: "OPEN",
+      canSubmit: true,
+      privacyNotice: "PUBLIC",
     });
     expect((await apiError(getMemberVote(outsiderDeps, vote.id))).code).toBe(
       "NOT_FOUND",
     );
   });
 
-  it("publishes exact OPEN results, named responses and a faithful CSV after completion", async () => {
+  it("publishes exact PUBLIC results, named responses and a faithful CSV after completion", async () => {
     const vote = await activeOpen();
     await submitBallot(aliceDeps, vote.id, {
       confirmed: true,
@@ -252,7 +284,7 @@ describe.skipIf(!hasLive || !hasSql)("live: results and monitoring", () => {
     ).toBe("NOT_FOUND");
   });
 
-  it("publishes CLOSED totals with abstentions and no identities", async () => {
+  it("publishes PRIVATE totals with NOTA counts and no identities", async () => {
     const vote = await activeClosed();
     const chair = vote.offices[0];
     await submitBallot(aliceDeps, vote.id, {
@@ -277,7 +309,7 @@ describe.skipIf(!hasLive || !hasSql)("live: results and monitoring", () => {
       "1",
       "0",
     ]);
-    expect(closed.offices[0]?.abstention).toEqual({
+    expect(closed.offices[0]?.nota).toEqual({
       count: "1",
       percent: "50.00",
     });
@@ -288,14 +320,17 @@ describe.skipIf(!hasLive || !hasSql)("live: results and monitoring", () => {
       await exportResults(adminDeps, vote.id, "csv", "req-3")
     ).text();
     expect(csv).not.toContain("NAMED_RESPONSE");
-    expect(csv).toContain("ABSTENTION");
+    expect(csv).toContain("NOTA");
   });
 
   it("lets only administrators see participation and the audit history", async () => {
-    const vote = await activeOpen();
+    const vote = await activeClosed();
     await submitBallot(aliceDeps, vote.id, {
       confirmed: true,
-      optionId: vote.options[0]?.id ?? "",
+      selections: vote.offices.map((office) => ({
+        officeId: office.id,
+        candidateId: office.candidates[0]?.id ?? null,
+      })),
     });
 
     const report = await getParticipationReport(

@@ -6,9 +6,12 @@ import { ArrowLeft, ArrowRight, CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ErrorSummary } from "@/components/ui/error-summary";
 import { Notice } from "@/components/ui/notice";
+import { InfoTip } from "@/components/ui/info-tip";
+import { useHouseholdTerms } from "@/components/ui/household-terms";
+import { NotaExplanation } from "@/components/votes/nota-explanation";
 import {
   FinalSubmissionNotice,
-  PRIVACY_COPY,
+  privacyCopy,
   PrivacyNotice,
 } from "@/components/votes/privacy-notice";
 import type { MemberVoteDetail } from "@/shared/contracts/member-votes";
@@ -18,17 +21,23 @@ import { apiRequest, type ApiFailure } from "@/shared/http/api-client";
  * The resident ballot (docs/DESIGN_SYSTEM.md section 11). Selections live ONLY
  * in this component's memory: never in the URL, storage, cookies or any log,
  * and they are cleared the moment the vote is accepted, refused, or access
- * ends. Choices start unselected, a CLOSED office always offers Abstain, and
+ * ends. Choices start unselected, a PRIVATE office always offers NOTA, and
  * nothing is submitted without a review step. An unclear outcome (network drop,
  * timeout, server fault) is never treated as "not voted": the committed status
  * is checked first, and an unreadable status stays "unknown".
  */
 type BallotVoteProps = Pick<
   MemberVoteDetail,
-  "id" | "votingType" | "title" | "options" | "offices"
+  | "id"
+  | "votingType"
+  | "openSelectionMode"
+  | "openSelectionLimit"
+  | "title"
+  | "options"
+  | "offices"
 >;
 
-const ABSTAIN = "ABSTAIN";
+const NOTA = "NOTA";
 
 type Step =
   | "choose"
@@ -71,12 +80,19 @@ export function BallotForm({
   csrfToken: string | undefined;
   initialSubmitted: boolean;
 }>) {
+  const terms = useHouseholdTerms();
   const [step, setStep] = useState<Step>(
-    initialSubmitted ? "accepted" : "choose",
+    initialSubmitted && vote.votingType === "PRIVATE" ? "accepted" : "choose",
   );
-  const [optionId, setOptionId] = useState<string | null>(null);
+  const [hasSubmitted, setHasSubmitted] = useState(initialSubmitted);
+  const [openChangeUnknown, setOpenChangeUnknown] = useState(false);
+  const [replacementStatus, setReplacementStatus] = useState<
+    ParticipationStatus["status"] | null
+  >(null);
+  const [optionIds, setOptionIds] = useState<string[]>([]);
   const [picks, setPicks] = useState<Record<string, string>>({});
   const [missing, setMissing] = useState<string[]>([]);
+  const [selectionError, setSelectionError] = useState<string | null>(null);
   const [failure, setFailure] = useState<ApiFailure | null>(null);
   const inFlight = useRef(false);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -92,21 +108,24 @@ export function BallotForm({
   }, [step]);
 
   function clearChoices() {
-    setOptionId(null);
+    setOptionIds([]);
     setPicks({});
     setMissing([]);
+    setSelectionError(null);
   }
 
   function finish(next: Step) {
     clearChoices();
     setFailure(null);
+    setOpenChangeUnknown(false);
+    setReplacementStatus(null);
     setStep(next);
   }
 
   // Choices are read from the form itself, so a radio ticked before the page finished
   // loading (slow phone) still counts: it is in the DOM even if not yet in React state.
   function goToReview(form: FormData) {
-    const chosenOption = String(form.get("option") ?? "");
+    const chosenOptions = form.getAll("option").map(String);
     const chosen: Record<string, string> = {};
     for (const office of vote.offices) {
       const value = String(form.get(office.id) ?? "");
@@ -114,30 +133,43 @@ export function BallotForm({
         chosen[office.id] = value;
       }
     }
-    setOptionId(chosenOption || null);
+    setOptionIds(chosenOptions);
     setPicks(chosen);
 
+    const choiceError =
+      vote.votingType === "PUBLIC" &&
+      vote.openSelectionLimit !== null &&
+      chosenOptions.length > vote.openSelectionLimit
+        ? `Select no more than ${vote.openSelectionLimit} options.`
+        : null;
+    setSelectionError(choiceError);
     const absent =
-      vote.votingType === "OPEN"
-        ? chosenOption === ""
+      vote.votingType === "PUBLIC"
+        ? chosenOptions.length === 0
           ? ["option"]
           : []
         : vote.offices.filter((office) => !chosen[office.id]).map((o) => o.id);
     setMissing(absent);
-    if (absent.length > 0) {
+    if (absent.length > 0 || choiceError !== null) {
       return;
     }
     setFailure(null);
     setStep("review");
   }
 
-  async function checkStatus() {
+  async function checkStatus(forOpenChange = openChangeUnknown) {
     setStep("checking");
     const result = await apiRequest<ParticipationStatus>(
       `/api/votes/${vote.id}/participation`,
     );
     if (result.ok) {
+      if (forOpenChange) {
+        setHasSubmitted(true);
+        setReplacementStatus(result.data.status);
+        return setStep("unknown");
+      }
       if (result.data.submitted) {
+        setHasSubmitted(true);
         return finish("accepted");
       }
       return result.data.status === "ACTIVE"
@@ -145,6 +177,10 @@ export function BallotForm({
         : finish("closed");
     }
     if (ACCESS_ENDED.has(result.code)) {
+      if (forOpenChange) {
+        setFailure(result);
+        return setStep("unknown");
+      }
       return finish("access");
     }
     // The status cannot be read, so it stays unknown: no retry is offered.
@@ -158,20 +194,21 @@ export function BallotForm({
       return;
     }
     inFlight.current = true;
+    const replacingOpenResponse = vote.votingType === "PUBLIC" && hasSubmitted;
     setFailure(null);
     setStep("submitting");
 
     const body =
-      vote.votingType === "OPEN"
-        ? { confirmed: true, optionId }
+      vote.votingType === "PUBLIC"
+        ? vote.openSelectionMode === "MULTIPLE"
+          ? { confirmed: true, optionIds }
+          : { confirmed: true, optionId: optionIds[0] ?? "" }
         : {
             confirmed: true,
             selections: vote.offices.map((office) => ({
               officeId: office.id,
               candidateId:
-                picks[office.id] === ABSTAIN
-                  ? null
-                  : (picks[office.id] ?? null),
+                picks[office.id] === NOTA ? null : (picks[office.id] ?? null),
             })),
           };
 
@@ -182,18 +219,33 @@ export function BallotForm({
       );
 
       if (result.ok || result.code === "ALREADY_SUBMITTED") {
+        setHasSubmitted(true);
         return finish("accepted");
       }
       if (result.code === "VOTING_CLOSED") {
+        if (openChangeUnknown) {
+          return await checkStatus(true);
+        }
         return finish("closed");
       }
       if (ACCESS_ENDED.has(result.code)) {
+        if (openChangeUnknown) {
+          setFailure(result);
+          return setStep("unknown");
+        }
         return finish("access");
       }
       if (UNCERTAIN.has(result.code)) {
-        return await checkStatus();
+        if (replacingOpenResponse) {
+          setOpenChangeUnknown(true);
+        }
+        return await checkStatus(replacingOpenResponse || openChangeUnknown);
       }
       // Validation, CSRF and rate-limit answers are definite: nothing was recorded.
+      if (openChangeUnknown) {
+        setFailure(result);
+        return setStep("unknown");
+      }
       setFailure(result);
       setStep(result.code === "VALIDATION_FAILED" ? "choose" : "review");
     } finally {
@@ -207,15 +259,60 @@ export function BallotForm({
     return (
       <section aria-labelledby="ballot-state" className="grid gap-4">
         <h2 id="ballot-state" ref={heading} tabIndex={-1} className={heading_}>
-          Vote submitted.
+          {vote.votingType === "PUBLIC"
+            ? "Your vote is recorded."
+            : "Vote submitted."}
         </h2>
-        <Notice tone="success" heading="Your household has voted">
-          <p>{PRIVACY_COPY.FINAL}</p>
+        <Notice
+          tone="success"
+          heading={
+            vote.votingType === "PUBLIC"
+              ? `Your ${terms.household}'s current choice is recorded`
+              : `Your ${terms.household} has voted`
+          }
+        >
+          <p>
+            {vote.votingType === "PUBLIC"
+              ? "You can change your selection while this poll remains open."
+              : privacyCopy(terms).FINAL}
+          </p>
         </Notice>
         <div>
-          <BackToVotes />
+          {vote.votingType === "PUBLIC" ? (
+            <Button onClick={() => setStep("choose")}>Change Your Vote</Button>
+          ) : (
+            <BackToVotes />
+          )}
         </div>
       </section>
+    );
+  }
+
+  function CheckChoice({
+    name,
+    value,
+    label,
+    checked,
+    onSelect,
+  }: Readonly<{
+    name: string;
+    value: string;
+    label: string;
+    checked: boolean;
+    onSelect: (checked: boolean) => void;
+  }>) {
+    return (
+      <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-control border border-border bg-surface px-3 py-2 has-[:checked]:border-accent has-[:checked]:bg-accent/5">
+        <input
+          type="checkbox"
+          name={name}
+          value={value}
+          checked={checked}
+          onChange={(event) => onSelect(event.target.checked)}
+          className="size-5 shrink-0"
+        />
+        <span className="text-body text-primary">{label}</span>
+      </label>
     );
   }
 
@@ -225,10 +322,18 @@ export function BallotForm({
         <h2 id="ballot-state" ref={heading} tabIndex={-1} className={heading_}>
           Voting is closed
         </h2>
-        <Notice tone="warning" heading="Your response was not recorded">
+        <Notice
+          tone="warning"
+          heading={
+            hasSubmitted && vote.votingType === "PUBLIC"
+              ? "No further changes can be made"
+              : "Your response was not recorded"
+          }
+        >
           <p>
-            The vote ended before your submission was accepted, so it was not
-            recorded. Nothing you selected has been kept.
+            {hasSubmitted && vote.votingType === "PUBLIC"
+              ? "The poll closed before this change was accepted. Your previously recorded choice remains in effect."
+              : "The vote ended before your submission was accepted, so it was not recorded. Nothing you selected has been kept."}
           </p>
         </Notice>
         <div>
@@ -246,9 +351,11 @@ export function BallotForm({
         </h2>
         <Notice tone="error" heading="Your access has ended">
           <p>
-            Your session has ended or your access to this vote was removed.
-            Nothing you selected has been kept. Sign in again, or contact the
-            RWA administrator if you think this is a mistake.
+            {hasSubmitted && vote.votingType === "PUBLIC"
+              ? "Your session has ended or your access to this vote was removed. Your previously recorded choice remains in effect; this change was not accepted."
+              : "Your session has ended or your access to this vote was removed. Nothing you selected has been kept."}{" "}
+            Sign in again, or contact the RWA administrator if you think this is
+            a mistake.
           </p>
         </Notice>
         <div>
@@ -280,6 +387,54 @@ export function BallotForm({
   }
 
   if (step === "unknown") {
+    if (openChangeUnknown) {
+      return (
+        <section aria-labelledby="ballot-state" className="grid gap-4">
+          <h2
+            id="ballot-state"
+            ref={heading}
+            tabIndex={-1}
+            className={heading_}
+          >
+            We could not confirm your vote change
+          </h2>
+          <ErrorSummary failure={failure} />
+          <Notice
+            tone="warning"
+            heading="Your participation remains recorded, but the current choice is uncertain"
+          >
+            <p>
+              The new choice may or may not have become current. The app does
+              not reveal which choice is current while voting is open. If this
+              poll is still open, you can safely send the same choice again; the
+              server will reject it after the poll closes.
+            </p>
+          </Notice>
+          {replacementStatus === "COMPLETED" ? (
+            <Link
+              href={`/votes/${vote.id}/results`}
+              className="inline-flex touch-target items-center font-semibold text-accent underline underline-offset-2"
+            >
+              View final results
+            </Link>
+          ) : replacementStatus === "CANCELLED" ? (
+            <BackToVotes />
+          ) : (
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button onClick={() => void submit()}>
+                Try This Choice Again
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => void checkStatus(true)}
+              >
+                Check Poll Status
+              </Button>
+            </div>
+          )}
+        </section>
+      );
+    }
     return (
       <section aria-labelledby="ballot-state" className="grid gap-4">
         <h2 id="ballot-state" ref={heading} tabIndex={-1} className={heading_}>
@@ -296,7 +451,7 @@ export function BallotForm({
           </p>
         </Notice>
         <div>
-          <Button onClick={() => void checkStatus()}>Check again</Button>
+          <Button onClick={() => void checkStatus()}>Check Again</Button>
         </div>
       </section>
     );
@@ -317,10 +472,10 @@ export function BallotForm({
         </Notice>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button onClick={() => setStep("review")}>
-            Review and try again
+            Review and Try Again
           </Button>
           <Button variant="secondary" onClick={() => void checkStatus()}>
-            Check again
+            Check Again
           </Button>
         </div>
       </section>
@@ -336,13 +491,19 @@ export function BallotForm({
         </h2>
         <ErrorSummary failure={failure} />
         <dl className="grid max-w-ballot gap-3 rounded-card border border-border bg-surface p-4">
-          {vote.votingType === "OPEN" ? (
+          {vote.votingType === "PUBLIC" ? (
             <div className="grid gap-0.5">
               <dt className="text-caption font-semibold text-muted">
                 {vote.title}
               </dt>
               <dd className="text-body font-semibold">
-                {vote.options.find((o) => o.id === optionId)?.label}
+                {optionIds
+                  .map(
+                    (id) =>
+                      vote.options.find((option) => option.id === id)?.label,
+                  )
+                  .filter((label): label is string => label !== undefined)
+                  .join(", ")}
               </dd>
             </div>
           ) : (
@@ -352,8 +513,8 @@ export function BallotForm({
                   {office.name}
                 </dt>
                 <dd className="text-body font-semibold">
-                  {picks[office.id] === ABSTAIN
-                    ? "Abstain"
+                  {picks[office.id] === NOTA
+                    ? "NOTA (None of the Above)"
                     : office.candidates.find((c) => c.id === picks[office.id])
                         ?.name}
                 </dd>
@@ -361,8 +522,12 @@ export function BallotForm({
             ))
           )}
         </dl>
-        <PrivacyNotice type={vote.votingType} />
-        <FinalSubmissionNotice />
+        <PrivacyNotice
+          terms={terms}
+          type={vote.votingType}
+          openSelectionMode={vote.openSelectionMode}
+        />
+        {vote.votingType === "PRIVATE" ? <FinalSubmissionNotice /> : null}
         <div className="flex flex-col-reverse gap-3 sm:flex-row">
           <Button
             variant="secondary"
@@ -377,7 +542,9 @@ export function BallotForm({
           </Button>
           <Button loading={submitting} onClick={() => void submit()}>
             <CircleCheck aria-hidden="true" className="size-5" />
-            Submit vote
+            {hasSubmitted && vote.votingType === "PUBLIC"
+              ? "Update Vote"
+              : "Submit Vote"}
           </Button>
         </div>
         {submitting ? (
@@ -390,16 +557,38 @@ export function BallotForm({
   }
 
   const problem = (id: string) =>
-    missing.includes(id) ? `${id}-problem` : undefined;
+    missing.includes(id) || (id === "option" && selectionError !== null)
+      ? `${id}-problem`
+      : undefined;
+
+  const stepHeading = (
+    <h2 id="ballot-state" ref={heading} tabIndex={-1} className={heading_}>
+      {vote.votingType === "PUBLIC"
+        ? vote.openSelectionMode === "MULTIPLE"
+          ? "Choose one or more options"
+          : "Choose one option"
+        : "Choose for each office"}
+    </h2>
+  );
 
   return (
     <section aria-labelledby="ballot-state" className="grid gap-6">
-      <h2 id="ballot-state" ref={heading} tabIndex={-1} className={heading_}>
-        {vote.votingType === "OPEN"
-          ? "Choose one option"
-          : "Choose for each office"}
-      </h2>
+      {vote.votingType === "PRIVATE" ? (
+        <InfoTip heading={stepHeading} label="About NOTA">
+          <NotaExplanation />
+        </InfoTip>
+      ) : (
+        stepHeading
+      )}
       <ErrorSummary failure={failure} />
+      {hasSubmitted && vote.votingType === "PUBLIC" ? (
+        <Notice tone="info" heading="Your current vote is recorded">
+          <p>
+            Choose your updated selection and submit it to replace your current
+            response. Only the latest response is counted.
+          </p>
+        </Notice>
+      ) : null}
       {missing.length > 0 ? (
         <div
           role="alert"
@@ -424,7 +613,6 @@ export function BallotForm({
           </ul>
         </div>
       ) : null}
-
       <form
         noValidate
         className="grid gap-6"
@@ -433,25 +621,53 @@ export function BallotForm({
           goToReview(new FormData(event.currentTarget));
         }}
       >
-        {vote.votingType === "OPEN" ? (
+        {vote.votingType === "PUBLIC" ? (
           <Group
             id="option-group"
             legend={vote.title}
             describedBy={problem("option")}
             error={
-              missing.includes("option") ? "Choose one option." : undefined
+              selectionError ??
+              (missing.includes("option")
+                ? vote.openSelectionMode === "MULTIPLE"
+                  ? "Choose at least one option."
+                  : "Choose one option."
+                : undefined)
             }
           >
-            {vote.options.map((option) => (
-              <Radio
-                key={option.id}
-                name="option"
-                value={option.id}
-                label={option.label}
-                checked={optionId === option.id}
-                onSelect={() => setMissing([])}
-              />
-            ))}
+            {vote.options.map((option) =>
+              vote.openSelectionMode === "MULTIPLE" ? (
+                <CheckChoice
+                  key={option.id}
+                  name="option"
+                  value={option.id}
+                  label={option.label}
+                  checked={optionIds.includes(option.id)}
+                  onSelect={(checked) => {
+                    setOptionIds((current) =>
+                      checked
+                        ? [...current, option.id]
+                        : current.filter((id) => id !== option.id),
+                    );
+                    setSelectionError(null);
+                    setMissing([]);
+                  }}
+                />
+              ) : (
+                <Radio
+                  key={option.id}
+                  name="option"
+                  value={option.id}
+                  label={option.label}
+                  checked={optionIds[0] === option.id}
+                  onSelect={() => {
+                    setOptionIds([option.id]);
+                    setSelectionError(null);
+                    setMissing([]);
+                  }}
+                />
+              ),
+            )}
           </Group>
         ) : (
           vote.offices.map((office) => (
@@ -462,7 +678,7 @@ export function BallotForm({
               describedBy={problem(office.id)}
               error={
                 missing.includes(office.id)
-                  ? "Choose a candidate or Abstain."
+                  ? "Choose a candidate or NOTA."
                   : undefined
               }
             >
@@ -482,10 +698,9 @@ export function BallotForm({
               ))}
               <Radio
                 name={office.id}
-                value={ABSTAIN}
-                label="Abstain"
-                muted
-                checked={picks[office.id] === ABSTAIN}
+                value={NOTA}
+                label="NOTA (None of the Above)"
+                checked={picks[office.id] === NOTA}
                 onSelect={() =>
                   setMissing((current) =>
                     current.filter((id) => id !== office.id),
@@ -496,11 +711,15 @@ export function BallotForm({
           ))
         )}
 
-        <PrivacyNotice type={vote.votingType} />
-        <FinalSubmissionNotice />
+        <PrivacyNotice
+          terms={terms}
+          type={vote.votingType}
+          openSelectionMode={vote.openSelectionMode}
+        />
+        {vote.votingType === "PRIVATE" ? <FinalSubmissionNotice /> : null}
         <div>
           <Button type="submit">
-            Review selections
+            Review Selections
             <ArrowRight aria-hidden="true" className="size-5" />
           </Button>
         </div>

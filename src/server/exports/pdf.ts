@@ -3,7 +3,11 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import PDFDocument from "pdfkit";
 import { openSync, type Font } from "fontkit";
-import { PRIVACY_COPY } from "@/components/votes/privacy-notice";
+import { privacyCopy } from "@/components/votes/privacy-notice";
+import {
+  DEFAULT_HOUSEHOLD_TERMS,
+  type HouseholdTerms,
+} from "@/shared/contracts/household-terms";
 import type { VoteResults } from "@/shared/contracts/results";
 import { formatInZone } from "@/shared/time/zoned";
 
@@ -74,6 +78,8 @@ const INK = "#000000";
 const MUTED = "#444444";
 const RULE = "#999999";
 const SHADE = "#e6e6e6";
+const BAR_LEADER = "#1a1a1a";
+const BAR_DEFAULT = "#808080";
 
 interface Run {
   face: FaceId;
@@ -342,6 +348,84 @@ class Writer {
       .restore();
   }
 
+  /**
+   * "Label   count/total  percent" above a horizontal bar, one per row. Leaders
+   * are bold, dark and tagged in text; NOTA ("muted") is hatched because it
+   * cannot win. Bars stay legible in greyscale print.
+   */
+  bars(
+    rows: readonly {
+      label: string;
+      value: string;
+      percent: string | null;
+      tone: "leader" | "default" | "muted";
+    }[],
+  ): void {
+    const size = 10;
+    const lineHeight = size * 1.4;
+    const barHeight = 7;
+    const valueWidth = 120;
+    const labelWidth = BODY_WIDTH - valueWidth - 8;
+    for (const row of rows) {
+      const lines = this.wrap(
+        row.label,
+        row.tone === "leader",
+        size,
+        labelWidth,
+      );
+      this.ensure(lines.length * lineHeight + barHeight + 12);
+      lines.forEach((line, n) =>
+        this.drawLine(
+          line,
+          PAGE.left,
+          this.y + n * lineHeight,
+          size,
+          INK,
+          "left",
+          labelWidth,
+        ),
+      );
+      this.drawLine(
+        segmentRuns(row.value, true),
+        PAGE.left + BODY_WIDTH - valueWidth,
+        this.y,
+        size,
+        INK,
+        "right",
+        valueWidth,
+      );
+      this.y += lines.length * lineHeight + 2;
+      const fraction =
+        row.percent === null ? 0 : Math.min(1, Number(row.percent) / 100);
+      const filled = BODY_WIDTH * fraction;
+      this.doc
+        .save()
+        .rect(PAGE.left, this.y, BODY_WIDTH, barHeight)
+        .fill(SHADE)
+        .restore();
+      if (filled > 0) {
+        if (row.tone === "muted") {
+          this.doc.save().rect(PAGE.left, this.y, filled, barHeight).clip();
+          this.doc.lineWidth(1.2).strokeColor(BAR_DEFAULT);
+          for (let x = -barHeight; x < filled; x += 4) {
+            this.doc
+              .moveTo(PAGE.left + x, this.y + barHeight)
+              .lineTo(PAGE.left + x + barHeight, this.y)
+              .stroke();
+          }
+          this.doc.restore();
+        } else {
+          this.doc
+            .save()
+            .rect(PAGE.left, this.y, filled, barHeight)
+            .fill(row.tone === "leader" ? BAR_LEADER : BAR_DEFAULT)
+            .restore();
+        }
+      }
+      this.y += barHeight + 10;
+    }
+  }
+
   table<Row>(
     columns: {
       header: string;
@@ -492,18 +576,41 @@ class Writer {
 const percentText = (value: string | null) =>
   value === null ? "—" : `${value}%`;
 
-function kindLabel(type: "OPEN" | "CLOSED") {
-  return type === "OPEN"
-    ? "OPEN voting (named responses)"
-    : "CLOSED voting (secret ballot, totals only)";
+// "4/10   40.00%": a count out of the eligible electorate and its share.
+const barValue = (count: string, eligible: string, percent: string | null) =>
+  `${count}/${eligible}   ${percentText(percent)}`;
+
+function kindLabel(type: "PUBLIC" | "PRIVATE") {
+  return type === "PUBLIC"
+    ? "PUBLIC voting (named responses)"
+    : "PRIVATE voting (secret ballot, totals only)";
+}
+
+function completedAt(results: VoteResults): string {
+  if (
+    results.vote.status !== "COMPLETED" ||
+    results.vote.completedAt === null
+  ) {
+    throw new Error("Only completed results can be exported.");
+  }
+  return results.vote.completedAt;
 }
 
 export async function renderResultsPdf(
   results: VoteResults,
   generatedAt: Date,
-  options: { compress?: boolean } = {},
+  options: {
+    compress?: boolean;
+    // Household wording; defaults to "Household"/"Household Number".
+    terms?: HouseholdTerms;
+    // Current RWA contact lines printed under the organization name.
+    rwaContact?: { address: string; email: string; phone: string };
+  } = {},
 ): Promise<Buffer> {
   const { vote } = results;
+  const terms = options.terms ?? DEFAULT_HOUSEHOLD_TERMS;
+  const copy = privacyCopy(terms);
+  const completed = completedAt(results);
   const zone = vote.timezone;
   // A printed record outlives the year it was made in: pass an epoch "now" so the year is always shown.
   const at = (iso: string) => formatInZone(iso, zone, new Date(0));
@@ -521,6 +628,16 @@ export async function renderResultsPdf(
   writer.paragraph(vote.title, { size: 20, bold: true });
   writer.gap(4);
   writer.paragraph(vote.rwaName, { size: 11, color: MUTED });
+  if (options.rwaContact) {
+    const { address, email, phone } = options.rwaContact;
+    if (address) {
+      writer.paragraph(address, { size: 9, color: MUTED });
+    }
+    const contactLine = [email, phone].filter(Boolean).join(" · ");
+    if (contactLine) {
+      writer.paragraph(contactLine, { size: 9, color: MUTED });
+    }
+  }
   writer.gap(8);
 
   writer.table(
@@ -532,7 +649,7 @@ export async function renderResultsPdf(
       ["Voting type", kindLabel(results.votingType)],
       ["Status", "Completed"],
       ["Voting opened", at(vote.activatedAt)],
-      ["Voting ended", at(vote.completedAt)],
+      ["Voting ended", at(completed)],
       [
         "How it ended",
         vote.completionMode === "EARLY"
@@ -549,21 +666,38 @@ export async function renderResultsPdf(
   );
 
   writer.heading("Turnout");
+  if (results.turnout.percent === null) {
+    writer.paragraph(`No ${terms.households} were eligible for this vote.`);
+  } else {
+    writer.gap(2);
+    writer.bars([
+      {
+        label: `${terms.Households} that voted`,
+        value: barValue(
+          results.turnout.numerator,
+          results.turnout.denominator,
+          results.turnout.percent,
+        ),
+        percent: results.turnout.percent,
+        tone: "leader",
+      },
+    ]);
+  }
   writer.paragraph(
-    `${results.turnout.numerator} of ${results.turnout.denominator} eligible households submitted a response` +
-      (results.turnout.percent === null
-        ? " (no households were eligible)."
-        : ` (${results.turnout.percent}%).`),
-  );
-  writer.paragraph(
-    "Eligibility was fixed when the vote was activated. Percentages below use submitted responses as the denominator.",
+    `Eligibility was fixed when the vote was activated. Each figure below is a count out of the ${results.eligibleCount} eligible ${String(results.eligibleCount) === "1" ? terms.household : terms.households}, with its percentage.`,
     {
       size: 8.5,
       color: MUTED,
     },
   );
 
-  if (results.votingType === "OPEN") {
+  if (results.votingType === "PUBLIC") {
+    if (results.vote.openSelectionMode === "MULTIPLE") {
+      writer.paragraph(
+        `Each ${terms.household} submitted one ballot with multiple selections. Option percentages can add up to more than 100%.`,
+        { size: 8.5, color: MUTED },
+      );
+    }
     writer.heading("Outcome");
     const leaders = results.options
       .filter((o) => results.leaderOptionIds.includes(o.id))
@@ -578,24 +712,26 @@ export async function renderResultsPdf(
     );
 
     writer.heading("Totals");
-    writer.table(
-      [
-        { header: "Option", width: 270 },
-        { header: "Votes", width: 70, align: "right" },
-        {
-          header: `Share of ${results.submittedCount} submitted`,
-          width: 155,
-          align: "right",
-        },
-      ],
-      results.options,
-      (o) => [o.label, o.count, percentText(o.percent)],
+    writer.bars(
+      results.options.map((o) => {
+        const leading =
+          results.outcome !== "NO_VOTES" &&
+          results.leaderOptionIds.includes(o.id);
+        return {
+          label: leading
+            ? `${o.label} (${results.outcome === "TIE" ? "Tied" : "Leading"})`
+            : o.label,
+          value: barValue(o.count, results.eligibleCount, o.eligiblePercent),
+          percent: o.eligiblePercent,
+          tone: leading ? "leader" : "default",
+        };
+      }),
     );
 
     writer.heading(
       `Who chose what (${results.namedResponses.length} responses)`,
     );
-    writer.paragraph(PRIVACY_COPY.OPEN, { size: 8.5, color: MUTED });
+    writer.paragraph(copy.PUBLIC, { size: 8.5, color: MUTED });
     writer.gap(4);
     if (results.namedResponses.length === 0) {
       writer.paragraph("No responses to list.");
@@ -603,19 +739,27 @@ export async function renderResultsPdf(
       writer.table(
         [
           { header: "Representative", width: 190 },
-          { header: "Household", width: 100 },
+          { header: terms.identifierLabel, width: 100 },
           { header: "Choice", width: 205 },
         ],
         results.namedResponses,
-        (n) => [n.representativeName, n.householdIdentifier, n.optionLabel],
+        (n) => [
+          n.representativeName,
+          n.householdIdentifier,
+          n.optionLabels.join("; "),
+        ],
       );
     }
   } else {
     writer.heading("Results by office");
-    writer.paragraph(`${PRIVACY_COPY.CLOSED} ${PRIVACY_COPY.CLOSED_LIMITS}`, {
+    writer.paragraph(`${copy.PRIVATE} ${copy.CLOSED_LIMITS}`, {
       size: 8.5,
       color: MUTED,
     });
+    writer.paragraph(
+      "NOTA (None of the Above) is counted separately and cannot win. The candidate with the highest count among candidates is elected, even if NOTA receives more votes. No candidate is elected if no candidate receives a vote; tied candidate totals remain a tie.",
+      { size: 8.5, color: MUTED },
+    );
     for (const office of results.offices) {
       writer.heading(office.name, 11.5);
       const leaders = office.candidates
@@ -626,34 +770,35 @@ export async function renderResultsPdf(
           ? "No winner: no candidate received a vote."
           : office.outcome === "TIE"
             ? `Tie. These candidates received the same highest count: ${leaders.join("; ")}.`
-            : `Leading candidate: ${leaders[0] ?? ""}`,
+            : `Elected candidate: ${leaders[0] ?? ""}`,
         { bold: true },
       );
       writer.gap(4);
-      writer.table(
-        [
-          { header: "Candidate", width: 270 },
-          { header: "Votes", width: 70, align: "right" },
-          {
-            header: `Share of ${results.submittedCount} submitted`,
-            width: 155,
-            align: "right",
-          },
-        ],
-        [
-          ...office.candidates.map((c) => [
-            c.name,
-            c.count,
-            percentText(c.percent),
-          ]),
-          [
-            "Abstained",
-            office.abstention.count,
-            percentText(office.abstention.percent),
-          ],
-        ],
-        (row) => row,
-      );
+      writer.bars([
+        ...office.candidates.map((c) => {
+          const leading =
+            office.outcome !== "NO_WINNER" &&
+            office.leaderCandidateIds.includes(c.id);
+          return {
+            label: leading
+              ? `${c.name} (${office.outcome === "TIE" ? "Tied" : "Elected"})`
+              : c.name,
+            value: barValue(c.count, results.eligibleCount, c.eligiblePercent),
+            percent: c.eligiblePercent,
+            tone: leading ? ("leader" as const) : ("default" as const),
+          };
+        }),
+        {
+          label: "NOTA (None of the Above)",
+          value: barValue(
+            office.nota.count,
+            results.eligibleCount,
+            office.nota.eligiblePercent,
+          ),
+          percent: office.nota.eligiblePercent,
+          tone: "muted",
+        },
+      ]);
     }
   }
 
@@ -676,5 +821,5 @@ export async function renderResultsPdf(
 }
 
 export function pdfFilename(results: VoteResults): string {
-  return `civic-pulse-results-${results.vote.completedAt.slice(0, 10)}-${results.vote.id.slice(0, 8)}.pdf`;
+  return `civic-pulse-results-${completedAt(results).slice(0, 10)}-${results.vote.id.slice(0, 8)}.pdf`;
 }

@@ -6,11 +6,11 @@ import type { ApiFailure } from "@/shared/http/api-client";
  * consistent across screens. No message ever includes submitted values.
  */
 const CONFLICT_REASONS: Record<string, string> = {
-  DUPLICATE_IDENTIFIER: "A household with this identifier already exists.",
+  DUPLICATE_IDENTIFIER: "This value is already in use.",
   REPRESENTATIVE_ASSIGNED:
-    "This account already represents another household. Choose a different account.",
+    "This account is already assigned elsewhere. Choose a different account.",
   REPRESENTATIVE_DELETED:
-    "This account has been deleted and cannot represent a household.",
+    "This account is unavailable. Choose a different account.",
   DUPLICATE_EMAIL: "Another account already uses this email address.",
   LAST_ADMIN:
     "At least one enabled administrator must remain. Make someone else an administrator first.",

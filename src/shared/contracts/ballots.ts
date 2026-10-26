@@ -13,7 +13,18 @@ export const openSubmissionSchema = z.strictObject({
   optionId: uuid,
 });
 
-// `candidateId: null` is an explicit abstention; omitting the key is invalid.
+export const openMultipleSubmissionSchema = z.strictObject({
+  confirmed,
+  optionIds: z
+    .array(uuid)
+    .min(1, "Select at least one option.")
+    .max(100)
+    .refine((ids) => new Set(ids).size === ids.length, {
+      message: "Each option can be selected only once.",
+    }),
+});
+
+// `candidateId: null` is the explicit NOTA choice; omitting the key is invalid.
 export const closedSelectionSchema = z.strictObject({
   officeId: uuid,
   candidateId: uuid.nullable(),
@@ -34,9 +45,13 @@ export const closedSubmissionSchema = z.strictObject({
 
 export const submissionSchema = z.union([
   openSubmissionSchema,
+  openMultipleSubmissionSchema,
   closedSubmissionSchema,
 ]);
 
 export type OpenSubmission = z.infer<typeof openSubmissionSchema>;
+export type OpenMultipleSubmission = z.infer<
+  typeof openMultipleSubmissionSchema
+>;
 export type ClosedSubmission = z.infer<typeof closedSubmissionSchema>;
 export type Submission = z.infer<typeof submissionSchema>;

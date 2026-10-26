@@ -13,18 +13,25 @@ import { PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { BallotForm } from "@/components/votes/ballot-form";
 import { BallotPreview } from "@/components/votes/ballot-preview";
+import { DeadlineCountdown } from "@/components/votes/deadline-countdown";
 import { LifecycleSummary } from "@/components/votes/lifecycle-summary";
 import { ApiError } from "@/server/http/errors";
 import { memberPageContext } from "@/server/register/page-context";
+import { loadHouseholdTerms } from "@/server/settings/rwa-profile";
 import { getMemberVote } from "@/server/votes/member";
 import { idParamsSchema } from "@/shared/contracts/register";
 import { formatInZone } from "@/shared/time/zoned";
 
-export const generateMetadata = privateRecordMetadata(
-  "Vote",
-  "Review and submit your household's eligible response to an association poll or election.",
-  "/votes/[id]",
-);
+export async function generateMetadata({
+  params,
+}: Readonly<{ params: Promise<{ id: string }> }>) {
+  const terms = await loadHouseholdTerms();
+  return privateRecordMetadata(
+    "Vote",
+    `Review and submit your ${terms.household}'s eligible response to an association poll or election.`,
+    "/votes/[id]",
+  )({ params });
+}
 
 export default async function MemberVotePage({
   params,
@@ -66,9 +73,13 @@ export default async function MemberVotePage({
         title={vote.title}
         description={`Held by ${vote.rwaName}.`}
         actions={
-          vote.status === "COMPLETED" ? (
+          vote.status === "COMPLETED" || vote.status === "ACTIVE" ? (
             <LinkButton href={`/votes/${vote.id}/results`}>
-              View results
+              {vote.status === "COMPLETED"
+                ? "View Results"
+                : vote.votingType === "PUBLIC"
+                  ? "View Live Results"
+                  : "View Live Turnout"}
             </LinkButton>
           ) : undefined
         }
@@ -83,15 +94,18 @@ export default async function MemberVotePage({
       </div>
 
       {open ? (
-        <p className="flex items-center gap-2 text-body text-muted">
-          <Clock aria-hidden="true" className="size-5 shrink-0" />
-          <span>
-            Voting closes{" "}
-            <time dateTime={vote.closesAt} className="font-semibold">
-              {formatInZone(vote.closesAt, vote.timezone)}
-            </time>
-          </span>
-        </p>
+        <div className="grid gap-2">
+          <p className="flex items-center gap-2 text-body text-muted">
+            <Clock aria-hidden="true" className="size-5 shrink-0" />
+            <span>
+              Voting closes{" "}
+              <time dateTime={vote.closesAt} className="font-semibold">
+                {formatInZone(vote.closesAt, vote.timezone)}
+              </time>
+            </span>
+          </p>
+          <DeadlineCountdown deadline={vote.closesAt} />
+        </div>
       ) : null}
 
       {vote.instructions && open ? (
@@ -107,8 +121,12 @@ export default async function MemberVotePage({
 
       {voting ? (
         <BallotForm
-          // A household that has already voted gets no ballot data at all.
-          vote={vote.submitted ? { ...vote, options: [], offices: [] } : vote}
+          // PRIVATE ballots remain final; PUBLIC voters may replace their choice.
+          vote={
+            vote.submitted && vote.votingType === "PRIVATE"
+              ? { ...vote, options: [], offices: [] }
+              : vote
+          }
           csrfToken={deps.csrfToken}
           initialSubmitted={vote.submitted === true}
         />
@@ -127,11 +145,11 @@ export default async function MemberVotePage({
         <>
           <Notice tone="info" heading="Viewing as an administrator">
             <p>
-              Your household is not in this vote&apos;s electorate, so you
-              cannot submit a response. This is the ballot residents see.
+              Your {deps.terms.household} is not in this vote&apos;s electorate,
+              so you cannot submit a response. This is the ballot residents see.
             </p>
           </Notice>
-          <BallotPreview vote={vote} />
+          <BallotPreview vote={vote} terms={deps.terms} />
         </>
       ) : null}
 
@@ -140,9 +158,9 @@ export default async function MemberVotePage({
           <Notice tone="success" heading="Voting has ended">
             <p>
               {vote.entitled && vote.submitted
-                ? "Your household's response was recorded."
+                ? `Your ${deps.terms.household}'s response was recorded.`
                 : vote.entitled
-                  ? "Your household did not submit a response."
+                  ? `Your ${deps.terms.household} did not submit a response.`
                   : "This vote has ended."}
             </p>
           </Notice>

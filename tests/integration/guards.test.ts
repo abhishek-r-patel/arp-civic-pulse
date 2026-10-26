@@ -69,7 +69,7 @@ describe.skipIf(!hasDatabase)("guards, lifecycle and invariants", () => {
         db.asOwner((c) =>
           c.query(
             `insert into public.votes (voting_type, status, created_by_profile_id)
-             values ('OPEN', 'ACTIVE', $1)`,
+             values ('PUBLIC', 'ACTIVE', $1)`,
             [world.admin.id],
           ),
         ),
@@ -79,7 +79,7 @@ describe.skipIf(!hasDatabase)("guards, lifecycle and invariants", () => {
 
     it("advances the draft revision by at most one", async () => {
       const id = await db.asOwner((c) =>
-        insertDraft(c, world.admin.id, "OPEN"),
+        insertDraft(c, world.admin.id, "PUBLIC"),
       );
       await db.asOwner((c) =>
         c.query("update public.votes set draft_revision = 2 where id = $1", [
@@ -98,10 +98,10 @@ describe.skipIf(!hasDatabase)("guards, lifecycle and invariants", () => {
 
     it("rejects mixed ballot shapes while drafting", async () => {
       const open = await db.asOwner((c) =>
-        insertDraft(c, world.admin.id, "OPEN"),
+        insertDraft(c, world.admin.id, "PUBLIC"),
       );
       const closed = await db.asOwner((c) =>
-        insertDraft(c, world.admin.id, "CLOSED"),
+        insertDraft(c, world.admin.id, "PRIVATE"),
       );
 
       const office = await dbError(
@@ -148,7 +148,7 @@ describe.skipIf(!hasDatabase)("guards, lifecycle and invariants", () => {
     it.each(blockers)("blocks activation with %s", async (_label, breakIt) => {
       const result = await dbError(
         db.asOwner(async (c) => {
-          const id = await insertDraft(c, world.admin.id, "OPEN");
+          const id = await insertDraft(c, world.admin.id, "PUBLIC");
           await addOptions(c, id, ["Yes", "No"]);
           await snapshotElectorate(c, id, [world.alice]);
           await breakIt(id, c);
@@ -161,7 +161,7 @@ describe.skipIf(!hasDatabase)("guards, lifecycle and invariants", () => {
     it("blocks activation for a deadline that is not in the future", async () => {
       const result = await dbError(
         db.asOwner(async (c) => {
-          const id = await insertDraft(c, world.admin.id, "OPEN");
+          const id = await insertDraft(c, world.admin.id, "PUBLIC");
           await addOptions(c, id, ["Yes", "No"]);
           await snapshotElectorate(c, id, [world.alice]);
           await activate(c, id, { closesInSeconds: -5 });
@@ -170,10 +170,10 @@ describe.skipIf(!hasDatabase)("guards, lifecycle and invariants", () => {
       expect(result.message).toBe("ACTIVATION_BLOCKED");
     });
 
-    it("blocks CLOSED activation without candidates or without initialised counters", async () => {
+    it("blocks PRIVATE activation without candidates or without initialised counters", async () => {
       const noCandidates = await dbError(
         db.asOwner(async (c) => {
-          const id = await insertDraft(c, world.admin.id, "CLOSED");
+          const id = await insertDraft(c, world.admin.id, "PRIVATE");
           await addOffice(c, id, "President", 1, []);
           await snapshotElectorate(c, id, [world.alice]);
           await activate(c, id);
@@ -183,7 +183,7 @@ describe.skipIf(!hasDatabase)("guards, lifecycle and invariants", () => {
 
       const noCounters = await dbError(
         db.asOwner(async (c) => {
-          const id = await insertDraft(c, world.admin.id, "CLOSED");
+          const id = await insertDraft(c, world.admin.id, "PRIVATE");
           await addOffice(c, id, "President", 1, ["Priya"]);
           await snapshotElectorate(c, id, [world.alice]);
           await c.query(
@@ -202,7 +202,7 @@ describe.skipIf(!hasDatabase)("guards, lifecycle and invariants", () => {
     it("refuses snapshots that do not match an eligible household with an enabled representative", async () => {
       const ineligible = await dbError(
         db.asOwner(async (c) => {
-          const id = await insertDraft(c, world.admin.id, "OPEN");
+          const id = await insertDraft(c, world.admin.id, "PUBLIC");
           await snapshotElectorate(c, id, [world.carol]); // suspended representative
         }),
       );
@@ -210,7 +210,7 @@ describe.skipIf(!hasDatabase)("guards, lifecycle and invariants", () => {
 
       const forged = await dbError(
         db.asOwner(async (c) => {
-          const id = await insertDraft(c, world.admin.id, "OPEN");
+          const id = await insertDraft(c, world.admin.id, "PUBLIC");
           await c.query(
             "insert into public.electorate (vote_id, household_id) values ($1, $2)",
             [id, world.alice.householdId],
@@ -237,7 +237,7 @@ describe.skipIf(!hasDatabase)("guards, lifecycle and invariants", () => {
       const edits = [
         "update public.votes set title = 'Changed' where id = $1",
         "update public.votes set closes_at = closes_at + interval '1 day' where id = $1",
-        "update public.votes set voting_type = 'CLOSED' where id = $1",
+        "update public.votes set voting_type = 'PRIVATE' where id = $1",
         "update public.votes set draft_revision = draft_revision + 1 where id = $1",
         "update public.poll_options set label = 'Changed' where vote_id = $1",
         "delete from public.poll_options where vote_id = $1",
@@ -349,7 +349,7 @@ describe.skipIf(!hasDatabase)("guards, lifecycle and invariants", () => {
     });
   });
 
-  describe("OPEN submission integrity", () => {
+  describe("PUBLIC submission integrity", () => {
     it("rejects participation and responses written outside the submission routine", async () => {
       const vote = await fixtureOpenVote(db, world);
       const participation = await dbError(
@@ -477,7 +477,7 @@ describe.skipIf(!hasDatabase)("guards, lifecycle and invariants", () => {
     });
   });
 
-  describe("CLOSED aggregate integrity", () => {
+  describe("PRIVATE aggregate integrity", () => {
     let vote: VoteFixture;
     beforeAll(async () => {
       vote = await fixtureClosedVote(db, world);
@@ -493,16 +493,16 @@ describe.skipIf(!hasDatabase)("guards, lifecycle and invariants", () => {
           ),
         );
 
-    it("initialises exactly one counter per candidate plus one abstention per office", async () => {
+    it("initialises exactly one counter per candidate plus one NOTA counter per office", async () => {
       const rows = await db.asOwner((c) =>
         c.query<{
           office_id: string;
           counters: string;
-          abstentions: string;
+          nota: string;
           total: string;
         }>(
           `select office_id, count(*) as counters,
-                  count(*) filter (where candidate_id is null) as abstentions,
+                  count(*) filter (where candidate_id is null) as nota,
                   sum(accepted_count) as total
              from public.closed_tallies where vote_id = $1 group by office_id`,
           [vote.id],
@@ -512,12 +512,12 @@ describe.skipIf(!hasDatabase)("guards, lifecycle and invariants", () => {
       const byOffice = new Map(rows.rows.map((r) => [r.office_id, r]));
       expect(byOffice.get(vote.offices[0]?.id ?? "")).toMatchObject({
         counters: "3",
-        abstentions: "1",
+        nota: "1",
         total: "0",
       });
       expect(byOffice.get(vote.offices[1]?.id ?? "")).toMatchObject({
         counters: "2",
-        abstentions: "1",
+        nota: "1",
         total: "0",
       });
     });
@@ -568,7 +568,7 @@ describe.skipIf(!hasDatabase)("guards, lifecycle and invariants", () => {
       await db.asOwner(async (c) => {
         await ballot(c, world.alice.householdId);
         await bump(c, president?.id ?? "", president?.candidateIds[0] ?? null);
-        await bump(c, treasurer?.id ?? "", null); // explicit abstention
+        await bump(c, treasurer?.id ?? "", null); // explicit NOTA choice
       });
       const totals = await db.asOwner((c) =>
         c.query<{ total: string }>(

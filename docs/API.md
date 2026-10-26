@@ -9,8 +9,8 @@
 - Use same-origin Next.js route handlers under `/api`, server-only application services, Supabase Auth, Supabase PostgreSQL with RLS and guarded SQL RPCs, and approved custom SMTP.
 - Supabase PostgreSQL is authoritative. CSV export is required for version 1; PDF is an optional derived printable outcome and may be deferred without blocking pilot readiness. Neither export is a backup or signature-replacement workflow.
 - Server-rendered pages call application services directly, not the application's HTTP endpoints. Browser requests use the same services and authorization rules.
-- Voting types are `OPEN` and `CLOSED`. Lifecycle states are independently `DRAFT`, `ACTIVE`, `COMPLETED`, and `CANCELLED`.
-- There is no public registration, public results API, GraphQL API, separate API version, or API for retrieving CLOSED selections. Browser application journeys go through Next.js, but assume callers can access the Supabase API directly: RLS, grants, and RPC checks must independently enforce the same boundaries.
+- Voting types are `PUBLIC` and `PRIVATE`. Lifecycle states are independently `DRAFT`, `ACTIVE`, `COMPLETED`, and `CANCELLED`.
+- There is no public registration, public results API, GraphQL API, separate API version, or API for retrieving PRIVATE selections. Browser application journeys go through Next.js, but assume callers can access the Supabase API directly: RLS, grants, and RPC checks must independently enforce the same boundaries.
 - No payments, resident messaging, reminders, attachments, signatures, external PDF rendering, or AI integration is required. The public launch additions provide support enquiries and optional opt-in public-page analytics only, never voting/authentication tracking.
 
 ## 2. Transport and common contracts
@@ -29,14 +29,14 @@
 | Identifiers | UUID strings for entities. Audit IDs and all database `bigint` counts use decimal strings. IDs never confer permission. |
 | Time | RFC 3339 instants with explicit offsets on input; UTC `Z` instants on output. Return the frozen IANA `timezone` for activated vote display. Never accept an ambiguous local date/time. |
 | Optional values | Omitted PATCH fields mean unchanged. Explicit `null` is permitted only for documented nullable fields. |
-| Enumerations | Exact uppercase values documented here; UI labels may display OPEN VOTING and CLOSED VOTING. |
+| Enumerations | Exact uppercase values documented here; UI labels may display PUBLIC VOTING and PRIVATE VOTING. |
 | Cache | Authenticated pages, JSON, errors containing protected context, and downloads use `Cache-Control: private, no-store`. Authentication responses also use `no-store`. |
 | Security headers | Apply MIME protection, no-referrer policy, frame denial, restrictive CSP, and production HSTS. |
 | Methods | Unsupported methods return `405` with `Allow`. GET has no user-requested domain mutation; overdue-state reconciliation and session activity accounting remain server housekeeping. |
 
 Return explicit, allowlisted projections rather than serializing database rows. Never expose Auth tokens in application JSON, raw policy administration metadata, internal tally IDs, privileged credentials, or provider responses.
 
-The shared browser client validates the JSON envelope and error metadata before returning them to forms. Malformed responses produce `INVALID_RESPONSE`, never an uncaught parsing/type error or a successful acknowledgement. An uncertain ballot acknowledgement still requires a participation check before any retry.
+The shared browser client validates the JSON envelope and error metadata before returning them to forms. Malformed responses produce `INVALID_RESPONSE`, never an uncaught parsing/type error or a successful acknowledgement. An uncertain first submission requires a participation check before retry. For an uncertain PUBLIC replacement, the check confirms participation but cannot reveal which choice is current; the same intended choice may be resubmitted safely while the poll remains active.
 
 ### 2.2 Pagination and filtering
 
@@ -56,7 +56,7 @@ All list endpoints use keyset pagination:
 | Administrator votes | `updatedAt DESC`, then `id DESC` | `status`, `votingType` |
 | Households | Normalized household identifier, then `id`, ascending | `isEligible`; optional exact normalized `identifier` |
 | Accounts | Profile `id ASC` | `status`, `isAdmin` |
-| OPEN named responses | Frozen `householdId ASC` within the vote | None |
+| PUBLIC named responses | Frozen `householdId ASC` within the vote | None |
 | Administrator participation | Frozen `householdId ASC` within the vote | `submitted` boolean |
 | Audit history | `occurredAt DESC`, then audit `id DESC` | `action`, `targetType`, `from`, `to` |
 
@@ -98,8 +98,8 @@ Supabase Cron invokes restricted SQL maintenance directly; there is no scheduler
 | Manage register, accounts, drafts, lifecycle | No | Yes |
 | Inspect participation of others | No | Yes, without choices |
 | View/export completed results | Own frozen electorate | Yes |
-| View completed OPEN named responses | Same permission as results | Yes |
-| Retrieve CLOSED individual choices | Never | Never |
+| View completed PUBLIC named responses | Same permission as results | Yes |
+| Retrieve PRIVATE individual choices | Never | Never |
 | Read administrative audit | No | Yes |
 | Invoke maintenance | No | No; dedicated Cron scheduling role only |
 
@@ -136,24 +136,25 @@ There is no public bootstrap, self-registration, password reset, or role-assignm
 | `GET /api/votes` | List votes available to the current frozen representative | Standard pagination; `status`, `votingType` | `200`: paginated vote summaries; never drafts |
 | `GET /api/votes/{id}` | Load an authorized ballot/detail | Vote UUID | `200`: vote detail and own entitlement/submission state |
 | `GET /api/votes/{id}/participation` | Resolve current member's submission status, including uncertain network outcomes | Vote UUID | `200`: `voteId`, `status`, `submitted` |
-| `POST /api/votes/{id}/submission` | Accept one final complete ballot | Type-specific confirmed submission | `200`: `voteId`, `submitted: true` only |
-| `GET /api/votes/{id}/results` | View completed aggregates and, for OPEN, a page of named responses | Vote UUID; `limit`, `cursor` for OPEN named responses | `200`: completed result projection |
+| `POST /api/votes/{id}/submission` | Submit a first ballot or replace a PUBLIC poll response while active | Type-specific confirmed submission | `200`: `voteId`, `submitted: true` only |
+| `GET /api/votes/{id}/results` | View active aggregates or completed results | Vote UUID; `limit`, `cursor` for completed PUBLIC named responses | `200`: authorized result projection |
 | `GET /api/votes/{id}/exports/{format}` | Download complete completed results | `csv` required; `pdf` only when implemented/enabled | `200`: attachment, not a JSON envelope |
 
-Vote summaries contain `id`, `votingType`, `status`, `title`, `closesAt`, `timezone`, `activatedAt`, `completedAt`, `cancelledAt`, and the caller's `submitted` flag. Inapplicable lifecycle times are `null`. Detail additionally contains `instructions`, type-specific ballot configuration, frozen RWA display metadata/policy versions, privacy notice, `canSubmit`, available `exportFormats`, completion mode/reason, and cancellation reason when applicable. Administrators viewing a vote outside their own entitlement receive no fabricated member submission state. Omit `pdf` from available formats and hide its controls when unavailable; an authorized request for an unavailable format returns `404 EXPORT_FORMAT_UNAVAILABLE`.
+Vote summaries contain `id`, `votingType`, `status`, `title`, `closesAt`, `timezone`, `activatedAt`, `completedAt`, `cancelledAt`, and the caller's `submitted` flag. Inapplicable lifecycle times are `null`. Detail additionally contains `instructions`, type-specific ballot configuration (including `openSelectionMode` and `openSelectionLimit` for PUBLIC polls), frozen RWA display metadata/policy versions, privacy notice, `canSubmit`, available `exportFormats`, completion mode/reason, and cancellation reason when applicable. Administrators viewing a vote outside their own entitlement receive no fabricated member submission state. Omit `pdf` from available formats and hide its controls when unavailable; an authorized request for an unavailable format returns `404 EXPORT_FORMAT_UNAVAILABLE`.
 
-The server supplies type-specific privacy notices. Before OPEN submission, explicitly disclose that frozen representative name, household identifier, and response will appear in completed results and downloadable records. CLOSED notices explain aggregate-only application access and the approved assurance limitations.
+The server supplies type-specific privacy notices. While a PUBLIC poll is active, authorized voters/admins can see aggregate counts and turnout but not individual responses. While a PRIVATE election is active, eligible members and admins can see aggregate turnout only; admins can separately see the frozen household participation list for follow-up, never choices. Candidate/NOTA counts and outcomes stay hidden until completion. Before PUBLIC submission, disclose that frozen representative name, household identifier, and final response will appear in completed results and downloads, and that the voter may replace the response until closure. PRIVATE notices explain aggregate-only application access and the approved assurance limitations.
 
-Neither summary nor ballot endpoints include active choice counts or other households' participation. A cancelled detail says **"Cancelled; results not valid"**, disables submission, and exposes no choices. Ballot configuration may remain visible, but responses and tallies may not.
+Neither summary nor ballot endpoints include active choice counts or other households' participation. Active PUBLIC aggregates and active PRIVATE turnout are available only through the authorized results projection. Active PRIVATE candidate/NOTA totals remain hidden. The administrator-only participation endpoint may show household-level submission status for follow-up but never choices. A cancelled detail says **"Cancelled; results not valid"**, disables submission, and exposes no choices. Ballot configuration may remain visible, but responses and tallies may not.
 
 #### Submission request shapes
 
 | Voting type | Required JSON fields | Rules |
 |---|---|---|
-| OPEN | `confirmed: true`, `optionId` | Exactly one UUID referencing an option in this vote |
-| CLOSED | `confirmed: true`, `selections` | One entry for every configured office |
+| PUBLIC single-select | `confirmed: true`, `optionId` | Exactly one UUID referencing an option in this vote |
+| PUBLIC multi-select | `confirmed: true`, `optionIds` | Non-empty array of distinct UUIDs referencing options in this vote; obey the configured maximum when present |
+| PRIVATE | `confirmed: true`, `selections` | One entry for every configured office |
 
-Each CLOSED selection contains `officeId` and `candidateId`. A candidate UUID selects that office's candidate; explicit `candidateId: null` means abstain. Omitting `candidateId` is invalid. Reject duplicate/missing/extra offices, foreign candidates, repeated options, mixed ballot shapes, and unknown fields.
+Each PRIVATE selection contains `officeId` and `candidateId`. A candidate UUID selects that office's candidate; explicit `candidateId: null` means NOTA (None of the Above). Omitting `candidateId` is invalid. Reject duplicate/missing/extra offices, foreign candidates, repeated options, mixed ballot shapes, and unknown fields. Every PUBLIC multi-select submission is still one ballot and one household participation; at least one choice is required.
 
 Do not accept `accountId`, `profileId`, `householdId`, an actor role, timestamps, result counts, or an idempotency payload identifier. Derive entitlement from `auth.uid()` and the frozen electorate. `confirmed: true` records explicit final confirmation intent; it does not replace eligibility or integrity checks.
 
@@ -161,27 +162,27 @@ Submission processing:
 
 1. Call guarded `cast_vote` with the verified user's session; require `auth.uid()`, lock the parent vote then caller profile, and recheck enabled status and frozen entitlement. Do not lock or modify managed Auth session tables.
 2. Reconcile overdue state; require `ACTIVE` and check `clock_timestamp()` after all admission locks, immediately before acceptance, strictly before `closesAt`.
-3. Validate the complete ballot and absence of prior participation.
-4. Atomically insert participation and either one OPEN response or all CLOSED counter increments.
+3. Validate the complete ballot. Reject prior participation for PRIVATE; for PUBLIC, verify the existing response and permit replacing it while active.
+4. Atomically insert one participation row and the selected PUBLIC response row(s) on the first submission, replace the complete selected set on PUBLIC resubmission, or increment all PRIVATE counters once.
 5. Commit durably before returning the participation-only acknowledgement.
 
 Requests waiting until or beyond the cutoff are rejected even if sent earlier. A transaction admitted strictly before the deadline may commit afterwards. Terminal votes never accept submissions. Deadline reconciliation must remain committed when the submission itself is rejected; database/invariant failures instead roll back and surface an error.
 
-Duplicate submission returns `409 ALREADY_SUBMITTED` without echoing or comparing selections. There is no edit, withdrawal, or CLOSED ballot receipt. An entitlement's unique participation provides duplicate protection across retries and sessions.
+A PUBLIC resubmission replaces the household's current choice set without creating another participation record; only the latest option set is counted and no change history is retained. PUBLIC option counts count selected options, so they may exceed submitted households. Per-option percentages use submitted households as the denominator and may add up to more than 100%. PRIVATE repeat submissions return `409 ALREADY_SUBMITTED` without echoing or comparing selections. There is no withdrawal or PRIVATE ballot receipt. An entitlement's unique participation provides duplicate protection for PRIVATE ballots and the one-ballot-per-household invariant for PUBLIC polls.
 
 After a timeout, lost response, or ambiguous infrastructure error, the client reads participation before offering a retry. `submitted: true` confirms acceptance; `submitted: false` describes the current committed state, not proof that an earlier in-flight request cannot commit. A deliberate retry remains protected by the same uniqueness/locking rules. If status cannot be read, show an unknown outcome, not success or rejection. Unsent choices stay in page memory only and are cleared after confirmed acceptance, sign-out, or access revocation.
 
-**Implemented results, monitoring and export contract (phases 12–14).** `GET /api/votes` lists only the caller's own frozen entitlements (never drafts), active votes first by soonest deadline, then finished ones newest first, with `status`/`votingType` filters and keyset pagination; each row carries only the caller's own `submitted` flag. `GET /api/votes/{id}` returns the ballot, frozen RWA name and policy versions, `entitled`, `submitted`, `canSubmit`, `exportFormats` and `privacyNotice` (`OPEN` or `CLOSED`); an administrator outside the electorate gets `entitled: false` and no submission state. An unknown vote, a draft and a vote outside the electorate are indistinguishable `404`s. An overdue vote is finalised (server-only reconcile) before it is shown.
+**Implemented results, monitoring and export contract (phases 12–14).** `GET /api/votes` lists only the caller's own frozen entitlements (never drafts), active votes first by soonest deadline, then finished ones newest first, with `status`/`votingType` filters and keyset pagination; each row carries only the caller's own `submitted` flag. `GET /api/votes/{id}` returns the ballot, frozen RWA name and policy versions, `entitled`, `submitted`, `canSubmit`, `exportFormats` and `privacyNotice` (`PUBLIC` or `PRIVATE`); an administrator outside the electorate gets `entitled: false` and no submission state. An unknown vote, a draft and a vote outside the electorate are indistinguishable `404`s. An overdue vote is finalised (server-only reconcile) before it is shown.
 
-`GET /api/votes/{id}/results` answers only for a `COMPLETED` vote and only to a frozen eligible representative or an enabled administrator; otherwise `409 RESULTS_UNAVAILABLE` (after object authorization; `context.reason` is `ACTIVE` or `CANCELLED`). Everything comes from one SQL call on one snapshot: eligible/submitted counts as decimal strings, `turnout {numerator, denominator, percent}`, and OPEN `options` (count, percent of submitted), `outcome`/`leaderOptionIds`, `namedResponses` (frozen name, household identifier, option) or CLOSED `offices` (candidates, abstention, `outcome`, `leaderCandidateIds`) with no identities. `limit`/`cursor` page only the named list; totals always cover every response. A counter/participation mismatch returns `503 RESULTS_INTEGRITY_ERROR` and publishes nothing. Percentages and outcomes are derived once in `src/shared/contracts/results.ts`.
+`GET /api/votes/{id}/results` is available to a frozen eligible representative or enabled administrator. For any unexpired ACTIVE vote, the projection includes eligible/submitted counts and turnout and refreshes in the browser every 10 seconds. ACTIVE PUBLIC additionally returns aggregate option counts and an outcome, with `namedResponses` and `namedPage` null; counts include each participating household's latest selection(s). ACTIVE PRIVATE returns empty `options` and `offices` arrays and no names, exposing no candidate/NOTA totals or outcomes. A COMPLETED result includes PUBLIC frozen names/household identifiers/selected option labels or PRIVATE aggregates only. Cancelled or overdue votes return `409 RESULTS_UNAVAILABLE` until deadline reconciliation completes. Everything comes from one SQL call on one snapshot: eligible/submitted counts as decimal strings, `turnout {numerator, denominator, percent}`, and type-specific results. Each completed PUBLIC named-response row represents one household, with all selected options in `optionLabels`; `limit`/`cursor` page by household and totals always cover every selection. Null/unbounded response pages are completed-only and required for exports. PUBLIC option counts count selections and can exceed submitted households; option `percent` uses submitted households and `eligiblePercent` uses eligible households; both may total over 100% in multi-select polls. A counter/participation mismatch returns `503 RESULTS_INTEGRITY_ERROR` and publishes nothing. Percentages and outcomes are derived once in `src/shared/contracts/results.ts`.
 
 `GET /api/votes/{id}/exports/csv` renders the complete file (BOM, CRLF, the fixed columns above, formula-starting cells prefixed with an apostrophe, control characters removed) before any success header, with `Content-Disposition: attachment` and a server-generated name (`civic-pulse-results-<date>-<id8>.csv`), `no-store` and `nosniff`; a render failure is `503 EXPORT_FAILED`. Unknown or disabled formats are `404 EXPORT_FORMAT_UNAVAILABLE` after authorization. PDF availability and per-format rendering bounds are described below. Budgets (provisional): 120 reads and 10 exports per minute per profile.
 
 `GET /api/admin/votes/{id}/participation` (admin only, not for drafts, `submitted` filter, keyset pagination) returns `eligibleCount`, `submittedCount` and rows of frozen representative name, household identifier and `submitted`; never a selection, email or submission time. `GET /api/admin/audit` (admin only; `action`, `targetType`, `from`, `to`; newest first) returns allowlisted fields only: `details` keeps only keys the application itself writes, so a stray key is dropped rather than exposed.
 
-**Implemented export and operations additions (phases 15 and 17).** `GET /api/votes/{id}/exports/pdf` now renders an A4 portrait, grayscale PDF locally with PDFKit from the same completed-result projection as the screen, API and CSV: header and footer on every page with `Page X of N`, the RWA name and title, type, opened/ended times **with the year**, time zone, how it ended (and the early-completion reason), turnout with its denominator, totals with percentages of submitted responses, outcomes, instructions and the disclaimer; OPEN includes the complete named list (no emails) with a repeated table header across pages, CLOSED only aggregates. Long and unbroken text wraps. Text is shaped with Inter (Latin, Greek, Cyrillic) and Noto Sans Devanagari; a character neither font covers fails the export with `503 EXPORT_FAILED` and the message "The PDF cannot display some characters in this record. Download the CSV instead." It is never dropped or replaced. Headers: `application/pdf`, attachment with `civic-pulse-results-<date>-<id8>.pdf`, `no-store`, `nosniff`. `PDF_EXPORT_ENABLED=0` switches PDF off (`exportFormats` then lists only `csv`, and the endpoint answers `404 EXPORT_FORMAT_UNAVAILABLE`). Rendering is capped (8 CSV, 2 PDF at a time); callers beyond the cap wait up to 15 s and then get `503 DEPENDENCY_UNAVAILABLE` with `Retry-After`. `GET /api/internal/health` answers `{"data":{"status":"ok"}}` (200) or `{"data":{"status":"unavailable"}}` (503) with a request ID after a bounded (3 s) database ping, and nothing else; maintenance mode (`MAINTENANCE_MODE=1`) makes every other API route answer `503` with `Retry-After: 300` and pages show a maintenance notice.
+**Implemented export and operations additions (phases 15 and 17).** `GET /api/votes/{id}/exports/pdf` now renders an A4 portrait, grayscale PDF locally with PDFKit from the same completed-result projection as the screen, API and CSV: header and footer on every page with `Page X of N`, the RWA name and title, type, opened/ended times **with the year**, time zone, how it ended (and the early-completion reason), turnout with its denominator, totals with percentages of submitted responses, outcomes, instructions and the disclaimer; PUBLIC includes the complete named list (no emails) with a repeated table header across pages, PRIVATE only aggregates. Long and unbroken text wraps. Text is shaped with Inter (Latin, Greek, Cyrillic) and Noto Sans Devanagari; a character neither font covers fails the export with `503 EXPORT_FAILED` and the message "The PDF cannot display some characters in this record. Download the CSV instead." It is never dropped or replaced. Headers: `application/pdf`, attachment with `civic-pulse-results-<date>-<id8>.pdf`, `no-store`, `nosniff`. `PDF_EXPORT_ENABLED=0` switches PDF off (`exportFormats` then lists only `csv`, and the endpoint answers `404 EXPORT_FORMAT_UNAVAILABLE`). Rendering is capped (8 CSV, 2 PDF at a time); callers beyond the cap wait up to 15 s and then get `503 DEPENDENCY_UNAVAILABLE` with `Retry-After`. `GET /api/internal/health` answers `{"data":{"status":"ok"}}` (200) or `{"data":{"status":"unavailable"}}` (503) with a request ID after a bounded (3 s) database ping, and nothing else; maintenance mode (`MAINTENANCE_MODE=1`) makes every other API route answer `503` with `Retry-After: 300` and pages show a maintenance notice.
 
-**Implemented submission contract (phase 11).** `POST /api/votes/{id}/submission` accepts exactly the shapes above (strict objects; the database re-validates, so a payload that bypassed the API schema is still refused) and answers `200 {voteId, submitted: true}` only after the transaction committed. Outcomes: `409 ALREADY_SUBMITTED` (no selection echoed or compared), `409 VOTING_CLOSED` (the deadline passed or the vote is terminal; an overdue vote was completed at its deadline in the same committed step), `404 NOT_FOUND` for an unknown vote, a draft, a vote outside the caller's frozen electorate, or an administrator without an entitlement (all indistinguishable), `403 FORBIDDEN` for a revoked or suspended profile even with a still-valid session, `422 VALIDATION_FAILED`, `429 RATE_LIMITED` (20 submissions per minute per profile, provisional), and `503 DEPENDENCY_UNAVAILABLE` when a bounded lock wait or timeout expires (retry only after reading participation). `GET /api/votes/{id}/participation` returns `{voteId, status, submitted}` for the caller's own entitlement (60 per minute per profile, provisional). Both responses are `no-store`. A malformed vote id is a `404`.
+**Implemented submission contract (phase 11).** `POST /api/votes/{id}/submission` accepts exactly the shapes above (strict objects; the database re-validates, so a payload that bypassed the API schema is still refused) and answers `200 {voteId, submitted: true}` only after the transaction committed. A PUBLIC resubmission replaces the current response; PRIVATE repeat submission returns `409 ALREADY_SUBMITTED` (no selection echoed or compared). Other outcomes include `409 VOTING_CLOSED` (the deadline passed or the vote is terminal; an overdue vote was completed at its deadline in the same committed step), `404 NOT_FOUND` for an unknown vote, a draft, a vote outside the caller's frozen electorate, or an administrator without an entitlement (all indistinguishable), `403 FORBIDDEN` for a revoked or suspended profile even with a still-valid session, `422 VALIDATION_FAILED`, `429 RATE_LIMITED` (20 submissions per minute per profile, provisional), and `503 DEPENDENCY_UNAVAILABLE` when a bounded lock wait or timeout expires (retry only after reading participation). `GET /api/votes/{id}/participation` returns `{voteId, status, submitted}` for the caller's own entitlement (60 per minute per profile, provisional). Both responses are `no-store`. A malformed vote id is a `404`.
 
 ### 4.3 Administrator register and account management
 
@@ -192,6 +193,7 @@ These routes require a current enabled administrator. The HTTP term `account` me
 | `GET /api/admin/accounts` | List registered identities/profiles for register administration | Standard pagination and account filters | `200`: paginated account projections |
 | `POST /api/admin/accounts` | Provision a managed Auth identity and profile | `email`, `representativeName`, `isAdmin` | `201`: provisioned account projection; ordinary residents remain suspended pending household assignment |
 | `PATCH /api/admin/accounts/{id}` | Maintain managed identity or application profile capability/status | Changed fields among `email`, `representativeName`, `status`, `isAdmin` | `200`: updated projection only after required workflow steps succeed |
+| `PATCH /api/admin/settings` | Update the RWA profile, branding and household display wording | Strict object containing `fullName`, `alias`, `address`, `email`, `phone`, `website`, `accentPalette`, `welcomeMessage`, `householdLabel` and `identifierKind` | `200`: updated settings; changed field names are audited, never values |
 | `GET /api/admin/households` | List the household register | Standard pagination and household filters | `200`: paginated register projections |
 | `POST /api/admin/households` | Create a household assigned to an existing account | `identifier`, `representativeAccountId`, `isEligible` | `201`: household projection |
 | `GET /api/admin/households/{id}` | Load a household for editing | Household UUID | `200`: household projection |
@@ -228,7 +230,7 @@ Application-database register/profile writes commit atomically with their audit 
 
 #### Draft fields and child identity
 
-Permitted draft fields are `votingType`, `title`, `instructions`, `closesAt`, `eligibleHouseholdIds`, `offices`, and `options`.
+Permitted draft fields are `votingType`, `openSelectionMode`, `openSelectionLimit`, `title`, `instructions`, `closesAt`, `eligibleHouseholdIds`, `offices`, and `options`. Set `openSelectionMode` and `openSelectionLimit` together on PUBLIC polls: `SINGLE` requires limit `1`; `MULTIPLE` requires a maximum from `2` to `100` or `null` for no maximum. PRIVATE elections always use the fixed single-selection configuration and reject PUBLIC selection settings.
 
 - `offices` entries contain optional existing `id`, `name`, `position`, and `candidates`; candidate entries contain optional existing `id`, `name`, and `position`.
 - `options` entries contain optional existing `id`, `label`, and `position`.
@@ -245,48 +247,52 @@ Every draft edit, including electorate or child edits, increments the parent rev
 
 **Implemented draft contract (phase 9).** `GET /api/admin/votes` returns summaries `{id, votingType, status, title, closesAt, draftRevision, updatedAt, timezone}` ordered by last change (keyset pagination). Create, detail and edit return the explicit detail `{id, votingType, status, title, instructions, closesAt, draftRevision, createdAt, updatedAt, ..., rwaName, timezone, offices[{id,name,position,candidates[]}], options[], eligibleHouseholdIds[]}`; it never contains tallies. A `PATCH` with only `expectedRevision` is not an edit and returns the current detail unchanged. The preview response is `{revision, readyToActivate, blockers[{code, section, message}], electorate{selected, eligibleWithEnabledRepresentative}, vote}` and is returned only for the exact `expectedRevision`; a non-draft returns `409 LIFECYCLE_CONFLICT`. `closesAt` must carry an explicit UTC offset. The browser converts what the administrator typed in the RWA time zone and refuses a local time that is ambiguous or does not exist when clocks change.
 
-Activation revalidates the supplied revision, complete type-specific ballot, future deadline, eligible enabled representatives, current settings, A1-A7 approvals, and retention configuration. It freezes type, configuration, deadline, household/representative identity snapshots, RWA name/timezone, and policy versions; initializes CLOSED counters; and commits lifecycle plus audit atomically. Preview is not a durable guarantee that subsequent activation will succeed.
+Activation revalidates the supplied revision, complete type-specific ballot, future deadline, eligible enabled representatives, current settings, A1-A7 approvals, and retention configuration. It freezes type, configuration, deadline, household/representative identity snapshots, RWA name/timezone, and policy versions; initializes PRIVATE counters; and commits lifecycle plus audit atomically. Preview is not a durable guarantee that subsequent activation will succeed.
 
 After activation, configuration and electorate edits return `409 VOTE_FROZEN`. Only `DRAFT -> ACTIVE`, `ACTIVE -> COMPLETED`, and `ACTIVE -> CANCELLED` exist. There are no reopen, deadline-extension, active-edit, or manual result-edit endpoints.
 
 Early completion and cancellation require an explicit confirmation and non-empty reason. Reconcile the deadline first: an overdue vote completes at its frozen deadline, cannot be cancelled, and cannot be relabelled as early completion. Repeating an action against a terminal vote returns `409 LIFECYCLE_CONFLICT` with safe current-state context.
 
-Participation monitoring returns `eligibleCount`, `submittedCount`, turnout, and rows containing frozen representative name, household identifier, and `submitted`. It does not return selections, counter snapshots, email, or per-submission timestamps. It is unavailable for drafts. This administrative participation list is never attached to CLOSED results/exports.
+Participation monitoring returns `eligibleCount`, `submittedCount`, turnout, and rows containing frozen representative name, household identifier, and `submitted`. It does not return selections, counter snapshots, email, or per-submission timestamps. It is unavailable for drafts. This administrative participation list is never attached to PRIVATE results/exports.
 
-Audit events expose decimal-string `id`, `actorKind`, authorized actor identifier, `action`, `targetType`, `targetId`, `occurredAt`, required `reason`, and allowlisted action metadata. They never include OTPs, session material, full account records, ballots, or CLOSED counter deltas.
+`PATCH /api/admin/settings` is administrator-only and CSRF-protected. It accepts a strict object: official full name (1-200 characters), compact alias (1-80), optional address (up to 500, blank allowed), optional email (blank or a valid address up to 254), optional phone (up to 40, blank allowed), optional HTTP(S) website (up to 200, blank allowed), accent palette (`TEAL`, `BLUE`, `FOREST`, `PLUM` or `SLATE`; each preset meets 4.5:1 contrast), optional plain-text welcome message (up to 300 characters, blank allowed), household label (1-40 characters of single-line plain text, such as `Flat` or `Villa`) and identifier kind (`NUMBER` or `ID`). Only the full name, alias, household label and identifier kind are required; blank optional values are hidden wherever they would appear. The guarded database routine independently validates the values, rechecks the current administrator, keeps `rwa_settings.name` equal to the full name, and audits changed field names atomically without storing the values in audit details.
 
-RWA settings, retention approvals, policy approvals, and first-administrator setup use controlled audited operational procedures for the MVP; no additional HTTP settings/bootstrap endpoints are required.
+The full settings projection is returned to the settings page only by the administrator-only `get_rwa_profile` routine; the settings page is not available to residents. Residents see the values on other pages through `get_rwa_branding` (enabled members only): the alias in the “Civic Pulse for {alias}” header and the breadcrumb root, the full name on the Votes page, vote pages and results, an RWA contact block (name, address, email, phone and optional website) in the signed-in footer, the welcome message on the Votes page and the administrator Households and Manage Votes pages, the chosen accent palette, and the household label and identifier kind used for all household wording. Public pages receive only the full name, alias, address, palette and household label through `get_public_rwa_identity`, which only the server-side service role can execute (sign-in shows name and alias; the privacy page shows name and address). A settings outage falls back to the product name and default palette rather than blocking pages. Member vote, results and export responses carry the **current** RWA name; the vote's activation-time `rwa_name_snapshot` remains an internal historical record and is not displayed. PDF results print the current name, address, email and phone; CSV carries the current name in `rwaName`. Direct `rwa_settings` access remains denied. Changing the household label or identifier kind affects wording across views and reports (for example “Flats” and “Flat Number”) without altering stored identifiers, uniqueness, normalization, API field names or CSV column keys; the UI derives plural and sentence wording from them.
 
-## 5. Completed results and download formats
+Audit events expose decimal-string `id`, `actorKind`, authorized actor identifier, `action`, `targetType`, `targetId`, `occurredAt`, required `reason`, and allowlisted action metadata. They never include OTPs, session material, full account records, ballots, or PRIVATE counter deltas.
+
+RWA identity/contact profile fields and the household and identifier labels are administrator-managed through `PATCH /api/admin/settings`. Timezone, retention approvals, policy approvals and first-administrator setup remain controlled operational procedures; they are not accepted by this profile endpoint.
+
+## 5. Results and download formats
 
 ### 5.1 Common result projection
 
-Results require `COMPLETED`. Draft/active/cancelled requests return `409 RESULTS_UNAVAILABLE` after object authorization. No results endpoint leaks even partial active totals to an administrator.
+Active and completed results use the same projection. Active PUBLIC results contain aggregate option counts and turnout only. Active PRIVATE results contain aggregate turnout only, with empty option/office arrays; only the separate administrator participation endpoint can identify households that have or have not voted. Cancelled requests return `409 RESULTS_UNAVAILABLE` after object authorization. No endpoint leaks active choices or member-facing identities.
 
-The projection contains:
+The completed projection contains:
 
-- `vote`: ID, title, voting type, `COMPLETED` status, instructions/context, frozen ballot labels/order, RWA name, timezone, policy versions, activation time, deadline, effective completion time, completion mode and early-completion reason.
+- `vote`: ID, title, voting type/status, instructions/context, frozen ballot labels/order, the current RWA name, timezone, policy versions, activation time, deadline, and (when completed) effective completion time, completion mode and early-completion reason.
 - `eligibleCount` and `submittedCount` as nonnegative decimal strings.
 - `turnout`: explicit decimal-string numerator and denominator, and `percent`.
 - Type-specific options or offices/candidates with authoritative counts and explicit percentage denominators.
 - A clear record disclaimer: not a signature, legal certification, or spending authorization.
 
-`percent` is a decimal string rounded to two decimal places using one shared half-up policy, or `null` when the denominator is zero. Never emit `NaN`, infinity, or a fabricated percentage. Rounded percentages need not sum to exactly 100.
+`percent` is a whole-number decimal string (for example `"38"`, no decimals) rounded half-up by one shared policy, or `null` when the denominator is zero. Turnout uses eligible households. PRIVATE candidate/NOTA and PUBLIC option `percent` values use submitted households; each of those rows also has `eligiblePercent`, the same count as a share of eligible households, which the results page and PDF display beside `count/eligible`. The CSV keeps `percent` only. Multi-select PUBLIC option shares may sum above 100% because each household can select several options. Never emit `NaN`, infinity, or a fabricated percentage.
 
 | Type | Additional fields |
 |---|---|
-| OPEN | `options`: option ID, label, count, percentage using submitted responses; `outcome` and `leaderOptionIds`; `namedResponses`: frozen `representativeName`, frozen `householdIdentifier`, and selected option ID/label; `page` for that response list |
-| CLOSED | `offices`: office ID/name, candidate IDs/names/counts/percentages, abstention count/percentage, outcome, and leader IDs; no respondent/household lists or named-response field |
+| PUBLIC | `options`: option ID, label, count, `percent` (of submitted) and `eligiblePercent` (of eligible); `outcome` and `leaderOptionIds`; `namedResponses`: frozen `representativeName`, frozen `householdIdentifier`, and selected option ID/label; `page` for that response list |
+| PRIVATE | `offices`: office ID/name, candidate IDs/names/counts/`percent`/`eligiblePercent`, `nota` count/`percent`/`eligiblePercent`, outcome, and leader IDs; no respondent/household lists or named-response field |
 
-OPEN aggregate totals always cover all accepted responses, not the current named-response page. Names/labels come from frozen snapshots/configuration, never current register joins. Omit registered email and unnecessary internal identity fields from result responses.
+PUBLIC aggregate totals always cover all accepted responses, not the current named-response page. Names/labels come from frozen snapshots/configuration, never current register joins. Omit registered email and unnecessary internal identity fields from result responses.
 
-For each CLOSED office, outcome is `LEADER`, `TIE`, or `NO_WINNER`. A positive unique highest candidate count is a leader; equal highest positive candidate counts are labelled "Tie." Zero submissions produce no winner. An all-abstention office uses the proposed "No candidate elected" outcome only after A5 approval; activation requires approval of that rule. Abstention is never a candidate. Candidate/abstention percentages use submitted ballots as denominator.
+For each PRIVATE office, outcome is `LEADER`, `TIE`, or `NO_WINNER`. The candidate with the highest positive count among candidates is elected even if NOTA has more votes; NOTA is counted separately and cannot win. Equal highest positive candidate counts are labelled "Tie." Zero submissions or zero votes for all candidates (including an office where every response is NOTA) produce `NO_WINNER`. Candidate/NOTA `percent` uses submitted ballots; `eligiblePercent` uses eligible households.
 
-OPEN outcome is `LEADER`, `TIE`, or `NO_VOTES`: mark equally highest positive option counts "Tie" without selecting a winner, and use `NO_VOTES` with no leaders for zero responses. Reporting a leading option does not elect an officeholder or confer spending authority/legal certification.
+PUBLIC outcome is `LEADER`, `TIE`, or `NO_VOTES`: mark equally highest positive option counts "Tie" without selecting a winner, and use `NO_VOTES` with no leaders for zero responses. Reporting a leading option does not elect an officeholder or confer spending authority/legal certification.
 
-Before publication, verify OPEN response/participation equality and each CLOSED office's candidate-plus-abstention equality with participation. Invariant failure blocks completion/publication/downloads with `503 RESULTS_INTEGRITY_ERROR` and a restricted operational alert; never repair, omit, or invent totals silently.
+Before publication, verify PUBLIC response/participation equality and each PRIVATE office's candidate-plus-NOTA equality with participation. Invariant failure blocks completion/publication/downloads with `503 RESULTS_INTEGRITY_ERROR` and a restricted operational alert; never repair, omit, or invent totals silently.
 
-All components of one result projection come from one completion-gated SQL RPC using a consistent database snapshot. Separate Supabase HTTP requests do not share a transaction. Materialize authorized data before rendering; completed values are immutable apart from approved whole-record retention deletion.
+All components of one result projection come from one authorized SQL RPC using a consistent database snapshot. Separate Supabase HTTP requests do not share a transaction. Materialize authorized data before rendering; active PUBLIC aggregates reflect the current response rows, while completed values are immutable apart from approved whole-record retention deletion.
 
 ### 5.2 CSV and PDF downloads
 
@@ -301,9 +307,9 @@ Both formats use `no-store` and `X-Content-Type-Options: nosniff`. Filenames are
 
 Use the same authoritative projection as the results screen. Generate the complete file in bounded application memory before returning successful headers; do not hold a database transaction open while rendering. Do not persist public/private report copies, issue bearer download URLs, or email attachments.
 
-Each available format includes RWA name, title, type, question/offices and candidates/options, activation/effective completion times with timezone, eligible/submitted counts, turnout, final totals, explicit denominators, abstentions/ties/no-votes, generation time, and the early-completion label/reason where applicable. CSV uses one rectangular schema with fixed columns: `recordType`, `rwaName`, `voteTitle`, `votingType`, `timezone`, `activatedAt`, `completedAt`, `completionMode`, `completionReason`, `generatedAt`, `office`, `label`, `count`, `numerator`, `denominator`, `percent`, `outcome`, `representativeName`, `householdIdentifier`, `choice`, `notice`. Unused cells are empty. Rows use `SUMMARY`, `TURNOUT`, `OPTION`, `CANDIDATE`, `ABSTENTION`, `OFFICE_OUTCOME`, `NAMED_RESPONSE`, or `NOTICE` as applicable; repeat report metadata consistently. Include poll outcome in `SUMMARY` and instructions/context as a `NOTICE` alongside the record disclaimer.
+Each available format includes RWA name, title, type, question/offices and candidates/options, activation/effective completion times with timezone, eligible/submitted counts, turnout, final totals, explicit denominators, NOTA/ties/no-votes, generation time, and the early-completion label/reason where applicable. CSV uses one rectangular schema with fixed columns: `recordType`, `rwaName`, `voteTitle`, `votingType`, `timezone`, `activatedAt`, `completedAt`, `completionMode`, `completionReason`, `generatedAt`, `office`, `label`, `count`, `numerator`, `denominator`, `percent`, `outcome`, `representativeName`, `householdIdentifier`, `choice`, `notice`. Unused cells are empty. Rows use `SUMMARY`, `TURNOUT`, `OPTION`, `CANDIDATE`, `NOTA`, `OFFICE_OUTCOME`, `NAMED_RESPONSE`, or `NOTICE` as applicable; repeat report metadata consistently. Include poll outcome in `SUMMARY` and instructions/context as a `NOTICE` alongside the record disclaimer.
 
-OPEN files include the **entire** named-response list without emails. CLOSED files contain aggregates only: no named-response rows, voter/household lists, participation identities, or individual ballots. Any identity-related CSV columns remain empty for CLOSED.
+PUBLIC files include the **entire** named-response list without emails. PRIVATE files contain aggregates only: no named-response rows, voter/household lists, participation identities, or individual ballots. Any identity-related CSV columns remain empty for PRIVATE.
 
 Rendering failure returns structured `503 EXPORT_FAILED` before a successful attachment response. A network-interrupted download remains a download failure and does not change results. Download retries never resubmit a ballot.
 
@@ -321,8 +327,8 @@ Use shared Zod contracts at HTTP entry points plus protected database validation
 - Require valid UUIDs, exact enums, booleans, positive integer revisions/positions, finite pagination values, and valid timestamp/timezone values.
 - Store trimmed plain text; reject inappropriate control characters and rich HTML. Normalize before uniqueness checks.
 - Bounds match database checks: email `254`, household identifiers `100`, names/ballot labels `200`, titles/questions `300`, instructions/context `10,000`, reasons `2,000` characters.
-- CLOSED activation requires a title, non-empty instructions, at least one office, at least one named candidate per office, explicit built-in abstention for every office, non-empty electorate, and a future deadline.
-- OPEN activation requires a title/question, at least two distinct non-empty options, non-empty electorate, and a future deadline; context is optional.
+- PRIVATE activation requires a title, non-empty instructions, at least one office, at least one named candidate per office, built-in NOTA for every office, non-empty electorate, and a future deadline.
+- PUBLIC activation requires a title/question, at least two distinct non-empty options, non-empty electorate, and a future deadline; context is optional.
 - Enforce bounded body bytes, nesting, and collection sizes at the proxy and application. Set consistent technical limits against the approved 500-household/100-concurrent-user pilot dataset; do not invent election-rule caps or silently truncate oversized ballots.
 - Reject oversized bodies with `413 REQUEST_TOO_LARGE`. Reject malformed JSON with `400 MALFORMED_JSON`.
 - Revalidate candidate/option ownership, electorate eligibility, lifecycle, and deadline inside the atomic operation, not solely before entering it.
@@ -338,7 +344,7 @@ Use shared Zod contracts at HTTP entry points plus protected database validation
 | `fieldErrors` | Optional array of `{ field, code, message }`; field paths only, never submitted values |
 | `context` | Optional allowlisted lifecycle/revision recovery context; never identity-to-choice information |
 
-The top-level `requestId` supports restricted troubleshooting. CLOSED validation must not echo candidate IDs, chosen values, or a summary of selections; generic indexed field paths are sufficient.
+The top-level `requestId` supports restricted troubleshooting. PRIVATE validation must not echo candidate IDs, chosen values, or a summary of selections; generic indexed field paths are sufficient.
 
 | HTTP status | Representative codes | Meaning / recovery |
 |---|---|---|
@@ -498,12 +504,12 @@ Use separate credentials, databases, and email destinations in local/test/stagin
 
 ## 11. Privacy, failures, and operational guarantees
 
-### Data minimization and CLOSED privacy
+### Data minimization and PRIVATE privacy
 
-- Names, emails, household identifiers, participation, and OPEN responses are restricted personal data. Project only what the caller needs.
-- CLOSED choices exist transiently for validation/counter increments; never persist individual ballots, cross-office ballot identifiers, selection receipts, counter-update history, or request payloads.
+- Names, emails, household identifiers, participation, and PUBLIC responses are restricted personal data. Project only what the caller needs.
+- PRIVATE choices exist transiently for validation/counter increments; never persist individual ballots, cross-office ballot identifiers, selection receipts, counter-update history, or request payloads.
 - Disable body, SQL bind-parameter, cookie, token, code, email-content, session replay, and network-payload capture across application, proxy, APM, error tracker, and database instrumentation.
-- Log only allowlisted event names, safe status classes, latency, and random support IDs. Never attach CLOSED payloads to errors, audits, traces, emails, or metrics.
+- Log only allowlisted event names, safe status classes, latency, and random support IDs. Never attach PRIVATE payloads to errors, audits, traces, emails, or metrics.
 - Deny live tallies, tally snapshots, change feeds, and debug endpoints that enable differencing. Administrators may monitor participation only.
 - Application-level anonymity does not protect against privileged infrastructure/WAL/PITR correlation, a compromised process, or inference from low turnout. Obtain A2 approval without promising cryptographic anonymity.
 
@@ -535,12 +541,12 @@ Implementation must demonstrate:
 - Retry-safe Auth/profile provisioning and identity changes, including partial failures that leave inconsistent identities blocked and never return false success.
 - Revision-safe draft editing, valid activation/frozen snapshots, exact-deadline admission, and completion/cancellation races.
 - Exactly one durable participation under concurrent sessions, retries, lost acknowledgements, and injected mid-transaction faults.
-- No active/cancelled choice disclosure and no CLOSED identity-to-choice leakage through ordinary storage, direct APIs/Realtime, logs, audits, CSV, or PDF when included.
-- Exact agreement of completed screen/API/export counts, frozen OPEN identities, all-response exports, denominators, ties, abstentions, and no-votes states.
+- No active/cancelled choice disclosure and no PRIVATE identity-to-choice leakage through ordinary storage, direct APIs/Realtime, logs, audits, CSV, or PDF when included.
+- Exact agreement of completed screen/API/export counts, frozen PUBLIC identities, all-response exports, denominators, NOTA counts, candidate ties, NOTA-higher-than-candidate outcomes, and no-votes states.
 - Structured errors and explicit unknown submission outcomes; export failures never return a successful partial report.
-- CSV matches authoritative completed data, including OPEN full named lists, option/candidate ties, and early-completion label/reason. PDF tests apply only when implemented: actual approved-script rendering, full multi-page A4/grayscale output, mobile download, and recovery from failure.
+- CSV matches authoritative completed data, including PUBLIC full named lists, option/candidate ties, and early-completion label/reason. PDF tests apply only when implemented: actual approved-script rendering, full multi-page A4/grayscale output, mobile download, and recovery from failure.
 - Supabase Cron completion/cleanup grants and idempotence, delayed/paused-database deadline rejection, and no unsupported availability guarantee.
 - At 500 households/about 100 concurrent users, p95 page/API response under two seconds and acknowledgement within three seconds, excluding email delivery and poor client connectivity.
 - Approved free-tier/hosting eligibility and capacity, peak SMTP/Auth limits, off-site backups, and tested restoration/completeness. Obtain cost approval rather than weaken integrity or recovery to meet the zero-monthly-cost objective.
 
-Documentation alone does not satisfy these checks. Any lost/duplicate participation, partial election submission, incorrect tally, unauthorized disclosure, or CLOSED identity-to-choice exposure blocks release.
+Documentation alone does not satisfy these checks. Any lost/duplicate participation, partial election submission, incorrect tally, unauthorized disclosure, or PRIVATE identity-to-choice exposure blocks release.

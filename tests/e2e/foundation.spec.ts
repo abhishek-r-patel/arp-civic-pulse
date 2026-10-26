@@ -348,7 +348,7 @@ test("contact form preserves failed enquiries and acknowledges only accepted sen
   await page.goto("/contact");
   if (await page.getByText("Online contact is not available yet").isVisible()) {
     await expect(
-      page.getByRole("button", { name: "Send message" }),
+      page.getByRole("button", { name: "Send Message" }),
     ).toHaveCount(0);
     return;
   }
@@ -370,7 +370,7 @@ test("contact form preserves failed enquiries and acknowledges only accepted sen
       }),
     }),
   );
-  await page.getByRole("button", { name: "Send message" }).click();
+  await page.getByRole("button", { name: "Send Message" }).click();
   await expect(
     page.getByText(
       "The service is temporarily unavailable. Try again in a moment.",
@@ -393,9 +393,9 @@ test("contact form preserves failed enquiries and acknowledges only accepted sen
       }),
     }),
   );
-  await page.getByRole("button", { name: "Send message" }).click();
+  await page.getByRole("button", { name: "Send Message" }).click();
   await expect(page.getByRole("status")).toContainText("Message accepted");
-  await expect(page.getByRole("button", { name: "Send message" })).toHaveCount(
+  await expect(page.getByRole("button", { name: "Send Message" })).toHaveCount(
     0,
   );
 });

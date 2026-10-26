@@ -64,7 +64,7 @@ describe.skipIf(!enabled)("encrypted backup and restore rehearsal", () => {
     api = votingApi(source, world);
     await api.setupPolicy();
 
-    completedOpen = await api.activeVote("OPEN");
+    completedOpen = await api.activeVote("PUBLIC");
     await api.cast(world.alice.id, completedOpen.id, {
       confirmed: true,
       optionId: completedOpen.options[0]?.id,
@@ -75,7 +75,7 @@ describe.skipIf(!enabled)("encrypted backup and restore rehearsal", () => {
     });
     await finish(completedOpen.id);
 
-    completedClosed = await api.activeVote("CLOSED");
+    completedClosed = await api.activeVote("PRIVATE");
     await api.cast(world.alice.id, completedClosed.id, {
       confirmed: true,
       selections: completedClosed.offices.map((o) => ({
@@ -92,12 +92,12 @@ describe.skipIf(!enabled)("encrypted backup and restore rehearsal", () => {
     });
     await finish(completedClosed.id);
 
-    active = await api.activeVote("OPEN");
+    active = await api.activeVote("PUBLIC");
     await api.cast(world.bob.id, active.id, {
       confirmed: true,
       optionId: active.options[0]?.id,
     });
-    await api.call<Detail>(world.admin.id, "public.create_draft('OPEN')");
+    await api.call<Detail>(world.admin.id, "public.create_draft('PUBLIC')");
   });
 
   afterAll(async () => {
@@ -363,7 +363,7 @@ describe.skipIf(!enabled)("encrypted backup and restore rehearsal", () => {
 
   it("flags a vote whose deadline elapsed while the service was down", async () => {
     // An active vote with a short deadline, backed up while open, restored after it passed.
-    const short = await api.activeVote("OPEN", { closesInMs: 4_000 });
+    const short = await api.activeVote("PUBLIC", { closesInMs: 4_000 });
     const { manifestPath } = await createBackup({
       databaseUrl: urlFor(source),
       outDir: out,

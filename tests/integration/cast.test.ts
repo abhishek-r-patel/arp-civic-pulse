@@ -93,7 +93,7 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
     });
 
     it("refuses a suspended profile and an unknown identity, even with a still-valid session", async () => {
-      const vote = await api.activeVote("OPEN", {
+      const vote = await api.activeVote("PUBLIC", {
         people: [world.alice, world.bob],
       });
       const body = { confirmed: true, optionId: vote.options[0]?.id };
@@ -126,12 +126,12 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
     });
 
     it("answers not found, identically, for an administrator without an entitlement, a member outside the electorate, a draft and an unknown vote", async () => {
-      const vote = await api.activeVote("OPEN", {
+      const vote = await api.activeVote("PUBLIC", {
         people: [world.alice, world.bob],
       });
       const draft = await api.call<Detail>(
         api.admin(),
-        "public.create_draft('OPEN')",
+        "public.create_draft('PUBLIC')",
       );
       const body = { confirmed: true, optionId: vote.options[0]?.id };
 
@@ -154,7 +154,7 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
 
     it("is not blocked by a vote lock held for someone outside the electorate", async () => {
       // Probing a vote you are not entitled to must not queue behind its lock.
-      const vote = await api.activeVote("OPEN", { people: [world.alice] });
+      const vote = await api.activeVote("PUBLIC", { people: [world.alice] });
       const started = Date.now();
       const holder = db.asOwner(async (c) => {
         await c.query("select 1 from public.votes where id = $1 for update", [
@@ -175,9 +175,9 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
     });
   });
 
-  describe("OPEN submissions", () => {
+  describe("PUBLIC submissions", () => {
     it("records participation and exactly one owned response, and returns participation only", async () => {
-      const vote = await api.activeVote("OPEN");
+      const vote = await api.activeVote("PUBLIC");
       const yes = vote.options[0]?.id;
       const result = await api.cast(alice(), vote.id, {
         confirmed: true,
@@ -213,46 +213,152 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
       });
     });
 
-    it("refuses a second submission without echoing or comparing selections, and keeps one record", async () => {
-      const vote = await api.activeVote("OPEN");
+    it("replaces a PUBLIC choice without adding another participation record", async () => {
+      const vote = await api.activeVote("PUBLIC");
       await api.cast(alice(), vote.id, {
         confirmed: true,
         optionId: vote.options[0]?.id,
       });
-      for (const option of vote.options) {
-        const error = await dbError(
-          api.cast(alice(), vote.id, { confirmed: true, optionId: option.id }),
-        );
-        expect(error.message).toBe("ALREADY_SUBMITTED");
-        expect(JSON.stringify(error)).not.toContain(option.id);
+      const acknowledgement = await api.cast(alice(), vote.id, {
+        confirmed: true,
+        optionId: vote.options[1]?.id,
+      });
+      expect(acknowledgement).toMatchObject({
+        accepted: true,
+        submitted: true,
+      });
+      expect(await api.counts(vote.id)).toMatchObject({
+        participation: 1,
+        openResponses: 1,
+      });
+      const [response] = await api.rows<{ option_id: string }>(
+        "select option_id from public.open_responses where vote_id = $1",
+        [vote.id],
+      );
+      expect(response?.option_id).toBe(vote.options[1]?.id);
+    });
+
+    it("stores multiple selected options as one replaceable household ballot", async () => {
+      const vote = await api.activeVote("PUBLIC", {
+        openSelectionMode: "MULTIPLE",
+        openSelectionLimit: 2,
+        optionLabels: ["Monday", "Tuesday", "Saturday"],
+      });
+      const choices = [vote.options[0]?.id, vote.options[2]?.id];
+      await expect(
+        api.cast(alice(), vote.id, { confirmed: true, optionIds: choices }),
+      ).resolves.toMatchObject({ accepted: true, submitted: true });
+      expect(await api.counts(vote.id)).toMatchObject({
+        participation: 1,
+        openResponses: 2,
+      });
+
+      await api.cast(alice(), vote.id, {
+        confirmed: true,
+        optionIds: [vote.options[1]?.id],
+      });
+      expect(await api.counts(vote.id)).toMatchObject({
+        participation: 1,
+        openResponses: 1,
+      });
+      const selected = await api.rows<{ option_id: string }>(
+        "select option_id from public.open_responses where vote_id = $1",
+        [vote.id],
+      );
+      expect(selected.map((row) => row.option_id)).toEqual([
+        vote.options[1]?.id,
+      ]);
+    });
+
+    it("enforces at least one choice, unique owned options, and the configured cap", async () => {
+      const vote = await api.activeVote("PUBLIC", {
+        openSelectionMode: "MULTIPLE",
+        openSelectionLimit: 2,
+        optionLabels: ["Monday", "Tuesday", "Saturday"],
+      });
+      const [first, second, third] = vote.options.map((option) => option.id);
+      for (const optionIds of [
+        [],
+        [first, first],
+        [first, second, third],
+        [first, UNKNOWN],
+      ]) {
+        expect(
+          (
+            await dbError(
+              api.cast(alice(), vote.id, { confirmed: true, optionIds }),
+            )
+          ).message,
+        ).toBe("VALIDATION_FAILED");
       }
+      expect(await api.counts(vote.id)).toMatchObject({
+        participation: 0,
+        openResponses: 0,
+      });
+    });
+
+    it("allows any number of distinct options when the PUBLIC poll has no cap", async () => {
+      const vote = await api.activeVote("PUBLIC", {
+        openSelectionMode: "MULTIPLE",
+        openSelectionLimit: null,
+        optionLabels: ["Monday", "Tuesday", "Saturday"],
+      });
+      await api.cast(alice(), vote.id, {
+        confirmed: true,
+        optionIds: vote.options.map((option) => option.id),
+      });
+      expect(await api.counts(vote.id)).toMatchObject({
+        participation: 1,
+        openResponses: 3,
+      });
+    });
+
+    it("serializes concurrent PUBLIC choice changes without duplicating participation", async () => {
+      const vote = await api.activeVote("PUBLIC");
+      const results = await Promise.allSettled(
+        Array.from({ length: 8 }, (_, index) =>
+          api.cast(alice(), vote.id, {
+            confirmed: true,
+            optionId: vote.options[index % 2]?.id,
+          }),
+        ),
+      );
+      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(8);
       expect(await api.counts(vote.id)).toMatchObject({
         participation: 1,
         openResponses: 1,
       });
     });
 
-    it("lets exactly one of many concurrent retries and devices win", async () => {
-      const vote = await api.activeVote("OPEN");
-      const body = { confirmed: true, optionId: vote.options[1]?.id };
+    it("serializes concurrent multi-select replacement as one latest ballot", async () => {
+      const vote = await api.activeVote("PUBLIC", {
+        openSelectionMode: "MULTIPLE",
+        openSelectionLimit: 2,
+        optionLabels: ["Monday", "Tuesday", "Saturday"],
+      });
       const results = await Promise.allSettled(
-        Array.from({ length: 8 }, () => api.cast(alice(), vote.id, body)),
+        Array.from({ length: 8 }, (_, index) =>
+          api.cast(alice(), vote.id, {
+            confirmed: true,
+            optionIds:
+              index % 2 === 0
+                ? [vote.options[0]?.id, vote.options[1]?.id]
+                : [vote.options[1]?.id, vote.options[2]?.id],
+          }),
+        ),
       );
-      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
-      for (const failure of results.filter((r) => r.status === "rejected")) {
-        expect((failure as PromiseRejectedResult).reason.message).toBe(
-          "ALREADY_SUBMITTED",
-        );
-      }
+      expect(
+        results.filter((result) => result.status === "fulfilled"),
+      ).toHaveLength(8);
       expect(await api.counts(vote.id)).toMatchObject({
         participation: 1,
-        openResponses: 1,
+        openResponses: 2,
       });
     });
 
     it("rejects any option that is not this vote's, and any malformed or mixed shape, writing nothing", async () => {
-      const vote = await api.activeVote("OPEN");
-      const other = await api.activeVote("OPEN");
+      const vote = await api.activeVote("PUBLIC");
+      const other = await api.activeVote("PUBLIC");
       const good = vote.options[0]?.id;
       const bad: unknown[] = [
         { confirmed: true, optionId: other.options[0]?.id },
@@ -286,7 +392,7 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
     });
 
     it("never accepts identity, household, role, timestamp, count or idempotency fields", async () => {
-      const vote = await api.activeVote("OPEN");
+      const vote = await api.activeVote("PUBLIC");
       const good = vote.options[0]?.id;
       for (const extra of [
         { householdId: world.bob.householdId },
@@ -312,9 +418,9 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
     });
   });
 
-  describe("CLOSED submissions", () => {
-    it("increments exactly the chosen counters, including explicit abstentions", async () => {
-      const vote = await api.activeVote("CLOSED");
+  describe("PRIVATE submissions", () => {
+    it("increments exactly the chosen counters, including explicit NOTA choices", async () => {
+      const vote = await api.activeVote("PRIVATE");
       const first = await api.cast(
         alice(),
         vote.id,
@@ -360,7 +466,7 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
     });
 
     it("refuses a repeat without changing any counter", async () => {
-      const vote = await api.activeVote("CLOSED");
+      const vote = await api.activeVote("PRIVATE");
       await api.cast(alice(), vote.id, closedBallot(vote, [0, 0]));
       const before = await api.counts(vote.id);
       expect(
@@ -374,8 +480,8 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
     });
 
     it("rejects every incomplete or inconsistent ballot and leaves no partial write", async () => {
-      const vote = await api.activeVote("CLOSED");
-      const other = await api.activeVote("CLOSED");
+      const vote = await api.activeVote("PRIVATE");
+      const other = await api.activeVote("PRIVATE");
       const valid = closedBallot(vote, [0, 0]);
       const [selChair, selTreasurer] = valid.selections;
 
@@ -441,7 +547,7 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
           },
         ],
         [
-          "a missing candidateId key (not an explicit abstention)",
+          "a missing candidateId key (not an explicit NOTA choice)",
           {
             confirmed: true,
             selections: [{ officeId: chair(vote)?.id }, selTreasurer],
@@ -479,7 +585,7 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
           { confirmed: true, selections: selChair },
         ],
         [
-          "an OPEN option on a CLOSED vote",
+          "a PUBLIC option on a PRIVATE vote",
           { confirmed: true, optionId: UNKNOWN },
         ],
         ["both shapes at once", { ...valid, optionId: UNKNOWN }],
@@ -499,11 +605,11 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
 
     it("is not blocked by another vote's counters or by another draft's empty office", async () => {
       // Regression: the activation guard once inspected every office in the database.
-      const busy = await api.activeVote("CLOSED");
+      const busy = await api.activeVote("PRIVATE");
       await api.cast(alice(), busy.id, closedBallot(busy, [0, 0]));
       const emptyDraft = await api.call<Detail>(
         api.admin(),
-        "public.create_draft('CLOSED')",
+        "public.create_draft('PRIVATE')",
       );
       await api.call(api.admin(), "public.update_draft($1, 1, $2::jsonb)", [
         emptyDraft.id,
@@ -511,10 +617,10 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
           offices: [{ name: "No candidates yet", position: 1, candidates: [] }],
         }),
       ]);
-      expect((await api.activeVote("CLOSED")).status).toBe("ACTIVE");
+      expect((await api.activeVote("PRIVATE")).status).toBe("ACTIVE");
     });
 
-    it("keeps no individual CLOSED record: no choice, household or timestamp can be joined to a counter", async () => {
+    it("keeps no individual PRIVATE record: no choice, household or timestamp can be joined to a counter", async () => {
       const columns = async (table: string) =>
         (
           await api.rows<{ column_name: string }>(
@@ -536,7 +642,7 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
         "vote_id",
       ]);
 
-      const vote = await api.activeVote("CLOSED");
+      const vote = await api.activeVote("PRIVATE");
       await api.cast(alice(), vote.id, closedBallot(vote, [0, 0]));
       expect((await api.counts(vote.id)).openResponses).toBe(0);
       for (const table of ["closed_tallies", "open_responses"]) {
@@ -562,7 +668,7 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
 
   describe("deadlines and lifecycle", () => {
     it("completes an overdue vote at its deadline, COMMITS that, and refuses the late submission", async () => {
-      const vote = await api.activeVote("OPEN", { closesInMs: 2_500 });
+      const vote = await api.activeVote("PUBLIC", { closesInMs: 2_500 });
       await sleep(3_000);
       const result = await api.cast(alice(), vote.id, {
         confirmed: true,
@@ -595,7 +701,7 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
     });
 
     it("refuses a request that WAITED past the cutoff for the vote lock, even though it was sent earlier", async () => {
-      const vote = await api.activeVote("OPEN", { closesInMs: 3_000 });
+      const vote = await api.activeVote("PUBLIC", { closesInMs: 3_000 });
       const holder = db.asOwner(async (c) => {
         await c.query("select 1 from public.votes where id = $1 for update", [
           vote.id,
@@ -614,7 +720,7 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
     });
 
     it("lets a transaction admitted before the deadline commit after it, and counts it", async () => {
-      const vote = await api.activeVote("OPEN", { closesInMs: 3_000 });
+      const vote = await api.activeVote("PUBLIC", { closesInMs: 3_000 });
       const body = { confirmed: true, optionId: vote.options[0]?.id };
       const admittedAt: number[] = [];
 
@@ -657,13 +763,13 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
     });
 
     it("refuses submissions to completed and cancelled votes", async () => {
-      const done = await api.activeVote("OPEN");
+      const done = await api.activeVote("PUBLIC");
       await api.call(
         api.admin(),
         "public.complete_vote_early($1, true, 'All voted')",
         [done.id],
       );
-      const cancelled = await api.activeVote("CLOSED");
+      const cancelled = await api.activeVote("PRIVATE");
       await api.call(
         api.admin(),
         "public.cancel_vote($1, true, 'Wrong list')",
@@ -697,7 +803,7 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
     });
 
     it("serialises a concurrent cancellation and submission into one consistent outcome", async () => {
-      const vote = await api.activeVote("OPEN");
+      const vote = await api.activeVote("PUBLIC");
       const [cast, cancel] = await Promise.allSettled([
         api.cast(alice(), vote.id, {
           confirmed: true,
@@ -722,7 +828,7 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
 
   describe("failure handling", () => {
     it("rolls back everything when a fault strikes mid-submission", async () => {
-      const vote = await api.activeVote("CLOSED");
+      const vote = await api.activeVote("PRIVATE");
       await db.asSuperuser(async (c) => {
         await c.query(
           "create function public.cp_test_fail() returns trigger language plpgsql as $$ begin raise exception 'INJECTED_FAULT'; end $$",
@@ -758,7 +864,7 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
     });
 
     it("turns an unbounded lock wait into a retryable error instead of hanging", async () => {
-      const vote = await api.activeVote("OPEN");
+      const vote = await api.activeVote("PUBLIC");
       const started = Date.now();
       const holder = db.asOwner(async (c) => {
         await c.query("select 1 from public.votes where id = $1 for update", [
@@ -782,7 +888,7 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
     });
 
     it("reports a committed submission whose acknowledgement was lost", async () => {
-      const vote = await api.activeVote("OPEN");
+      const vote = await api.activeVote("PUBLIC");
       // The caller never reads the response (a dropped connection), yet it committed.
       void api.cast(alice(), vote.id, {
         confirmed: true,

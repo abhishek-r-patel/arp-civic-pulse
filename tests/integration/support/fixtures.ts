@@ -83,13 +83,13 @@ export async function seedWorld(db: TestDatabase): Promise<World> {
 export interface VoteFixture {
   id: string;
   optionIds: string[];
-  offices: { id: string; candidateIds: string[]; abstentionTallyId?: string }[];
+  offices: { id: string; candidateIds: string[]; notaTallyId?: string }[];
 }
 
 export async function insertDraft(
   client: Client,
   adminId: string,
-  type: "OPEN" | "CLOSED",
+  type: "PUBLIC" | "PRIVATE",
   title = "Fixture vote",
 ): Promise<string> {
   const result = await client.query<{ id: string }>(
@@ -204,7 +204,7 @@ export async function fixtureOpenVote(
   options: { closesInSeconds?: number } = {},
 ): Promise<VoteFixture> {
   return db.asOwner(async (client) => {
-    const id = await insertDraft(client, world.admin.id, "OPEN");
+    const id = await insertDraft(client, world.admin.id, "PUBLIC");
     const optionIds = await addOptions(client, id, ["Approve", "Reject"]);
     await snapshotElectorate(client, id, electors);
     await activate(client, id, options);
@@ -218,7 +218,7 @@ export async function fixtureClosedVote(
   electors: Person[] = [world.alice, world.bob, world.dave],
 ): Promise<VoteFixture> {
   return db.asOwner(async (client) => {
-    const id = await insertDraft(client, world.admin.id, "CLOSED");
+    const id = await insertDraft(client, world.admin.id, "PRIVATE");
     const president = await addOffice(client, id, "President", 1, [
       "Priya",
       "Quentin",

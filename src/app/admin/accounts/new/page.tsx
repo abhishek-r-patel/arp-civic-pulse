@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/ui/layout";
 import { adminPageContext } from "@/server/register/page-context";
 
 export const metadata = {
-  title: "Add account",
+  title: "Add Account",
   description: "Provision a registered member account for your association.",
   alternates: { canonical: "/admin/accounts/new" },
 };
@@ -24,7 +24,7 @@ export default async function NewAccountPage() {
         Accounts
       </Link>
       <PageHeader
-        title="Add account"
+        title="Add Account"
         description="Create a sign-in identity and profile for one person."
       />
       <AccountCreateForm csrfToken={deps.csrfToken} />

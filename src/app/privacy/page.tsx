@@ -3,10 +3,19 @@ import Link from "next/link";
 import { PageHeader } from "@/components/ui/layout";
 import { PublicStructuredData } from "@/components/ui/public-structured-data";
 import { publicMetadata } from "@/shared/metadata";
+import {
+  loadHouseholdTerms,
+  loadPublicRwaIdentity,
+} from "@/server/settings/rwa-profile";
 
 export const metadata = publicMetadata("/privacy");
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const [identity, terms] = await Promise.all([
+    loadPublicRwaIdentity(),
+    loadHouseholdTerms(),
+  ]);
+
   return (
     <article className="mx-auto grid w-full max-w-ballot gap-6 text-body text-muted">
       <PublicStructuredData path="/privacy" />
@@ -16,30 +25,43 @@ export default function PrivacyPage() {
       />
       <p>
         Civic Pulse supports voting and polls for your Resident Welfare
-        Association (RWA). Your RWA administers the household register and
-        member access. Contact your RWA administrator to identify the
-        organisation responsible for your deployment and its approved data
-        policies.
+        Association (RWA). Your RWA administers the register of{" "}
+        {terms.households} and member access.{" "}
+        {identity
+          ? "The organisation responsible for this deployment is shown below. Contact your RWA administrator about its approved data policies."
+          : "Contact your RWA administrator to identify the organisation responsible for your deployment and its approved data policies."}
       </p>
+      {identity ? (
+        <section aria-label="Responsible organisation" className="grid gap-1">
+          <p className="font-semibold text-primary">
+            {identity.fullName} ({identity.alias})
+          </p>
+          {identity.address ? (
+            <address className="whitespace-pre-line not-italic">
+              {identity.address}
+            </address>
+          ) : null}
+        </section>
+      ) : null}
       <section className="grid gap-2">
         <h2 className="text-section font-semibold text-primary md:text-section-lg">
           Information we use
         </h2>
         <p>
-          The service uses registered email addresses, representative names,
-          household membership, account roles and status to manage access and
-          voting eligibility. It records participation, vote configuration,
-          completed results and administrative audit events. Sign-in is
-          available only to registered members.
+          The service uses registered email addresses, representative names,{" "}
+          {terms.household} membership, account roles and status to manage
+          access and voting eligibility. It records participation, vote
+          configuration, completed results and administrative audit events.
+          Sign-in is available only to registered members.
         </p>
       </section>
       <section className="grid gap-2">
         <h2 className="text-section font-semibold text-primary md:text-section-lg">
-          OPEN polls and CLOSED elections
+          PUBLIC polls and PRIVATE elections
         </h2>
         <p>
-          OPEN polls retain attributable responses, which authorised members can
-          see after completion. CLOSED elections retain participation and
+          PUBLIC polls retain attributable responses, which authorised members
+          can see after completion. PRIVATE elections retain participation and
           aggregate choice counters, not individual stored ballots. This is
           application-level privacy, not cryptographic anonymity: privileged
           operators and very small electorates may still infer information.
@@ -80,10 +102,10 @@ export default function PrivacyPage() {
           Retention, security and your requests
         </h2>
         <p>
-          Access is restricted by account and household eligibility. Audit
-          records, voting data, mailboxes and encrypted backups have different
-          retention needs. Ask your RWA administrator for the approved retention
-          periods, hosting regions and provider arrangements for your
+          Access is restricted by account and {terms.household} eligibility.
+          Audit records, voting data, mailboxes and encrypted backups have
+          different retention needs. Ask your RWA administrator for the approved
+          retention periods, hosting regions and provider arrangements for your
           association. Requests to access or correct your register details,
           raise a concern, or seek deletion must be assessed against voting
           integrity, historical records and applicable obligations. No service

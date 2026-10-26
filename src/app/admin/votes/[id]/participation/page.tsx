@@ -13,6 +13,7 @@ import { Notice } from "@/components/ui/notice";
 import { Pagination } from "@/components/ui/pagination";
 import { ApiError } from "@/server/http/errors";
 import { adminPageContext } from "@/server/register/page-context";
+import { loadHouseholdTerms } from "@/server/settings/rwa-profile";
 import {
   getParticipationReport,
   type ParticipationReport,
@@ -21,15 +22,20 @@ import { participationQuerySchema } from "@/shared/contracts/admin-votes";
 import { idParamsSchema } from "@/shared/contracts/register";
 import { percentage } from "@/shared/validation/numbers";
 
-export const generateMetadata = privateRecordMetadata(
-  "Participation",
-  "Review household participation without revealing active voting choices.",
-  "/admin/votes/[id]/participation",
-);
+export async function generateMetadata({
+  params,
+}: Readonly<{ params: Promise<{ id: string }> }>) {
+  const terms = await loadHouseholdTerms();
+  return privateRecordMetadata(
+    "Participation",
+    `Review ${terms.household} participation without revealing active voting choices.`,
+    "/admin/votes/[id]/participation",
+  )({ params });
+}
 
 type Row = ParticipationReport["rows"][number];
 
-const columns: Column<Row>[] = [
+const columns = (identifierLabel: string): Column<Row>[] => [
   {
     key: "name",
     header: "Representative",
@@ -37,7 +43,7 @@ const columns: Column<Row>[] = [
   },
   {
     key: "household",
-    header: "Household",
+    header: identifierLabel,
     cell: (row) => row.householdIdentifier,
   },
   {
@@ -96,7 +102,7 @@ export default async function ParticipationPage({
       </Link>
       <PageHeader
         title="Participation"
-        description="Which households have submitted. This never shows what anyone chose, when they submitted, or their email."
+        description={`Which ${deps.terms.households} have submitted. During a live election, use this list for follow-up. It never shows what anyone chose, when they submitted, or their email.`}
       />
 
       {failure ? (
@@ -127,7 +133,7 @@ export default async function ParticipationPage({
                 <span className="font-semibold">
                   {result.data.submittedCount} of {result.data.eligibleCount}
                 </span>{" "}
-                eligible households have submitted
+                eligible {deps.terms.households} have submitted
                 {percentage(
                   result.data.submittedCount,
                   result.data.eligibleCount,
@@ -138,8 +144,9 @@ export default async function ParticipationPage({
             </div>
             {result.data.status === "ACTIVE" ? (
               <p className="text-caption text-muted">
-                This is a live count. It is for follow-up only and is never
-                shown to residents.
+                The {deps.terms.households} list is for administrator follow-up
+                and is never shown to residents. Residents can see aggregate
+                turnout only.
               </p>
             ) : null}
           </section>
@@ -154,12 +161,12 @@ export default async function ParticipationPage({
               label="Show"
               defaultValue={raw.submitted ?? ""}
             >
-              <option value="">All households</option>
+              <option value="">All {deps.terms.households}</option>
               <option value="true">Submitted</option>
               <option value="false">Not submitted</option>
             </SelectField>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Button type="submit">Apply filter</Button>
+              <Button type="submit">Apply Filter</Button>
               {raw.submitted ? (
                 <LinkButton
                   href={`/admin/votes/${id}/participation`}
@@ -172,13 +179,13 @@ export default async function ParticipationPage({
           </form>
 
           {result.data.rows.length === 0 ? (
-            <EmptyState title="No households match">
+            <EmptyState title={`No ${deps.terms.households} match`}>
               <p>Try a different filter.</p>
             </EmptyState>
           ) : (
             <DataTable
-              caption="Household participation"
-              columns={columns}
+              caption={`${deps.terms.Household} participation`}
+              columns={columns(deps.identifierLabel)}
               rows={result.data.rows}
               rowKey={(row) => row.householdIdentifier}
             />

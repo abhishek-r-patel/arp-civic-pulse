@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { Vote } from "lucide-react";
 import {
-  FLASH_NOTICES,
+  flashNotices,
   firstValues,
   formatInstant,
 } from "@/components/admin/format";
@@ -12,7 +12,9 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { SelectField } from "@/components/ui/field";
 import { EmptyState, PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
+import { WelcomeMessage } from "@/components/ui/rwa-branding";
 import { Pagination } from "@/components/ui/pagination";
+import { DeadlineCountdown } from "@/components/votes/deadline-countdown";
 import { ApiError } from "@/server/http/errors";
 import { adminPageContext } from "@/server/register/page-context";
 import { listVotes } from "@/server/votes/drafts";
@@ -27,7 +29,7 @@ import {
 import { formatInZone } from "@/shared/time/zoned";
 
 export const metadata = {
-  title: "Manage votes",
+  title: "Manage Votes",
   description:
     "Manage draft, active, completed and cancelled association polls and elections.",
   alternates: { canonical: "/admin/votes" },
@@ -62,12 +64,20 @@ const columns: Column<AdminVoteSummary>[] = [
   {
     key: "deadline",
     header: "Deadline",
-    cell: (vote) =>
-      vote.closesAt
-        ? vote.timezone
-          ? formatInZone(vote.closesAt, vote.timezone)
-          : formatInstant(vote.closesAt)
-        : "Not set",
+    cell: (vote) => (
+      <div className="grid gap-1">
+        <span>
+          {vote.closesAt
+            ? vote.timezone
+              ? formatInZone(vote.closesAt, vote.timezone)
+              : formatInstant(vote.closesAt)
+            : "Not set"}
+        </span>
+        {vote.status === "ACTIVE" && vote.closesAt ? (
+          <DeadlineCountdown deadline={vote.closesAt} />
+        ) : null}
+      </div>
+    ),
   },
   {
     key: "updated",
@@ -84,7 +94,7 @@ export default async function VotesPage({
 }: Readonly<{ searchParams: SearchParams }>) {
   const deps = await adminPageContext();
   const raw = firstValues(await searchParams);
-  const flash = raw.notice ? FLASH_NOTICES[raw.notice] : undefined;
+  const flash = raw.notice ? flashNotices(deps.terms)[raw.notice] : undefined;
 
   const parsed = voteListQuerySchema.safeParse({
     limit: raw.limit,
@@ -112,15 +122,16 @@ export default async function VotesPage({
   return (
     <div className="grid gap-8">
       <PageHeader
-        title="Manage votes"
+        title="Manage Votes"
         description="Create drafts, preview exactly what residents will see, and review every vote. Drafts can be edited until a vote is activated."
         actions={
           <LinkButton href="/admin/votes/new">
             <Vote aria-hidden="true" className="size-5" />
-            New vote
+            New Vote
           </LinkButton>
         }
       />
+      <WelcomeMessage message={deps.branding.welcomeMessage} />
 
       {flash ? (
         <Notice tone="success" heading={flash}>
@@ -164,7 +175,7 @@ export default async function VotesPage({
           ))}
         </SelectField>
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Button type="submit">Apply filters</Button>
+          <Button type="submit">Apply Filters</Button>
           {filtersActive ? (
             <LinkButton href="/admin/votes" variant="secondary">
               Clear
@@ -184,7 +195,7 @@ export default async function VotesPage({
             title="No votes match these filters"
             action={
               <LinkButton href="/admin/votes" variant="secondary">
-                Clear filters
+                Clear Filters
               </LinkButton>
             }
           >
@@ -194,7 +205,7 @@ export default async function VotesPage({
           <EmptyState
             title="There are no votes yet"
             action={
-              <LinkButton href="/admin/votes/new">Create a vote</LinkButton>
+              <LinkButton href="/admin/votes/new">Create a Vote</LinkButton>
             }
           >
             <p>

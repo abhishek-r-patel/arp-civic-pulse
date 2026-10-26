@@ -13,7 +13,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 interface Detail {
   id: string;
-  votingType: "OPEN" | "CLOSED";
+  votingType: "PUBLIC" | "PRIVATE";
   status: string;
   draftRevision: number;
   closesAt: string | null;
@@ -69,7 +69,7 @@ describe.skipIf(!hasDatabase)("activation and lifecycle routines", () => {
       )
       .then((r) => r.rows[0]?.result as T);
 
-  const create = (type: "OPEN" | "CLOSED") =>
+  const create = (type: "PUBLIC" | "PRIVATE") =>
     call<Detail>(admin(), "public.create_draft($1)", [type]);
   const update = (id: string, revision: number, changes: unknown) =>
     call<Detail>(admin(), "public.update_draft($1, $2, $3::jsonb)", [
@@ -117,7 +117,7 @@ describe.skipIf(!hasDatabase)("activation and lifecycle routines", () => {
 
   /** A complete draft that previews as ready. Returns the detail at its saved revision. */
   async function readyDraft(
-    type: "OPEN" | "CLOSED" = "OPEN",
+    type: "PUBLIC" | "PRIVATE" = "PUBLIC",
     options: { closesInMs?: number; people?: Person[] } = {},
   ): Promise<Detail> {
     const draft = await create(type);
@@ -128,7 +128,7 @@ describe.skipIf(!hasDatabase)("activation and lifecycle routines", () => {
     return update(
       draft.id,
       1,
-      type === "OPEN"
+      type === "PUBLIC"
         ? {
             title: "Repaint?",
             closesAt,
@@ -277,8 +277,8 @@ describe.skipIf(!hasDatabase)("activation and lifecycle routines", () => {
   });
 
   describe("activation", () => {
-    it("freezes an OPEN draft: snapshots, representatives, policy versions, audit", async () => {
-      const draft = await readyDraft("OPEN");
+    it("freezes a PUBLIC draft: snapshots, representatives, policy versions, audit", async () => {
+      const draft = await readyDraft("PUBLIC");
       const active = await activate(draft.id, draft.draftRevision);
 
       expect(active).toMatchObject({
@@ -339,13 +339,13 @@ describe.skipIf(!hasDatabase)("activation and lifecycle routines", () => {
         {
           action: "VOTE_ACTIVATED",
           actor_kind: "PROFILE",
-          details: { votingType: "OPEN", electorate: 2 },
+          details: { votingType: "PUBLIC", electorate: 2 },
         },
       ]);
     });
 
-    it("initialises one zero counter per candidate plus one abstention per office for CLOSED", async () => {
-      const draft = await readyDraft("CLOSED");
+    it("initialises one zero counter per candidate plus one NOTA counter per office for PRIVATE", async () => {
+      const draft = await readyDraft("PRIVATE");
       await activate(draft.id, draft.draftRevision);
       const tallies = await rows<{
         office: string;
@@ -393,7 +393,7 @@ describe.skipIf(!hasDatabase)("activation and lifecycle routines", () => {
     });
 
     it("blocks an incomplete draft and changes nothing", async () => {
-      const draft = await create("CLOSED");
+      const draft = await create("PRIVATE");
       const error = await dbError(activate(draft.id, 1));
       expect(error.message).toBe("ACTIVATION_BLOCKED");
       expect(await read(draft.id)).toMatchObject({
@@ -447,7 +447,7 @@ describe.skipIf(!hasDatabase)("activation and lifecycle routines", () => {
     });
 
     it("rechecks the deadline with the database clock at the moment of activation", async () => {
-      const draft = await readyDraft("OPEN", { closesInMs: 1_500 });
+      const draft = await readyDraft("PUBLIC", { closesInMs: 1_500 });
       await sleep(1_800);
       expect((await dbError(activate(draft.id, 2))).message).toBe(
         "ACTIVATION_BLOCKED",
@@ -558,7 +558,7 @@ describe.skipIf(!hasDatabase)("activation and lifecycle routines", () => {
         { title: "Changed" },
         { options: [] },
         { eligibleHouseholdIds: [] },
-        { votingType: "CLOSED" },
+        { votingType: "PRIVATE" },
         { closesAt: "2099-01-01T00:00:00Z" },
       ]) {
         expect((await dbError(update(draft.id, 2, changes))).message).toBe(
@@ -613,7 +613,7 @@ describe.skipIf(!hasDatabase)("activation and lifecycle routines", () => {
     });
 
     it("cancels with a recorded reason", async () => {
-      const draft = await readyDraft("CLOSED");
+      const draft = await readyDraft("PRIVATE");
       await activate(draft.id, 2);
       const outcome = await cancel(draft.id, "Candidate list was wrong.");
       expect(outcome.applied).toBe(true);
@@ -704,7 +704,7 @@ describe.skipIf(!hasDatabase)("activation and lifecycle routines", () => {
     beforeAll(async () => {
       due = [];
       for (let index = 0; index < 4; index += 1) {
-        const draft = await readyDraft("OPEN", { closesInMs: 4_000 });
+        const draft = await readyDraft("PUBLIC", { closesInMs: 4_000 });
         due.push(await activate(draft.id, 2));
       }
       notDue = await activate((await readyDraft()).id, 2);
@@ -783,7 +783,7 @@ describe.skipIf(!hasDatabase)("activation and lifecycle routines", () => {
 
     it("does not depend on the caller to enforce the deadline: a stale ACTIVE row is still refused", async () => {
       // A row that Cron has not reached yet is still past its deadline for every other path.
-      const draft = await readyDraft("OPEN", { closesInMs: 1_500 });
+      const draft = await readyDraft("PUBLIC", { closesInMs: 1_500 });
       await activate(draft.id, 2);
       await sleep(1_800);
       const guarded = await dbError(
@@ -803,9 +803,9 @@ describe.skipIf(!hasDatabase)("activation and lifecycle routines", () => {
 
   describe("invariants block completion", () => {
     it("does not complete a vote whose counts disagree, and keeps completing the rest", async () => {
-      const broken = await readyDraft("OPEN", { closesInMs: 3_000 });
+      const broken = await readyDraft("PUBLIC", { closesInMs: 3_000 });
       await activate(broken.id, 2);
-      const healthy = await readyDraft("OPEN", { closesInMs: 3_000 });
+      const healthy = await readyDraft("PUBLIC", { closesInMs: 3_000 });
       await activate(healthy.id, 2);
 
       // Forge a participation row without its response, bypassing the deferred check

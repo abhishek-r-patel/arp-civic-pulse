@@ -30,14 +30,14 @@ async function readyAndActivated(
   const admin = await provisionAdmin();
   await signInThroughUi(page, admin.email, admin.code);
   const editor = await buildReadyOpenDraft(page, admin.id, closesLocal);
-  await page.getByRole("link", { name: "Preview ballot" }).click();
+  await page.getByRole("link", { name: "Preview Ballot" }).click();
   await expect(
     page.getByText("No problems found in this version"),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Activate vote" }).click();
+  await page.getByRole("button", { name: "Activate Vote" }).click();
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Activate vote" })
+    .getByRole("button", { name: "Activate Vote" })
     .click();
   await expect(
     page.getByText(/Vote activated\. Its type, ballot/),
@@ -54,23 +54,23 @@ test.describe("activation", () => {
 
     // An incomplete draft has no activation control at all.
     await page.goto("/admin/votes/new");
-    await page.getByRole("radio", { name: /^OPEN voting/ }).check();
-    await page.getByRole("button", { name: "Create draft" }).click();
-    await page.getByRole("link", { name: "Preview ballot" }).click();
+    await page.getByRole("radio", { name: /^PUBLIC voting/ }).check();
+    await page.getByRole("button", { name: "Create Draft" }).click();
+    await page.getByRole("link", { name: "Preview Ballot" }).click();
     await expect(
       page.getByText(/before this vote can be activated/),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Activate vote" }),
+      page.getByRole("button", { name: "Activate Vote" }),
     ).toHaveCount(0);
 
     // A ready draft can be activated, after an explicit confirmation.
     const editor = await buildReadyOpenDraft(page, admin.id);
-    await page.getByRole("link", { name: "Preview ballot" }).click();
+    await page.getByRole("link", { name: "Preview Ballot" }).click();
     await expect(
       page.getByText("No problems found in this version"),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Activate vote" }).click();
+    await page.getByRole("button", { name: "Activate Vote" }).click();
 
     const dialog = page.getByRole("dialog", { name: "Activate this vote?" });
     await expect(dialog).toBeVisible();
@@ -83,14 +83,14 @@ test.describe("activation", () => {
     // Cancelling activated nothing.
     await page.goto(editor);
     await expect(
-      page.getByRole("button", { name: "Save draft" }),
+      page.getByRole("button", { name: "Save Draft" }),
     ).toBeVisible();
 
-    await page.getByRole("link", { name: "Preview ballot" }).click();
-    await page.getByRole("button", { name: "Activate vote" }).click();
+    await page.getByRole("link", { name: "Preview Ballot" }).click();
+    await page.getByRole("button", { name: "Activate Vote" }).click();
     await page
       .getByRole("dialog")
-      .getByRole("button", { name: "Activate vote" })
+      .getByRole("button", { name: "Activate Vote" })
       .click();
 
     // The vote is now frozen: no editor, lifecycle facts, and end-of-vote controls.
@@ -106,15 +106,16 @@ test.describe("activation", () => {
     await expect(
       page.getByText(/Voting ends automatically at the deadline/),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Save draft" })).toHaveCount(
+    await expect(page.getByRole("timer")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save Draft" })).toHaveCount(
       0,
     );
     await expect(page.getByLabel(/^Question/)).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Complete vote early" }),
+      page.getByRole("button", { name: "Complete Vote Early" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Cancel vote" }),
+      page.getByRole("button", { name: "Cancel Vote" }),
     ).toBeVisible();
 
     // A stale preview link can no longer be used for anything.
@@ -129,7 +130,7 @@ test.describe("activation", () => {
     const admin = await provisionAdmin();
     await signInThroughUi(page, admin.email, admin.code);
     const editor = await buildReadyOpenDraft(page, admin.id);
-    await page.getByRole("link", { name: "Preview ballot" }).click();
+    await page.getByRole("link", { name: "Preview Ballot" }).click();
     await expect(
       page.getByText("No problems found in this version"),
     ).toBeVisible();
@@ -138,25 +139,25 @@ test.describe("activation", () => {
     const other = await context.newPage();
     await other.goto(editor);
     await other.getByLabel(/^Question/).fill("Edited after the preview");
-    await other.getByRole("button", { name: "Save draft" }).click();
+    await other.getByRole("button", { name: "Save Draft" }).click();
     await expect(other.getByText("Draft saved as version 3.")).toBeVisible();
     await other.close();
 
-    await page.getByRole("button", { name: "Activate vote" }).click();
+    await page.getByRole("button", { name: "Activate Vote" }).click();
     await page
       .getByRole("dialog")
-      .getByRole("button", { name: "Activate vote" })
+      .getByRole("button", { name: "Activate Vote" })
       .click();
     // The refusal refreshes the page into an honest "out of date" state rather than
     // leaving an activation button for content that is no longer what was previewed.
     await expect(page.getByText("This preview is out of date")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Activate vote" }),
+      page.getByRole("button", { name: "Activate Vote" }),
     ).toHaveCount(0);
 
     await page.goto(editor);
     await expect(
-      page.getByRole("button", { name: "Save draft" }),
+      page.getByRole("button", { name: "Save Draft" }),
     ).toBeVisible();
   });
 });
@@ -167,7 +168,7 @@ test.describe("ending a vote", () => {
   }) => {
     await readyAndActivated(page);
 
-    await page.getByRole("button", { name: "Complete vote early" }).click();
+    await page.getByRole("button", { name: "Complete Vote Early" }).click();
     const dialog = page.getByRole("dialog", {
       name: "Complete this vote early?",
     });
@@ -175,7 +176,7 @@ test.describe("ending a vote", () => {
     await expect(dialog.getByText(/cannot be undone/)).toBeVisible();
 
     // No reason: refused inline, and the dialog stays open.
-    await dialog.getByRole("button", { name: "Complete vote early" }).click();
+    await dialog.getByRole("button", { name: "Complete Vote Early" }).click();
     await expect(
       dialog.getByText("Enter a reason. It is recorded with the vote."),
     ).toBeVisible();
@@ -184,7 +185,7 @@ test.describe("ending a vote", () => {
     await dialog
       .getByLabel(/^Why is it being completed early/)
       .fill("Everyone has voted.");
-    await dialog.getByRole("button", { name: "Complete vote early" }).click();
+    await dialog.getByRole("button", { name: "Complete Vote Early" }).click();
 
     await expect(
       page.getByText("Vote completed early.", { exact: true }),
@@ -194,9 +195,9 @@ test.describe("ending a vote", () => {
     ).toBeVisible();
     await expect(page.getByText("Everyone has voted.")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Complete vote early" }),
+      page.getByRole("button", { name: "Complete Vote Early" }),
     ).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Cancel vote" })).toHaveCount(
+    await expect(page.getByRole("button", { name: "Cancel Vote" })).toHaveCount(
       0,
     );
   });
@@ -206,13 +207,13 @@ test.describe("ending a vote", () => {
   }) => {
     await readyAndActivated(page);
 
-    await page.getByRole("button", { name: "Cancel vote" }).click();
+    await page.getByRole("button", { name: "Cancel Vote" }).click();
     const dialog = page.getByRole("dialog", { name: "Cancel this vote?" });
     await expect(dialog.getByText(/results not valid/)).toBeVisible();
     await dialog
       .getByLabel(/^Why is it being cancelled/)
       .fill("The option list was wrong.");
-    await dialog.getByRole("button", { name: "Cancel vote" }).click();
+    await dialog.getByRole("button", { name: "Cancel Vote" }).click();
 
     await expect(
       page.getByText("Vote cancelled.", { exact: true }),
@@ -220,7 +221,7 @@ test.describe("ending a vote", () => {
     await expect(page.getByText("Cancelled; results not valid.")).toBeVisible();
     await expect(page.getByText("The option list was wrong.")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Complete vote early" }),
+      page.getByRole("button", { name: "Complete Vote Early" }),
     ).toHaveCount(0);
   });
 
@@ -241,12 +242,12 @@ test.describe("ending a vote", () => {
       Math.max(0, target.getTime() - Date.now()) + 4_000,
     );
 
-    await page.getByRole("button", { name: "Complete vote early" }).click();
+    await page.getByRole("button", { name: "Complete Vote Early" }).click();
     const dialog = page.getByRole("dialog");
     await dialog
       .getByLabel(/^Why is it being completed early/)
       .fill("Too late to matter");
-    await dialog.getByRole("button", { name: "Complete vote early" }).click();
+    await dialog.getByRole("button", { name: "Complete Vote Early" }).click();
 
     await expect(
       page
@@ -326,13 +327,13 @@ test.describe("responsive and accessible", () => {
     await scan("active vote");
 
     // The confirmation dialog on a phone, including its reason field.
-    await page.getByRole("button", { name: "Cancel vote" }).click();
+    await page.getByRole("button", { name: "Cancel Vote" }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await scan("cancel dialog open");
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toBeHidden();
     await expect(
-      page.getByRole("button", { name: "Cancel vote" }),
+      page.getByRole("button", { name: "Cancel Vote" }),
     ).toBeFocused();
   });
 });

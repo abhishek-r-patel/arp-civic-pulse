@@ -21,7 +21,7 @@ test.skip(
 
 const WIDTHS = [320, 375, 768, 1280];
 const OPEN_NOTICE =
-  "After voting ends, eligible members and RWA admins can see your name, flat and choice, including in downloadable results.";
+  "While voting is open, eligible members and RWA admins can see aggregate counts only. You can change your choice until voting closes. After it ends, your name, flat and final choice are visible in results and downloads.";
 const CLOSED_NOTICE =
   "Your selections are not shown to residents or RWA admins. Results show totals only.";
 const CLOSED_LIMITS =
@@ -49,31 +49,31 @@ test.describe("creating a draft", () => {
     await expect(page.getByText(OPEN_NOTICE)).toBeVisible();
     await expect(page.getByText(CLOSED_NOTICE)).toBeVisible();
 
-    await page.getByRole("button", { name: "Create draft" }).click();
+    await page.getByRole("button", { name: "Create Draft" }).click();
     await expect(
-      page.getByText("Choose OPEN or CLOSED voting to continue."),
+      page.getByText("Choose PUBLIC or PRIVATE voting to continue."),
     ).toBeVisible();
     await expect(page).toHaveURL(/\/admin\/votes\/new$/u);
 
-    await page.getByRole("radio", { name: /^CLOSED voting/ }).check();
-    await page.getByRole("button", { name: "Create draft" }).click();
+    await page.getByRole("radio", { name: /^PRIVATE voting/ }).check();
+    await page.getByRole("button", { name: "Create Draft" }).click();
     await expect(
       page.getByRole("heading", { level: 1, name: "Untitled draft" }),
     ).toBeVisible();
     await expect(page.getByText(/Draft created\./)).toBeVisible();
     await expect(
-      page.getByRole("radio", { name: /^CLOSED voting/ }),
+      page.getByRole("radio", { name: /^PRIVATE voting/ }),
     ).toBeChecked();
   });
 });
 
-test.describe("setting up an OPEN vote", () => {
+test.describe("setting up a PUBLIC vote", () => {
   test("saves every section, shows the deadline in the RWA zone, and previews exactly that version", async ({
     page,
   }) => {
     const household = await seedHousehold();
     await signedInAdmin(page);
-    const editor = await createDraft(page, "OPEN");
+    const editor = await createDraft(page, "PUBLIC");
 
     await addOpenBallot(page, "Repaint the clubhouse?");
     await page
@@ -93,14 +93,14 @@ test.describe("setting up an OPEN vote", () => {
 
     // Unsaved edits cannot be previewed as if they were the saved draft.
     await expect(
-      page.getByRole("button", { name: "Save to preview" }),
+      page.getByRole("button", { name: "Save to Preview" }),
     ).toBeDisabled();
     await save(page, 2);
 
-    await page.getByRole("link", { name: "Preview ballot" }).click();
+    await page.getByRole("link", { name: "Preview Ballot" }).click();
     await expect(page).toHaveURL(/\/preview\?revision=2$/u);
     await expect(
-      page.getByRole("heading", { level: 1, name: "Preview ballot" }),
+      page.getByRole("heading", { level: 1, name: "Preview Ballot" }),
     ).toBeVisible();
     await expect(page.getByText(/previewing version 2/)).toBeVisible();
 
@@ -110,14 +110,12 @@ test.describe("setting up an OPEN vote", () => {
       ballot.getByRole("heading", { name: "Repaint the clubhouse?" }),
     ).toBeVisible();
     await expect(
-      ballot.getByText("OPEN voting", { exact: true }),
+      ballot.getByText("PUBLIC voting", { exact: true }),
     ).toBeVisible();
     await expect(ballot.getByText("Draft", { exact: true })).toBeVisible();
     await expect(ballot.getByText(OPEN_NOTICE)).toBeVisible();
     await expect(
-      ballot.getByText(
-        "Your submission is final. You cannot change or withdraw it.",
-      ),
+      ballot.getByText(/You can change your choice until voting closes/),
     ).toBeVisible();
     await expect(
       ballot.getByText(/Voting closes .* 1 Jun 2099, 6:00 PM IST/),
@@ -148,20 +146,20 @@ test.describe("setting up an OPEN vote", () => {
     page,
   }) => {
     await signedInAdmin(page);
-    await createDraft(page, "OPEN");
+    await createDraft(page, "PUBLIC");
     await page.getByLabel(/^Question/).fill("Listed question");
     await page.getByLabel(/^Voting closes/).fill("2099-07-04T09:30");
     await save(page, 2);
 
     await page.goto("/admin/votes");
     await expect(
-      page.getByRole("heading", { level: 1, name: "Manage votes" }),
+      page.getByRole("heading", { level: 1, name: "Manage Votes" }),
     ).toBeVisible();
     const row = page.getByRole("link", { name: /Listed question/ }).first();
     await expect(row).toBeVisible();
 
-    await page.getByLabel("Voting type").selectOption("CLOSED");
-    await page.getByRole("button", { name: "Apply filters" }).click();
+    await page.getByLabel("Voting type").selectOption("PRIVATE");
+    await page.getByRole("button", { name: "Apply Filters" }).click();
     await expect(
       page.getByRole("link", { name: /Listed question/ }),
     ).toHaveCount(0);
@@ -172,32 +170,30 @@ test.describe("setting up an OPEN vote", () => {
   });
 });
 
-test.describe("setting up a CLOSED vote", () => {
-  test("builds offices and candidates, adds the built-in abstention only in the preview", async ({
+test.describe("setting up a PRIVATE vote", () => {
+  test("builds offices and candidates, adds the built-in NOTA choice only in the preview", async ({
     page,
   }) => {
     await signedInAdmin(page);
-    await createDraft(page, "CLOSED");
+    await createDraft(page, "PRIVATE");
 
     await page.getByLabel(/^Title/).fill("Committee election");
     await page
       .getByLabel(/^Instructions for voters/)
       .fill("Choose one per office.");
-    await page.getByRole("button", { name: "Add office" }).click();
+    await page.getByRole("button", { name: "Add Office" }).click();
     await page.getByLabel(/^Office name/).fill("Chairperson");
     await page
-      .getByRole("button", { name: "Add candidate to office 1" })
+      .getByRole("button", { name: "Add Candidate to Office 1" })
       .click();
     await page.getByLabel(/^Candidate 1/).fill("Asha Rao");
     await page
-      .getByRole("button", { name: "Add candidate to office 1" })
+      .getByRole("button", { name: "Add Candidate to Office 1" })
       .click();
     await page.getByLabel(/^Candidate 2/).fill("Ravi Iyer");
 
-    // The abstention is built in: authors are told not to add one.
-    await expect(
-      page.getByText(/Abstain choice is added automatically/),
-    ).toBeVisible();
+    // NOTA is built in: authors are told not to add it as a candidate.
+    await expect(page.getByText(/NOTA is added automatically/)).toBeVisible();
 
     // Reordering is explicit and keyboard-operable.
     await page
@@ -206,17 +202,21 @@ test.describe("setting up a CLOSED vote", () => {
     await expect(page.getByLabel(/^Candidate 1/)).toHaveValue("Ravi Iyer");
     await save(page, 2);
 
-    await page.getByRole("link", { name: "Preview ballot" }).click();
+    await page.getByRole("link", { name: "Preview Ballot" }).click();
     const ballot = page.getByRole("article");
     await expect(
-      ballot.getByText("CLOSED voting", { exact: true }),
+      ballot.getByText("PRIVATE voting", { exact: true }),
     ).toBeVisible();
     await expect(ballot.getByText(CLOSED_NOTICE)).toBeVisible();
     await expect(ballot.getByText(CLOSED_LIMITS)).toBeVisible();
     const office = ballot.getByRole("group", { name: "Chairperson" });
     await expect(office.getByRole("radio")).toHaveCount(3);
     const names = await office.locator("label").allTextContents();
-    expect(names).toEqual(["Ravi Iyer", "Asha Rao", "Abstain"]);
+    expect(names).toEqual([
+      "Ravi Iyer",
+      "Asha Rao",
+      "NOTA (None of the Above)",
+    ]);
     for (const radio of await office.getByRole("radio").all()) {
       await expect(radio).not.toBeChecked();
     }
@@ -226,8 +226,8 @@ test.describe("setting up a CLOSED vote", () => {
     page,
   }) => {
     await signedInAdmin(page);
-    await createDraft(page, "CLOSED");
-    await page.getByRole("link", { name: "Preview ballot" }).click();
+    await createDraft(page, "PRIVATE");
+    await page.getByRole("link", { name: "Preview Ballot" }).click();
 
     await expect(
       page.getByText(/before this vote can be activated/),
@@ -248,15 +248,15 @@ test.describe("changing the voting type", () => {
     page,
   }) => {
     await signedInAdmin(page);
-    await createDraft(page, "OPEN");
+    await createDraft(page, "PUBLIC");
     await addOpenBallot(page, "Type change question");
     await save(page, 2);
 
-    // The radio stays on OPEN until confirmed, so click rather than check().
-    const closed = page.getByRole("radio", { name: /^CLOSED voting/ });
+    // The radio stays on PUBLIC until confirmed, so click rather than check().
+    const closed = page.getByRole("radio", { name: /^PRIVATE voting/ });
     await closed.click();
     const dialog = page.getByRole("dialog", {
-      name: "Change to CLOSED voting?",
+      name: "Change to PRIVATE voting?",
     });
     await expect(dialog).toBeVisible();
     await expect(
@@ -266,26 +266,26 @@ test.describe("changing the voting type", () => {
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
     await expect(
-      page.getByRole("radio", { name: /^OPEN voting/ }),
+      page.getByRole("radio", { name: /^PUBLIC voting/ }),
     ).toBeChecked();
     await expect(page.getByLabel(/^Option 1/)).toHaveValue("Yes");
 
     await closed.click();
     await page
       .getByRole("dialog")
-      .getByRole("button", { name: "Change type" })
+      .getByRole("button", { name: "Change Type" })
       .click();
     await expect(
-      page.getByRole("radio", { name: /^CLOSED voting/ }),
+      page.getByRole("radio", { name: /^PRIVATE voting/ }),
     ).toBeChecked();
     await expect(
-      page.getByRole("button", { name: "Add office" }),
+      page.getByRole("button", { name: "Add Office" }),
     ).toBeVisible();
     await save(page, 3);
 
     await page.reload();
     await expect(
-      page.getByRole("radio", { name: /^CLOSED voting/ }),
+      page.getByRole("radio", { name: /^PRIVATE voting/ }),
     ).toBeChecked();
     await expect(page.getByLabel(/^Option 1/)).toHaveCount(0);
   });
@@ -297,7 +297,7 @@ test.describe("stale edits", () => {
     context,
   }) => {
     await signedInAdmin(page);
-    const editor = await createDraft(page, "OPEN");
+    const editor = await createDraft(page, "PUBLIC");
     await page.getByLabel(/^Question/).fill("Original question");
     await save(page, 2);
 
@@ -305,19 +305,19 @@ test.describe("stale edits", () => {
     const other = await context.newPage();
     await other.goto(editor);
     await other.getByLabel(/^Question/).fill("Their question");
-    await other.getByRole("button", { name: "Save draft" }).click();
+    await other.getByRole("button", { name: "Save Draft" }).click();
     await expect(other.getByText("Draft saved as version 3.")).toBeVisible();
 
     // The first tab, still on version 2, edits a different section and saves.
     await page.getByLabel(/^Background/).fill("My background");
-    await page.getByRole("button", { name: "Save draft" }).click();
+    await page.getByRole("button", { name: "Save Draft" }).click();
     await expect(
       page.getByText("Someone saved a newer version of this draft"),
     ).toBeVisible();
     await expect(page.getByLabel(/^Background/)).toHaveValue("My background");
 
     await page
-      .getByRole("button", { name: "Review latest and keep my changes" })
+      .getByRole("button", { name: "Review Latest and Keep My Changes" })
       .click();
     await expect(
       page.getByText("Latest version loaded (version 3)"),
@@ -337,22 +337,22 @@ test.describe("stale edits", () => {
     context,
   }) => {
     await signedInAdmin(page);
-    const editor = await createDraft(page, "OPEN");
+    const editor = await createDraft(page, "PUBLIC");
 
     const other = await context.newPage();
     await other.goto(editor);
     await other.getByLabel(/^Question/).fill("Winning question");
-    await other.getByRole("button", { name: "Save draft" }).click();
+    await other.getByRole("button", { name: "Save Draft" }).click();
     await expect(other.getByText("Draft saved as version 2.")).toBeVisible();
 
     await page.getByLabel(/^Question/).fill("Losing question");
-    await page.getByRole("button", { name: "Save draft" }).click();
+    await page.getByRole("button", { name: "Save Draft" }).click();
     await expect(
       page.getByText("Someone saved a newer version of this draft"),
     ).toBeVisible();
 
     await page
-      .getByRole("button", { name: "Discard my changes and load latest" })
+      .getByRole("button", { name: "Discard My Changes and Load Latest" })
       .click();
     await expect(page.getByLabel(/^Question/)).toHaveValue("Winning question");
     await expect(
@@ -365,7 +365,7 @@ test.describe("stale edits", () => {
     page,
   }) => {
     await signedInAdmin(page);
-    const editor = await createDraft(page, "OPEN");
+    const editor = await createDraft(page, "PUBLIC");
     await page.getByLabel(/^Question/).fill("Changing question");
     await save(page, 2);
 
@@ -373,7 +373,7 @@ test.describe("stale edits", () => {
     await expect(page.getByText("This preview is out of date")).toBeVisible();
     await expect(page.getByRole("article")).toHaveCount(0);
     await page
-      .getByRole("link", { name: "Preview the latest version" })
+      .getByRole("link", { name: "Preview the Latest Version" })
       .click();
     await expect(page.getByText(/previewing version 2/)).toBeVisible();
   });
@@ -385,7 +385,7 @@ test.describe("responsive and accessible", () => {
   }) => {
     const household = await seedHousehold();
     await signedInAdmin(page);
-    const editor = await createDraft(page, "CLOSED");
+    const editor = await createDraft(page, "PRIVATE");
     await page
       .getByLabel(/^Title/)
       .fill(
@@ -394,10 +394,10 @@ test.describe("responsive and accessible", () => {
     await page
       .getByLabel(/^Instructions for voters/)
       .fill("Choose one per office.");
-    await page.getByRole("button", { name: "Add office" }).click();
+    await page.getByRole("button", { name: "Add Office" }).click();
     await page.getByLabel(/^Office name/).fill("Chairperson");
     await page
-      .getByRole("button", { name: "Add candidate to office 1" })
+      .getByRole("button", { name: "Add Candidate to Office 1" })
       .click();
     await page.getByLabel(/^Candidate 1/).fill("Asha Rao");
     await page.getByLabel("Find a household").fill(household.identifier);
@@ -469,13 +469,13 @@ test.describe("responsive and accessible", () => {
     page,
   }) => {
     await signedInAdmin(page);
-    const editor = await createDraft(page, "OPEN");
+    const editor = await createDraft(page, "PUBLIC");
     await page.setViewportSize({ width: 320, height: 900 });
     await page.goto(editor);
     await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Save draft" }),
+      page.getByRole("button", { name: "Save Draft" }),
     ).toBeVisible();
     const overflow = await page.evaluate(
       () =>

@@ -1,3 +1,7 @@
+import {
+  DEFAULT_HOUSEHOLD_TERMS,
+  type HouseholdTerms,
+} from "@/shared/contracts/household-terms";
 import type { VoteResults } from "@/shared/contracts/results";
 
 /*
@@ -5,7 +9,9 @@ import type { VoteResults } from "@/shared/contracts/results";
  * schema with fixed columns; unused cells are empty. The whole document is
  * rendered in memory from the same projection the screen and API use, so
  * nothing is sent until it is complete. No emails, counters or selection
- * history ever appear, and a CLOSED export carries no identity columns.
+ * history ever appear, and a PRIVATE export carries no identity columns.
+ * Column names are stable machine keys; only human-readable notices use the
+ * RWA's household wording.
  */
 export const CSV_COLUMNS = [
   "recordType",
@@ -59,18 +65,30 @@ const EOL = "\r\n";
 
 const joinLabels = (labels: readonly string[]) => labels.join("; ");
 
+function completedAt(results: VoteResults): string {
+  if (
+    results.vote.status !== "COMPLETED" ||
+    results.vote.completedAt === null
+  ) {
+    throw new Error("Only completed results can be exported.");
+  }
+  return results.vote.completedAt;
+}
+
 export function renderResultsCsv(
   results: VoteResults,
   generatedAt: Date,
+  terms: HouseholdTerms = DEFAULT_HOUSEHOLD_TERMS,
 ): string {
   const { vote } = results;
+  const completed = completedAt(results);
   const meta: Cells = {
     rwaName: vote.rwaName,
     voteTitle: vote.title,
     votingType: vote.votingType,
     timezone: vote.timezone,
     activatedAt: vote.activatedAt,
-    completedAt: vote.completedAt,
+    completedAt: completed,
     completionMode: vote.completionMode,
     completionReason: vote.completionReason,
     generatedAt: generatedAt.toISOString(),
@@ -79,7 +97,7 @@ export function renderResultsCsv(
   const add = (recordType: string, cells: Cells) =>
     rows.push({ ...meta, recordType, ...cells });
 
-  if (results.votingType === "OPEN") {
+  if (results.votingType === "PUBLIC") {
     const leaders = results.options
       .filter((option) => results.leaderOptionIds.includes(option.id))
       .map((option) => option.label);
@@ -103,7 +121,7 @@ export function renderResultsCsv(
     percent: results.turnout.percent,
   });
 
-  if (results.votingType === "OPEN") {
+  if (results.votingType === "PUBLIC") {
     for (const option of results.options) {
       add("OPTION", {
         label: option.label,
@@ -117,7 +135,13 @@ export function renderResultsCsv(
       add("NAMED_RESPONSE", {
         representativeName: named.representativeName,
         householdIdentifier: named.householdIdentifier,
-        choice: named.optionLabel,
+        choice: joinLabels(named.optionLabels),
+      });
+    }
+    if (vote.openSelectionMode === "MULTIPLE") {
+      add("NOTICE", {
+        label: "Multiple selections",
+        notice: `Each ${terms.household} submitted one ballot with multiple selections. Option percentages use participating ${terms.households} as the denominator and may add up to more than 100%.`,
       });
     }
   } else {
@@ -132,13 +156,13 @@ export function renderResultsCsv(
           percent: candidate.percent,
         });
       }
-      add("ABSTENTION", {
+      add("NOTA", {
         office: office.name,
-        label: "Abstain",
-        count: office.abstention.count,
-        numerator: office.abstention.count,
+        label: "NOTA (None of the Above)",
+        count: office.nota.count,
+        numerator: office.nota.count,
         denominator: results.submittedCount,
-        percent: office.abstention.percent,
+        percent: office.nota.percent,
       });
       add("OFFICE_OUTCOME", {
         office: office.name,
@@ -173,6 +197,6 @@ export function renderResultsCsv(
 
 /** A server-generated name: only the completion date and a short random-looking id. */
 export function exportFilename(results: VoteResults): string {
-  const date = results.vote.completedAt.slice(0, 10);
+  const date = completedAt(results).slice(0, 10);
   return `civic-pulse-results-${date}-${results.vote.id.slice(0, 8)}.csv`;
 }

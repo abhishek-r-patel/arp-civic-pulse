@@ -142,7 +142,7 @@ export function SignInForm({
         />
         <Button type="submit" loading={pending} className="sm:w-fit">
           <Mail aria-hidden="true" className="size-5" />
-          Send sign-in code
+          Send Sign-In Code
         </Button>
       </form>
     );
@@ -189,7 +189,7 @@ export function SignInForm({
           className="sm:w-fit"
         >
           <ShieldCheck aria-hidden="true" className="size-5" />
-          Verify and sign in
+          Verify and Sign In
         </Button>
       </form>
 
@@ -205,10 +205,10 @@ export function SignInForm({
             onClick={() => void requestCode()}
             disabled={pending || secondsLeft > 0}
           >
-            Send a new code
+            Send a New Code
           </Button>
           <Button variant="secondary" onClick={changeEmail} disabled={pending}>
-            Use a different email
+            Use a Different Email
           </Button>
         </div>
       </div>

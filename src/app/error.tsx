@@ -16,7 +16,7 @@ export default function ErrorPage({
         administrators if the problem continues.
       </Notice>
       <div>
-        <Button onClick={reset}>Try again</Button>
+        <Button onClick={reset}>Try Again</Button>
       </div>
     </div>
   );

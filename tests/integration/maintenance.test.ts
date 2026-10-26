@@ -137,7 +137,7 @@ describe.skipIf(!hasDatabase)("retention maintenance", () => {
   });
 
   it("deletes nothing while the policy is unset, and reports which tasks were skipped", async () => {
-    const vote = await api.activeVote("OPEN");
+    const vote = await api.activeVote("PUBLIC");
     await api.cast(alice(), vote.id, choose(vote, 0));
     await finish(vote.id);
     await age(vote.id, 400);
@@ -161,8 +161,8 @@ describe.skipIf(!hasDatabase)("retention maintenance", () => {
     expect(await voteExists(vote.id)).toBe(false);
   });
 
-  it("deletes an expired OPEN vote coherently, with minimal evidence", async () => {
-    const vote = await api.activeVote("OPEN");
+  it("deletes an expired PUBLIC vote coherently, with minimal evidence", async () => {
+    const vote = await api.activeVote("PUBLIC");
     await api.cast(alice(), vote.id, choose(vote, 0));
     await api.cast(bob(), vote.id, choose(vote, 1));
     await finish(vote.id);
@@ -190,7 +190,7 @@ describe.skipIf(!hasDatabase)("retention maintenance", () => {
     expect(evidence).toHaveLength(1);
     expect(evidence[0]?.details).toEqual({
       kind: "VOTE",
-      votingType: "OPEN",
+      votingType: "PUBLIC",
       status: "COMPLETED",
     });
     // Households and the register itself are untouched.
@@ -199,11 +199,11 @@ describe.skipIf(!hasDatabase)("retention maintenance", () => {
     ).toBeGreaterThanOrEqual(4);
   });
 
-  it("deletes an expired CLOSED vote and a cancelled one, including counters and ballot configuration", async () => {
-    const closed = await api.activeVote("CLOSED");
+  it("deletes an expired PRIVATE vote and a cancelled one, including counters and ballot configuration", async () => {
+    const closed = await api.activeVote("PRIVATE");
     await api.cast(alice(), closed.id, closedPick(closed));
     await finish(closed.id);
-    const cancelled = await api.activeVote("OPEN");
+    const cancelled = await api.activeVote("PUBLIC");
     await api.call(
       admin(),
       "public.cancel_vote($1, true, 'Wrong electorate')",
@@ -226,13 +226,13 @@ describe.skipIf(!hasDatabase)("retention maintenance", () => {
   });
 
   it("never touches an active vote, a draft, or a terminal vote still inside retention", async () => {
-    const active = await api.activeVote("OPEN");
+    const active = await api.activeVote("PUBLIC");
     await api.cast(alice(), active.id, choose(active, 0));
     const draft = await api.call<Detail>(
       admin(),
-      "public.create_draft('OPEN')",
+      "public.create_draft('PUBLIC')",
     );
-    const recent = await api.activeVote("OPEN");
+    const recent = await api.activeVote("PUBLIC");
     await finish(recent.id);
     // An ACTIVE vote cannot be aged coherently into the terminal states, so age only the others.
     await age(recent.id, 300);
@@ -246,7 +246,7 @@ describe.skipIf(!hasDatabase)("retention maintenance", () => {
   });
 
   it("refuses direct deletion of vote data, with or without the flag, unless the vote has expired", async () => {
-    const vote = await api.activeVote("OPEN");
+    const vote = await api.activeVote("PUBLIC");
     await api.cast(alice(), vote.id, choose(vote, 0));
     await finish(vote.id);
 
@@ -407,8 +407,8 @@ describe.skipIf(!hasDatabase)("retention maintenance", () => {
   });
 
   it("is idempotent, and one failing vote does not undo the others", async () => {
-    const a = await api.activeVote("OPEN");
-    const b = await api.activeVote("OPEN");
+    const a = await api.activeVote("PUBLIC");
+    const b = await api.activeVote("PUBLIC");
     await finish(a.id);
     await finish(b.id);
     await age(a.id, 400);

@@ -2,7 +2,7 @@
 
 Mobile-first voting and polls for a single Resident Welfare Association (RWA).
 
-The application implements registered-member email OTP access, household/account administration, OPEN polls and CLOSED elections, protected results, CSV/PDF exports, and operational backup/recovery tooling. Production use remains blocked by the approvals and external-environment checks in [pilot readiness](./docs/PILOT_READINESS.md).
+The application implements registered-member email OTP access, household/account administration, PUBLIC polls and PRIVATE elections, protected results, CSV/PDF exports, and operational backup/recovery tooling. Production use remains blocked by the approvals and external-environment checks in [pilot readiness](./docs/PILOT_READINESS.md).
 
 ## Source of truth
 
@@ -22,7 +22,7 @@ The application implements registered-member email OTP access, household/account
 ## Learning and user documentation
 
 - [Junior-developer technical guide](./docs/TECHNICAL_GUIDE.md) — architecture, source map, authentication, database invariants, feature walkthroughs, tests and deployment boundaries. [Printable/offline HTML](./docs/TECHNICAL_GUIDE.html).
-- [Illustrated resident and administrator guide](./docs/USER_GUIDE.md) — step-by-step main flows, recovery guidance, 47 synthetic screenshots and flow diagrams. [Printable/offline HTML](./docs/USER_GUIDE.html).
+- [Illustrated resident and administrator guide](./docs/USER_GUIDE.md) — step-by-step main flows, recovery guidance, 52 synthetic screenshots and flow diagrams. [Printable/offline HTML](./docs/USER_GUIDE.html).
 - HTML copies embed their images, require no CDN/JavaScript, and support browser Print / Save as PDF. Supporting source/document links require the repository layout.
 - The application footer opens `/user-guide.html`, a self-contained public copy generated at `public/user-guide.html`. It embeds the same synthetic screenshots, disables repository-only links and includes a return-to-app link. `npm run dev` and `npm run build` regenerate guides first; footer-only changes do not require new screenshots.
 - Regenerate HTML with `node scripts\docs\render.mjs`; test the small renderer with `node --test scripts\docs\render.test.mjs`.

@@ -1,4 +1,8 @@
 import type { AdminVoteDetail } from "@/shared/contracts/drafts";
+import {
+  DEFAULT_HOUSEHOLD_TERMS,
+  type HouseholdTerms,
+} from "@/shared/contracts/household-terms";
 import type { VotingType } from "@/shared/contracts/voting";
 import { zonedLocalToInstant } from "@/shared/time/zoned";
 
@@ -27,6 +31,8 @@ export interface OptionDraft {
 
 export interface DraftState {
   votingType: VotingType;
+  openSelectionMode: "SINGLE" | "MULTIPLE";
+  openSelectionLimit: number | null;
   title: string;
   instructions: string;
   /** `YYYY-MM-DDTHH:mm` in the RWA time zone, as typed. */
@@ -54,6 +60,8 @@ export function stateFromDetail(
 ): DraftState {
   return {
     votingType: detail.votingType,
+    openSelectionMode: detail.openSelectionMode,
+    openSelectionLimit: detail.openSelectionLimit,
     title: detail.title,
     instructions: detail.instructions ?? "",
     closesLocal,
@@ -123,6 +131,15 @@ export function buildPatch(
     patch.votingType = current.votingType;
     changed.push("type");
   }
+  if (
+    current.votingType === "PUBLIC" &&
+    (current.openSelectionMode !== baseline.openSelectionMode ||
+      current.openSelectionLimit !== baseline.openSelectionLimit)
+  ) {
+    patch.openSelectionMode = current.openSelectionMode;
+    patch.openSelectionLimit = current.openSelectionLimit;
+    changed.push("selection");
+  }
   if (current.title.trim() !== baseline.title.trim()) {
     patch.title = current.title;
     changed.push("title");
@@ -150,7 +167,7 @@ export function buildPatch(
   // A type change already removes the other shape on the server, so a
   // collection only needs sending when it differs for the resulting type.
   const typeChanged = current.votingType !== baseline.votingType;
-  if (current.votingType === "CLOSED") {
+  if (current.votingType === "PRIVATE") {
     const next = officePayload(current.offices);
     if (
       typeChanged
@@ -262,6 +279,7 @@ export function mergeOnto(
   mine: DraftState,
   latest: AdminVoteDetail,
   latestLocal: string,
+  terms: HouseholdTerms = DEFAULT_HOUSEHOLD_TERMS,
 ): MergeResult {
   const baseline = stateFromDetail(latest, latestLocal);
   const notes: string[] = [];
@@ -312,41 +330,63 @@ export function mergeOnto(
     baseline.closesLocal,
   );
 
+  const selectionEdited =
+    mine.openSelectionMode !== oldBaseline.openSelectionMode ||
+    mine.openSelectionLimit !== oldBaseline.openSelectionLimit;
+  const openSelectionMode =
+    votingType === "PRIVATE"
+      ? "SINGLE"
+      : selectionEdited
+        ? mine.openSelectionMode
+        : baseline.openSelectionMode;
+  const openSelectionLimit =
+    votingType === "PRIVATE"
+      ? 1
+      : selectionEdited
+        ? mine.openSelectionLimit
+        : baseline.openSelectionLimit;
+  bothChanged(
+    "PUBLIC selection rule",
+    [mine.openSelectionMode, mine.openSelectionLimit],
+    [oldBaseline.openSelectionMode, oldBaseline.openSelectionLimit],
+    [baseline.openSelectionMode, baseline.openSelectionLimit],
+  );
+
   const rebased = rebaseOnto(mine, latest);
   const minePayload =
-    votingType === "CLOSED"
+    votingType === "PRIVATE"
       ? officePayload(mine.offices)
       : optionPayload(mine.options);
   const oldPayload =
-    votingType === "CLOSED"
+    votingType === "PRIVATE"
       ? officePayload(oldBaseline.offices)
       : optionPayload(oldBaseline.options);
   const latestPayload =
-    votingType === "CLOSED"
+    votingType === "PRIVATE"
       ? officePayload(baseline.offices)
       : optionPayload(baseline.options);
   const ballotEdited = !same(minePayload, oldPayload);
   bothChanged("ballot", minePayload, oldPayload, latestPayload);
 
   const offices =
-    votingType === "CLOSED"
+    votingType === "PRIVATE"
       ? ballotEdited
         ? rebased.offices
         : baseline.offices
       : [];
   const options =
-    votingType === "OPEN"
+    votingType === "PUBLIC"
       ? ballotEdited
         ? rebased.options
         : baseline.options
       : [];
   if (!typeChanged && votingType !== mine.votingType) {
     const mineOwn =
-      mine.votingType === "CLOSED"
+      mine.votingType === "PRIVATE"
         ? officePayload(mine.offices)
         : optionPayload(mine.options);
     const oldOwn =
-      mine.votingType === "CLOSED"
+      mine.votingType === "PRIVATE"
         ? officePayload(oldBaseline.offices)
         : optionPayload(oldBaseline.options);
     if (!same(mineOwn, oldOwn)) {
@@ -361,7 +401,7 @@ export function mergeOnto(
     sortedIds(oldBaseline.selectedHouseholdIds),
   );
   bothChanged(
-    "household selection",
+    `${terms.household} selection`,
     sortedIds(mine.selectedHouseholdIds),
     sortedIds(oldBaseline.selectedHouseholdIds),
     sortedIds(baseline.selectedHouseholdIds),
@@ -372,6 +412,8 @@ export function mergeOnto(
     notes,
     state: {
       votingType,
+      openSelectionMode,
+      openSelectionLimit,
       title,
       instructions,
       closesLocal,
@@ -385,7 +427,10 @@ export function mergeOnto(
 }
 
 /** Human wording for a server field path such as `offices[0].candidates[1].name`. */
-export function describeFieldPath(path: string): string {
+export function describeFieldPath(
+  path: string,
+  terms: HouseholdTerms = DEFAULT_HOUSEHOLD_TERMS,
+): string {
   const office =
     /^offices\[(\d+)\](?:\.candidates\[(\d+)\])?(?:\.(\w+))?$/u.exec(path);
   if (office) {
@@ -404,8 +449,10 @@ export function describeFieldPath(path: string): string {
     title: "Title",
     instructions: "Instructions",
     closesAt: "Deadline",
-    eligibleHouseholdIds: "Eligible households",
+    eligibleHouseholdIds: `Eligible ${terms.Households}`,
     votingType: "Voting type",
+    openSelectionMode: "PUBLIC selection mode",
+    openSelectionLimit: "PUBLIC selection limit",
     offices: "Offices",
     options: "Options",
     expectedRevision: "Draft version",

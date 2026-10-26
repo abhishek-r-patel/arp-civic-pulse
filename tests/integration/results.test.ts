@@ -17,7 +17,7 @@ const PERMISSION_DENIED = "42501";
 interface Named {
   representativeName: string;
   householdIdentifier: string;
-  optionLabel: string;
+  optionLabels: string[];
   cursor: { key: string; householdId: string };
 }
 interface Results {
@@ -28,7 +28,7 @@ interface Results {
   offices: {
     id: string;
     name: string;
-    abstentionCount: string;
+    notaCount: string;
     candidates: { id: string; name: string; count: string }[];
   }[];
   namedResponses: Named[] | null;
@@ -92,7 +92,7 @@ describe.skipIf(!hasDatabase)(
 
     describe("completed results", () => {
       it("returns exact totals and the frozen named list for a completed open poll", async () => {
-        const vote = await api.activeVote("OPEN");
+        const vote = await api.activeVote("PUBLIC");
         await api.cast(alice(), vote.id, choose(vote, 0));
         await api.cast(bob(), vote.id, choose(vote, 1));
         await finish(vote.id);
@@ -105,18 +105,52 @@ describe.skipIf(!hasDatabase)(
           ["No", "1"],
         ]);
         expect(
-          r.namedResponses?.map((n) => [n.householdIdentifier, n.optionLabel]),
+          r.namedResponses?.map((n) => [n.householdIdentifier, n.optionLabels]),
         ).toEqual([
-          ["A-101", "Yes"],
-          ["B-202", "No"],
+          ["A-101", ["Yes"]],
+          ["B-202", ["No"]],
         ]);
         // Never an email, an id of the profile, or a timestamp.
         expect(JSON.stringify(r)).not.toMatch(/@|accepted_at|profile/iu);
         expect(r.offices).toEqual([]);
       });
 
+      it("returns each multi-select household once with all final choices", async () => {
+        const vote = await api.activeVote("PUBLIC", {
+          openSelectionMode: "MULTIPLE",
+          openSelectionLimit: null,
+          optionLabels: ["Monday", "Tuesday", "Saturday"],
+        });
+        await api.cast(alice(), vote.id, {
+          confirmed: true,
+          optionIds: [vote.options[0]?.id, vote.options[2]?.id],
+        });
+        await api.cast(bob(), vote.id, {
+          confirmed: true,
+          optionIds: [vote.options[1]?.id, vote.options[2]?.id],
+        });
+        await finish(vote.id);
+
+        const r = await results(alice(), vote.id);
+        expect(r.submittedCount).toBe("2");
+        expect(r.options.map((option) => option.count)).toEqual([
+          "1",
+          "1",
+          "2",
+        ]);
+        expect(
+          r.namedResponses?.map((response) => [
+            response.householdIdentifier,
+            response.optionLabels,
+          ]),
+        ).toEqual([
+          ["A-101", ["Monday", "Saturday"]],
+          ["B-202", ["Tuesday", "Saturday"]],
+        ]);
+      });
+
       it("returns aggregates only, with no identities, for a completed closed vote", async () => {
-        const vote = await api.activeVote("CLOSED");
+        const vote = await api.activeVote("PRIVATE");
         await api.cast(alice(), vote.id, closedBallot(vote, [0, 0]));
         await api.cast(bob(), vote.id, closedBallot(vote, [1, null]));
         await api.cast(dave(), vote.id, closedBallot(vote, [null, null]));
@@ -128,9 +162,9 @@ describe.skipIf(!hasDatabase)(
         expect(r.namedPage).toBeNull();
         const [chair, treasurer] = r.offices;
         expect(chair?.candidates.map((c) => c.count)).toEqual(["1", "1"]);
-        expect(chair?.abstentionCount).toBe("1");
+        expect(chair?.notaCount).toBe("1");
         expect(treasurer?.candidates.map((c) => c.count)).toEqual(["1"]);
-        expect(treasurer?.abstentionCount).toBe("2");
+        expect(treasurer?.notaCount).toBe("2");
         const text = JSON.stringify(r);
         for (const name of [
           "Alice",
@@ -145,7 +179,7 @@ describe.skipIf(!hasDatabase)(
       });
 
       it("keeps frozen identities after the register is edited, and counts a later-suspended household", async () => {
-        const vote = await api.activeVote("OPEN");
+        const vote = await api.activeVote("PUBLIC");
         await api.cast(alice(), vote.id, choose(vote, 0));
         await finish(vote.id);
         await db.asOwner(async (c) => {
@@ -188,7 +222,7 @@ describe.skipIf(!hasDatabase)(
       });
 
       it("reports a zero-turnout poll without inventing a winner", async () => {
-        const vote = await api.activeVote("OPEN");
+        const vote = await api.activeVote("PUBLIC");
         await finish(vote.id);
         const r = await results(alice(), vote.id);
         expect(r.submittedCount).toBe("0");
@@ -197,7 +231,7 @@ describe.skipIf(!hasDatabase)(
       });
 
       it("pages the named list without changing any total", async () => {
-        const vote = await api.activeVote("OPEN");
+        const vote = await api.activeVote("PUBLIC");
         await api.cast(alice(), vote.id, choose(vote, 0));
         await api.cast(bob(), vote.id, choose(vote, 0));
         await api.cast(dave(), vote.id, choose(vote, 1));
@@ -230,15 +264,27 @@ describe.skipIf(!hasDatabase)(
       });
     });
 
-    describe("withholding", () => {
-      it("refuses results until a vote is completed, even for an administrator", async () => {
-        const vote = await api.activeVote("OPEN");
+    describe("active and cancelled result access", () => {
+      it("publishes only live aggregate PUBLIC results to entitled voters and admins", async () => {
+        const vote = await api.activeVote("PUBLIC");
         await api.cast(alice(), vote.id, choose(vote, 0));
+        await api.cast(alice(), vote.id, choose(vote, 1));
         for (const sub of [alice(), bob(), admin()]) {
-          const error = await dbError(results(sub, vote.id));
-          expect(error.message).toBe("RESULTS_UNAVAILABLE");
-          expect(error.detail).toBe("ACTIVE");
+          const current = await results(sub, vote.id);
+          expect(current.vote).toMatchObject({ status: "ACTIVE" });
+          expect(current.submittedCount).toBe("1");
+          expect(current.options.map((option) => option.count)).toEqual([
+            "0",
+            "1",
+          ]);
+          expect(current.namedResponses).toBeNull();
+          expect(current.namedPage).toBeNull();
+          expect(JSON.stringify(current)).not.toContain("Alice Rao");
         }
+        const exportError = await dbError(
+          api.call(alice(), "public.get_vote_results($1, null)", [vote.id]),
+        );
+        expect(exportError.message).toBe("RESULTS_UNAVAILABLE");
         await api.call(
           admin(),
           "public.cancel_vote($1, true, 'Wrong electorate')",
@@ -249,12 +295,40 @@ describe.skipIf(!hasDatabase)(
         );
       });
 
+      it("publishes active PRIVATE turnout only to entitled voters and admins", async () => {
+        const vote = await api.activeVote("PRIVATE");
+        await api.cast(alice(), vote.id, closedBallot(vote, [0, 0]));
+        for (const sub of [alice(), bob(), admin()]) {
+          const current = await results(sub, vote.id);
+          expect(current.vote).toMatchObject({
+            status: "ACTIVE",
+            votingType: "PRIVATE",
+          });
+          expect(current.eligibleCount).toBe("3");
+          expect(current.submittedCount).toBe("1");
+          expect(current.options).toEqual([]);
+          expect(current.offices).toEqual([]);
+          expect(current.namedResponses).toBeNull();
+          expect(current.namedPage).toBeNull();
+          expect(JSON.stringify(current)).not.toMatch(
+            /Alice Rao|A-101|candidate|notaCount/iu,
+          );
+        }
+        expect((await dbError(results(dave(), vote.id))).message).toBe(
+          "NOT_FOUND",
+        );
+        const exportError = await dbError(
+          api.call(alice(), "public.get_vote_results($1, null)", [vote.id]),
+        );
+        expect(exportError.message).toBe("RESULTS_UNAVAILABLE");
+      });
+
       it("answers not found for a draft, an unknown vote and a member outside the electorate", async () => {
         const draft = await api.call<Detail>(
           admin(),
-          "public.create_draft('OPEN')",
+          "public.create_draft('PUBLIC')",
         );
-        const vote = await api.activeVote("OPEN", {
+        const vote = await api.activeVote("PUBLIC", {
           people: [world.alice, world.bob],
         });
         await finish(vote.id);
@@ -271,7 +345,7 @@ describe.skipIf(!hasDatabase)(
       });
 
       it("refuses anonymous, suspended and unknown callers", async () => {
-        const vote = await api.activeVote("OPEN");
+        const vote = await api.activeVote("PUBLIC");
         await finish(vote.id);
         expect((await dbError(results(null, vote.id))).code).toBe(
           PERMISSION_DENIED,
@@ -284,7 +358,7 @@ describe.skipIf(!hasDatabase)(
       });
 
       it("blocks publication when counters and participation disagree", async () => {
-        const vote = await api.activeVote("CLOSED");
+        const vote = await api.activeVote("PRIVATE");
         await api.cast(alice(), vote.id, closedBallot(vote, [0, 0]));
         await finish(vote.id);
         await db.asSuperuser(async (c) => {
@@ -302,7 +376,7 @@ describe.skipIf(!hasDatabase)(
       });
 
       it("validates paging arguments", async () => {
-        const vote = await api.activeVote("OPEN");
+        const vote = await api.activeVote("PUBLIC");
         await finish(vote.id);
         for (const sql of [
           "public.get_vote_results($1, 0)",
@@ -318,9 +392,9 @@ describe.skipIf(!hasDatabase)(
 
     describe("member discovery", () => {
       it("lists only the caller's own non-draft votes, with only their own submission flag", async () => {
-        await api.call(admin(), "public.create_draft('OPEN')");
-        const mine = await api.activeVote("OPEN", { people: [world.alice] });
-        const others = await api.activeVote("OPEN", { people: [world.bob] });
+        await api.call(admin(), "public.create_draft('PUBLIC')");
+        const mine = await api.activeVote("PUBLIC", { people: [world.alice] });
+        const others = await api.activeVote("PUBLIC", { people: [world.bob] });
         await api.cast(alice(), mine.id, choose(mine, 0));
 
         const alices = await api.call<Listing>(
@@ -350,15 +424,15 @@ describe.skipIf(!hasDatabase)(
 
       it("lists active votes before finished ones and pages without gaps or repeats", async () => {
         const people = [world.dave];
-        const a = await api.activeVote("OPEN", {
+        const a = await api.activeVote("PUBLIC", {
           people,
           closesInMs: 7_200_000,
         });
-        const b = await api.activeVote("OPEN", {
+        const b = await api.activeVote("PUBLIC", {
           people,
           closesInMs: 3_600_000,
         });
-        const c = await api.activeVote("OPEN", { people });
+        const c = await api.activeVote("PUBLIC", { people });
         await finish(c.id);
 
         const seen: string[] = [];
@@ -411,7 +485,7 @@ describe.skipIf(!hasDatabase)(
 
     describe("member vote detail", () => {
       it("shows the ballot and own state, and stops offering submission after the vote is cast", async () => {
-        const vote = await api.activeVote("CLOSED", {
+        const vote = await api.activeVote("PRIVATE", {
           people: [world.alice, world.bob],
         });
         const before = await api.call<Record<string, unknown>>(
@@ -457,9 +531,9 @@ describe.skipIf(!hasDatabase)(
       it("answers not found for outsiders, drafts and unknown votes; an administrator gets no submission state", async () => {
         const draft = await api.call<Detail>(
           admin(),
-          "public.create_draft('OPEN')",
+          "public.create_draft('PUBLIC')",
         );
-        const vote = await api.activeVote("OPEN", { people: [world.alice] });
+        const vote = await api.activeVote("PUBLIC", { people: [world.alice] });
         for (const [sub, id] of [
           [bob(), vote.id],
           [admin(), draft.id],
@@ -483,7 +557,7 @@ describe.skipIf(!hasDatabase)(
       });
 
       it("does not offer submission after the deadline even before Cron completes the vote", async () => {
-        const vote = await api.activeVote("OPEN", {
+        const vote = await api.activeVote("PUBLIC", {
           people: [world.alice],
           closesInMs: 1_500,
         });
@@ -499,8 +573,8 @@ describe.skipIf(!hasDatabase)(
 
     describe("administrator participation monitoring", () => {
       it("lists frozen names and identifiers with a submitted flag, and never choices or times", async () => {
-        const vote = await api.activeVote("OPEN");
-        await api.cast(alice(), vote.id, choose(vote, 0));
+        const vote = await api.activeVote("PRIVATE");
+        await api.cast(alice(), vote.id, closedBallot(vote, [0, 0]));
 
         const all = await api.call<{
           eligibleCount: string;
@@ -517,7 +591,9 @@ describe.skipIf(!hasDatabase)(
           ["B-202", false],
           ["D-404", false],
         ]);
-        expect(JSON.stringify(all)).not.toMatch(/optionId|accepted|@|choice/iu);
+        expect(JSON.stringify(all)).not.toMatch(
+          /candidateId|optionId|accepted|@|choice/iu,
+        );
 
         const pending = await api.call<typeof all>(
           admin(),
@@ -531,9 +607,9 @@ describe.skipIf(!hasDatabase)(
       it("refuses members, anonymous callers and drafts", async () => {
         const draft = await api.call<Detail>(
           admin(),
-          "public.create_draft('OPEN')",
+          "public.create_draft('PUBLIC')",
         );
-        const vote = await api.activeVote("OPEN");
+        const vote = await api.activeVote("PUBLIC");
         expect(
           (
             await dbError(
@@ -665,7 +741,7 @@ describe.skipIf(!hasDatabase)(
           return out;
         });
 
-        const vote = await api.activeVote("OPEN", { people: world500 });
+        const vote = await api.activeVote("PUBLIC", { people: world500 });
         // Submit in parallel batches, as many households would near a deadline.
         for (let start = 0; start < world500.length; start += 5) {
           await Promise.all(
@@ -699,7 +775,8 @@ describe.skipIf(!hasDatabase)(
           percent: "100.00",
         });
         expect(
-          results.votingType === "OPEN" && results.options.map((o) => o.count),
+          results.votingType === "PUBLIC" &&
+            results.options.map((o) => o.count),
         ).toEqual(["250", "250"]);
 
         const rows = csv.replace(/^\uFEFF/u, "").split("\r\n");
@@ -716,7 +793,7 @@ describe.skipIf(!hasDatabase)(
 
     describe("storage boundary", () => {
       it("keeps choice storage unreadable by every API role", async () => {
-        const vote = await api.activeVote("OPEN");
+        const vote = await api.activeVote("PUBLIC");
         await api.cast(alice(), vote.id, choose(vote, 0));
         for (const sub of [admin(), alice()]) {
           for (const table of ["open_responses", "closed_tallies"]) {

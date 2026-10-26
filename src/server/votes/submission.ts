@@ -38,10 +38,9 @@ export interface SubmissionAck {
 }
 
 /**
- * Submits one final ballot. Acknowledges ONLY after the guarded routine has
- * committed, and returns participation only: never the selection. A refusal
- * because the deadline had passed is a 409, and the vote was completed at its
- * deadline in the same committed step.
+ * Submits a first ballot or replaces a PUBLIC response while active. Acknowledges
+ * ONLY after the guarded routine commits and returns participation only, never
+ * the selection. Deadline refusal commits overdue completion before returning.
  */
 export async function submitBallot(
   deps: RegisterDeps,

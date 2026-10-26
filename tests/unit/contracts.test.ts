@@ -109,13 +109,34 @@ describe("authentication contracts", () => {
 });
 
 describe("submissionSchema", () => {
-  it("accepts a confirmed OPEN submission", () => {
+  it("accepts a confirmed PUBLIC submission", () => {
     expect(
       submissionSchema.safeParse({ confirmed: true, optionId: A }).success,
     ).toBe(true);
   });
 
-  it("accepts a CLOSED submission with explicit abstention", () => {
+  it("accepts non-empty multi-select ballots and rejects empty or duplicate options", () => {
+    expect(
+      submissionSchema.safeParse({
+        confirmed: true,
+        optionIds: [A, B],
+      }).success,
+    ).toBe(true);
+    expect(
+      submissionSchema.safeParse({
+        confirmed: true,
+        optionIds: [],
+      }).success,
+    ).toBe(false);
+    expect(
+      submissionSchema.safeParse({
+        confirmed: true,
+        optionIds: [A, A],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts a PRIVATE submission with an explicit NOTA choice", () => {
     expect(
       submissionSchema.safeParse({
         confirmed: true,
@@ -176,7 +197,7 @@ describe("submissionSchema", () => {
     }
   });
 
-  it("rejects non-UUID identifiers and empty CLOSED ballots", () => {
+  it("rejects non-UUID identifiers and empty PRIVATE ballots", () => {
     expect(
       submissionSchema.safeParse({ confirmed: true, optionId: "1" }).success,
     ).toBe(false);
@@ -188,14 +209,14 @@ describe("submissionSchema", () => {
 
 describe("draft contracts", () => {
   it("requires an exact voting type and rejects extra fields", () => {
-    expect(createDraftSchema.safeParse({ votingType: "OPEN" }).success).toBe(
+    expect(createDraftSchema.safeParse({ votingType: "PUBLIC" }).success).toBe(
       true,
     );
     expect(createDraftSchema.safeParse({ votingType: "open" }).success).toBe(
       false,
     );
     expect(
-      createDraftSchema.safeParse({ votingType: "OPEN", status: "ACTIVE" })
+      createDraftSchema.safeParse({ votingType: "PUBLIC", status: "ACTIVE" })
         .success,
     ).toBe(false);
   });
@@ -211,6 +232,38 @@ describe("draft contracts", () => {
     expect(draftPatchSchema.safeParse({ expectedRevision: 1 }).success).toBe(
       true,
     );
+  });
+
+  it("requires a matching PUBLIC selection mode and limit", () => {
+    expect(
+      draftPatchSchema.safeParse({
+        expectedRevision: 1,
+        openSelectionMode: "SINGLE",
+        openSelectionLimit: 1,
+      }).success,
+    ).toBe(true);
+    expect(
+      draftPatchSchema.safeParse({
+        expectedRevision: 1,
+        openSelectionMode: "MULTIPLE",
+        openSelectionLimit: null,
+      }).success,
+    ).toBe(true);
+    for (const invalid of [
+      { openSelectionMode: "MULTIPLE" },
+      { openSelectionLimit: 3 },
+      { openSelectionMode: "SINGLE", openSelectionLimit: 2 },
+      { openSelectionMode: "MULTIPLE", openSelectionLimit: 1 },
+      {
+        votingType: "PRIVATE",
+        openSelectionMode: "MULTIPLE",
+        openSelectionLimit: null,
+      },
+    ]) {
+      expect(
+        draftPatchSchema.safeParse({ expectedRevision: 1, ...invalid }).success,
+      ).toBe(false);
+    }
   });
 
   it("allows an empty draft title and nullable fields only where documented", () => {
@@ -303,7 +356,7 @@ describe("draft contracts", () => {
     ).toBe(true);
   });
 
-  it("rejects mixed OPEN/CLOSED configuration", () => {
+  it("rejects mixed PUBLIC/PRIVATE configuration", () => {
     const office = { name: "President", position: 1, candidates: [] };
     const option = { label: "Yes", position: 1 };
 
@@ -317,21 +370,21 @@ describe("draft contracts", () => {
     expect(
       draftPatchSchema.safeParse({
         expectedRevision: 1,
-        votingType: "OPEN",
+        votingType: "PUBLIC",
         offices: [office],
       }).success,
     ).toBe(false);
     expect(
       draftPatchSchema.safeParse({
         expectedRevision: 1,
-        votingType: "CLOSED",
+        votingType: "PRIVATE",
         options: [option],
       }).success,
     ).toBe(false);
     expect(
       draftPatchSchema.safeParse({
         expectedRevision: 1,
-        votingType: "OPEN",
+        votingType: "PUBLIC",
         options: [option],
       }).success,
     ).toBe(true);
@@ -383,7 +436,7 @@ describe("list query contracts", () => {
       false,
     );
     expect(
-      voteListQuerySchema.safeParse({ status: "ACTIVE", votingType: "OPEN" })
+      voteListQuerySchema.safeParse({ status: "ACTIVE", votingType: "PUBLIC" })
         .success,
     ).toBe(true);
   });

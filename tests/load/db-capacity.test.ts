@@ -154,8 +154,8 @@ describe.skipIf(!hasDatabase)(
         ),
       );
 
-    it("accepts 500 OPEN ballots from 100 concurrent users on one vote, exactly once each, within the targets", async () => {
-      const vote: Detail = await api.activeVote("OPEN", {
+    it("accepts 500 PUBLIC ballots from 100 concurrent users on one vote, exactly once each, within the targets", async () => {
+      const vote: Detail = await api.activeVote("PUBLIC", {
         people: people.map((p) => ({ id: p.id, householdId: p.householdId })),
       });
       const options = vote.options.map((o) => o.id);
@@ -306,11 +306,11 @@ describe.skipIf(!hasDatabase)(
       expect(raw.namedResponses).toHaveLength(HOUSEHOLDS);
     }, 600_000);
 
-    it("accepts 500 CLOSED ballots on shared counters under the same contention, with exact totals", async () => {
+    it("accepts 500 PRIVATE ballots on shared counters under the same contention, with exact totals", async () => {
       // Several offices make every submission update the same counter rows (the hottest lock path).
       const draft = await api.call<Detail>(
         world.admin.id,
-        "public.create_draft('CLOSED')",
+        "public.create_draft('PRIVATE')",
       );
       const offices = Array.from({ length: 5 }, (_, i) => ({
         name: `Office ${i + 1}`,
@@ -342,7 +342,7 @@ describe.skipIf(!hasDatabase)(
             person.householdId.charCodeAt(5)) %
           5;
         const ack = await request<{ accepted: boolean }>(
-          "cast CLOSED ballot",
+          "cast PRIVATE ballot",
           person.id,
           "public.cast_vote($1, $2::jsonb)",
           [
@@ -361,14 +361,14 @@ describe.skipIf(!hasDatabase)(
         );
         expect(ack.accepted).toBe(true);
       });
-      report(["cast CLOSED ballot"]);
-      expect(percentile(timings["cast CLOSED ballot"] ?? [], 95)).toBeLessThan(
+      report(["cast PRIVATE ballot"]);
+      expect(percentile(timings["cast PRIVATE ballot"] ?? [], 95)).toBeLessThan(
         P95_ACK_MS,
       );
 
       const counts = await api.counts(vote.id);
       expect(counts.participation).toBe(HOUSEHOLDS);
-      // Every office's counters (candidates plus abstentions) add up to exactly the number of ballots.
+      // Every office's counters (candidates plus NOTA) add up to exactly the number of ballots.
       for (const office of vote.offices) {
         const total = counts.tallies
           .filter((t) => t.office_id === office.id)

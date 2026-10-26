@@ -1,19 +1,27 @@
 // Shared presentation helpers for the administrator register screens.
 
+import {
+  DEFAULT_HOUSEHOLD_TERMS,
+  type HouseholdTerms,
+} from "@/shared/contracts/household-terms";
+
 // Flash messages are looked up by key, so arbitrary text can never be reflected from a URL.
-export const FLASH_NOTICES: Readonly<Record<string, string>> = {
-  "account-created":
-    "Account created. It stays suspended until you assign a household (for residents) and enable it.",
-  "account-updated": "Account updated.",
-  "household-created": "Household added.",
-  "household-updated": "Household updated.",
-  "draft-created":
-    "Draft created. Add the details, ballot, electorate and deadline, then preview it.",
-  "vote-activated":
-    "Vote activated. Its type, ballot, electorate, representatives and deadline are now frozen.",
-  "vote-completed": "Vote completed early.",
-  "vote-cancelled": "Vote cancelled.",
-};
+export function flashNotices(
+  terms: HouseholdTerms = DEFAULT_HOUSEHOLD_TERMS,
+): Readonly<Record<string, string>> {
+  return {
+    "account-created": `Account created. It stays suspended until you assign a ${terms.household} (for residents) and enable it.`,
+    "account-updated": "Account updated.",
+    "household-created": `${terms.Household} added.`,
+    "household-updated": `${terms.Household} updated.`,
+    "draft-created":
+      "Draft created. Add the details, ballot, electorate and deadline, then preview it.",
+    "vote-activated":
+      "Vote activated. Its type, ballot, electorate, representatives and deadline are now frozen.",
+    "vote-completed": "Vote completed early.",
+    "vote-cancelled": "Vote cancelled.",
+  };
+}
 
 export function firstValues(
   params: Readonly<Record<string, string | string[] | undefined>>,

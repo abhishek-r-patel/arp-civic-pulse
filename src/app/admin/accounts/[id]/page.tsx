@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { AccountEditor } from "@/components/admin/account-forms";
-import { FLASH_NOTICES, firstValues } from "@/components/admin/format";
+import { flashNotices, firstValues } from "@/components/admin/format";
 import { PageHeader } from "@/components/ui/layout";
 import { ApiError } from "@/server/http/errors";
 import { getAccount } from "@/server/register/accounts";
@@ -30,6 +30,7 @@ export default async function AccountPage({
   }
   const deps = await adminPageContext();
   const raw = firstValues(await searchParams);
+  const notices = flashNotices(deps.terms);
 
   let account;
   try {
@@ -58,7 +59,7 @@ export default async function AccountPage({
         key={account.id}
         csrfToken={deps.csrfToken}
         account={account}
-        flash={raw.notice ? FLASH_NOTICES[raw.notice] : undefined}
+        flash={raw.notice ? notices[raw.notice] : undefined}
       />
     </div>
   );

@@ -125,7 +125,7 @@ describe.skipIf(!hasLive || !hasSql)(
         (u) =>
           all.find((h) => h.identifier === `L-${u.id.slice(0, 8)}`)?.id ?? "",
       );
-      const draft = await createDraft(adminDeps, "OPEN");
+      const draft = await createDraft(adminDeps, "PUBLIC");
       const ready = await updateDraft(adminDeps, draft.id, {
         expectedRevision: 1,
         title: "Matrix vote",
@@ -313,6 +313,7 @@ describe.skipIf(!hasLive || !hasSql)(
       expect(rows.service).toEqual([
         "consume_rate_limit",
         "enable_profile",
+        "get_public_rwa_identity",
         "health_ping",
         "operational_status",
         "provision_profile",
@@ -335,7 +336,7 @@ describe.skipIf(!hasLive || !hasSql)(
       });
       expect(results.error).toBeNull();
       const text = JSON.stringify(results.data);
-      // Names and household identifiers of an OPEN vote are public to the electorate; emails and ids of profiles never are.
+      // Names and household identifiers of a PUBLIC vote are public to the electorate; emails and ids of profiles never are.
       expect(text).not.toMatch(/@|profile_id|auth_user/iu);
     });
   },

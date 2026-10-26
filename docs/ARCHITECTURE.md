@@ -7,8 +7,8 @@
 - Preserve **Supabase** for PostgreSQL, Auth, RLS, guarded SQL functions and scheduled database maintenance, and **Tailwind CSS** for styling.
 - **Supabase PostgreSQL is the source of truth** for eligibility, accepted participation, responses, totals and audit history. On-screen results and exports are derived views, never independent editable records.
 - PDF is an optional printable results export and may be deferred beyond version 1. No voting, completion or recovery operation depends on a PDF.
-- OPEN and CLOSED are voting types, separate from Draft, Active, Completed and Cancelled lifecycle statuses.
-- CLOSED voting provides application-level privacy under PRD assumption A2, not cryptographic anonymity against infrastructure operators.
+- PUBLIC and PRIVATE are voting types, separate from Draft, Active, Completed and Cancelled lifecycle statuses.
+- PRIVATE voting provides application-level privacy under PRD assumption A2, not cryptographic anonymity against infrastructure operators.
 - Obtain approval of PRD assumptions A1-A7, providers, region, retention and recovery objectives before real voting.
 - No separate backend application, microservices, Redis, queue, AI, or application file storage for the MVP. Approved off-site backup storage is a separate operational requirement.
 
@@ -25,7 +25,7 @@ Supabase Auth + PostgreSQL
   - RLS and restricted grants
   - Guarded submission/lifecycle SQL functions
   - Frozen electorates and historical identity snapshots
-  - Participation + CLOSED counters / OPEN responses
+  - Participation + PRIVATE counters / PUBLIC responses
   - Cron for due completion and bounded cleanup
 
 Supporting services:
@@ -60,6 +60,9 @@ Pin supported dependency versions in a lockfile and review licenses/advisories. 
 - Server-render initial data through the same services used by endpoints, not internal HTTP calls to the application itself.
 - Mark protected services and clients server-only. Never serialize full database entities and rely on hidden UI to protect fields.
 - Browser voting reads/writes go through Next.js. This is a boundary for the application, not a substitute for database permissions: assume someone can call the Supabase API directly.
+- Use the RWA-configured household terms throughout member/admin/public screens and printable results: `rwa_settings` stores a household label (for example Flat) and an identifier kind (Number or ID); `buildHouseholdTerms` derives singular, plural, sentence-case and identifier wording; server code reads them with `loadHouseholdTerms()` (request-cached, falling back to the defaults) and client components with `useHouseholdTerms()` from the provider in the app shell. Changes go only through the audited administrator RPC.
+- Keep the RWA profile editable by administrators only. Enabled members see the resulting values on other pages (alias in the “Civic Pulse for {alias}” header, full name on vote/results/home pages, contact block in the footer, welcome message, accent palette) through the narrow `get_rwa_branding` projection; the public sign-in and privacy pages receive only name, alias, address and palette through a server-only service-role routine, so `anon` still executes no routine. Screens and exports show the current RWA name, while each vote keeps its activation-time `rwa_name_snapshot` only as an internal historical record.
+- Active voter, results and administrator pages display a browser countdown to the frozen deadline and refresh at zero. It is informational only; the database's post-lock deadline check remains authoritative.
 - Use the user's verified session for normal database calls. Never use a service-role client to bypass eligibility or obtain live tallies.
 - Validate state-changing request origins and apply anti-CSRF protection appropriate to the route/action. Do not rely on hidden buttons, middleware alone or broad CORS.
 - Authenticated pages, APIs and exports use private, no-store behavior; disable shared Next.js/CDN caching for protected data.
@@ -166,20 +169,20 @@ Use stable identifiers, foreign keys, nonnegative counter constraints, explicit 
 | Supabase `auth.users` | Managed authentication identity; do not replace with custom OTP/session tables |
 | `profiles` | Stable auth-user reference, representative name, current application role and suspension status |
 | `households` | Unique normalized household identifier, current representative and eligibility |
-| `rwa_settings` | RWA name/timezone, approved policies, retention settings and approval metadata |
+| `rwa_settings` | RWA identity/contact profile, household label, identifier kind, timezone, approved policies, retention settings and approval metadata; private fields are read only through admin-guarded RPCs |
 | `votes` | Voting type, separate lifecycle state, ballot metadata, frozen deadline, activation/effective completion timestamps, revision and terminal reasons |
 | `offices`, `candidates`, `poll_options` | Ordered choices with ownership constraints tying them to the correct vote/office |
 | `electorate` | Unique vote/household entitlement with frozen representative and name/household snapshots |
-| `participation` | One accepted submission per frozen entitlement; no CLOSED choices |
-| `open_responses` | One option per accepted poll response, linked to the frozen entitlement |
-| `closed_tallies` | Candidate and abstention counters per office; no per-ballot rows or selection timestamps |
+| `participation` | One accepted participation per frozen entitlement; no PRIVATE choices |
+| `open_responses` | Current selected option row(s) for one PUBLIC ballot per accepted household; the set is replaceable only while active |
+| `closed_tallies` | Candidate and NOTA counters per office; no per-ballot rows or selection timestamps |
 | `audit_events` | Administrative actor/action/record/time/reason, never codes or vote payloads |
 | Application rate limits | Shared, atomic counters where application-level limits are needed beyond Auth limits |
 
 ### Permission rules
 - Enable RLS on all application tables; revoke unauthenticated application-data access and unnecessary table/function privileges.
-- Deny direct client access to choice storage, including authenticated admin access. Expose completed data through authorized, completion-gated projections.
-- Do not expose private tables through Realtime publications or change feeds. Members cannot inspect others' active participation.
+- Deny direct client access to choice storage, including authenticated admin access. Expose active PUBLIC aggregates, active PRIVATE aggregate turnout, and completed data through authorized projections; never expose active choices.
+- Do not expose private tables through Realtime publications or change feeds. Members cannot inspect others' active participation; only administrators may view the active PRIVATE household participation list for follow-up.
 - Members cannot update role, suspension, electorate, participation, counters or audit records directly. Never trust a role supplied in user-editable Auth metadata.
 - Guard register/draft mutations with admin checks and enforce frozen configuration in the database, not only the service.
 - Separate migration-owner privileges from runtime access. Function owners use restricted non-login roles with only the required privileges.
@@ -187,7 +190,7 @@ Use stable identifiers, foreign keys, nonnegative counter constraints, explicit 
 - Never accept an account/household identifier from the request as proof of identity. User-facing functions derive identity from the verified JWT context.
 - Cron runs a separate maintenance entry point with no end-user JWT; grant it only to the scheduling role. Do not make maintenance callable by normal users.
 
-Admin status grants administrative access, not voting entitlement or access to individual CLOSED choices. Supabase dashboard/database operators are privileged infrastructure operators, not application admins.
+Admin status grants administrative access, not voting entitlement or access to individual PRIVATE choices. Supabase dashboard/database operators are privileged infrastructure operators, not application admins.
 
 ## 06 Authentication, Register and Sessions
 - Disable public sign-up. Use Supabase Auth email OTP with `shouldCreateUser: false` for login and a six-digit code template using `{{ .Token }}`.
@@ -205,14 +208,14 @@ Admin status grants administrative access, not voting entitlement or access to i
 - Server-proxied Auth calls must follow Supabase's supported trusted-IP forwarding configuration where needed. Never trust arbitrary client forwarding headers or let all residents accidentally share an untested server-IP limit.
 - Privileged Auth credentials remain server-only and isolated to provisioning/administrative Auth operations. Never use them for ordinary ballots, results or exports.
 
-## 07 Atomic Voting and CLOSED Privacy
+## 07 Atomic Voting and PRIVATE Privacy
 Each `cast_vote` call performs one guarded PostgreSQL transaction:
 1. Lock the vote row using the same lock order as lifecycle operations.
 2. Recheck the authenticated profile's status, frozen representative entitlement, voting type and Active state.
 3. Check the current database clock after acquiring the lock, immediately before acceptance. Require time strictly before the frozen deadline; use a current clock reading rather than transaction-start `now()`.
-4. Check unique participation and validate the complete ballot: exactly one poll option, or one valid candidate/explicit abstention for every office. Reject missing/repeated offices, extra input and choices belonging to another vote/office.
-5. Insert participation and either one OPEN response or all CLOSED counter increments atomically.
-6. Commit durably, then acknowledge participation only. Never return CLOSED selections.
+4. Check unique participation and validate the complete ballot: at least one owned PUBLIC option within the selection rule, or one valid candidate/explicit NOTA choice for every office. Reject empty/duplicate options, missing/repeated offices, extra input and choices belonging to another vote/office.
+5. Insert one participation row and either the full PUBLIC selection set or all PRIVATE candidate/NOTA counter increments atomically.
+6. Commit durably, then acknowledge participation only. Never return PRIVATE selections.
 
 - Any failure rolls back participation and every response/counter update. Unique constraints remain the last defense against concurrent retries.
 - Acquire subordinate locks in stable order. Serialize completion/cancellation on the same vote row.
@@ -221,7 +224,7 @@ Each `cast_vote` call performs one guarded PostgreSQL transaction:
 - If acknowledgement is lost, the UI checks own participation. If that also fails, show an unknown outcome, not false rejection or success.
 
 ### Privacy boundary and limitations
-- Store aggregate CLOSED counters, not individual ballots, cross-office ballot identifiers or correlatable per-response timestamps alongside choices.
+- Store aggregate PRIVATE counters, not individual ballots, cross-office ballot identifiers or correlatable per-response timestamps alongside choices.
 - Keep participation separate, while updating it in the same transaction as counters. This prevents ordinary stored identity-to-choice mappings; it is not a proof of cryptographic anonymity.
 - Disable vote/auth payload capture in application, proxy, APM, error reporting and SQL-parameter instrumentation. Never record selections in receipts, audit events, URLs or notifications.
 - Deny active tally snapshots, debug dashboards and change feeds that could permit differencing.
@@ -245,15 +248,15 @@ Each `cast_vote` call performs one guarded PostgreSQL transaction:
 - Outages never automatically extend deadlines.
 
 ### Results
-- Hide all choice totals until completion, including from admins. Apply the same authorization to pages, API and exports.
-- Use one consistent result projection/snapshot for completed screens and CSV, plus PDF when implemented.
+- Show active PUBLIC aggregate counts/turnout and active PRIVATE aggregate turnout to eligible voters and admins, but hide active choices. During active PRIVATE elections, only admins may see household participation for follow-up. Keep PRIVATE candidate/NOTA totals hidden until completion. Apply the same authorization to pages, API and exports.
+- Use one consistent result projection/snapshot for active aggregates and completed screens/exports; only completed data can be exported.
 - Frozen eligible households form the turnout denominator, including households later suspended.
-- Submitted ballots equal accepted participation. Per office, candidate counts plus abstentions equal submitted ballots; OPEN responses and option totals equal submitted ballots.
-- Candidate/abstention percentages use submitted ballots; poll percentages use accepted responses. Show explicit denominators and a not-applicable zero-denominator state.
+- Submitted ballots equal accepted participation. Per office, candidate counts plus NOTA count equal submitted ballots; every PUBLIC participant has one or more valid selected-option rows.
+- Candidate/NOTA and PUBLIC per-option `percent` use submitted households; `eligiblePercent` uses eligible households and is what the results page and PDF bars display. Multi-select PUBLIC option shares can sum above 100%; show explicit denominators and a not-applicable zero-denominator state.
 - Use one rounding policy without changing raw counts to make percentages sum to 100.
-- Zero ballots have no winner. Tied positive leaders are marked "Tie"; abstention is not a candidate. Apply the proposed all-abstain "No candidate elected" rule only after A5 approval.
+- Zero ballots have no winner. Tied positive candidate leaders are marked "Tie". NOTA is counted separately and cannot win; the highest-count candidate is elected even when NOTA receives more votes. If no candidate receives a vote, no candidate is elected.
 - Check invariants before publishing results/exports. A mismatch blocks publication and triggers a safe operational alert; never silently fabricate or repair totals.
-- OPEN names and household labels come from frozen snapshots. CLOSED results never expose voter lists or individual ballots.
+- PUBLIC names and household labels come from frozen snapshots. PRIVATE results never expose voter lists or individual ballots; active PRIVATE turnout does not include household identities.
 
 ## 09 API and Error Contracts
 Use same-origin endpoints and explicit response projections. Server actions may share the same services; do not create duplicate business logic.
@@ -261,10 +264,10 @@ Use same-origin endpoints and explicit response projections. Server actions may 
 | Endpoint group | Responsibility |
 |----------------|----------------|
 | `POST /api/auth/code`, `/verify`, `/sign-out` | Request/verify OTP and manage Auth session |
-| `GET /api/votes`, `GET /api/votes/{id}` | Authorized summaries and ballot detail, no active totals |
+| `GET /api/votes`, `GET /api/votes/{id}` | Authorized summaries and ballot detail, no active choice totals |
 | `GET /api/votes/{id}/participation` | Own accepted/not-submitted status |
-| `POST /api/votes/{id}/submission` | Complete final ballot, participation-only response |
-| `GET /api/votes/{id}/results` | Completed, authorized, reconciled results |
+| `POST /api/votes/{id}/submission` | PUBLIC response submission/replacement or one final PRIVATE ballot; participation-only response |
+| `GET /api/votes/{id}/results` | Authorized active aggregates or completed, reconciled results |
 | `GET /api/votes/{id}/exports/{format}` | CSV; PDF only when implemented |
 | `/api/admin/households`, `/api/admin/votes` | Admin register, lists and revision-checked draft operations |
 | `POST /api/admin/votes/{id}/{action}` | Validated activation, early completion and cancellation |
@@ -275,7 +278,7 @@ Use same-origin endpoints and explicit response projections. Server actions may 
 - Match existing routes where practical and reconcile [API.md](./API.md) during implementation; these are target responsibilities, not a claim of current endpoint availability.
 - Bound body/string/list sizes and paginate register/audit/named-response screens. Exports include the complete authorized dataset, not just the displayed page.
 - Use stable error codes, safe messages, optional safe field errors and random support IDs. Never echo ballot choices in errors.
-- Use 401 for unauthenticated, 403 for denied capabilities, 404 for inaccessible vote IDs, 409 for duplicates/stale revision/lifecycle conflicts, 422 for validation, 429 for limits and 503 for temporary dependencies.
+- Use 401 for unauthenticated, 403 for denied capabilities, 404 for inaccessible vote IDs, 409 for PRIVATE duplicates/stale revision/lifecycle conflicts, 422 for validation, 429 for limits and 503 for temporary dependencies.
 - Distinguish unknown submission outcome from rejection. A duplicate response directs the UI to confirm participation.
 - Loading, empty and failure states remain explicit; no broad catches returning empty results or success-shaped defaults.
 
@@ -283,10 +286,10 @@ Use same-origin endpoints and explicit response projections. Server actions may 
 - CSV is in scope for version 1. PDF may be deferred; hide unavailable controls and do not block pilot readiness for an unimplemented PDF feature.
 - The database is authoritative. Exports are generated on demand from completed results; do not store public report files, editable report copies or bearer download URLs.
 - Recheck authorization and completion for every download. Use attachment disposition, safe filenames, correct MIME types, `nosniff` and `no-store`.
-- OPEN exports include the full authorized named-response list without emails. CLOSED exports contain aggregate data only, never household/voter lists.
+- PUBLIC exports include the full authorized named-response list without emails. PRIVATE exports contain aggregate data only, never household/voter lists.
 - Escape CSV values and neutralize spreadsheet formulas in user-controlled text.
 - When PDF is added, render with PDFKit in a Node.js server route using bundled fonts per the design system. Verify approved script coverage and actual rendering, not just font presence.
-- Include RWA/title/type, ballot labels, activation/effective completion times and timezone, turnout/denominators, totals, abstentions/ties/no-votes, generation time and early-completion reason where applicable.
+- Include RWA/title/type, ballot labels, activation/effective completion times and timezone, turnout/denominators, totals, NOTA counts/ties/no-votes, generation time and early-completion reason where applicable.
 - Support readable A4 portrait/grayscale, wrapped long text, repeated headers, page numbers and complete multi-page lists at the maximum electorate.
 - Bound export concurrency and memory; finish rendering before returning success. Generation failure must not deliver a partial success document or mutate votes.
 - PDFs are neither database backups nor signatures/certifications. Signature-replacement workflows are not a version 1 requirement. Downloaded/printed copies cannot be remotely revoked.
@@ -329,6 +332,7 @@ Sources: [Supabase pricing](https://supabase.com/pricing), [SMTP](https://supaba
 - Validate required configuration at startup; fail explicitly for unsafe/missing production settings.
 - Keep canonical application origin, Supabase URL/public client key, server-only privileged credentials and SMTP settings in appropriate environment/provider configuration. The Supabase URL and public key are not secrets; privileged credentials must never use a browser-visible prefix.
 - Store RWA timezone, policy approvals and retention settings in controlled database records. Block real activation until required approvals are recorded.
+- Configure the RWA profile (required full name, alias, household label and identifier kind; optional address, email, phone, website and welcome message, hidden when blank; accent palette) in the administrator-only RWA Settings page. The household and identifier labels are display-only. Only administrators can read the settings projection or change it; updates audit changed field names, not values. Changes apply to all screens and exports immediately, including existing votes.
 - Keep local/test/staging/production data and credentials isolated. Use synthetic data and local mail capture; never copy production registers, ballots or backups into development.
 - Enforce HTTPS, secure cookies, restrictive CSP, frame denial, MIME protection and safe origin handling. Limit export concurrency and untrusted text input.
 - Monitor availability, submission failure/latency, invariant failures, Cron lag, database capacity, email and export failures. Disable session replay and payload capture; log allowlisted event classes and random support IDs only.
@@ -343,12 +347,12 @@ Sources: [Supabase pricing](https://supabase.com/pricing), [SMTP](https://supaba
 ## 13 Testing and Release
 | Layer | Required evidence |
 |-------|-------------------|
-| Unit | Validation, roles/type/state, percentages/rounding, ties/no-votes and approved all-abstain behavior, error/result projections |
+| Unit | Validation, roles/type/state, percentages/rounding, candidate ties, NOTA-versus-candidate winner logic, zero-vote outcomes, error/result projections |
 | Supabase integration | Real migrations, RLS/grants, direct API/RPC denial, guarded functions, Auth context, frozen entitlement, rollback and lifecycle races |
 | Concurrency | Double-submit/multiple devices, injected failure midway through counters, lock waits crossing deadline, exact-deadline rejection |
 | Auth/authorization | OTP limits, no account enumeration, provisioning failure/retry, suspension with existing JWT, role changes, admin without entitlement |
 | Browser | Both voting types, mobile admin/member journeys, review/confirmation, lost acknowledgement, unknown outcome, results and CSV |
-| Privacy | HTML/API/errors/logs/ordinary records expose no CLOSED identity-to-choice mappings or active tallies |
+| Privacy | HTML/API/errors/logs/ordinary records expose no PRIVATE identity-to-choice mappings or active tallies |
 | Accessibility | Axe plus manual keyboard/focus/screen-reader/zoom checks; 48px targets and specified viewport widths |
 | Exports | CSV matches authoritative results; if PDF is included, full multi-page/approved-script/A4/grayscale and failure-recovery checks |
 | Performance/recovery | 500 households/100 concurrent users, p95 page/API under two seconds and acknowledgement within three seconds; restored-data reconciliation |

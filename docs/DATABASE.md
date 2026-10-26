@@ -6,16 +6,16 @@
 
 Use Supabase PostgreSQL as the authoritative store, with Supabase Auth, row-level security (RLS), guarded SQL RPCs, and versioned Supabase migrations. Normal database calls use a server-side Supabase client carrying the verified user's session; do not use raw `pg` or a service-role client for ordinary voting/results access. Require TLS, encrypted storage/backups, and the supported network restrictions for each connection path. Assume clients can call the Supabase API directly, even though browser application journeys go through Next.js.
 
-The design implements assumptions A1-A7 provisionally. Production activation requires recorded approvals, including retention/recovery policy, CLOSED VOTING assurance, publication timing, the session policy, all-abstain behavior, and early completion. Under A7, optional printable exports are not signatures, legal certification, backups, or authoritative records; replacing physical signatures is not a version 1 requirement.
+The design implements assumptions A1-A7 provisionally. Production activation requires recorded approvals, including retention/recovery policy, PRIVATE VOTING assurance, publication timing, the session policy, bylaws confirming NOTA handling, and early completion. Under A7, optional printable exports are not signatures, legal certification, backups, or authoritative records; replacing physical signatures is not a version 1 requirement.
 
 ### Required boundaries
 
 - One designated representative and one entitlement per household per vote.
-- `OPEN` and `CLOSED` are voting types; `DRAFT`, `ACTIVE`, `COMPLETED`, and `CANCELLED` are separate lifecycle states.
-- OPEN VOTING stores attributable single-choice responses. Publish identities and counts only after completion.
-- CLOSED VOTING stores cumulative candidate/abstention counters, never individual ballots. Participation records contain no choices.
-- Freeze ballot configuration, deadline, electorate, representative identity snapshots, and relevant RWA metadata at activation.
-- One atomic, durable submission per entitlement. Terminal votes cannot reopen.
+- `PUBLIC` and `PRIVATE` are voting types; `DRAFT`, `ACTIVE`, `COMPLETED`, and `CANCELLED` are separate lifecycle states.
+- PUBLIC VOTING supports configured single- or multi-select ballots. Publish aggregate option counts during the active poll without identities; publish identities and each household's final selection set only after completion.
+- PRIVATE VOTING stores cumulative candidate/NOTA counters, never individual ballots. Participation records contain no choices.
+- Freeze ballot configuration, deadline, electorate and representative identity snapshots at activation. The RWA name is also saved as an internal snapshot, but screens and exports show the current RWA name.
+- One atomic, durable participation per entitlement. PUBLIC submissions retain a replaceable current selection set until closure; PRIVATE ballots are one-time. Terminal votes cannot reopen.
 - Derive results, turnout, percentages, and reports from authoritative records; do not store duplicate editable results.
 - CSV export is required for version 1. PDF is optional; its controls and acceptance checks apply only when implemented. Neither voting nor recovery depends on PDF generation.
 
@@ -47,8 +47,18 @@ Exactly one row, maintained through controlled setup and audited administrative 
 | Column | Type | Keys / rules |
 |---|---|---|
 | `id` | `smallint` | PK; `CHECK (id = 1)`. |
-| `name` | `text` | Non-empty RWA display name. |
+| `name` | `text` | Non-empty official RWA name; kept equal to the administrator-managed `full_name` and shown on screens and exports. Votes still store a separate activation-time `rwa_name_snapshot` as an internal historical record. |
 | `timezone` | `text` | Valid IANA timezone, validated against PostgreSQL timezone names and supported application timezone data. |
+| `household_label` | `text` | RWA-wide singular display name for a household (1-40 characters of single-line plain text, such as `Flat` or `Villa`); defaults to `Household`; display-only. |
+| `identifier_kind` | `text` | `NUMBER` or `ID`; names identifier values together with the household label (for example `Flat Number`); defaults to `NUMBER`; display-only. |
+| `full_name` | `text` | Administrator-managed official organization name; defaults to `Residents Welfare Association` and is synchronized to `name`. |
+| `alias` | `text` | Compact plain-text brand name for headers; defaults to `RWA`. |
+| `address` | `text` | Optional multi-line plain-text organization address up to 500 characters; defaults to `RWA Address`; empty text hides it. Shown when set to signed-in members, on the public privacy page and on PDF results. |
+| `email` | `text` | Optional organization contact email (empty or a valid address up to 254 characters); defaults to `rwa@email.com`. Shown when set to signed-in members and on PDF results. |
+| `phone` | `text` | Optional organization contact phone up to 40 characters; defaults to `+91 123 456 7890`; empty text hides it. Shown when set to signed-in members and on PDF results. |
+| `website` | `text` | Optional HTTP(S) URL; defaults to empty text. Shown in the signed-in footer when set. |
+| `accent_palette` | `text` | One of `TEAL` (default), `BLUE`, `FOREST`, `PLUM`, `SLATE`; maps to a contrast-checked accent in the design tokens. |
+| `welcome_message` | `text` | Optional plain-text message up to 300 characters, no markup; empty by default. |
 | `policy_approvals` | `jsonb` | Object keyed exactly by A1-A7; empty object allowed during setup. Structure below. |
 | `vote_retention_days` | `integer`, nullable | Positive approved period after completion/cancellation; null means unapproved, not unlimited. |
 | `audit_retention_days` | `integer`, nullable | Positive approved period after event creation. |
@@ -108,10 +118,12 @@ Each household has exactly one current representative; a profile represents at m
 | Column | Type | Keys / rules |
 |---|---|---|
 | `id` | `uuid` | PK. |
-| `voting_type` | `text` | `OPEN` or `CLOSED`. |
+| `voting_type` | `text` | `PUBLIC` or `PRIVATE`. |
+| `open_selection_mode` | `text` | `SINGLE` or `MULTIPLE`; existing votes default to `SINGLE`. PRIVATE votes are fixed to `SINGLE`. |
+| `open_selection_limit` | `integer`, nullable | `1` for `SINGLE`; `2` to `100` for capped `MULTIPLE`; `NULL` allows any number of configured options. |
 | `status` | `text` | `DRAFT`, `ACTIVE`, `COMPLETED`, or `CANCELLED`; default `DRAFT`. |
 | `title` | `text` | Title/question; may be empty while drafting, required at activation. |
-| `instructions` | `text`, nullable | OPEN context or CLOSED instructions; non-empty CLOSED instructions required at activation. |
+| `instructions` | `text`, nullable | PUBLIC context or PRIVATE instructions; non-empty PRIVATE instructions required at activation. |
 | `closes_at` | `timestamptz`, nullable | Required and strictly future at activation; frozen afterwards. |
 | `draft_revision` | `integer` | Positive; increment on every draft edit, including child/electorate edits. |
 | `created_by_profile_id` | `uuid` | FK to `profiles.id`. |
@@ -136,11 +148,11 @@ Only `DRAFT -> ACTIVE`, `ACTIVE -> COMPLETED`, and `ACTIVE -> CANCELLED` are leg
 | Column | Type | Keys / rules |
 |---|---|---|
 | `id` | `uuid` | PK. |
-| `vote_id` | `uuid` | FK to `votes.id`; parent must be CLOSED. |
+| `vote_id` | `uuid` | FK to `votes.id`; parent must be PRIVATE. |
 | `name` | `text` | Non-empty office name. |
 | `position` | `integer` | Positive display order; unique within vote. |
 
-Add unique `(vote_id, id)` for composite references. Reject duplicate normalized office names within a vote through the protected draft editor/activation validation. OPEN votes have no offices.
+Add unique `(vote_id, id)` for composite references. Reject duplicate normalized office names within a vote through the protected draft editor/activation validation. PUBLIC votes have no offices.
 
 ### 3.7 `candidates`
 
@@ -151,18 +163,18 @@ Add unique `(vote_id, id)` for composite references. Reject duplicate normalized
 | `name` | `text` | Non-empty candidate display name. |
 | `position` | `integer` | Positive display order; unique within office. |
 
-Add unique `(office_id, id)` for composite references. Candidates are ballot labels, not account references: candidacy does not require a login or confer eligibility. Reject indistinguishable normalized names within one office; administrators must disambiguate labels where necessary. Abstention is a built-in choice, not a fake candidate/account.
+Add unique `(office_id, id)` for composite references. Candidates are ballot labels, not account references: candidacy does not require a login or confer eligibility. Reject indistinguishable normalized names within one office; administrators must disambiguate labels where necessary. NOTA (None of the Above) is a built-in counted choice, not a candidate/account.
 
 ### 3.8 `poll_options`
 
 | Column | Type | Keys / rules |
 |---|---|---|
 | `id` | `uuid` | PK. |
-| `vote_id` | `uuid` | FK to `votes.id`; parent must be OPEN. |
+| `vote_id` | `uuid` | FK to `votes.id`; parent must be PUBLIC. |
 | `label` | `text` | Non-empty option label. |
 | `position` | `integer` | Positive display order; unique within vote. |
 
-Add unique `(vote_id, id)` for composite references. Activation requires at least two distinct normalized labels. CLOSED votes have no poll options.
+Add unique `(vote_id, id)` for composite references. Activation requires at least two distinct normalized labels. PRIVATE votes have no poll options.
 
 ### 3.9 `electorate`
 
@@ -192,33 +204,33 @@ All snapshot fields are null in drafts and non-null after activation, enforced b
 
 PK `(vote_id, household_id)` is also a composite FK to `electorate(vote_id, household_id)`. It is the authoritative exactly-once record and uncertainty-recovery lookup. No selected option, candidate, ballot identifier, request identifier, IP address, or session identifier is stored here.
 
-Participation timestamps must never appear with CLOSED choice data. Administrators may monitor participation; members may query their own status. CLOSED result/export projections exclude household and participation lists.
+Participation timestamps must never appear with PRIVATE choice data. Administrators may monitor participation; members may query their own status. PRIVATE result/export projections exclude household and participation lists.
 
 ### 3.11 `open_responses`
 
 | Column | Type | Keys / rules |
 |---|---|---|
-| `vote_id` | `uuid` | PK component; vote must be OPEN. |
+| `vote_id` | `uuid` | PK component; vote must be PUBLIC. |
 | `household_id` | `uuid` | PK component. |
 | `option_id` | `uuid` | Required selected option. |
 
-PK `(vote_id, household_id)` is a composite FK to `participation(vote_id, household_id)`. Composite FK `(vote_id, option_id)` references `poll_options(vote_id, id)`, preventing cross-vote choices.
+PK `(vote_id, household_id, option_id)` makes each selected option unique for a household. Composite FK `(vote_id, household_id)` references `participation(vote_id, household_id)`; composite FK `(vote_id, option_id)` references `poll_options(vote_id, id)`, preventing responses without participation or cross-vote choices.
 
-Exactly one response accompanies every OPEN participation in the same transaction. Resolve respondent name/household from frozen electorate snapshots, not current profiles/register. Do not duplicate identity or submission timestamps in response rows. There are no editable responses or stored OPEN counters.
+At least one response accompanies every PUBLIC participation in the same transaction. `SINGLE` allows exactly one option; `MULTIPLE` enforces its configured maximum, if any. The response set is atomically replaced on an active PUBLIC resubmission; only the latest set remains. Resolve respondent name/household from frozen electorate snapshots, not current profiles/register. Do not duplicate identity or submission timestamps in response rows. There are no change-history rows or stored PUBLIC counters.
 
 ### 3.12 `closed_tallies`
 
 | Column | Type | Keys / rules |
 |---|---|---|
 | `id` | `uuid` | PK; static counter identifier, never a ballot identifier. |
-| `vote_id` | `uuid` | Parent vote; must be CLOSED. |
+| `vote_id` | `uuid` | Parent vote; must be PRIVATE. |
 | `office_id` | `uuid` | Owning office. |
-| `candidate_id` | `uuid`, nullable | Null denotes this office's explicit abstention counter. |
+| `candidate_id` | `uuid`, nullable | Null denotes this office's explicit NOTA counter. |
 | `accepted_count` | `bigint` | Default 0; `CHECK (accepted_count >= 0)`. |
 
 Composite FK `(vote_id, office_id)` references `offices(vote_id, id)`. Composite FK `(office_id, candidate_id)` references `candidates(office_id, id)` when candidate is non-null.
 
-Create a unique partial index on `(office_id, candidate_id)` where candidate is non-null and a unique partial index on `(office_id)` where candidate is null. This produces one counter per candidate and exactly one abstention counter per office once activation initializes the full set.
+Create a unique partial index on `(office_id, candidate_id)` where candidate is non-null and a unique partial index on `(office_id)` where candidate is null. This produces one counter per candidate and exactly one NOTA counter per office once activation initializes the full set.
 
 Counters contain **no** account/household reference, shared ballot ID, response row, creation/update timestamp, actor, session, or per-update history. Initialize all counters to zero atomically at activation, then allow increments only through the submission routine. Counter IDs remain unchanged across submissions. No direct runtime reads or writes are allowed.
 
@@ -236,9 +248,9 @@ Counters contain **no** account/household reference, shared ballot ID, response 
 | `reason` | `text`, nullable | Required for cancellation and early completion; bounded and checked for inappropriate sensitive input. |
 | `details` | `jsonb` | Default empty object; action-specific allowlisted metadata only. |
 
-Actions cover controlled administrator bootstrap, register changes, role/status changes, draft edits, activation, completion, cancellation, policy changes, and retention deletion. Details may include revision, changed field names, effective lifecycle time, and approved policy version. Do not copy full records, emails, authentication material, or ballot payloads into JSON.
+Actions cover controlled administrator bootstrap, register changes, role/status changes, draft edits, activation, completion, cancellation, policy changes, settings changes, and retention deletion. Details may include revision, changed field names, effective lifecycle time, and approved policy version. Do not copy full records, emails, authentication material, contact details, or ballot payloads into JSON.
 
-Application-database administrative mutation and audit insertion commit together; Auth administrative calls require the retry-safe cross-service workflow described below. Do not emit per-voter CLOSED submission audit events or counter deltas. Audit targets intentionally survive target deletion; events remain until their separate approved expiry. Profile FK restrictions may delay profile/Auth identity hard deletion until audit expiry.
+Application-database administrative mutation and audit insertion commit together; Auth administrative calls require the retry-safe cross-service workflow described below. Do not emit per-voter PRIVATE submission audit events or counter deltas. Audit targets intentionally survive target deletion; events remain until their separate approved expiry. Profile FK restrictions may delay profile/Auth identity hard deletion until audit expiry.
 
 ### 3.14 `rate_limit_buckets`
 
@@ -280,14 +292,14 @@ erDiagram
     HOUSEHOLDS ||--o{ ELECTORATE : receives_entitlement
     PROFILES o|--o{ ELECTORATE : frozen_representative
     ELECTORATE ||--o| PARTICIPATION : submits_once
-    PARTICIPATION ||--o| OPEN_RESPONSES : open_only
+    PARTICIPATION ||--o{ OPEN_RESPONSES : open_only
     POLL_OPTIONS ||--o{ OPEN_RESPONSES : selected_option
     VOTES ||--o{ CLOSED_TALLIES : closed_aggregates
     OFFICES ||--o{ CLOSED_TALLIES : counted_per_office
-    CANDIDATES o|--o{ CLOSED_TALLIES : candidate_or_abstention
+    CANDIDATES o|--o{ CLOSED_TALLIES : candidate_or_nota
 ```
 
-`rwa_settings` is a singleton, not a tenant parent. `rate_limit_buckets` has no identifying foreign keys. The ER diagram shows structural optionality, including incomplete drafts; activation enforces required office/candidate/option/electorate cardinalities. For CLOSED elections, each candidate has exactly one initialized counter and each office also has one null-candidate abstention counter. There is deliberately no edge from participation to CLOSED choices.
+`rwa_settings` is a singleton, not a tenant parent. `rate_limit_buckets` has no identifying foreign keys. The ER diagram shows structural optionality, including incomplete drafts; activation enforces required office/candidate/option/electorate cardinalities. For PRIVATE elections, each candidate has exactly one initialized counter and each office also has one null-candidate NOTA counter. There is deliberately no edge from participation to PRIVATE choices.
 
 ## 5. Integrity, validation, and transaction boundaries
 
@@ -297,9 +309,9 @@ Use primary/unique/foreign keys and local `CHECK` constraints for row-local rule
 
 Use deferred constraint triggers to verify submission consistency at transaction end:
 
-- OPEN participation count equals response count, with one response per participating entitlement and no CLOSED responses.
-- For each CLOSED office, sum of candidate counters plus abstention equals participation count.
-- CLOSED counter membership exactly matches the frozen candidate set plus one abstention per office; OPEN votes have no closed counters.
+- Every participating PUBLIC household has at least one response, every response belongs to a participant, configured selection limits are respected, and PRIVATE votes have no PUBLIC responses.
+- For each PRIVATE office, sum of candidate counters plus the NOTA counter equals participation count.
+- PRIVATE counter membership exactly matches the frozen candidate set plus one NOTA counter per office; PUBLIC votes have no closed counters.
 
 Limit checks to affected votes, and validate again at completion/read publication. All mutation paths use the parent lock so checks cannot race another writer. Constraint failures roll back the whole operation; they must not be converted into success or silent repairs.
 
@@ -310,7 +322,7 @@ Limit checks to affected votes, and validate again at completion/read publicatio
 3. Validate type-specific configuration, normalized distinct labels, deadline, and selected eligible households.
 4. Lock/re-read selected register rows and settings in a documented consistent order shared with register/policy operations.
 5. Require approved A1-A7 decisions and retention settings.
-6. Snapshot representatives, labels, RWA name/timezone, and approved policy versions; initialize CLOSED counters.
+6. Snapshot representatives, labels, RWA name/timezone, and approved policy versions; initialize PRIVATE counters.
 7. Recheck the future deadline using the database clock and atomically set `ACTIVE`, activation time, and audit event.
 
 Draft edits, including voting-type changes, are allowed only while no submission can exist. A type change removes incompatible draft children atomically; activation rejects mixed ballot shapes. Non-draft configuration and snapshots cannot be updated even by ordinary administrative database operations.
@@ -320,8 +332,8 @@ Draft edits, including voting-type changes, are allowed only while no submission
 1. In `cast_vote`, require non-null `auth.uid()` from the verified JWT context; lock the vote, then the caller's profile, and recheck enabled status and frozen entitlement. Profile locking serializes admission against suspension/deletion. Do not lock or modify Supabase-managed session tables.
 2. Reconcile overdue lifecycle state. Require `ACTIVE` and database time strictly before `closes_at` after acquiring locks.
 3. Resolve the household from the frozen electorate and authenticated profile, not client-provided identity.
-4. Reject existing participation. For CLOSED, validate exactly one candidate or explicit abstention for every office, no omissions, repeated offices, foreign candidates, or extra fields. For OPEN, validate exactly one owned option.
-5. Insert participation and either one OPEN response or all CLOSED counter increments in the same transaction. Lock offices/counters in stable ID order.
+4. Reject existing participation for PRIVATE. For PRIVATE, validate exactly one candidate or explicit NOTA choice for every office, no omissions, repeated offices, foreign candidates, or extra fields. For PUBLIC, validate at least one distinct owned option within the configured selection rule.
+5. On first submission, insert one participation row and the selected PUBLIC option row(s), or all PRIVATE counter increments, in the same transaction. A PUBLIC resubmission replaces only that household's current option set, without adding participation. Lock offices/counters in stable ID order.
 6. Commit durably before returning a participation-only acknowledgement.
 
 Per-vote serialization is intentional at the stated scale. Unique participation remains the last defense against retries and concurrent sessions. No email, rendering, network call, or report generation occurs inside this transaction.
@@ -338,11 +350,11 @@ Use `synchronous_commit = on` for accepted submissions and verify managed-servic
 - All transitions take the same vote-row lock. Deadline completion is idempotent and uses the deadline as effective completion time.
 - Early completion/cancellation require administrator confirmation and a reason. Reconcile overdue status first; cancellation cannot override a due completion. Include the early-completion label and reason in the shared screen/export projection.
 - Before marking completed, verify participation/response/tally invariants. On mismatch, block completion/publication/exports and alert operators without exposing choices; submissions remain blocked by the deadline.
-- Publish only `COMPLETED` results to enabled administrators or frozen eligible representatives. `ACTIVE` and `CANCELLED` choices remain inaccessible.
-- Read a single completion-gated RPC projection for the page and CSV, plus PDF when implemented. Obtain multi-part data in one consistent database snapshot inside that RPC, not separate Supabase requests assumed to share a transaction; materialize the authorized projection before rendering outside the transaction.
-- Eligible denominator is frozen electorate size, including suspended representatives. Submitted denominator is participation count. OPEN totals are grouped responses; CLOSED totals are protected counters.
-- Election percentages use submitted ballots, including abstentions. Equally highest positive candidate or poll-option totals are labelled "Tie" without selecting a winner. Zero ballots have no winner; apply the proposed all-abstain "No candidate elected" outcome only after A5 approval. Zero denominators display not applicable/no-votes rather than invalid arithmetic.
-- Do not persist turnout, rounded percentages, leaders, PDF generation time, or export files. Compute them deterministically from immutable completed data and the report generation clock.
+- Publish active PUBLIC aggregate counts/turnout and active PRIVATE aggregate turnout to enabled administrators and frozen eligible representatives without active choices. The separate participation RPC may reveal household submission status to admins for follow-up during active PRIVATE elections; members cannot access that list. Hide active PRIVATE candidate/NOTA totals and all cancelled choices.
+- Read one authorized SQL projection for active PUBLIC aggregates and completed results; only completed PUBLIC results include names, and only completed projections may be exported. Obtain multi-part data in one consistent database snapshot inside that RPC, not separate Supabase requests assumed to share a transaction; materialize the authorized projection before rendering outside the transaction.
+- Eligible denominator is frozen electorate size, including suspended representatives. Submitted denominator is participation count. PUBLIC option totals count selected options and may exceed participation; PRIVATE totals are protected counters.
+- Election candidate/NOTA percentages and each PUBLIC option percentage use submitted households as their denominator; the projection also derives an eligible-household share for the result bars. Multi-select PUBLIC percentages may sum above 100%. The highest-count candidate wins even when NOTA has more votes; NOTA is tallied separately and cannot win. Equally highest positive candidate or poll-option totals are labelled "Tie" without selecting a winner. Zero ballots or no candidate votes (including all-NOTA ballots) have no winner. Zero denominators display not applicable/no-votes rather than invalid arithmetic.
+- Do not persist turnout, rounded percentages, leaders, PDF generation time, or export files. Derive active PUBLIC totals from current response rows; compute completed projections deterministically from final vote data and the report generation clock.
 
 ## 6. Query-driven indexes
 
@@ -358,8 +370,8 @@ Primary keys and unique constraints create their own B-tree indexes. Avoid dupli
 | Member submission status and turnout | `participation` composite PK `(vote_id, household_id)`; no extra status index. |
 | Ballot ordering | Unique `offices(vote_id, position)`, `candidates(office_id, position)`, `poll_options(vote_id, position)`. |
 | Composite ownership FKs | Unique `offices(vote_id, id)`, `candidates(office_id, id)`, `poll_options(vote_id, id)`. |
-| OPEN option totals and complete named-response joins | `open_responses(vote_id, option_id, household_id)`; PK serves electorate/participation joins. |
-| CLOSED counter lookup / ownership | Two partial unique indexes described above, plus `closed_tallies(vote_id, office_id)` for complete protected tally reads and parent FK access. |
+| PUBLIC option totals and complete named-response joins | `open_responses(vote_id, option_id, household_id)`; PK serves electorate/participation joins. |
+| PRIVATE counter lookup / ownership | Two partial unique indexes described above, plus `closed_tallies(vote_id, office_id)` for complete protected tally reads and parent FK access. |
 | Administrator vote list with stable cursor | `votes(created_at DESC, id DESC)`; filter small status/type sets without speculative extra indexes. |
 | Creator FK and profile cleanup | `votes(created_by_profile_id)`. |
 | Due-vote scheduler | Partial `votes(closes_at, id)` where status is `ACTIVE`. |
@@ -389,7 +401,7 @@ Revoke `PUBLIC` execution on application routines and unsafe schema creation pri
 
 Protected user-callable entry points explicitly validate non-null `auth.uid()`, the matching current profile's enabled status/role, required capability, and frozen entitlement. Never accept an actor/household argument as proof of identity or trust user-editable JWT metadata for role. Server routes verify identity through supported Auth methods before calling with the user's session; SQL permissions must independently remain safe against direct Supabase API calls. Do not pass custom session digests into RPCs.
 
-No runtime routine returns CLOSED counters except the completion-gated aggregate result routine. Submission routines may increment them but return participation status only. Runtime cannot update/delete audit events; append occurs only inside approved administrative operations. Retention deletion is a separate restricted operation, not an audit-edit capability.
+No runtime routine returns active PRIVATE candidate/NOTA counters; completed PRIVATE counters are exposed only through the authorized result projection. Active PRIVATE turnout is derived from aggregate participation and includes no identities; household-level participation is exposed only by the administrator-only monitoring RPC. Active PUBLIC aggregate counts are derived from current responses, but individual active responses remain inaccessible. Submission routines return own-participation status only. Runtime cannot update/delete audit events; append occurs only inside approved administrative operations. Retention deletion is a separate restricted operation, not an audit-edit capability.
 
 **Implementation notes (migrations `20261024100000`-`20261024100400`).**
 - The protected routine owner is the non-login role `cp_owner`; it owns every application table and routine and has no privileges in the Supabase `auth` schema. `profiles` is created by the migration role (which holds `REFERENCES` on `auth.users`) and then transferred to `cp_owner`.
@@ -400,14 +412,16 @@ No runtime routine returns CLOSED counters except the completion-gated aggregate
 
 **Draft routines (migration `20261024120000`).** `create_draft`, `get_admin_vote`, `update_draft`, `preview_draft` and `get_rwa_display` are `SECURITY DEFINER`, executable by `authenticated` only, and re-derive the caller from the JWT (current enabled administrator; `get_rwa_display` needs any enabled member).
 - `update_draft` locks the parent vote first, rejects non-drafts with `VOTE_FROZEN`, then checks the expected revision (`STALE_REVISION`). It validates every field itself (the database, not the web tier, is the authority), applies the change and its audit event in one transaction, and increments `draft_revision` exactly once. An empty change set is not an edit: no revision change, no audit event.
-- A supplied collection replaces the whole collection. Supplied child ids must already belong to this draft and, for candidates, to the same office; new children get server-generated ids. Normalised names/labels and positions must be distinct within their scope. A type change deletes the other shape's children in the same transaction; offices on an OPEN draft (or options on a CLOSED one) are rejected, never reinterpreted.
+- A supplied collection replaces the whole collection. Supplied child ids must already belong to this draft and, for candidates, to the same office; new children get server-generated ids. Normalised names/labels and positions must be distinct within their scope. A type change deletes the other shape's children in the same transaction; offices on a PUBLIC draft (or options on a PRIVATE one) are rejected, never reinterpreted.
 - The three `position` uniqueness constraints are `DEFERRABLE INITIALLY IMMEDIATE`, so reordering or swapping positions inside one atomic replace works. The routines defer them only for the duration of the replace and verify them again before returning.
 - Newly selected households must be eligible when added; a household that was already selected and later becomes ineligible may stay (preview flags it) so the administrator can see and fix the change. Draft electorate rows carry no representative snapshot; activation writes them.
 - `preview_draft` takes a share lock, requires the exact revision, never changes data, and returns readiness plus safe blocker codes/messages. It mirrors the structural activation guard and adds the register and settings checks that activation will re-read under lock; it is advice, not a guarantee.
-- `get_rwa_display` returns only the RWA name and time zone (never approvals or retention), because `rwa_settings` stays unreadable to every API role.
+- `get_rwa_display` returns the RWA name and time zone to enabled members (never approvals or retention), because `rwa_settings` stays unreadable to every API role.
+
+**PUBLIC multi-select (migration `20261027100000`).** Existing votes remain single-select. Draft edits persist `open_selection_mode` and `open_selection_limit` together, and database constraints reject inconsistent values or multi-select configuration on PRIVATE elections. `open_responses` stores one row per selected option; `participation` remains one row per household. The guarded submission routes multi-select choices through the same vote-first lock/deadline checks, then replaces the whole response set atomically. Deferred invariants require every participating PUBLIC household to have at least one owned choice and enforce the configured maximum. Results count selections per option, use submitted households as the share denominator, and page completed named responses once per household with an array of choice labels.
 
 **Lifecycle routines (migrations `20261024130000`, `20261024130100`).** `activate_vote`, `complete_vote_early` and `cancel_vote` are administrator-session routines (current enabled administrator, explicit `confirmed`); `complete_due_votes` (Cron) and `reconcile_vote` (server-only) never accept a time, target list or batch size from a caller.
-- **One lock order everywhere:** vote, then the selected households (by id), then their profiles (by id), then settings. Activation takes the register and settings under lock, re-runs the readiness checks, writes the frozen representative/household snapshot, initialises one zero counter per candidate plus one abstention counter per office, freezes the RWA name, time zone and A1-A7 versions, and sets `ACTIVE` with its audit event in one transaction. A register or settings change waits for an in-flight activation, so a snapshot cannot tear.
+- **One lock order everywhere:** vote, then the selected households (by id), then their profiles (by id), then settings. Activation takes the register and settings under lock, re-runs the readiness checks, writes the frozen representative/household snapshot, initialises one zero counter per candidate plus one NOTA counter per office, freezes the RWA name, time zone and A1-A7 versions, and sets `ACTIVE` with its audit event in one transaction. A register or settings change waits for an in-flight activation, so a snapshot cannot tear.
 - **Deadlines belong to the database clock.** `complete_if_due` completes a vote whose deadline has passed, verifies the invariants first (a mismatch blocks completion and is logged, never exposing choices), and records the **deadline** as the completion time; the processing time is audit context only. `complete_due_votes` handles up to 50 due votes per run, each in its own subtransaction, so one failure never undoes the others and the result reports `{completed, blocked}`.
 - **Overdue actions.** Early completion or cancellation of a vote whose deadline has passed completes it at the deadline and *commits* that, then returns `{applied: false, reason: "DEADLINE_PASSED"}` (the API answers `409 LIFECYCLE_CONFLICT`). Raising instead would roll the reconciliation back. A repeat against a terminal vote raises `LIFECYCLE_CONFLICT` with the current state as DETAIL.
 - **Cron.** Migration `20261024130000` creates the non-login `cp_scheduler` role (it can execute `public.complete_due_votes()` and nothing else: no table access, no other routine) and, where `pg_cron` exists, schedules `set role cp_scheduler; select public.complete_due_votes()` every minute under the name `civic-pulse-complete-due-votes`. Where `pg_cron` is absent (a bare local PostgreSQL) scheduling is skipped with a notice; the deadline is still enforced by the database clock on every request. Verified on a hosted Supabase project: the job exists, runs each minute, and completes a due vote with the deadline as its completion time.
@@ -421,24 +435,32 @@ No runtime routine returns CLOSED counters except the completion-gated aggregate
 - **Deferred triggers must be `SECURITY DEFINER`.** The invariant checks are deferred constraint triggers that fire at commit. PostgreSQL 18 runs a deferred trigger as the role that queued it; PostgreSQL 17 (Supabase today) runs it as the role current at commit, i.e. the signed-in caller. A plain trigger function therefore passed on 18 and failed with "permission denied" on 17. `check_vote_invariants` and `check_vote_invariants_on_vote` are now `SECURITY DEFINER`, and a security test requires every deferred user trigger to be one.
 
 **Submission routines (migration `20261024140000`).** `cast_vote(vote, submission)` and `get_my_participation(vote)` are member-session routines: identity comes only from the verified JWT and the household only from the frozen electorate.
-- **Order of checks.** Shape (`confirmed: true`, only `optionId`/`selections`; identity, household, timestamp, count and idempotency fields are rejected) → entitlement read *without* locking (a caller outside the electorate, or naming a draft or unknown vote, gets `NOT_FOUND` and can never queue behind a vote's lock) → lock the vote, then the caller's profile (`FOR SHARE`, so a concurrent suspension serialises with admission) and recheck `ENABLED` → overdue/terminal check → prior participation (`ALREADY_SUBMITTED`) → full type-specific validation against the frozen ballot → a **final `clock_timestamp()` check after every admission lock, immediately before acceptance** → insert participation plus one OPEN response, or increment every CLOSED counter in stable office-id order.
+- **Order of checks.** Shape (`confirmed: true`, only `optionId`/`selections`; identity, household, timestamp, count and idempotency fields are rejected) → entitlement read *without* locking (a caller outside the electorate, or naming a draft or unknown vote, gets `NOT_FOUND` and can never queue behind a vote's lock) → lock the vote, then the caller's profile (`FOR SHARE`, so a concurrent suspension serialises with admission) and recheck `ENABLED` → overdue/terminal check → reject prior PRIVATE participation but permit PUBLIC resubmission → full type-specific validation against the frozen ballot → a **final `clock_timestamp()` check after every admission lock, immediately before acceptance** → insert participation and one PUBLIC response on first submission, update only the existing PUBLIC response on resubmission, or increment every PRIVATE counter once in stable office-id order.
 - **Deadline semantics.** A request that waited past the cutoff for a lock is refused even though it was sent earlier; a transaction admitted strictly before the cutoff may commit afterwards (and is counted, because completion waits for the vote lock). An overdue vote is completed at its deadline and that is **committed** while the routine returns `{accepted: false, reason: "VOTING_CLOSED"}` rather than raising, which would roll the reconciliation back.
-- **Bounded and durable.** The routine sets `lock_timeout = 5s`, `statement_timeout = 15s` and `synchronous_commit = on` for its transaction. A lock or statement timeout (`55P03`, `57014`) maps to `503 DEPENDENCY_UNAVAILABLE`, a retryable error that is never presented as a rejection; an uncertain outcome is resolved through `get_my_participation`.
-- **Privacy.** The return value is participation only. There is no audit event, receipt, per-ballot CLOSED record, or timestamp joinable to a counter (`closed_tallies` has only aggregate columns; a test pins the column lists of `closed_tallies` and `participation`).
-- **Cross-vote guard defects fixed here.** The Phase 4 structural activation guard (`assert_structurally_activatable`) and the Phase 9 `draft_blockers` inspected the offices and counters of *every* vote, so one CLOSED vote with a non-zero counter, or any other draft with an empty office, blocked the activation of every other CLOSED vote. This was invisible until ballots existed. Both are corrected, with a regression test.
+- **Bounded and durable.** The routine sets `lock_timeout = 5s`, `statement_timeout = 15s` and `synchronous_commit = on` for its transaction. A lock or statement timeout (`55P03`, `57014`) maps to `503 DEPENDENCY_UNAVAILABLE`, a retryable error that is never presented as a rejection; an uncertain first submission is checked through `get_my_participation`. For an uncertain PUBLIC replacement, that status confirms participation but does not reveal the current choice; the same intended choice may be resubmitted while the vote is active.
+- **Privacy.** The return value is participation only. There is no audit event, receipt, per-ballot PRIVATE record, or timestamp joinable to a counter (`closed_tallies` has only aggregate columns; a test pins the column lists of `closed_tallies` and `participation`).
+- **Cross-vote guard defects fixed here.** The Phase 4 structural activation guard (`assert_structurally_activatable`) and the Phase 9 `draft_blockers` inspected the offices and counters of *every* vote, so one PRIVATE vote with a non-zero counter, or any other draft with an empty office, blocked the activation of every other PRIVATE vote. This was invisible until ballots existed. Both are corrected, with a regression test.
 
 **Member reads, results, monitoring and audit (migration `20261024150000`).** Five session routines, all `SECURITY DEFINER`, re-deriving identity from the JWT:
 - `list_member_votes` / `get_member_vote` read only the caller's own frozen entitlement and own participation flag (an administrator outside the electorate may read a non-draft ballot but gets `entitled: false`). Listing order is active-by-deadline then finished-newest-first via a `(rank, key, id)` keyset.
-- `get_vote_results` is the single source for the screen, API and CSV. It share-locks the vote (so retention cannot delete mid-read), requires `COMPLETED` (an active or cancelled vote never leaves the database, even as partial totals for an administrator), runs `verify_vote_invariants` and raises `RESULTS_INTEGRITY_ERROR` on a mismatch instead of repairing it, and counts the frozen electorate as the denominator (including households suspended later). OPEN named responses come from the frozen electorate snapshot, never the live register; CLOSED returns aggregates only. `p_limit` defaults to a bounded page; the export passes `null` for the complete list.
+- `get_vote_results` is the single source for the screen, API and CSV. It share-locks the vote, runs `verify_vote_invariants` and raises `RESULTS_INTEGRITY_ERROR` on a mismatch instead of repairing it, and counts the frozen electorate as the denominator (including households suspended later). An unexpired ACTIVE PUBLIC vote returns option aggregates and turnout only; ACTIVE PRIVATE returns turnout only with empty options/offices arrays. Both have null `namedResponses`/`namedPage`. Cancelled votes remain unavailable. COMPLETED PUBLIC named responses come from the frozen electorate snapshot, never the live register; completed PRIVATE results return aggregates only. `p_limit` defaults to a bounded page; `null` is accepted only for completed-result exports.
 - `get_vote_participation` shows frozen name, household identifier and submitted flag only (never a choice or time) and refuses drafts. `list_audit_events` copies only allowlisted `details` keys.
 - The security test's function allowlist lists all five. Choice storage (`open_responses`, `closed_tallies`) stays unreadable by every API role, administrators included.
+
+**Configurable identifier wording (migration `20261030100000`, superseded by `20261103110000`).** `rwa_settings.identifier_label` defaults to `Household identifier` and stores one bounded, plain-text RWA display label. `get_household_identifier_label()` is an enabled-member RPC returning only that value; `update_household_identifier_label(label)` is administrator-only, rechecks current role in the database, updates the singleton and appends `RWA_IDENTIFIER_LABEL_UPDATED` atomically. Neither routine grants direct table access. This label is presentation-only: changing it does not update household identifiers, normalization keys, uniqueness, snapshots or historical vote data.
+
+**RWA profile settings (migrations `20261031100000`, `20261101100000`).** The singleton also stores the official full name, alias, address, contact email, phone, optional website, accent palette and welcome message with bounded database checks and the requested defaults. Existing official names are copied into `full_name` without changing `name`; deployment initialization writes both columns. `get_rwa_profile()` and `update_rwa_profile(settings)` are administrator-only; updates keep `name` equal to `full_name` and append an audit event containing only changed field names. `get_rwa_branding()` is the enabled-member display projection. `get_public_rwa_identity()` returns only full name, alias, address and palette and is executable by `service_role` alone (it re-checks the claim), so `anon` still executes no routine and the Next.js server supplies the sign-in and privacy pages. Screens and exports use the current name; each vote's `rwa_name_snapshot` is kept unchanged as an internal historical record. The replaced alias-only routine `get_rwa_alias()` is dropped by the second migration.
+
+**Household label and identifier kind (migration `20261103110000`).** `rwa_settings.identifier_label` is replaced by `household_label` (default `Household`) and `identifier_kind` (`NUMBER` or `ID`, default `NUMBER`). Existing labels are backfilled by stripping a trailing Number/No./ID/Identifier word (so `Flat Number` becomes `Flat` + `NUMBER`, `Villa ID` becomes `Villa` + `ID`, and the default `Household identifier` becomes `Household` + `NUMBER`). `get_household_identifier_label()` and `update_household_identifier_label(text)` are dropped; `get_rwa_profile()` and `get_rwa_branding()` both return `householdLabel` and `identifierKind`, `get_public_rwa_identity()` adds `householdLabel`, and `update_rwa_profile(settings)` accepts and audits the two new keys. Historical `RWA_IDENTIFIER_LABEL_UPDATED` audit events remain readable.
+
+**PUBLIC/PRIVATE voting types (migration `20261103100000`).** The voting types formerly stored as `OPEN` and `CLOSED` are renamed to `PUBLIC` and `PRIVATE`. The migration rewrites existing `votes.voting_type` values with user triggers briefly disabled, recreates the type check and the PRIVATE single-select check (`votes_private_single_select`), and replaces every routine that compared the old values. Internal column and routine names (`open_selection_mode`, `guard_open_response`, `guard_closed_tally`, `cast_open_vote_multiple`), error codes such as `VOTING_CLOSED`, and historical audit details are unchanged; the audit page displays old `OPEN`/`CLOSED` details as PUBLIC/PRIVATE.
 
 ### Application access
 
 - Unauthenticated visitors cannot list members, votes, ballots, participation, or results.
 - Enabled members access only votes whose frozen electorate names their profile; current reassignment does not transfer access to historical votes.
 - Administrators manage register/drafts/lifecycle and inspect participation; their role does not permit voting for someone else.
-- Completed OPEN named responses are available to the same authorized viewers as results. Never include registered email in result/export projections.
+- Completed PUBLIC named responses are available to the same authorized viewers as results. Never include registered email in result/export projections.
 - Suspension/deletion overrides membership and administrative capability immediately. Every request, applicable RLS read, and protected database operation rechecks current profile state, even with a still-valid JWT.
 
 ### Row-level security decision
@@ -449,7 +471,7 @@ Enable RLS on **every application table**, including settings, profiles, audit, 
 |---|---|---|
 | `profiles` | Own enabled profile; enabled admins may read profiles needed for register administration. | Role, status, name, and assignments change only through guarded admin operations. Auth emails are obtained only through an authorized server-only register projection. |
 | `households` | Enabled admin register access only; members obtain household labels through their authorized ballot/projection. | Guarded admin operations; representative uniqueness enforced. |
-| `rwa_settings` | No direct client reads; public/ballot-safe metadata is projected without approval/retention administration details. | Guarded admin settings operation. |
+| `rwa_settings` | No direct client reads; enabled members obtain the display branding projection (including the household label and identifier kind) through a narrow safe RPC; public pages obtain name, alias, address, palette and household label only through a service-role-only routine. | Admin-only guarded RPC reads and updates the full profile; changed field names are audited. Other policy and retention changes remain controlled procedures. |
 | `votes` | Enabled admins may read all; enabled members only non-drafts with their own frozen entitlement. | Guarded draft/lifecycle operations; freeze guards apply independently. |
 | `offices`, `candidates`, `poll_options` | Same parent-vote visibility as `votes`; no unrelated ballot discovery. | Guarded draft edits only. |
 | `electorate` | Own frozen entitlement only for enabled members; enabled admins may inspect the electorate. | Guarded draft selection/activation, then frozen. |
@@ -466,14 +488,14 @@ Test anonymous/member/admin direct REST/RPC access, suspended profiles with exis
 
 ## 8. Sensitive data and privacy
 
-- Names, household identifiers, registered emails, frozen identities, participation, and OPEN choices are restricted personal data. Minimize projections and access; do not collect additional resident attributes.
+- Names, household identifiers, registered emails, frozen identities, participation, and PUBLIC choices are restricted personal data. Minimize projections and access; do not collect additional resident attributes.
 - Encrypt database connections, primary storage, replicas, WAL/backups, and provider exports. Keep encryption/HMAC keys in approved secret management, separate from database content and source control.
 - Supabase Auth manages OTP/session material; do not copy it into application tables, audit events, logs, or exports. Keep administrative Auth credentials and rate-limit HMAC keys server-only.
 - Disable request-body, SQL bind-parameter, cookie, email-content, and selection capture across the app, proxy, APM, error tracking, and database instrumentation. Operational logs contain allowlisted outcomes and safe support IDs only.
-- Do not store CLOSED request payloads, per-response counter history, change feeds, ballot receipts, cross-office submission IDs, or tally snapshots. Do not allow administrators to sample active counters for differencing.
-- CLOSED aggregate-only storage prevents ordinary stored identity-to-choice mappings but is not cryptographic anonymity. WAL/PITR, privileged instrumentation, backups at different instants, or a compromised process can correlate transactions/counter deltas. Low-turnout results can allow inference. Obtain A2 approval without promising stronger secrecy.
-- On-demand CSV and optional PDF generation use the same authorization/projection as results; no public files, bearer download links, retained report copies, or emailed attachments. CLOSED reports exclude household/voter lists; OPEN reports include frozen name, household, and choice, not email. Exports are derived outcomes, never the authoritative database or a recovery substitute.
-- Apply approved lifecycle-aware retention. Never remove participation while a vote can accept submissions. Do not delete identity snapshots independently of their still-required OPEN decision record.
+- Do not store PRIVATE request payloads, per-response counter history, change feeds, ballot receipts, cross-office submission IDs, or tally snapshots. Do not allow administrators to sample active counters for differencing.
+- PRIVATE aggregate-only storage prevents ordinary stored identity-to-choice mappings but is not cryptographic anonymity. WAL/PITR, privileged instrumentation, backups at different instants, or a compromised process can correlate transactions/counter deltas. Low-turnout results can allow inference. Obtain A2 approval without promising stronger secrecy.
+- On-demand CSV and optional PDF generation use the same authorization/projection as results; no public files, bearer download links, retained report copies, or emailed attachments. PRIVATE reports exclude household/voter lists; PUBLIC reports include frozen name, household, and choice, not email. Exports are derived outcomes, never the authoritative database or a recovery substitute.
+- Apply approved lifecycle-aware retention. Never remove participation while a vote can accept submissions. Do not delete identity snapshots independently of their still-required PUBLIC decision record.
 - Downloaded/printed records cannot be remotely revoked or erased and are not signatures or legal certification.
 
 ## 9. Migration, provisioning, and seed strategy
@@ -499,14 +521,14 @@ Use server-only privileged Auth credentials solely for provisioning/administrati
 
 ### Local/test/staging fixtures
 
-Use synthetic identities and a local mail sink or approved staging recipients only. Cover both voting types, incomplete drafts, activated frozen electorates, suspension/reassignment, zero turnout, all abstentions, ties, cancellation, and long/multiscript report content. Construct accepted fixture submissions through the same protected submission path. Use separate databases/credentials per environment; never copy production registers or backups into development.
+Use synthetic identities and a local mail sink or approved staging recipients only. Cover both voting types, incomplete drafts, activated frozen electorates, suspension/reassignment, zero turnout, all-NOTA ballots, NOTA counts exceeding candidate counts, ties, cancellation, and long/multiscript report content. Construct accepted fixture submissions through the same protected submission path. Use separate databases/credentials per environment; never copy production registers or backups into development.
 
 ## 10. Retention, backup, and recovery
 
 ### Retention execution
 
 - Run bounded, repeatable maintenance batches using approved current policy. Require explicit settings, not null-as-infinite defaults.
-- Delete expired terminal vote data as one transaction: OPEN responses or CLOSED counters, participation, electorate, candidate/office/option configuration, then the vote. Lock/revalidate terminal state first and write a minimal deletion audit event atomically.
+- Delete expired terminal vote data as one transaction: PUBLIC responses or PRIVATE counters, participation, electorate, candidate/office/option configuration, then the vote. Lock/revalidate terminal state first and write a minimal deletion audit event atomically.
 - Keep audit evidence for its independently approved period; historical target identifiers intentionally remain without a target FK.
 - Hard-delete an inactive profile only after its retention period and all electorate, vote-creator, household, and audit references permit removal. Prefer suspension/soft deletion until then; do not cascade historical evidence away. Coordinate later Auth identity removal through supported administration with explicit partial-failure recovery; `profiles -> auth.users` remains restrictive.
 - Expire application rate buckets in bounded batches without resetting live abuse windows. Use supported Supabase Auth lifecycle/retention controls, not direct cleanup of managed session/OTP tables.
@@ -521,11 +543,11 @@ Maintain a restricted recovery record of deletions, suspensions, and revocations
 - Agree and document RPO/RTO, backup cadence, restore window, geographic placement, replication/failover durability, and alerting in the operational runbook. No numerical recovery promise is inferred from this schema.
 - Back up application data/schema, routines, RLS policies, grants, migration history, settings, and required Auth identities through a supported tested process. Do not assume a default database dump includes all Auth objects or external Auth/SMTP/Cron configuration. Capture necessary configuration securely and manage secret/key-version recovery separately in secret management.
 - Restore initially into isolated maintenance-only infrastructure. Do not expose restored email jobs, sessions, ballots, or exports to users.
-- Validate migration version, Auth-to-profile references, RLS/grants/direct API denial, Cron configuration, unique entitlements/participation, OPEN response ownership/counts, CLOSED office totals, frozen snapshots, and lifecycle timestamps.
+- Validate migration version, Auth-to-profile references, RLS/grants/direct API denial, Cron configuration, unique entitlements/participation, PUBLIC response ownership/counts, PRIVATE office totals, frozen snapshots, and lifecycle timestamps.
 - Reapply later deletion/suspension/revocation records before access resumes. Apply supported Auth recovery/revocation procedures and verify existing-token scenarios; restored access must remain blocked by current profile state even if a JWT remains valid. Verify rate limits rather than restoring unsafe authentication access.
 - A transactionally consistent backup may still omit acknowledged submissions. Prove accepted-data completeness before resuming an interrupted active vote. If completeness cannot be proven, remain in maintenance mode and follow the approved cancellation/replacement procedure.
 - Reconcile elapsed deadlines using effective deadline timestamps; outages do not extend deadlines. Preserve cancelled-choice confidentiality throughout recovery.
-- Test restoration before launch and repeat on an approved schedule and after material infrastructure changes. Recovery evidence must not disclose CLOSED selections.
+- Test restoration before launch and repeat on an approved schedule and after material infrastructure changes. Recovery evidence must not disclose PRIVATE selections.
 - PDFs/CSVs cannot restore Auth identities, frozen entitlements, participation, counter integrity, or permissions and must never substitute for database recovery.
 
 ## 11. Required implementation verification
@@ -538,14 +560,14 @@ Required real-Supabase/PostgreSQL integration and release checks:
 - Draft revision conflicts, mixed voting-type configuration, invalid activation, and all post-activation configuration/electorate edits are rejected.
 - A selected candidate/option cannot belong to a different office/vote.
 - Concurrent submissions, retries, multiple sessions, and lost HTTP acknowledgements produce exactly one durable participation.
-- Injected failure after participation and midway through CLOSED counter updates leaves no partial submission.
+- Injected failure after participation and midway through PRIVATE counter updates leaves no partial submission.
 - Exact-deadline and lock-wait-past-deadline submissions are rejected; a transaction admitted before the cutoff may commit afterwards. Completion/cancellation races preserve invariants.
-- Suspension/reassignment cannot transfer an existing entitlement or rewrite historical OPEN identities.
+- Suspension/reassignment cannot transfer an existing entitlement or rewrite historical PUBLIC identities.
 - Administrators without their own entitlement cannot cast; cross-profile/object access, disallowed direct table access, active/cancelled choices, and unauthorized exports are denied. Exercise anonymous/member/admin direct Supabase REST/RPC calls as well as Next.js routes.
 - Six-digit OTP expiry/single use, configured Auth limits, generic acknowledgements, disabled signup, provisioning partial failure/retry, supported session refresh/sign-out, and shared application limits are verified.
 - Existing JWTs cannot bypass suspension, changed role, or entitlement checks; normal user requests never use service-role credentials.
-- Completed page/CSV projections agree exactly on counts, identities, abstentions, candidate/option ties, approved all-abstain outcomes, early-completion labels/reasons, denominators, and no-votes states. Apply equivalent projection, multi-page/A4/grayscale/script coverage and failure checks to PDF only if implemented.
-- CLOSED ordinary records, APIs, reports, logs, and operational tooling reveal no individual choices or active tally snapshots.
+- Completed page/CSV projections agree exactly on counts, identities, NOTA counts, candidate/option ties, NOTA-versus-candidate winner outcomes, early-completion labels/reasons, denominators, and no-votes states. Apply equivalent projection, multi-page/A4/grayscale/script coverage and failure checks to PDF only if implemented.
+- PRIVATE ordinary records, APIs, reports, logs, and operational tooling reveal no individual choices or active tally snapshots.
 - Query/load thresholds and backup restoration/completeness checks pass at the approved launch capacity.
 
-Any lost/duplicate participation, partial submission, incorrect tally, unauthorized disclosure, or CLOSED identity-to-choice exposure blocks release.
+Any lost/duplicate participation, partial submission, incorrect tally, unauthorized disclosure, or PRIVATE identity-to-choice exposure blocks release.

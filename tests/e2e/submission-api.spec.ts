@@ -112,34 +112,34 @@ test.describe("POST /api/votes/{id}/submission", () => {
     expect(status.headers()["cache-control"]).toMatch(/no-store/u);
 
     const other = vote.options[1]?.id;
-    const repeat = await post(api, `/api/votes/${vote.id}/submission`, {
+    const replacement = await post(api, `/api/votes/${vote.id}/submission`, {
       confirmed: true,
       optionId: other,
     });
-    expect(repeat.status()).toBe(409);
-    const repeated = await repeat.text();
-    expect(repeated).toContain("ALREADY_SUBMITTED");
-    expect(repeated).not.toContain(String(other));
+    expect(replacement.status()).toBe(200);
+    expect(await replacement.json()).toMatchObject({
+      data: { voteId: vote.id, submitted: true },
+    });
     await api.dispose();
   });
 
-  test("records a complete CLOSED ballot with an explicit abstention", async () => {
+  test("records a complete PRIVATE ballot with an explicit NOTA choice", async () => {
     const member = await seedHousehold();
     const adminUser = await provisionAdmin();
     const vote = await activateVoteFor(
       adminUser.id,
       [member.householdId],
-      "CLOSED",
+      "PRIVATE",
     );
     const api = await signedIn(member.email);
     const office = vote.offices[0];
 
-    const abstain = await post(api, `/api/votes/${vote.id}/submission`, {
+    const nota = await post(api, `/api/votes/${vote.id}/submission`, {
       confirmed: true,
       selections: [{ officeId: office?.id, candidateId: null }],
     });
-    expect(abstain.status(), await abstain.text()).toBe(200);
-    expect(((await abstain.json()) as { data: unknown }).data).toEqual({
+    expect(nota.status(), await nota.text()).toBe(200);
+    expect(((await nota.json()) as { data: unknown }).data).toEqual({
       voteId: vote.id,
       submitted: true,
     });
@@ -274,7 +274,7 @@ test.describe("POST /api/votes/{id}/submission", () => {
     const vote = await activateVoteFor(
       adminUser.id,
       [member.householdId],
-      "OPEN",
+      "PUBLIC",
       5_000,
     );
     const api = await signedIn(member.email);

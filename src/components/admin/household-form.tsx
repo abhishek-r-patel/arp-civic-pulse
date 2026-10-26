@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorSummary } from "@/components/ui/error-summary";
 import { CheckboxField, SelectField, TextField } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
+import { useHouseholdTerms } from "@/components/ui/household-terms";
 import type { AssignableAccount } from "@/server/register/accounts";
 import { apiRequest, type ApiFailure } from "@/shared/http/api-client";
 import { fieldErrorFor } from "@/shared/http/messages";
@@ -20,12 +21,16 @@ type HouseholdFormProps = Readonly<{
   csrfToken: string | undefined;
   accounts: readonly AssignableAccount[];
   household?: HouseholdProjection;
+  identifierLabel: string;
   /** True when the account list was capped, so some accounts are not shown. */
   limited?: boolean;
 }>;
 
 // Machine-readable conflict reasons point at the field the person can fix.
-function conflictField(failure: ApiFailure | null): {
+function conflictField(
+  failure: ApiFailure | null,
+  householdLabel: string,
+): {
   identifier?: string;
   representative?: string;
 } {
@@ -35,17 +40,15 @@ function conflictField(failure: ApiFailure | null): {
   switch (failure.context.reason) {
     case "DUPLICATE_IDENTIFIER":
       return {
-        identifier: "A household with this identifier already exists.",
+        identifier: "This value is already in use.",
       };
     case "REPRESENTATIVE_ASSIGNED":
       return {
-        representative:
-          "This account already represents another household. Choose a different account.",
+        representative: `This account already represents another ${householdLabel}. Choose a different account.`,
       };
     case "REPRESENTATIVE_DELETED":
       return {
-        representative:
-          "This account has been deleted and cannot represent a household.",
+        representative: `This account has been deleted and cannot represent the selected ${householdLabel}.`,
       };
     default:
       return {};
@@ -65,9 +68,11 @@ export function HouseholdForm({
   csrfToken,
   accounts,
   household,
+  identifierLabel,
   limited = false,
 }: HouseholdFormProps) {
   const router = useRouter();
+  const terms = useHouseholdTerms();
   const editing = household !== undefined;
 
   const [identifier, setIdentifier] = useState(household?.identifier ?? "");
@@ -83,8 +88,8 @@ export function HouseholdForm({
     return (
       <Notice tone="warning" heading="No account is available to assign">
         <p>
-          Every account already represents a household. Create an account for
-          the resident first, then come back to add their household.
+          Every account already represents one {terms.household}. Create an
+          account for the resident first, then come back to add another.
         </p>
         <p className="pt-2">
           <Link
@@ -151,7 +156,7 @@ export function HouseholdForm({
     router.refresh();
   }
 
-  const conflict = conflictField(failure);
+  const conflict = conflictField(failure, terms.household);
   const fieldErrors = {
     identifier: fieldErrorFor(failure, "identifier") ?? conflict.identifier,
     representative:
@@ -162,14 +167,14 @@ export function HouseholdForm({
   return (
     <form onSubmit={submit} noValidate className="grid max-w-ballot gap-6">
       <Notice tone="info" heading="Changes apply to future votes only">
-        A vote that is already active keeps the representative and household
-        name it started with, even if you edit them here.
+        A vote that is already active keeps the representative and the{" "}
+        {terms.household} name it started with, even if you edit them here.
       </Notice>
 
       <ErrorSummary
         failure={failure}
         fieldLabels={{
-          identifier: "Household identifier",
+          identifier: identifierLabel,
           representativeAccountId: "Representative",
         }}
       />
@@ -177,9 +182,9 @@ export function HouseholdForm({
       {limited ? (
         <Notice tone="warning" heading="The account list is not complete">
           <p>
-            Only the {accounts.length} most recently created accounts without a
-            household are listed. If the account you need is missing, assign the
-            older accounts first.
+            Only the {accounts.length} most recently created accounts with no{" "}
+            {terms.household} assignment are listed. If the account you need is
+            missing, assign the older accounts first.
           </p>
         </Notice>
       ) : null}
@@ -187,8 +192,8 @@ export function HouseholdForm({
       <TextField
         id="identifier"
         name="identifier"
-        label="Household identifier"
-        hint="For example a flat or house number. Letter case and extra spaces do not make two identifiers different."
+        label={identifierLabel}
+        hint={`Enter the value assigned to this ${terms.household}. Letter case and extra spaces do not make two identifiers different.`}
         required
         maxLength={100}
         autoComplete="off"
@@ -201,7 +206,7 @@ export function HouseholdForm({
         id="representativeAccountId"
         name="representativeAccountId"
         label="Representative"
-        hint="The one account that votes for this household. A newly created account stays suspended until you enable it."
+        hint={`The one account that votes for this ${terms.household}. A newly created account stays suspended until you enable it.`}
         required
         value={representative}
         onChange={(event) => setRepresentative(event.target.value)}
@@ -219,7 +224,7 @@ export function HouseholdForm({
         id="isEligible"
         name="isEligible"
         label="Eligible to vote"
-        hint="Only eligible households can be included in a new vote."
+        hint={`Only eligible ${terms.households} can be included in a new vote.`}
         checked={eligible}
         onChange={(event) => setEligible(event.target.checked)}
       />
@@ -231,7 +236,7 @@ export function HouseholdForm({
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button type="submit" loading={pending}>
           <Save aria-hidden="true" className="size-5" />
-          {editing ? "Save changes" : "Add household"}
+          {editing ? "Save Changes" : `Add ${terms.Household}`}
         </Button>
         <Link
           href="/admin/households"

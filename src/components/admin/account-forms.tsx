@@ -10,6 +10,7 @@ import { ErrorSummary } from "@/components/ui/error-summary";
 import { CheckboxField, TextField } from "@/components/ui/field";
 import { AccountStatusBadge, RoleBadge } from "@/components/ui/badges";
 import { Notice } from "@/components/ui/notice";
+import { useHouseholdTerms } from "@/components/ui/household-terms";
 import { apiRequest, type ApiFailure } from "@/shared/http/api-client";
 import { fieldErrorFor } from "@/shared/http/messages";
 import type {
@@ -33,6 +34,7 @@ export function AccountCreateForm({
   csrfToken,
 }: Readonly<{ csrfToken: string | undefined }>) {
   const router = useRouter();
+  const terms = useHouseholdTerms();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -65,8 +67,8 @@ export function AccountCreateForm({
   return (
     <form onSubmit={submit} noValidate className="grid max-w-ballot gap-6">
       <Notice tone="info" heading="The account starts suspended">
-        It cannot be used until a resident has a household assigned and you
-        enable it. An administrator account can be enabled without a household.
+        It cannot be used until a resident has an assigned {terms.household} and
+        you enable it. An administrator account can be enabled without one.
       </Notice>
 
       <ErrorSummary failure={failure} fieldLabels={FIELD_LABELS} />
@@ -90,7 +92,7 @@ export function AccountCreateForm({
         id="representativeName"
         name="representativeName"
         label="Representative name"
-        hint="Shown in completed OPEN vote results."
+        hint="Shown in completed PUBLIC vote results."
         required
         maxLength={200}
         autoComplete="off"
@@ -110,7 +112,7 @@ export function AccountCreateForm({
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button type="submit" loading={pending}>
           <UserPlus aria-hidden="true" className="size-5" />
-          Create account
+          Create Account
         </Button>
         <Link
           href="/admin/accounts"
@@ -136,6 +138,7 @@ export function AccountEditor({
   flash?: string | undefined;
 }>) {
   const router = useRouter();
+  const terms = useHouseholdTerms();
   const [account, setAccount] = useState(initial);
   const [email, setEmail] = useState(initial.email ?? "");
   const [name, setName] = useState(initial.representativeName);
@@ -231,7 +234,7 @@ export function AccountEditor({
     if (confirm.kind === "save") {
       return {
         title: "Confirm these changes",
-        confirmLabel: "Save changes",
+        confirmLabel: "Save Changes",
         destructive: false,
         body: (
           <>
@@ -257,7 +260,7 @@ export function AccountEditor({
     if (confirm.status === "SUSPENDED") {
       return {
         title: "Suspend this account?",
-        confirmLabel: "Suspend account",
+        confirmLabel: "Suspend Account",
         destructive: true,
         body: (
           <p>
@@ -272,7 +275,7 @@ export function AccountEditor({
     if (confirm.status === "DELETED") {
       return {
         title: "Delete this account?",
-        confirmLabel: "Delete account",
+        confirmLabel: "Delete Account",
         destructive: true,
         body: (
           <>
@@ -281,8 +284,8 @@ export function AccountEditor({
               cannot be undone, and the account cannot be restored.
             </p>
             <p>
-              Their name stays in past records, and any household they represent
-              keeps its assignment until you change it.
+              Their name stays in past records, and any {terms.household} they
+              represent keeps its assignment until you change it.
             </p>
           </>
         ),
@@ -291,12 +294,12 @@ export function AccountEditor({
     }
     return {
       title: "Enable this account?",
-      confirmLabel: "Enable account",
+      confirmLabel: "Enable Account",
       destructive: false,
       body: (
         <p>
-          {account.representativeName} will be able to sign in. A resident needs
-          a household assignment first.
+          {account.representativeName} will be able to sign in. A resident must
+          be assigned to the {terms.household} first.
         </p>
       ),
       run: () => patch({ status: "ENABLED" }),
@@ -314,7 +317,7 @@ export function AccountEditor({
       {saved ? (
         <Notice tone="success" heading={saved}>
           {account.status === "SUSPENDED" && !account.isAdmin
-            ? "Assign a household, then enable the account so this resident can sign in."
+            ? `Assign a ${terms.household}, then enable the account so this resident can sign in.`
             : "Your change was saved."}
         </Notice>
       ) : null}
@@ -340,7 +343,7 @@ export function AccountEditor({
                 }
                 disabled={pending}
               >
-                Enable account
+                Enable Account
               </Button>
             ) : (
               <Button
@@ -350,7 +353,7 @@ export function AccountEditor({
                 }
                 disabled={pending}
               >
-                Suspend account
+                Suspend Account
               </Button>
             )}
             <Button
@@ -358,20 +361,20 @@ export function AccountEditor({
               onClick={() => setConfirm({ kind: "status", status: "DELETED" })}
               disabled={pending}
             >
-              Delete account
+              Delete Account
             </Button>
           </div>
         )}
         {residentWithoutHousehold ? (
-          <Notice tone="warning" heading="A household is needed first">
+          <Notice tone="warning" heading={`${terms.Household} needed first`}>
             <p>
-              Residents can only be enabled once a household is assigned to
-              them.{" "}
+              Residents can only be enabled once a {terms.household} is assigned
+              to them.{" "}
               <Link
                 href="/admin/households/new"
                 className="font-semibold text-accent underline underline-offset-2"
               >
-                Add a household
+                Add {terms.Household}
               </Link>
               , then enable this account.
             </p>
@@ -436,7 +439,7 @@ export function AccountEditor({
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button type="submit" loading={pending}>
               <Save aria-hidden="true" className="size-5" />
-              Save changes
+              Save Changes
             </Button>
             <Link
               href="/admin/accounts"

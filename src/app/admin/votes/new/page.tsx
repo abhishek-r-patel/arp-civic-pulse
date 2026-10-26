@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/ui/layout";
 import { adminPageContext } from "@/server/register/page-context";
 
 export const metadata = {
-  title: "New vote",
+  title: "New Vote",
   description:
     "Create a new association poll or election draft for review before activation.",
   alternates: { canonical: "/admin/votes/new" },
@@ -25,7 +25,7 @@ export default async function NewVotePage() {
         Votes
       </Link>
       <PageHeader
-        title="New vote"
+        title="New Vote"
         description="Choose the voting type first. You will add the details, ballot, electorate and deadline next, and can preview everything before activating."
       />
       <NewDraftForm csrfToken={deps.csrfToken} />

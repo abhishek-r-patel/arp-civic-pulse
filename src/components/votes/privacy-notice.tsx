@@ -1,41 +1,64 @@
 import { Notice } from "@/components/ui/notice";
+import {
+  DEFAULT_HOUSEHOLD_TERMS,
+  type HouseholdTerms,
+} from "@/shared/contracts/household-terms";
 import type { VotingType } from "@/shared/contracts/voting";
 
 /*
- * Approved privacy and finality copy (docs/DESIGN_SYSTEM.md section 09). It
- * lives in one place so the administrator preview and the resident ballot can
- * never drift apart. Never promise secrecy from privileged infrastructure
- * access, and never hide the limits behind hover.
+ * Voting privacy copy (docs/DESIGN_SYSTEM.md section 09). It lives in one
+ * place so ballot, review, and results guidance cannot drift apart.
  */
-export const PRIVACY_COPY = {
-  OPEN: "After voting ends, eligible members and RWA admins can see your name, flat and choice, including in downloadable results.",
-  CLOSED:
-    "Your selections are not shown to residents or RWA admins. Results show totals only.",
-  CLOSED_LIMITS:
-    "This protects choices within the app, not against privileged infrastructure access. Results from very small elections may allow people to infer choices.",
-  FINAL: "Your submission is final. You cannot change or withdraw it.",
-} as const;
+export function privacyCopy(terms: HouseholdTerms = DEFAULT_HOUSEHOLD_TERMS) {
+  return {
+    PUBLIC: `While voting is open, eligible members and RWA admins can see aggregate counts only. You can change your selection until voting closes. After it ends, your name, ${terms.identifierLabel.toLowerCase()} and final selections are visible in results and downloads.`,
+    PRIVATE:
+      "Your selections are not shown to residents or RWA admins. Results show totals only.",
+    CLOSED_LIMITS:
+      "This protects choices within the app, not against privileged infrastructure access. Results from very small elections may allow people to infer choices.",
+    FINAL:
+      "Your PRIVATE election submission is final. You cannot change or withdraw it.",
+  } as const;
+}
 
-export function PrivacyNotice({ type }: Readonly<{ type: VotingType }>) {
-  if (type === "OPEN") {
+export const PRIVACY_COPY = privacyCopy();
+
+export function PrivacyNotice({
+  type,
+  terms,
+  openSelectionMode = "SINGLE",
+}: Readonly<{
+  type: VotingType;
+  terms: HouseholdTerms;
+  openSelectionMode?: "SINGLE" | "MULTIPLE";
+}>) {
+  const copy = privacyCopy(terms);
+  if (type === "PUBLIC") {
     return (
-      <Notice tone="warning" heading="Your choice is not private">
-        <p>{PRIVACY_COPY.OPEN}</p>
+      <Notice tone="warning" heading="Your selections are not private">
+        <p>{copy.PUBLIC}</p>
+        {openSelectionMode === "MULTIPLE" ? (
+          <p className="pt-2">
+            Each {terms.household} submits one ballot with one or more selected
+            options.
+          </p>
+        ) : null}
       </Notice>
     );
   }
   return (
     <Notice tone="warning" heading="Your selections are private">
-      <p>{PRIVACY_COPY.CLOSED}</p>
-      <p className="pt-2">{PRIVACY_COPY.CLOSED_LIMITS}</p>
+      <p>{copy.PRIVATE}</p>
+      <p className="pt-2">{copy.CLOSED_LIMITS}</p>
     </Notice>
   );
 }
 
 export function FinalSubmissionNotice() {
+  const copy = PRIVACY_COPY;
   return (
     <Notice tone="info" heading="Final submission">
-      <p>{PRIVACY_COPY.FINAL}</p>
+      <p>{copy.FINAL}</p>
     </Notice>
   );
 }
