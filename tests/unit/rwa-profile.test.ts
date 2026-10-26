@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_RWA_POSITIONS,
+  formatSettingsList,
+  parseSettingsList,
   publicRwaIdentitySchema,
   RWA_ACCENT_PALETTES,
   rwaBrandingSchema,
@@ -20,7 +23,16 @@ const profile = {
   welcomeMessage: "",
   householdLabel: "Household",
   identifierKind: "NUMBER",
+  defaultHouseholds: [],
+  rwaPositions: [...DEFAULT_RWA_POSITIONS],
 };
+const branding = rwaBrandingSchema.parse(
+  Object.fromEntries(
+    Object.entries(profile).filter(
+      ([key]) => key !== "defaultHouseholds" && key !== "rwaPositions",
+    ),
+  ),
+);
 
 function luminance(hex: string): number {
   const channels = [1, 3, 5].map((index) => {
@@ -162,8 +174,48 @@ describe("RWA profile contract", () => {
     ).toBe(false);
   });
 
-  it("gives members every display value and the public only identity", () => {
-    expect(rwaBrandingSchema.safeParse(profile).success).toBe(true);
+  it("splits comma-separated lists, dropping blanks and repeats", () => {
+    expect(parseSettingsList(" H-101, h-101 ,,H-102,  H  103 ")).toEqual([
+      "H-101",
+      "H-102",
+      "H 103",
+    ]);
+    expect(parseSettingsList("  ")).toEqual([]);
+    expect(formatSettingsList(["President", "Treasurer"])).toBe(
+      "President, Treasurer",
+    );
+  });
+
+  it("validates the default household and position lists", () => {
+    expect(
+      updateRwaProfileSchema.parse({
+        ...profile,
+        defaultHouseholds: [" H-101 ", "H-102"],
+        rwaPositions: [],
+      }),
+    ).toMatchObject({
+      defaultHouseholds: ["H-101", "H-102"],
+      rwaPositions: [],
+    });
+    for (const change of [
+      { defaultHouseholds: ["H-101", "h-101"] },
+      { defaultHouseholds: [""] },
+      { defaultHouseholds: ["x".repeat(101)] },
+      { defaultHouseholds: Array.from({ length: 1001 }, (_, i) => `H-${i}`) },
+      { rwaPositions: ["President", " PRESIDENT"] },
+      { rwaPositions: ["<b>Chair</b>"] },
+      { rwaPositions: Array.from({ length: 51 }, (_, i) => `Office ${i}`) },
+      { rwaPositions: "President" },
+    ]) {
+      expect(
+        updateRwaProfileSchema.safeParse({ ...profile, ...change }).success,
+      ).toBe(false);
+    }
+  });
+
+  it("gives members every display value but not the admin lists, and the public only identity", () => {
+    expect(rwaBrandingSchema.safeParse(branding).success).toBe(true);
+    expect(rwaBrandingSchema.safeParse(profile).success).toBe(false);
     const identity = {
       fullName: profile.fullName,
       alias: profile.alias,

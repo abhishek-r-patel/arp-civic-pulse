@@ -1,4 +1,5 @@
-// Administrator-controlled RWA identity, contact and display settings.
+// Administrator-controlled RWA identity, contact, display wording and
+// administrator-only suggestion lists.
 import { RwaProfileForm } from "@/components/admin/rwa-profile-form";
 import { Notice } from "@/components/ui/notice";
 import { PageHeader } from "@/components/ui/layout";
@@ -28,7 +29,9 @@ export default async function RwaSettingsPage() {
         Changes apply everywhere immediately, including existing votes and
         results. Household label: replaces the word “household” on every page,
         in exports and in the menu. Identifier label: names each household’s
-        identifier, such as “Flat Number” or “Villa ID”.
+        identifier, such as “Flat Number” or “Villa ID”. Default households and
+        RWA positions: suggestions for administrators only, when adding a
+        household or an office in a PRIVATE vote.
       </Notice>
       <Notice tone="info" heading="Wording Only">
         Changing the household or identifier label changes display wording only.
@@ -48,6 +51,8 @@ export default async function RwaSettingsPage() {
           welcomeMessage: deps.welcomeMessage,
           householdLabel: deps.householdLabel,
           identifierKind: deps.identifierKind,
+          defaultHouseholds: deps.defaultHouseholds,
+          rwaPositions: deps.rwaPositions,
         }}
       />
     </div>

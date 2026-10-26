@@ -40,7 +40,7 @@ sign-in or voting screens.
 
 ### How to read these pictures
 
-The 52 screenshots show the principal resident and administrator journeys, plus representative validation, privacy, access and recovery states. Resident screens use a narrow phone viewport; most administration screens use a desktop viewport. The same application adapts to the device.
+The 53 screenshots show the principal resident and administrator journeys, plus representative validation, privacy, access and recovery states. Resident screens use a narrow phone viewport; most administration screens use a desktop viewport. The same application adapts to the device.
 
 The pictures use an example RWA profile: **Lakeview Residents Welfare Association** (alias **Lakeview RWA**), the Teal accent colour, a sample welcome message, **Flat** as the household label and **Number** as the identifier label, so screens say **Flats** and **Flat Number** where a default installation says **Households** and **Household Number**. The example website is left blank, so no website link appears in the footer. Your RWA's name, contact details, colour and wording will differ. The public Privacy and Contact pages and the optional-analytics checkbox are described in section 1 but not pictured. Do not treat the images as proof of contact-email delivery.
 
@@ -223,7 +223,7 @@ The same result uses a wider layout on a computer:
 
 ### PRIVATE completed results
 
-After the election is Completed, read candidate and NOTA totals office by office. Results show totals only, not who chose which candidate. NOTA never wins; the highest-count candidate is elected even if NOTA receives more votes. Tied candidate totals remain a tie, and if no candidate receives a vote no candidate is elected. Very small totals can still allow people to infer choices.
+After the election is Completed, read candidate and NOTA totals office by office. Results show totals only, not who chose which candidate. Select the **(i)** beside **How NOTA is counted** for the rule: NOTA never wins; the highest-count candidate is elected even if NOTA receives more votes. Tied candidate totals remain a tie, and if no candidate receives a vote no candidate is elected. Very small totals can still allow people to infer choices.
 
 ![36: Completed PRIVATE election with aggregate-only and NOTA results](./images/user-guide/36-closed-results.png)
 
@@ -285,7 +285,14 @@ Administrators can open **RWA Settings** to personalize how the RWA appears. Fie
 - **Accent colour:** links, buttons and highlights.
 - **Welcome message:** the Votes page, plus the administrator Households and Manage Votes pages. Leave it blank to show nothing.
 
-![48: RWA Settings form with profile, accent colour, welcome message, household label and identifier label](./images/user-guide/48-rwa-settings.png)
+Two optional lists at the end of the form save typing later. Both are administrator-only suggestions: residents never see them, and they never create anything by themselves.
+
+- **Default Households:** a comma-separated list of identifiers, such as `H-501, H-502, H-503`. When you add a household, identifiers from this list that are not yet in the register are offered as type-ahead suggestions. Up to 1000 entries, each up to 100 characters.
+- **RWA Positions:** a comma-separated list of office names, prefilled with **President, Vice-President, Secretary, Joint-Secretary, Treasurer**. In a PRIVATE draft these names are offered as suggestions for each office, and **Add All Positions** adds every listed position as an office in one step. Up to 50 entries, each up to 200 characters.
+
+Entries in each list must be unique; the form names any duplicate it finds.
+
+![48: RWA Settings form with profile, accent colour, welcome message, household wording, default households and RWA positions](./images/user-guide/48-rwa-settings.png)
 
 Changes apply immediately everywhere, including votes and results that already exist. If you rename the RWA, older results will show the new name. PDF results can only print characters the report fonts support; if a PDF refuses an unusual character in these values, use the CSV or simplify the text.
 
@@ -299,7 +306,7 @@ The form shows a live wording preview. The defaults are **Household** and **Numb
 ### Step 2: add and assign a household
 
 1. Open **Households** and **Add household**.
-2. Enter the unique, correct identifier using the label configured for your RWA (for example **Flat Number**, **Apartment Number** or **Villa ID**).
+2. Enter the unique, correct identifier using the label configured for your RWA (for example **Flat Number**, **Apartment Number** or **Villa ID**). If **Default Households** is set in RWA Settings, start typing to pick one of the listed identifiers that is not registered yet.
 3. Select the intended **Representative**. Verify the email as well as the name.
 4. Set **Eligible to vote** according to the approved register.
 5. Select **Add household**.
@@ -366,9 +373,9 @@ Drafts may be incomplete and are not visible to residents. For PUBLIC voting, en
 
 ![24: PUBLIC draft editor with question, options, selected electorate and deadline](./images/user-guide/24-open-editor.png)
 
-For PRIVATE voting, enter the election details, offices and each office's candidates. The resident ballot includes NOTA automatically; do not add it as a candidate. Verify candidate-to-office assignment and order carefully.
+For PRIVATE voting, enter the election details, offices and each office's candidates. Office names suggest the **RWA Positions** from RWA Settings as you type. **Add All Positions** fills any blank offices that have no candidates yet, then adds the remaining positions as new offices; positions that are already offices are skipped, and the 50-office limit still applies. The resident ballot includes NOTA automatically; do not add it as a candidate. Verify candidate-to-office assignment and order carefully.
 
-![32: PRIVATE draft editor with offices and candidates](./images/user-guide/32-closed-editor.png)
+![32: PRIVATE draft editor with offices, candidates and Add All Positions](./images/user-guide/32-closed-editor.png)
 
 Changing a draft's type removes the previous type's ballot content. Do not switch types casually after entering options/candidates.
 
@@ -396,9 +403,9 @@ Select **Activate Vote**, read the confirmation and explicitly confirm. If the d
 
 ![26: Activation confirmation and irreversible-freeze warning](./images/user-guide/26-activate-dialog.png)
 
-After activation, the title/content, type, selection rule, options/candidates, electorate, representative snapshots and deadline are frozen. You cannot add a late household, extend the deadline or repair ballot wording in place.
+After activation, the title/content, type, selection rule, options/candidates, electorate and representative snapshots are frozen. You cannot add a late household or repair ballot wording in place. Only the deadline can still be moved while voting is open (see [Change the deadline](#change-the-deadline)).
 
-![27: Active vote management with frozen content and lifecycle controls](./images/user-guide/27-active-vote.png)
+![27: Active vote management with frozen content, Change Deadline and lifecycle controls](./images/user-guide/27-active-vote.png)
 
 Open **Participation** to see submitted/not-submitted household status and turnout. You cannot see live choices or candidate totals, including for PUBLIC votes before completion.
 
@@ -406,11 +413,27 @@ Open **Participation** to see submitted/not-submitted household status and turno
 
 If serious frozen-content errors are found, use the approved cancellation process and prepare a new vote. Do not try to alter the database manually.
 
+### Change the deadline
+
+If turnout is low, or the committee decides voting should close sooner, an administrator can move the deadline of an **Active** vote, for PUBLIC and PRIVATE votes alike.
+
+1. Open the active vote and select **Change Deadline**.
+2. Enter the new closing time in the RWA's time zone. The dialog shows what residents will see and whether the deadline is extended or brought forward, and by how much.
+3. Enter the reason and confirm with **Change Deadline**.
+
+![53: Change Deadline dialog extending an active vote by two days, with a required reason](./images/user-guide/53-change-deadline.png)
+
+- The new deadline must be at least 5 minutes from now and different from the current one. To stop voting immediately, use **Complete Vote Early** instead.
+- There is no limit on how often or how far the deadline is moved.
+- It works only while the vote is Active and before its current deadline. Once the deadline passes the vote completes and cannot be reopened or extended.
+- The reason and the previous and new deadlines are recorded in **Audit History** as **Vote deadline changed**. Residents never see the reason.
+- Residents are not notified. Their vote pages simply show the new deadline and countdown, and a page left open refreshes when the old countdown reaches zero.
+
 ## 14. Complete or cancel
 
 ### Completion at the deadline
 
-Submissions stop at the exact database-enforced deadline. Scheduled processing marks the vote Completed; processing delay does not extend voting. A countdown on a device is guidance, not the acceptance authority.
+Submissions stop at the exact database-enforced deadline (the latest one, if an administrator changed it). Scheduled processing marks the vote Completed; processing delay does not extend voting. A countdown on a device is guidance, not the acceptance authority.
 
 ### Complete early
 
@@ -461,7 +484,7 @@ A resident who enters an admin URL receives a plain not-found page. This deliber
 | “We could not confirm your submission” | Use Check again; do not blindly repeat submission.                                                                                                            |
 | Confirmed not recorded                 | Use Review and try again only if the app offers it and voting remains allowed.                                                                                |
 | Already submitted                      | Do not attempt another device/account. The accepted ballot is final.                                                                                          |
-| Deadline passed                        | No new submission or retry can extend the deadline. Contact the admin about process questions, not a manual ballot edit.                                      |
+| Deadline passed                        | No new submission or retry can extend the deadline, and a closed vote cannot be reopened. Contact the admin about process questions, not a manual ballot edit. |
 | Results not ready                      | Active results are available only for PUBLIC polls; wait until completion for PRIVATE results. Cancelled votes do not publish results.                           |
 | Results pending integrity review       | Stop relying on that result and alert the administrator/operations team. Do not infer missing totals yourself.                                                |
 | PDF fails or is unavailable            | Use CSV if available. Report unsupported text or recurring failure.                                                                                           |
@@ -479,6 +502,6 @@ This guide covers main resident/admin journeys and representative errors, not ev
 
 The pictures use a real application against synthetic test data. The invalid-code response and lost-connection sequence are intentionally simulated; no real SMTP deliverability claim is made. Actual completed PUBLIC/PRIVATE submissions, results, account creation/assignment/enablement, activation, early completion, cancellation, audit access and sign-out are exercised by the capture journey.
 
-This application does not provide public signup, anonymous public results, bulk register CSV import, delegated voting, ballot editing/withdrawal, deadline extension, messaging/reminders or legal signatures.
+This application does not provide public signup, anonymous public results, bulk register CSV import, delegated voting, ballot editing/withdrawal, reopening a closed vote, messaging/reminders or legal signatures.
 
 Before real use, the RWA/operator must complete approvals, production email/capacity/security verification, monitoring, backup/restore and manual device/accessibility acceptance. See [pilot readiness](./PILOT_READINESS.md) and the [launch audit](./LAUNCH_AUDIT.md). A screenshot guide is not launch approval.

@@ -198,6 +198,7 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
         "activate_vote",
         "cancel_vote",
         "cast_vote",
+        "change_vote_deadline",
         "complete_vote_early",
         "create_draft",
         "create_household",

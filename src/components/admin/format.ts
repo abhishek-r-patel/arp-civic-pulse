@@ -17,9 +17,11 @@ export function flashNotices(
     "draft-created":
       "Draft created. Add the details, ballot, electorate and deadline, then preview it.",
     "vote-activated":
-      "Vote activated. Its type, ballot, electorate, representatives and deadline are now frozen.",
+      "Vote activated. Its type, ballot, electorate and representatives are now frozen; only the deadline can still be changed.",
     "vote-completed": "Vote completed early.",
     "vote-cancelled": "Vote cancelled.",
+    "deadline-changed":
+      "Deadline changed. Residents now see the new deadline and countdown.",
   };
 }
 

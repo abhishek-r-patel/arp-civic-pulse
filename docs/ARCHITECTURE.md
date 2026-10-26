@@ -62,7 +62,7 @@ Pin supported dependency versions in a lockfile and review licenses/advisories. 
 - Browser voting reads/writes go through Next.js. This is a boundary for the application, not a substitute for database permissions: assume someone can call the Supabase API directly.
 - Use the RWA-configured household terms throughout member/admin/public screens and printable results: `rwa_settings` stores a household label (for example Flat) and an identifier kind (Number or ID); `buildHouseholdTerms` derives singular, plural, sentence-case and identifier wording; server code reads them with `loadHouseholdTerms()` (request-cached, falling back to the defaults) and client components with `useHouseholdTerms()` from the provider in the app shell. Changes go only through the audited administrator RPC.
 - Keep the RWA profile editable by administrators only. Enabled members see the resulting values on other pages (alias in the “Civic Pulse for {alias}” header, full name on vote/results/home pages, contact block in the footer, welcome message, accent palette) through the narrow `get_rwa_branding` projection; the public sign-in and privacy pages receive only name, alias, address and palette through a server-only service-role routine, so `anon` still executes no routine. Screens and exports show the current RWA name, while each vote keeps its activation-time `rwa_name_snapshot` only as an internal historical record.
-- Active voter, results and administrator pages display a browser countdown to the frozen deadline and refresh at zero. It is informational only; the database's post-lock deadline check remains authoritative.
+- Active voter, results and administrator pages display a browser countdown to the current deadline and refresh at zero (a changed deadline resets the countdown). It is informational only; the database's post-lock deadline check remains authoritative.
 - Use the user's verified session for normal database calls. Never use a service-role client to bypass eligibility or obtain live tallies.
 - Validate state-changing request origins and apply anti-CSRF protection appropriate to the route/action. Do not rely on hidden buttons, middleware alone or broad CORS.
 - Authenticated pages, APIs and exports use private, no-store behavior; disable shared Next.js/CDN caching for protected data.
@@ -234,7 +234,7 @@ Each `cast_vote` call performs one guarded PostgreSQL transaction:
 ## 08 Lifecycle, Maintenance and Counting
 ### Draft and activation
 - Use draft revision checks to prevent lost edits and stale preview confirmations.
-- Activation atomically revalidates the previewed revision, freezes ballot content/deadline/electorate/representative assignments and relevant display metadata, initializes counters, changes state and appends audit history.
+- Activation atomically revalidates the previewed revision, freezes ballot content/electorate/representative assignments (the deadline can later move only through the audited deadline change below) and relevant display metadata, initializes counters, changes state and appends audit history.
 - Later register edits affect future votes only. Suspension may block access but does not transfer an active entitlement or remove accepted votes.
 
 ### Completion and cancellation
@@ -246,6 +246,10 @@ Each `cast_vote` call performs one guarded PostgreSQL transaction:
 - Early completion requires confirmation/reason and is labelled in results/exports. Cancellation requires a reason; reconcile overdue state before deciding whether an Active transition is still allowed.
 - Cancelled votes display "Cancelled; results not valid" without publishing choices or enabling exports. Correct an invalid active vote by cancellation/replacement, not edits.
 - Outages never automatically extend deadlines.
+
+### Deadline changes
+- The deadline is the only field of an Active vote that may change. An administrator can move it later or earlier, for PUBLIC and PRIVATE votes, with a confirmed request and a required reason. The new deadline must be at least 5 minutes ahead and different from the current one.
+- The change runs through one guarded database routine under the vote lock. An overdue vote is completed at its old deadline instead. The reason and previous/new deadlines are recorded only in the audit trail; residents are not notified, but countdowns, admission and due completion follow the new deadline.
 
 ### Results
 - Show active PUBLIC aggregate counts/turnout and active PRIVATE aggregate turnout to eligible voters and admins, but hide active choices. During active PRIVATE elections, only admins may see household participation for follow-up. Keep PRIVATE candidate/NOTA totals hidden until completion. Apply the same authorization to pages, API and exports.

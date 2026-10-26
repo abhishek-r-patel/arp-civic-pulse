@@ -4,7 +4,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { DraftEditor } from "@/components/admin/vote-forms";
-import { LifecycleActions } from "@/components/admin/lifecycle-actions";
+import {
+  ChangeDeadline,
+  LifecycleActions,
+} from "@/components/admin/lifecycle-actions";
 import { flashNotices, firstValues } from "@/components/admin/format";
 import { PageHeader } from "@/components/ui/layout";
 import { LinkButton } from "@/components/ui/button";
@@ -14,6 +17,7 @@ import { LifecycleSummary } from "@/components/votes/lifecycle-summary";
 import { ApiError } from "@/server/http/errors";
 import { adminPageContext } from "@/server/register/page-context";
 import { getVote, listSelectableHouseholds } from "@/server/votes/drafts";
+import { listRwaPositions } from "@/server/settings/rwa-profile";
 import { idParamsSchema } from "@/shared/contracts/register";
 import { VOTE_STATUS_LABELS } from "@/shared/contracts/voting";
 
@@ -51,6 +55,7 @@ export default async function VotePage({
   let households: Awaited<ReturnType<typeof listSelectableHouseholds>> | null =
     null;
   let householdsError: ApiError | null = null;
+  let positions: string[] = [];
   if (vote.status === "DRAFT") {
     try {
       households = await listSelectableHouseholds(deps);
@@ -60,6 +65,8 @@ export default async function VotePage({
       }
       householdsError = error;
     }
+    // Position suggestions are optional; the editor works without them.
+    positions = await listRwaPositions(deps).catch(() => []);
   }
 
   return (
@@ -76,7 +83,7 @@ export default async function VotePage({
         description={
           vote.status === "DRAFT"
             ? `Draft, version ${vote.draftRevision}. Nothing here is visible to residents until the vote is activated.`
-            : `This vote is ${VOTE_STATUS_LABELS[vote.status].toLowerCase()}. Its ballot, type, electorate and deadline are frozen.`
+            : `This vote is ${VOTE_STATUS_LABELS[vote.status].toLowerCase()}. Its ballot, type and electorate are frozen${vote.status === "ACTIVE" ? "; only the deadline can still be changed" : ", and so is its deadline"}.`
         }
       />
 
@@ -95,6 +102,7 @@ export default async function VotePage({
             identifierLabel={deps.identifierLabel}
             initial={vote}
             households={households}
+            positions={positions}
             flash={raw.notice ? notices[raw.notice] : undefined}
           />
         )
@@ -127,6 +135,14 @@ export default async function VotePage({
               ) : null}
             </div>
           </section>
+          {vote.status === "ACTIVE" && vote.closesAt ? (
+            <ChangeDeadline
+              csrfToken={deps.csrfToken}
+              voteId={vote.id}
+              closesAt={vote.closesAt}
+              timezone={vote.timezone ?? "UTC"}
+            />
+          ) : null}
           {vote.status === "ACTIVE" ? (
             <LifecycleActions csrfToken={deps.csrfToken} voteId={vote.id} />
           ) : null}

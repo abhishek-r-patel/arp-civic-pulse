@@ -12,7 +12,7 @@ import {
 } from "@/shared/contracts/drafts";
 
 /*
- * Activation and terminal transitions. Every change runs in a guarded routine
+ * Activation, deadline changes and terminal transitions. Every change runs in a guarded routine
  * that re-checks the caller, locks the vote, applies the transition and its
  * audit event atomically. The database clock decides what is overdue.
  */
@@ -80,6 +80,28 @@ export async function cancelVote(
   return appliedOrConflict(
     await callRoutine<Outcome>(deps.client, "cancel_vote", {
       p_vote_id: id,
+      p_confirmed: true,
+      p_reason: reason,
+    }),
+  );
+}
+
+/**
+ * Moves an ACTIVE vote's deadline. Refused with VALIDATION_FAILED (reason
+ * DEADLINE_TOO_SOON or DEADLINE_UNCHANGED) or, when the current deadline has
+ * already passed, LIFECYCLE_CONFLICT after the vote completes at it.
+ */
+export async function changeVoteDeadline(
+  deps: RegisterDeps,
+  id: string,
+  closesAt: string,
+  reason: string,
+): Promise<AdminVoteDetail> {
+  await assertCurrentAdmin(deps);
+  return appliedOrConflict(
+    await callRoutine<Outcome>(deps.client, "change_vote_deadline", {
+      p_vote_id: id,
+      p_closes_at: closesAt,
       p_confirmed: true,
       p_reason: reason,
     }),

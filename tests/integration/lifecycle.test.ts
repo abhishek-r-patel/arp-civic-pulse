@@ -696,6 +696,185 @@ describe.skipIf(!hasDatabase)("activation and lifecycle routines", () => {
     });
   });
 
+  describe("changing the deadline of an active vote", () => {
+    const later = (ms: number) => new Date(Date.now() + ms).toISOString();
+    const change = (
+      id: string,
+      closesAt: string,
+      reason = "Low turnout",
+      confirmed = true,
+      sub: string | null = admin(),
+    ) =>
+      call<Outcome>(sub, "public.change_vote_deadline($1, $2, $3, $4)", [
+        id,
+        closesAt,
+        confirmed,
+        reason,
+      ]);
+
+    it("extends and shortens a PUBLIC or PRIVATE vote, auditing the reason and both times", async () => {
+      for (const type of ["PUBLIC", "PRIVATE"] as const) {
+        const draft = await readyDraft(type);
+        const active = await activate(draft.id, 2);
+        const extended = later(3 * 86_400_000);
+        const outcome = await change(draft.id, extended, "Low turnout");
+        expect(outcome.applied).toBe(true);
+        expect(outcome.vote).toMatchObject({
+          status: "ACTIVE",
+          activatedAt: active.activatedAt,
+          draftRevision: 2,
+        });
+        expect(new Date(outcome.vote.closesAt ?? "").getTime()).toBe(
+          new Date(extended).getTime(),
+        );
+
+        const shortened = later(30 * 60_000);
+        await change(draft.id, shortened, "Committee asked to close sooner");
+        expect(new Date((await read(draft.id)).closesAt ?? "").getTime()).toBe(
+          new Date(shortened).getTime(),
+        );
+
+        const events = (await audit(draft.id)).filter(
+          (e) => e.action === "VOTE_DEADLINE_CHANGED",
+        );
+        expect(events).toMatchObject([
+          {
+            actor_kind: "PROFILE",
+            reason: "Low turnout",
+            details: { direction: "EXTENDED" },
+          },
+          {
+            reason: "Committee asked to close sooner",
+            details: { direction: "SHORTENED" },
+          },
+        ]);
+        expect(
+          new Date(String(events[0]?.details.previousClosesAt)).getTime(),
+        ).toBe(new Date(active.closesAt ?? "").getTime());
+        expect(
+          new Date(String(events[1]?.details.previousClosesAt)).getTime(),
+        ).toBe(new Date(extended).getTime());
+      }
+    });
+
+    it("never exposes the reason to residents", async () => {
+      const draft = await readyDraft();
+      await activate(draft.id, 2);
+      await change(draft.id, later(86_400_000), "Secret committee note");
+      const member = await call<unknown>(
+        world.alice.id,
+        "public.get_member_vote($1)",
+        [draft.id],
+      );
+      expect(JSON.stringify(member)).not.toContain("Secret committee note");
+    });
+
+    it("keeps an extended vote open past its original deadline", async () => {
+      const draft = await readyDraft("PUBLIC", { closesInMs: 2_500 });
+      await activate(draft.id, 2);
+      await change(draft.id, later(3_600_000));
+      await sleep(2_800);
+      const reconciled = await db.asRole(
+        "service_role",
+        { role: "service_role" },
+        (c) =>
+          c.query<{ r: { completed: boolean } }>(
+            "select public.reconcile_vote($1) as r",
+            [draft.id],
+          ),
+      );
+      expect(reconciled.rows[0]?.r).toEqual({ completed: false });
+      expect((await read(draft.id)).status).toBe("ACTIVE");
+    });
+
+    it("refuses a deadline that is too soon, unchanged, missing or unconfirmed", async () => {
+      const draft = await readyDraft();
+      const active = await activate(draft.id, 2);
+      expect(await dbError(change(draft.id, later(60_000)))).toMatchObject({
+        message: "VALIDATION_FAILED",
+        detail: "DEADLINE_TOO_SOON",
+      });
+      expect(await dbError(change(draft.id, later(-86_400_000)))).toMatchObject(
+        { detail: "DEADLINE_TOO_SOON" },
+      );
+      expect(
+        await dbError(change(draft.id, active.closesAt ?? "")),
+      ).toMatchObject({
+        message: "VALIDATION_FAILED",
+        detail: "DEADLINE_UNCHANGED",
+      });
+      for (const attempt of [
+        () => change(draft.id, later(86_400_000), "ok", false),
+        () => change(draft.id, later(86_400_000), "  "),
+        () => change(draft.id, later(86_400_000), "<b>x</b>"),
+        () => change(draft.id, "infinity"),
+      ]) {
+        expect((await dbError(attempt())).message).toBe("VALIDATION_FAILED");
+      }
+      expect((await read(draft.id)).closesAt).toBe(active.closesAt);
+      expect(
+        (await audit(draft.id)).some(
+          (e) => e.action === "VOTE_DEADLINE_CHANGED",
+        ),
+      ).toBe(false);
+    });
+
+    it("needs a current administrator", async () => {
+      const draft = await readyDraft();
+      await activate(draft.id, 2);
+      for (const sub of [world.alice.id, world.carol.id, UNKNOWN]) {
+        expect(
+          (await dbError(change(draft.id, later(86_400_000), "x", true, sub)))
+            .message,
+        ).toBe("FORBIDDEN");
+      }
+      expect(
+        (await dbError(change(draft.id, later(86_400_000), "x", true, null)))
+          .code,
+      ).toBe(PERMISSION_DENIED);
+    });
+
+    it("refuses drafts and finished votes, and completes an overdue vote at its deadline instead", async () => {
+      const draft = await readyDraft();
+      expect(await dbError(change(draft.id, later(86_400_000)))).toMatchObject({
+        message: "LIFECYCLE_CONFLICT",
+        detail: "DRAFT",
+      });
+
+      await activate(draft.id, 2);
+      await cancel(draft.id, "Stop");
+      expect(await dbError(change(draft.id, later(86_400_000)))).toMatchObject({
+        message: "LIFECYCLE_CONFLICT",
+        detail: "CANCELLED",
+      });
+
+      const overdue = await readyDraft("PUBLIC", { closesInMs: 1_500 });
+      await activate(overdue.id, 2);
+      await sleep(1_800);
+      const outcome = await change(overdue.id, later(86_400_000));
+      expect(outcome).toMatchObject({
+        applied: false,
+        reason: "DEADLINE_PASSED",
+        vote: { status: "COMPLETED", completionMode: "DEADLINE" },
+      });
+      expect((await read(overdue.id)).status).toBe("COMPLETED");
+    });
+
+    it("keeps the deadline frozen against ad hoc writes", async () => {
+      const draft = await readyDraft();
+      await activate(draft.id, 2);
+      const error = await dbError(
+        db.asOwner((c) =>
+          c.query(
+            "update public.votes set closes_at = closes_at + interval '1 day' where id = $1",
+            [draft.id],
+          ),
+        ),
+      );
+      expect(error.message).toBe("VOTE_FROZEN");
+    });
+  });
+
   describe("overdue votes and scheduled completion", () => {
     // All short-lived votes are created together so the suite waits once.
     let due: Detail[];

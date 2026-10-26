@@ -17,6 +17,8 @@ export function DeadlineCountdown({
   const refreshRequested = useRef(false);
 
   useEffect(() => {
+    // A changed deadline (an administrator moved it) may need its own refresh.
+    refreshRequested.current = false;
     const update = () => {
       const next = secondsUntilDeadline(deadline, Date.now());
       setRemaining(next);

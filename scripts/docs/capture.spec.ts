@@ -74,6 +74,14 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
         "Welcome to Lakeview RWA voting. Please vote before each displayed deadline.",
       householdLabel: "Flat",
       identifierKind: "NUMBER",
+      defaultHouseholds: ["H-513", "H-514", "H-515", "H-516"],
+      rwaPositions: [
+        "President",
+        "Vice-President",
+        "Secretary",
+        "Joint-Secretary",
+        "Treasurer",
+      ],
     }),
   ]);
   const adminContext = await browser.newContext({
@@ -147,9 +155,8 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     await capture(a, "43-household-required");
     await a.goto("/admin/households/new");
     const newIdentifier = await unusedIdentifier("H-514");
-    await a
-      .getByRole("textbox", { name: /^Flat Number/ })
-      .fill(newIdentifier);
+    // The identifier input offers Default Households suggestions, so its role may be combobox.
+    await a.getByLabel(/^Flat Number/).fill(newIdentifier);
     const representative = a.getByLabel(/Representative/);
     const offered = (
       await representative.locator("option").allTextContents()
@@ -238,6 +245,22 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
       a.getByText(/Vote activated\. Its type, ballot/),
     ).toBeVisible();
     await capture(a, "27-active-vote");
+    await a.getByRole("button", { name: "Change Deadline" }).click();
+    const deadlineInput = a.getByLabel(/^New deadline/);
+    // Wall-clock arithmetic on the RWA-zone input value: two days later.
+    const extended = new Date(`${await deadlineInput.inputValue()}Z`);
+    extended.setUTCDate(extended.getUTCDate() + 2);
+    await deadlineInput.fill(extended.toISOString().slice(0, 16));
+    await a
+      .getByLabel(/^Why is the deadline changing/)
+      .fill("Documentation example: low turnout, giving residents two more days.");
+    await expect(a.getByText(/extended by 2 days/)).toBeVisible();
+    await capture(a, "53-change-deadline");
+    await a
+      .getByRole("dialog")
+      .getByRole("button", { name: "Change Deadline" })
+      .click();
+    await expect(a.getByText(/^Deadline changed\./)).toBeVisible();
     await m.goto("/");
     await capture(m, "05-vote-list");
     await m.goto(`/votes/${voteId}`);

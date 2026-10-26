@@ -1,16 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CirclePlay, CircleStop, Ban } from "lucide-react";
+import { CalendarClock, CirclePlay, CircleStop, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { ErrorSummary } from "@/components/ui/error-summary";
-import { TextAreaField } from "@/components/ui/field";
+import { TextAreaField, TextField } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
 import { useHouseholdTerms } from "@/components/ui/household-terms";
+import {
+  DEADLINE_CHANGE_MIN_LEAD_MINUTES,
+  describeDeadlineShift,
+} from "@/shared/contracts/admin-votes";
 import type { AdminVoteDetail } from "@/shared/contracts/drafts";
 import { apiRequest, type ApiFailure } from "@/shared/http/api-client";
+import {
+  formatInZone,
+  instantToLocalInput,
+  zonedLocalToInstant,
+} from "@/shared/time/zoned";
 
 type ActionProps = Readonly<{
   csrfToken: string | undefined;
@@ -74,9 +83,9 @@ export function ActivateVote({
         </Notice>
       ) : null}
       <p className="max-w-ballot text-body text-muted">
-        Activating freezes the voting type, ballot content, electorate, each{" "}
-        {terms.household}&apos;s representative and the deadline. It cannot be
-        undone.
+        Activating freezes the voting type, ballot content, electorate and each{" "}
+        {terms.household}&apos;s representative. It cannot be undone. The
+        deadline can still be moved while voting is open.
       </p>
       <div>
         <Button onClick={() => setOpen(true)} disabled={pending}>
@@ -99,9 +108,9 @@ export function ActivateVote({
         </p>
         <ul className="list-disc pl-5">
           <li>
-            The voting type, ballot, electorate, representatives and deadline
-            are frozen. They cannot be edited, and the deadline cannot be
-            extended.
+            The voting type, ballot, electorate and representatives are frozen
+            and cannot be edited. Only the deadline can still be moved, with a
+            recorded reason, while voting is open.
           </li>
           <li>
             The vote cannot be reopened. It ends at the deadline, or earlier if
@@ -118,6 +127,172 @@ export function ActivateVote({
 }
 
 type Kind = "complete" | "cancel";
+
+const DEADLINE_INPUT_MESSAGES = {
+  INVALID: "Enter a valid date and time.",
+  NONEXISTENT:
+    "That time does not exist on the day the clocks change. Choose a different time.",
+  AMBIGUOUS:
+    "That time happens twice on the day the clocks change. Choose a different time.",
+  UNCHANGED: "Choose a deadline different from the current one.",
+  TOO_SOON: `Choose a time at least ${DEADLINE_CHANGE_MIN_LEAD_MINUTES} minutes from now. To stop voting now, complete the vote early instead.`,
+} as const;
+
+/**
+ * Moves an ACTIVE vote's deadline, later or earlier. The new time is typed in
+ * the RWA's time zone; the reason goes only to the audit history. Residents
+ * are not notified: their pages simply show the new deadline and countdown.
+ */
+export function ChangeDeadline({
+  csrfToken,
+  voteId,
+  closesAt,
+  timezone,
+}: ActionProps & Readonly<{ closesAt: string; timezone: string }>) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [local, setLocal] = useState(() =>
+    instantToLocalInput(closesAt, timezone),
+  );
+  const [reason, setReason] = useState("");
+  const [deadlineError, setDeadlineError] = useState<string | null>(null);
+  const [reasonError, setReasonError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const [failure, setFailure] = useState<ApiFailure | null>(null);
+
+  const converted = useMemo(
+    () => zonedLocalToInstant(local, timezone),
+    [local, timezone],
+  );
+  // Evaluated on each render so the preview reflects the edited value.
+  const shift = converted.ok
+    ? describeDeadlineShift(closesAt, converted.instant)
+    : null;
+
+  function start() {
+    setLocal(instantToLocalInput(closesAt, timezone));
+    setReason("");
+    setDeadlineError(null);
+    setReasonError(null);
+    setFailure(null);
+    setOpen(true);
+  }
+
+  async function run() {
+    if (!converted.ok) {
+      setDeadlineError(DEADLINE_INPUT_MESSAGES[converted.reason]);
+      return;
+    }
+    const check = describeDeadlineShift(closesAt, converted.instant);
+    let invalid = false;
+    if (!check.ok) {
+      setDeadlineError(DEADLINE_INPUT_MESSAGES[check.problem]);
+      invalid = true;
+    }
+    if (reason.trim() === "") {
+      setReasonError("Enter a reason. It is recorded in the audit history.");
+      invalid = true;
+    }
+    if (invalid) {
+      return;
+    }
+
+    setPending(true);
+    setFailure(null);
+    const result = await apiRequest<AdminVoteDetail>(
+      `/api/admin/votes/${voteId}/deadline`,
+      {
+        method: "POST",
+        body: { confirmed: true, closesAt: converted.instant, reason },
+        csrfToken,
+      },
+    );
+    setPending(false);
+
+    if (!result.ok) {
+      const refused = result.context.reason;
+      // The database clock disagreed with the browser: keep the dialog open.
+      if (refused === "DEADLINE_TOO_SOON" || refused === "DEADLINE_UNCHANGED") {
+        setDeadlineError(
+          DEADLINE_INPUT_MESSAGES[
+            refused === "DEADLINE_TOO_SOON" ? "TOO_SOON" : "UNCHANGED"
+          ],
+        );
+        return;
+      }
+      setOpen(false);
+      setFailure(result);
+      if (STATE_CONFLICTS.has(result.code)) {
+        router.refresh();
+      }
+      return;
+    }
+    setOpen(false);
+    router.push(`/admin/votes/${voteId}?notice=deadline-changed`);
+  }
+
+  return (
+    <section aria-labelledby="deadline-change-heading" className="grid gap-4">
+      <h2 id="deadline-change-heading" className="text-section font-semibold">
+        Change Deadline
+      </h2>
+      <ErrorSummary failure={failure} />
+      <p className="max-w-ballot text-body text-muted">
+        Voting closes {formatInZone(closesAt, timezone)}. While voting is open
+        you can extend the deadline, for example after a low turnout, or bring
+        it forward. The reason is recorded in the audit history and is not shown
+        to residents.
+      </p>
+      <div>
+        <Button variant="secondary" onClick={start}>
+          <CalendarClock aria-hidden="true" className="size-5" />
+          Change Deadline
+        </Button>
+      </div>
+
+      <ConfirmDialog
+        open={open}
+        title="Change the deadline?"
+        confirmLabel="Change Deadline"
+        busy={pending}
+        onConfirm={() => void run()}
+        onCancel={() => setOpen(false)}
+      >
+        <p>Current deadline: {formatInZone(closesAt, timezone)}.</p>
+        <TextField
+          id="deadline-change-closes"
+          type="datetime-local"
+          label="New deadline"
+          required
+          hint={`Enter the time in the RWA's time zone (${timezone}).`}
+          value={local}
+          onChange={(event) => {
+            setLocal(event.target.value);
+            setDeadlineError(null);
+          }}
+          error={deadlineError ?? undefined}
+        />
+        <p role="status">
+          {converted.ok && shift?.ok
+            ? `Residents will see: ${formatInZone(converted.instant, timezone)} (${shift.direction === "EXTENDED" ? "extended" : "brought forward"} by ${shift.by}).`
+            : null}
+        </p>
+        <TextAreaField
+          id="deadline-change-reason"
+          label="Why is the deadline changing?"
+          required
+          maxLength={2000}
+          value={reason}
+          onChange={(event) => {
+            setReason(event.target.value);
+            setReasonError(null);
+          }}
+          error={reasonError ?? undefined}
+        />
+      </ConfirmDialog>
+    </section>
+  );
+}
 
 function lifecycleCopy(
   household: string,
@@ -195,7 +370,7 @@ export function LifecycleActions({ csrfToken, voteId }: ActionProps) {
       <ErrorSummary failure={failure} />
       <p className="max-w-ballot text-body text-muted">
         Both actions are final and need a reason. There is no way to reopen a
-        vote, extend its deadline, or edit it afterwards.
+        vote or edit it afterwards.
       </p>
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button variant="secondary" onClick={() => setKind("complete")}>

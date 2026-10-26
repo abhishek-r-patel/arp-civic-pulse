@@ -4,7 +4,10 @@ import {
   activateSchema,
   auditQuerySchema,
   createDraftSchema,
+  deadlineChangeSchema,
+  describeDeadlineShift,
   draftPatchSchema,
+  formatDuration,
   lifecycleActionSchema,
   voteListQuerySchema,
 } from "@/shared/contracts/admin-votes";
@@ -411,6 +414,58 @@ describe("draft contracts", () => {
         reason: "Quorum reached",
       }).success,
     ).toBe(true);
+  });
+
+  it("requires an offset deadline, confirmation and a reason to move a deadline", () => {
+    const valid = {
+      confirmed: true,
+      closesAt: "2026-11-20T18:00:00+05:30",
+      reason: "Low turnout",
+    };
+    expect(deadlineChangeSchema.safeParse(valid).success).toBe(true);
+    for (const bad of [
+      { ...valid, confirmed: false },
+      { ...valid, closesAt: "2026-11-20T18:00" },
+      { ...valid, reason: " " },
+      { ...valid, extra: 1 },
+    ]) {
+      expect(deadlineChangeSchema.safeParse(bad).success).toBe(false);
+    }
+  });
+
+  it("describes a deadline move and pre-checks it against the browser clock", () => {
+    const now = Date.parse("2026-11-10T00:00:00Z");
+    const current = "2026-11-12T12:00:00.000Z";
+    expect(
+      describeDeadlineShift(current, "2026-11-14T15:30:00.000Z", now),
+    ).toEqual({
+      ok: true,
+      direction: "EXTENDED",
+      by: "2 days 3 hours 30 minutes",
+    });
+    expect(
+      describeDeadlineShift(current, "2026-11-12T11:00:00.000Z", now),
+    ).toEqual({ ok: true, direction: "SHORTENED", by: "1 hour" });
+    expect(describeDeadlineShift(current, current, now)).toEqual({
+      ok: false,
+      problem: "UNCHANGED",
+    });
+    expect(
+      describeDeadlineShift(current, "2026-11-10T00:04:00.000Z", now),
+    ).toEqual({ ok: false, problem: "TOO_SOON" });
+    expect(
+      describeDeadlineShift(current, "2026-11-10T00:05:00.000Z", now).ok,
+    ).toBe(true);
+    // Hidden seconds on the current deadline do not distort the shown shift.
+    const withSeconds = "2026-11-12T12:00:45.000Z";
+    expect(
+      describeDeadlineShift(withSeconds, "2026-11-14T12:00:00.000Z", now),
+    ).toEqual({ ok: true, direction: "EXTENDED", by: "2 days" });
+    expect(
+      describeDeadlineShift(withSeconds, "2026-11-12T12:00:00.000Z", now),
+    ).toEqual({ ok: false, problem: "UNCHANGED" });
+    expect(formatDuration(1 * 60_000)).toBe("1 minute");
+    expect(formatDuration(20_000)).toBe("less than a minute");
   });
 });
 

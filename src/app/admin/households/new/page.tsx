@@ -8,7 +8,10 @@ import {
   listAssignableAccounts,
 } from "@/server/register/accounts";
 import { adminPageContext } from "@/server/register/page-context";
-import { loadHouseholdTerms } from "@/server/settings/rwa-profile";
+import {
+  listUnusedDefaultHouseholds,
+  loadHouseholdTerms,
+} from "@/server/settings/rwa-profile";
 
 export async function generateMetadata() {
   const terms = await loadHouseholdTerms();
@@ -21,7 +24,10 @@ export async function generateMetadata() {
 
 export default async function NewHouseholdPage() {
   const deps = await adminPageContext();
-  const accounts = await listAssignableAccounts(deps);
+  const [accounts, suggestions] = await Promise.all([
+    listAssignableAccounts(deps),
+    listUnusedDefaultHouseholds(deps),
+  ]);
 
   return (
     <div className="grid gap-8">
@@ -40,6 +46,7 @@ export default async function NewHouseholdPage() {
         csrfToken={deps.csrfToken}
         identifierLabel={deps.identifierLabel}
         accounts={accounts}
+        identifierSuggestions={suggestions}
         limited={accounts.length >= MAX_ASSIGNABLE}
       />
     </div>

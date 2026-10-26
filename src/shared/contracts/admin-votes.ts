@@ -240,6 +240,65 @@ export const lifecycleActionSchema = z.strictObject({
   reason: reasonText,
 });
 
+/*
+ * Moving an ACTIVE vote's deadline (later or earlier). The database clock
+ * decides whether the new deadline is far enough ahead; the reason is
+ * recorded only in the audit history.
+ */
+export const DEADLINE_CHANGE_MIN_LEAD_MINUTES = 5;
+
+export const deadlineChangeSchema = z.strictObject({
+  confirmed,
+  closesAt: offsetInstant,
+  reason: reasonText,
+});
+
+export type DeadlineShift =
+  | { ok: true; direction: "EXTENDED" | "SHORTENED"; by: string }
+  | { ok: false; problem: "UNCHANGED" | "TOO_SOON" };
+
+/** "2 days 3 hours", "45 minutes": whole minutes, zero parts omitted. */
+export function formatDuration(ms: number): string {
+  const minutes = Math.round(Math.abs(ms) / 60_000);
+  const parts: string[] = [];
+  const add = (value: number, unit: string) => {
+    if (value > 0) {
+      parts.push(`${value} ${unit}${value === 1 ? "" : "s"}`);
+    }
+  };
+  add(Math.floor(minutes / 1440), "day");
+  add(Math.floor((minutes % 1440) / 60), "hour");
+  add(minutes % 60, "minute");
+  return parts.length === 0 ? "less than a minute" : parts.join(" ");
+}
+
+/**
+ * Pre-checks a new deadline in the browser so the administrator sees the
+ * effect before confirming. The database repeats the checks with its own clock.
+ * The shift is measured from the current deadline truncated to the minute,
+ * because that is what the minute-precision input shows; otherwise an untouched
+ * input would read as "brought forward" by the hidden seconds.
+ */
+export function describeDeadlineShift(
+  currentIso: string,
+  nextIso: string,
+  nowMs: number = Date.now(),
+): DeadlineShift {
+  const current = Math.floor(new Date(currentIso).getTime() / 60_000) * 60_000;
+  const next = new Date(nextIso).getTime();
+  if (next === current) {
+    return { ok: false, problem: "UNCHANGED" };
+  }
+  if (next < nowMs + DEADLINE_CHANGE_MIN_LEAD_MINUTES * 60_000) {
+    return { ok: false, problem: "TOO_SOON" };
+  }
+  return {
+    ok: true,
+    direction: next > current ? "EXTENDED" : "SHORTENED",
+    by: formatDuration(next - current),
+  };
+}
+
 export type DraftPatch = z.infer<typeof draftPatchSchema>;
 
 export const voteListQuerySchema = listQuerySchema({

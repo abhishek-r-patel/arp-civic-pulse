@@ -11,9 +11,11 @@ import {
   type RegisterDeps,
 } from "@/server/register/shared";
 import {
+  DEFAULT_HOUSEHOLDS_MAX_ITEMS,
   publicRwaIdentitySchema,
   rwaBrandingSchema,
   rwaProfileSchema,
+  settingsListKey,
   type PublicRwaIdentity,
   type RwaBranding,
   type RwaProfile,
@@ -108,6 +110,34 @@ export const loadHouseholdTerms = cache(async (): Promise<HouseholdTerms> => {
     return DEFAULT_HOUSEHOLD_TERMS;
   }
 });
+
+/*
+ * Default household identifiers that are not yet in the register, for the
+ * add-household type-ahead. Suggestions are a convenience only: if the register
+ * read fails, every default is offered and the database still rejects repeats.
+ */
+export async function listUnusedDefaultHouseholds(
+  deps: RegisterDeps,
+): Promise<string[]> {
+  const { defaultHouseholds } = await getRwaProfile(deps.client);
+  if (defaultHouseholds.length === 0) return [];
+  const { data, error } = await deps.client
+    .from("households")
+    .select("identifier")
+    .limit(DEFAULT_HOUSEHOLDS_MAX_ITEMS * 2)
+    .returns<{ identifier: string }[]>();
+  if (error || !data) {
+    log("warn", "settings.default_households_register_unavailable", {});
+    return defaultHouseholds;
+  }
+  const used = new Set(data.map((row) => settingsListKey(row.identifier)));
+  return defaultHouseholds.filter((item) => !used.has(settingsListKey(item)));
+}
+
+/** Position names offered when adding offices to a PRIVATE vote draft. */
+export async function listRwaPositions(deps: RegisterDeps): Promise<string[]> {
+  return (await getRwaProfile(deps.client)).rwaPositions;
+}
 
 export async function updateRwaProfile(
   deps: RegisterDeps,

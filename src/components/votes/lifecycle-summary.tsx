@@ -66,8 +66,9 @@ export function LifecycleSummary({
           <p>
             The vote is finalised at its deadline, normally within a minute. If
             the database is paused or delayed, this page can show it as Active a
-            little longer, but the deadline itself is never extended and the
-            recorded end time is always the deadline.
+            little longer, but an outage never extends the deadline and the
+            recorded end time is always the deadline in force. Use Change
+            Deadline below if the committee decides to move it.
           </p>
         </Notice>
       ) : null}

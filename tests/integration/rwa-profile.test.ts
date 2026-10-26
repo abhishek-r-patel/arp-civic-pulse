@@ -52,7 +52,8 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
         client.query("select public.get_rwa_profile()"),
       ),
     );
-    expect(forbidden.code).toBe("42501");
+    // Admin-only routines use the shared guard: a stable FORBIDDEN code.
+    expect(forbidden.message).toBe("FORBIDDEN");
 
     const suspended = await dbError(
       db.asRole("authenticated", { sub: world.carol.id }, (client) =>
@@ -112,6 +113,14 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
       welcomeMessage: "",
       householdLabel: "Household",
       identifierKind: "NUMBER",
+      defaultHouseholds: [],
+      rwaPositions: [
+        "President",
+        "Vice-President",
+        "Secretary",
+        "Joint-Secretary",
+        "Treasurer",
+      ],
     });
 
     const changed = await db.asRole(
@@ -132,6 +141,8 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
               welcomeMessage: "Welcome to our community portal.",
               householdLabel: "Flat",
               identifierKind: "ID",
+              defaultHouseholds: ["H-101", "H-102"],
+              rwaPositions: ["President", "Treasurer"],
             }),
           ],
         ),
@@ -145,6 +156,8 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
       welcomeMessage: "Welcome to our community portal.",
       householdLabel: "Flat",
       identifierKind: "ID",
+      defaultHouseholds: ["H-101", "H-102"],
+      rwaPositions: ["President", "Treasurer"],
     });
 
     const currentName = await db.asOwner((client) =>
@@ -170,6 +183,13 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
       householdLabel: "Flat",
       identifierKind: "ID",
     });
+    // The suggestion lists are administrator-only.
+    expect(branding.rows[0]?.get_rwa_branding).not.toHaveProperty(
+      "defaultHouseholds",
+    );
+    expect(branding.rows[0]?.get_rwa_branding).not.toHaveProperty(
+      "rwaPositions",
+    );
 
     const audit = await db.asOwner((client) =>
       client.query<{ details: Record<string, unknown> }>(
@@ -185,12 +205,13 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
         "alias",
         "address",
         "email",
-        "phone",
         "website",
         "accentPalette",
         "welcomeMessage",
         "householdLabel",
         "identifierKind",
+        "defaultHouseholds",
+        "rwaPositions",
       ],
     });
   });
@@ -207,6 +228,8 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
       welcomeMessage: "",
       householdLabel: "Household",
       identifierKind: "NUMBER",
+      defaultHouseholds: [],
+      rwaPositions: ["President"],
     };
     const forbidden = await dbError(
       db.asRole("authenticated", { sub: world.alice.id }, (client) =>
@@ -246,6 +269,14 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
       { householdLabel: "<b>Flat</b>" },
       { identifierKind: "CODE" },
       { email: "not-an-email" },
+      { defaultHouseholds: "H-101" },
+      { defaultHouseholds: [101] },
+      { defaultHouseholds: ["H-101", "h-101"] },
+      { defaultHouseholds: [" H-101"] },
+      { defaultHouseholds: ["x".repeat(101)] },
+      { rwaPositions: [""] },
+      { rwaPositions: ["<b>Chair</b>"] },
+      { rwaPositions: Array.from({ length: 51 }, (_, i) => `Office ${i}`) },
     ]) {
       const rejected = await dbError(
         db.asRole("authenticated", { sub: world.admin.id }, (client) =>
@@ -277,6 +308,8 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
               welcomeMessage: "",
               householdLabel: "Household",
               identifierKind: "NUMBER",
+              defaultHouseholds: [],
+              rwaPositions: [],
             }),
           ],
         ),
@@ -285,6 +318,8 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
       address: "",
       email: "",
       phone: "",
+      defaultHouseholds: [],
+      rwaPositions: [],
     });
   });
 });

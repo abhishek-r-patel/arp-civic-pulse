@@ -296,7 +296,10 @@ describe.skipIf(!hasDatabase)(
       });
 
       it("publishes active PRIVATE turnout only to entitled voters and admins", async () => {
-        const vote = await api.activeVote("PRIVATE");
+        // Dave is left out of this electorate to prove outsiders see nothing.
+        const vote = await api.activeVote("PRIVATE", {
+          people: [world.alice, world.bob],
+        });
         await api.cast(alice(), vote.id, closedBallot(vote, [0, 0]));
         for (const sub of [alice(), bob(), admin()]) {
           const current = await results(sub, vote.id);
@@ -304,7 +307,7 @@ describe.skipIf(!hasDatabase)(
             status: "ACTIVE",
             votingType: "PRIVATE",
           });
-          expect(current.eligibleCount).toBe("3");
+          expect(current.eligibleCount).toBe("2");
           expect(current.submittedCount).toBe("1");
           expect(current.options).toEqual([]);
           expect(current.offices).toEqual([]);
@@ -772,7 +775,7 @@ describe.skipIf(!hasDatabase)(
         expect(results.turnout).toEqual({
           numerator: "500",
           denominator: "500",
-          percent: "100.00",
+          percent: "100",
         });
         expect(
           results.votingType === "PUBLIC" &&

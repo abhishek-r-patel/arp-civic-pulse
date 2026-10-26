@@ -38,6 +38,9 @@ const SAFE_REASONS = new Set([
   "ACTIVE",
   "COMPLETED",
   "CANCELLED",
+  // Deadline change: why the requested new deadline was refused.
+  "DEADLINE_TOO_SOON",
+  "DEADLINE_UNCHANGED",
 ]);
 
 export function toApiError(failure: DatabaseFailure): ApiError {

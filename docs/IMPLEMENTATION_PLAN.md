@@ -286,15 +286,16 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 1. Implement activation under the parent vote lock: current admin/revision, complete ballot, future deadline, selected eligible households/enabled profiles, current approvals, and retention settings.
 2. Lock/re-read register/settings consistently, freeze identity/RWA/timezone/policy snapshots, initialize PRIVATE counters, and commit lifecycle/audit atomically.
 3. Complete deferred PUBLIC response/participation and PRIVATE per-office tally/membership invariants; share the verifier with completion/publication.
-4. Implement idempotent due completion and confirmed early completion/cancellation with required reasons. Reconcile due state first; effective automatic completion time is the frozen deadline.
+4. Implement idempotent due completion and confirmed early completion/cancellation with required reasons. Reconcile due state first; effective automatic completion time is the deadline in force at that moment.
 5. Configure Supabase Cron SQL completion initially once per minute with a dedicated restricted scheduling role. Keep cleanup separately unavailable until Phase 15 is approved/implemented; completion must not depend on cleanup readiness.
-6. Add narrowly scoped authorized service reconciliation and responsive action confirmations. Explain paused-database/Cron limitations and prohibit reopening, active edits, deadline extension, and manual totals.
+6. Add narrowly scoped authorized service reconciliation and responsive action confirmations. Explain paused-database/Cron limitations and prohibit reopening, active edits other than the audited deadline change, and manual totals.
+7. (Added later) Let an administrator move an active vote's deadline later or earlier with confirmation and an audit-only reason through a guarded routine (at least 5 minutes ahead, different from the current deadline); overdue votes complete at their old deadline instead.
 
 **Likely files/modules:** `src\server\votes`, `src\server\audit`, `src\server\db`, admin lifecycle handlers/UI, `supabase\migrations`, Cron/provider configuration, integration tests.
 
 **Dependencies/prerequisites:** Phases 4-6 and 9; genuine approvals/settings before real activation.
 
-**Database/API changes:** Guarded activation/complete/cancel/reconciliation RPCs and documented lifecycle POST routes. Cron invokes restricted SQL directly; no maintenance HTTP endpoint, scheduler secret, or Vercel minute-level Cron.
+**Database/API changes:** Guarded activation/complete/cancel/deadline-change/reconciliation RPCs and documented lifecycle POST routes. Cron invokes restricted SQL directly; no maintenance HTTP endpoint, scheduler secret, or Vercel minute-level Cron.
 
 **Tests required:** Register/activation snapshot races, approval/version failures, deadline recheck, frozen write denial, counter initialization, invariant failure, terminal transitions, overdue cancellation/early-completion denial, idempotent Cron, scheduling-role grants, direct user maintenance denial, and effective versus processing timestamps.
 

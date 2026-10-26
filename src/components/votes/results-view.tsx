@@ -8,6 +8,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Notice } from "@/components/ui/notice";
 import { useHouseholdTerms } from "@/components/ui/household-terms";
+import { InfoTip } from "@/components/ui/info-tip";
 import { DeadlineCountdown } from "@/components/votes/deadline-countdown";
 import { Pagination } from "@/components/ui/pagination";
 import { privacyCopy } from "@/components/votes/privacy-notice";
@@ -188,14 +189,17 @@ function ClosedSection({
         <p>{privacyCopy(terms).PRIVATE}</p>
         <p className="pt-2">{privacyCopy(terms).CLOSED_LIMITS}</p>
       </Notice>
-      <Notice tone="info" heading="How NOTA is counted">
+      <InfoTip
+        heading={<p className="text-body font-semibold">How NOTA is counted</p>}
+        label="About NOTA counting"
+      >
         <p>
           NOTA is counted separately and cannot win. The candidate with the
           highest count among candidates is elected, even if NOTA receives more
           votes. No candidate is elected if no candidate receives a vote; tied
           candidate totals remain a tie.
         </p>
-      </Notice>
+      </InfoTip>
       {results.offices.map((office) => {
         const leaders = office.candidates
           .filter((c) => office.leaderCandidateIds.includes(c.id))

@@ -24,6 +24,8 @@ type HouseholdFormProps = Readonly<{
   identifierLabel: string;
   /** True when the account list was capped, so some accounts are not shown. */
   limited?: boolean;
+  /** Unused default identifiers from RWA Settings, offered as type-ahead. */
+  identifierSuggestions?: readonly string[];
 }>;
 
 // Machine-readable conflict reasons point at the field the person can fix.
@@ -70,6 +72,7 @@ export function HouseholdForm({
   household,
   identifierLabel,
   limited = false,
+  identifierSuggestions = [],
 }: HouseholdFormProps) {
   const router = useRouter();
   const terms = useHouseholdTerms();
@@ -193,14 +196,26 @@ export function HouseholdForm({
         id="identifier"
         name="identifier"
         label={identifierLabel}
-        hint={`Enter the value assigned to this ${terms.household}. Letter case and extra spaces do not make two identifiers different.`}
+        hint={`Enter the value assigned to this ${terms.household}. Letter case and extra spaces do not make two identifiers different.${identifierSuggestions.length > 0 ? ` Start typing to pick from the ${identifierSuggestions.length} default ${identifierSuggestions.length === 1 ? terms.household : terms.households} not yet added.` : ""}`}
         required
         maxLength={100}
         autoComplete="off"
+        list={
+          identifierSuggestions.length > 0
+            ? "identifier-suggestions"
+            : undefined
+        }
         value={identifier}
         onChange={(event) => setIdentifier(event.target.value)}
         error={fieldErrors.identifier}
       />
+      {identifierSuggestions.length > 0 ? (
+        <datalist id="identifier-suggestions">
+          {identifierSuggestions.map((suggestion) => (
+            <option key={suggestion} value={suggestion} />
+          ))}
+        </datalist>
+      ) : null}
 
       <SelectField
         id="representativeAccountId"

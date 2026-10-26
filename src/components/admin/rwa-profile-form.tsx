@@ -9,8 +9,13 @@ import { TextAreaField, TextField } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
 import type { RwaProfile } from "@/shared/contracts/rwa-profile";
 import {
+  DEFAULT_HOUSEHOLDS_MAX_ITEMS,
+  DEFAULT_RWA_POSITIONS,
+  formatSettingsList,
+  parseSettingsList,
   RWA_ACCENT_PALETTES,
   RWA_ACCENT_PALETTE_LABELS,
+  RWA_POSITIONS_MAX_ITEMS,
   WELCOME_MESSAGE_MAX_LENGTH,
 } from "@/shared/contracts/rwa-profile";
 import {
@@ -23,7 +28,31 @@ import {
 import { apiRequest, type ApiFailure } from "@/shared/http/api-client";
 import { fieldErrorFor } from "@/shared/http/messages";
 
-/* Admin form for the RWA profile and household/identifier display wording. */
+// List errors may point at one entry ("rwaPositions[2]"); report them on the
+// list field itself, naming the entry, so the summary links to the textarea.
+function withListErrorsOnFields(
+  failure: ApiFailure | null,
+  lists: Readonly<Record<string, readonly string[]>>,
+): ApiFailure | null {
+  if (!failure) return null;
+  return {
+    ...failure,
+    fieldErrors: failure.fieldErrors.map((error) => {
+      const match = /^([^[]+)\[(\d+)\]$/u.exec(error.field);
+      const field = match?.[1];
+      const item =
+        field === undefined ? undefined : lists[field]?.[Number(match?.[2])];
+      return field !== undefined && item !== undefined
+        ? { ...error, field, message: `“${item}”: ${error.message}` }
+        : error;
+    }),
+  };
+}
+
+/*
+ * Admin form for the RWA profile, household/identifier display wording and the
+ * administrator-only default household and position suggestion lists.
+ */
 export function RwaProfileForm({
   csrfToken,
   initialProfile,
@@ -33,6 +62,13 @@ export function RwaProfileForm({
 }>) {
   const router = useRouter();
   const [profile, setProfile] = useState(initialProfile);
+  // Lists are edited as comma-separated text and split only when saving.
+  const [householdsText, setHouseholdsText] = useState(
+    formatSettingsList(initialProfile.defaultHouseholds),
+  );
+  const [positionsText, setPositionsText] = useState(
+    formatSettingsList(initialProfile.rwaPositions),
+  );
   const [failure, setFailure] = useState<ApiFailure | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, setPending] = useState(false);
@@ -51,17 +87,23 @@ export function RwaProfileForm({
     setFailure(null);
     setSaved(false);
     setPending(true);
+    const lists = {
+      defaultHouseholds: parseSettingsList(householdsText),
+      rwaPositions: parseSettingsList(positionsText),
+    };
     const result = await apiRequest<RwaProfile>("/api/admin/settings", {
       method: "PATCH",
-      body: profile,
+      body: { ...profile, ...lists },
       csrfToken,
     });
     setPending(false);
     if (!result.ok) {
-      setFailure(result);
+      setFailure(withListErrorsOnFields(result, lists));
       return;
     }
     setProfile(result.data);
+    setHouseholdsText(formatSettingsList(result.data.defaultHouseholds));
+    setPositionsText(formatSettingsList(result.data.rwaPositions));
     setSaved(true);
     router.refresh();
   }
@@ -87,6 +129,8 @@ export function RwaProfileForm({
           welcomeMessage: "Welcome Message",
           householdLabel: "Household Label",
           identifierKind: "Identifier Label",
+          defaultHouseholds: `Default ${preview.Households}`,
+          rwaPositions: "RWA Positions",
         }}
       />
       <TextField
@@ -287,6 +331,28 @@ export function RwaProfileForm({
           · {preview.identifierLabelPlural}
         </span>
       </p>
+      <TextAreaField
+        id="defaultHouseholds"
+        name="defaultHouseholds"
+        label={`Default ${preview.Households}`}
+        showOptional={false}
+        hint={`Comma-separated ${preview.identifierLabelPlural}, such as H-101, H-102, H-103. Offered as suggestions when an administrator adds a ${preview.household}; ${preview.households} are never created automatically. Up to ${DEFAULT_HOUSEHOLDS_MAX_ITEMS} entries; repeats are removed. Leave blank for no suggestions.`}
+        autoComplete="off"
+        value={householdsText}
+        onChange={(event) => setHouseholdsText(event.target.value)}
+        error={fieldErrorFor(failure, "defaultHouseholds")}
+      />
+      <TextAreaField
+        id="rwaPositions"
+        name="rwaPositions"
+        label="RWA Positions"
+        showOptional={false}
+        hint={`Comma-separated office names, such as ${formatSettingsList(DEFAULT_RWA_POSITIONS)}. Offered as office-name suggestions in PRIVATE votes, where Add All Positions adds every one as an office. Up to ${RWA_POSITIONS_MAX_ITEMS} positions; repeats are removed. Leave blank for no suggestions.`}
+        autoComplete="off"
+        value={positionsText}
+        onChange={(event) => setPositionsText(event.target.value)}
+        error={fieldErrorFor(failure, "rwaPositions")}
+      />
       {saved ? (
         <Notice tone="success" heading="RWA Settings Updated">
           The new details now appear across the app, including existing votes

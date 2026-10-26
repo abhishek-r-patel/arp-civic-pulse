@@ -888,12 +888,10 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
     });
 
     it("reports a committed submission whose acknowledgement was lost", async () => {
-      const vote = await api.activeVote("PUBLIC");
+      // PRIVATE ballots are final; PUBLIC retries are deliberate vote changes.
+      const vote = await api.activeVote("PRIVATE");
       // The caller never reads the response (a dropped connection), yet it committed.
-      void api.cast(alice(), vote.id, {
-        confirmed: true,
-        optionId: vote.options[0]?.id,
-      });
+      void api.cast(alice(), vote.id, closedBallot(vote, [0, 0]));
       await sleep(1_000);
       expect(await api.participation(alice(), vote.id)).toMatchObject({
         submitted: true,
@@ -902,10 +900,7 @@ describe.skipIf(!hasDatabase)("cast_vote and participation status", () => {
       expect(
         (
           await dbError(
-            api.cast(alice(), vote.id, {
-              confirmed: true,
-              optionId: vote.options[1]?.id,
-            }),
+            api.cast(alice(), vote.id, closedBallot(vote, [1, null])),
           )
         ).message,
       ).toBe("ALREADY_SUBMITTED");

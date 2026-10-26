@@ -130,10 +130,11 @@ analytics. Existing screenshots need not change for a footer-only addition.
 ### FR4 - Lifecycle and freezing
 - Support Draft -> Active -> Completed, and Active -> Cancelled. Completed and Cancelled votes cannot reopen or accept submissions.
 - Activation requires validation, preview and an explicit admin action.
-- Freeze voting type, title/context/instructions, offices, candidates/options, household entitlements, representative assignments and deadline on activation.
+- Freeze voting type, title/context/instructions, offices, candidates/options, household entitlements and representative assignments on activation. The deadline is set at activation.
+- While a vote is Active and before its deadline, an administrator may move the deadline later or earlier (for example after low turnout) for PUBLIC and PRIVATE votes. The change needs confirmation and a reason recorded only in the audit trail, must be at least 5 minutes in the future and differ from the current deadline; there is no limit on how far or how often. Residents are not notified separately; countdowns and admission follow the new deadline. A Completed or Cancelled vote's deadline never changes.
 - Later register changes apply only to future votes and must not transfer an existing entitlement. Emergency suspension may block access without changing the frozen electorate or removing accepted votes.
 - Complete at the deadline or through an explicitly confirmed admin action. Early completion requires a reason and must be labelled in results and exports.
-- Show eligible voters and administrators a live countdown to the frozen deadline throughout the active vote, including after a member submits or replaces a ballot. At zero, refresh the vote state; the timer is informational and does not authorize or reject submissions.
+- Show eligible voters and administrators a live countdown to the current deadline throughout the active vote, including after a member submits or replaces a ballot. At zero, refresh the vote state; the timer is informational and does not authorize or reject submissions.
 - Record activation and effective completion times. Scheduled completion uses the deadline as the effective completion time even if background processing runs later.
 - Cancellation requires confirmation and a reason. Show "Cancelled; results not valid," preserve the audit history, and do not publish choices or enable result exports.
 
@@ -144,7 +145,7 @@ analytics. Existing screenshots need not change for a footer-only addition.
 - Use the server clock. The authoritative deadline check occurs inside the guarded voting transaction after acquiring the vote lock, immediately before accepting participation and choices. The check must be strictly before the deadline; client click time or request arrival alone does not reserve eligibility.
 - Show a live countdown on active voter, result and administrator vote pages; keep it visible after submission while the vote remains active. At zero, refresh the page state. A client countdown is guidance only and must never replace the database deadline check.
 - A request that waits for the lock until the deadline is rejected. A transaction that passes the check before the deadline may commit afterwards. Serialize submission with completion/cancellation so their ordering cannot produce an accepted ballot after a terminal transition.
-- Reject late submissions even if the displayed status has not refreshed. Outages do not automatically extend a frozen deadline.
+- Reject late submissions even if the displayed status has not refreshed. Outages do not automatically extend a deadline.
 - Return success only once the whole submission is durable. Acknowledge participation without a receipt exposing PRIVATE selections. A member can subsequently see "Submitted" but cannot retrieve a PRIVATE ballot.
 
 ### FR6 - Results and counting

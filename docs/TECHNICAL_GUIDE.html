@@ -866,7 +866,8 @@
         </li>
         <li>
           <a href="../src/server/votes/lifecycle.ts">votes/lifecycle.ts</a>:
-          activation/completion/cancellation and overdue reconciliation.
+          activation/completion/cancellation, deadline changes and overdue
+          reconciliation.
         </li>
         <li>
           <a href="../src/server/exports/results-export.ts"
@@ -1234,8 +1235,8 @@
           duplicate/partial ballots.
         </li>
         <li>
-          Frozen content, representatives and deadlines cannot be edited after
-          activation.
+          Frozen content and representatives cannot be edited after activation;
+          an active deadline moves only through the audited deadline change.
         </li>
         <li>Candidate IDs must belong to the submitted office/vote.</li>
         <li>
@@ -1400,6 +1401,20 @@
                 identifier label.
               </td>
             </tr>
+            <tr>
+              <td><code>20261104100000_rwa_default_lists</code></td>
+              <td>
+                Admin-only Default Households and RWA Positions suggestion lists
+                in RWA settings.
+              </td>
+            </tr>
+            <tr>
+              <td><code>20261105100000_change_vote_deadline</code></td>
+              <td>
+                Audited <code>change_vote_deadline</code> routine; the vote
+                guard lets only it move an active vote&#39;s deadline.
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -1431,7 +1446,10 @@
         Activation checks ballot validity, current selected representatives,
         future deadline, approvals and retention configuration. It freezes the
         electorate, historical identity/display data and ballot. Editing a
-        household later affects future votes only.
+        household later affects future votes only. While the vote is Active an
+        administrator may move only its deadline (later or earlier, at least 5
+        minutes ahead, with an audited reason) through
+        <code>change_vote_deadline</code>.
       </p>
       <p>
         Supabase Cron completes due votes and runs bounded retention. The
@@ -1555,7 +1573,7 @@
         <li>
           <code>/api/admin/votes</code>, record IDs, <code>/preview</code>,
           <code>/activate</code>, <code>/complete</code>, <code>/cancel</code>,
-          <code>/participation</code>.
+          <code>/deadline</code>, <code>/participation</code>.
         </li>
         <li><code>/api/admin/audit</code>.</li>
         <li><code>/api/internal/health</code>.</li>
@@ -1931,13 +1949,15 @@ node scripts\docs\render.mjs</code></pre>
         numbers (<strong>H-513</strong> for the example resident and
         <strong>H-514</strong> for the added flat, or another unused realistic
         number when those already exist); other fixture households get random
-        numbers in the same style. Email/code fields that hold a value and email
-        text are masked (an intentionally blank field stays visibly blank),
-        trace/video are off, and screenshots are stored in the documentation
-        image folder. The code-error response and connection failures are
-        deliberately simulated; the rest of the principal voting/administration
-        flows use the real test application and database. The capture does not
-        prove SMTP delivery.
+        numbers in the same style. The illustrated active vote also has its
+        deadline extended by two days with a synthetic reason, so the audit
+        trail shows a <code>VOTE_DEADLINE_CHANGED</code> event. Email/code
+        fields that hold a value and email text are masked (an intentionally
+        blank field stays visibly blank), trace/video are off, and screenshots
+        are stored in the documentation image folder. The code-error response
+        and connection failures are deliberately simulated; the rest of the
+        principal voting/administration flows use the real test application and
+        database. The capture does not prove SMTP delivery.
       </p>
       <p>
         The renderer supports the deliberately small Markdown subset used by

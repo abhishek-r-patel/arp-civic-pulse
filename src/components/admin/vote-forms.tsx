@@ -7,6 +7,7 @@ import {
   ArrowDown,
   ArrowUp,
   Eye,
+  ListPlus,
   Plus,
   Save,
   Trash2,
@@ -35,6 +36,10 @@ import {
 import { Notice } from "@/components/ui/notice";
 import { useHouseholdTerms } from "@/components/ui/household-terms";
 import { privacyCopy } from "@/components/votes/privacy-notice";
+import {
+  COLLECTION_LIMITS,
+  normalizedKey,
+} from "@/shared/contracts/admin-votes";
 import type {
   AdminVoteDetail,
   SelectableHousehold,
@@ -245,6 +250,8 @@ type EditorProps = Readonly<{
   identifierLabel: string;
   initial: AdminVoteDetail;
   households: readonly SelectableHousehold[];
+  /** RWA positions from RWA Settings, suggested as PRIVATE office names. */
+  positions?: readonly string[];
   flash?: string | undefined;
 }>;
 
@@ -257,6 +264,7 @@ export function DraftEditor({
   identifierLabel,
   initial,
   households,
+  positions = [],
   flash,
 }: EditorProps) {
   const router = useRouter();
@@ -767,6 +775,7 @@ export function DraftEditor({
           ) : (
             <OfficesEditor
               offices={state.offices}
+              positions={positions}
               errorAt={errorAt}
               nextKey={nextKey}
               onChange={(offices) => patch({ offices })}
@@ -1036,12 +1045,14 @@ function OptionsEditor({
 
 function OfficesEditor({
   offices,
+  positions,
   errorAt,
   nextKey,
   onChange,
   onUpdate,
 }: Readonly<{
   offices: readonly OfficeDraft[];
+  positions: readonly string[];
   errorAt: (path: string) => string | undefined;
   nextKey: () => string;
   onChange: (offices: OfficeDraft[]) => void;
@@ -1050,6 +1061,39 @@ function OfficesEditor({
     change: (office: OfficeDraft) => OfficeDraft,
   ) => void;
 }>) {
+  const existing = new Set(
+    offices.map((office) => normalizedKey(office.name.trim())),
+  );
+  const missing = positions.filter(
+    (position) => !existing.has(normalizedKey(position)),
+  );
+  const room = COLLECTION_LIMITS.offices - offices.length;
+  const blankWithoutCandidates = offices.filter(
+    (office) => office.name.trim() === "" && office.candidates.length === 0,
+  ).length;
+
+  /*
+   * Fills untouched blank offices first, then appends the remaining positions,
+   * skipping any already used as an office name and stopping at the office limit.
+   */
+  function addAllPositions() {
+    const queue = [...missing];
+    const filled = offices.map((office) =>
+      office.name.trim() === "" &&
+      office.candidates.length === 0 &&
+      queue.length > 0
+        ? { ...office, name: queue.shift() as string }
+        : office,
+    );
+    const appended = queue
+      .slice(0, Math.max(0, COLLECTION_LIMITS.offices - filled.length))
+      .map((name) => ({ key: nextKey(), name, candidates: [] }));
+    onChange([...filled, ...appended]);
+  }
+
+  const canAddPositions =
+    missing.length > 0 && (room > 0 || blankWithoutCandidates > 0);
+
   return (
     <div className="grid gap-4">
       <p className="text-body text-muted">
@@ -1059,6 +1103,13 @@ function OfficesEditor({
         among candidates is elected. Tied top candidate counts remain a tie; if
         no candidate receives a vote, no candidate is elected.
       </p>
+      {positions.length > 0 ? (
+        <datalist id="rwa-position-suggestions">
+          {positions.map((position) => (
+            <option key={position} value={position} />
+          ))}
+        </datalist>
+      ) : null}
       {offices.length === 0 ? (
         <p className="text-body text-muted">No offices yet.</p>
       ) : null}
@@ -1073,10 +1124,15 @@ function OfficesEditor({
           <TextField
             id={`office-${officeIndex}-name`}
             label="Office name"
-            hint="For example: Chairperson."
+            hint={
+              positions.length > 0
+                ? "Type a name or pick one of your RWA positions."
+                : "For example: Chairperson."
+            }
             required
             maxLength={200}
             autoComplete="off"
+            list={positions.length > 0 ? "rwa-position-suggestions" : undefined}
             value={office.name}
             onChange={(event) =>
               onUpdate(officeIndex, (current) => ({
@@ -1171,7 +1227,7 @@ function OfficesEditor({
           </div>
         </fieldset>
       ))}
-      <div>
+      <div className="flex flex-wrap gap-3">
         <Button
           variant="secondary"
           onClick={() =>
@@ -1181,7 +1237,27 @@ function OfficesEditor({
           <Plus aria-hidden="true" className="size-5" />
           Add Office
         </Button>
+        {positions.length > 0 ? (
+          <Button
+            variant="secondary"
+            disabled={!canAddPositions}
+            onClick={addAllPositions}
+          >
+            <ListPlus aria-hidden="true" className="size-5" />
+            Add All Positions
+          </Button>
+        ) : null}
       </div>
+      {positions.length > 0 ? (
+        <p className="text-caption text-muted" aria-live="polite">
+          {missing.length === 0
+            ? "Every RWA position is already an office."
+            : canAddPositions
+              ? `Add All Positions adds ${missing.length === 1 ? "the missing position" : `the ${missing.length} missing positions`} (${missing.join(", ")}) as offices.`
+              : `The ${COLLECTION_LIMITS.offices}-office limit is reached; remove an office to add more positions.`}{" "}
+          Positions come from RWA Settings.
+        </p>
+      ) : null}
     </div>
   );
 }

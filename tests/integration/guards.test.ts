@@ -435,24 +435,67 @@ describe.skipIf(!hasDatabase)("guards, lifecycle and invariants", () => {
       expect(error.message).toBe("VOTING_CLOSED");
     });
 
-    it("never edits or removes accepted records", async () => {
+    it("never edits or removes accepted records outside a live PUBLIC change", async () => {
       const vote = await fixtureOpenVote(db, world);
       await submitOpen(vote, world.alice.householdId, vote.optionIds[0] ?? "");
-      for (const sql of [
-        "update public.participation set accepted_at = now()",
-        "delete from public.participation",
-        "update public.open_responses set option_id = option_id",
-        "delete from public.open_responses",
-        "truncate public.participation, public.open_responses cascade",
-      ]) {
-        const error = await dbError(
+      const attempt = (sql: string, submission: boolean) =>
+        dbError(
           db.asOwner(async (c) => {
-            await c.query("select set_config('cp.submission', 'on', true)");
+            if (submission) {
+              await c.query("select set_config('cp.submission', 'on', true)");
+            }
             await c.query(sql);
           }),
         );
-        expect(error.message, sql).toBe("IMMUTABLE_RECORD");
+
+      // Participation is permanent, even on the submission path.
+      for (const sql of [
+        "update public.participation set accepted_at = now()",
+        "delete from public.participation",
+        "truncate public.participation, public.open_responses cascade",
+      ]) {
+        expect((await attempt(sql, true)).message, sql).toBe(
+          "IMMUTABLE_RECORD",
+        );
       }
+      // Responses change only through the guarded submission path.
+      for (const sql of [
+        "update public.open_responses set option_id = option_id",
+        "delete from public.open_responses",
+      ]) {
+        expect((await attempt(sql, false)).message, sql).toBe(
+          "IMMUTABLE_RECORD",
+        );
+      }
+      // Even that path cannot move a response to another household.
+      expect(
+        (
+          await attempt(
+            `update public.open_responses set household_id = '${world.bob.householdId}'`,
+            true,
+          )
+        ).message,
+      ).toBe("IMMUTABLE_RECORD");
+
+      // Once the vote is no longer active, responses are frozen.
+      await db.asOwner((c) =>
+        c.query(
+          `update public.votes set status = 'CANCELLED', cancelled_at = clock_timestamp(),
+             cancellation_reason = 'Cancelled' where id = $1`,
+          [vote.id],
+        ),
+      );
+      expect(
+        (
+          await attempt(
+            "update public.open_responses set option_id = option_id",
+            true,
+          )
+        ).message,
+      ).toBe("VOTING_CLOSED");
+      expect(
+        (await attempt("delete from public.open_responses", true)).message,
+      ).toBe("IMMUTABLE_RECORD");
     });
 
     it("fails the whole transaction when a participation has no matching response", async () => {

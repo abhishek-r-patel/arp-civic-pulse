@@ -119,7 +119,7 @@ Useful server entry points:
 - [auth/otp.ts](../src/server/auth/otp.ts): request code, verify and sign out.
 - [votes/submission.ts](../src/server/votes/submission.ts): submission and participation status.
 - [votes/member.ts](../src/server/votes/member.ts): entitled discovery/detail/results.
-- [votes/lifecycle.ts](../src/server/votes/lifecycle.ts): activation/completion/cancellation and overdue reconciliation.
+- [votes/lifecycle.ts](../src/server/votes/lifecycle.ts): activation/completion/cancellation, deadline changes and overdue reconciliation.
 - [exports/results-export.ts](../src/server/exports/results-export.ts): complete private CSV/PDF response.
 - [observability/logger.ts](../src/server/observability/logger.ts): allowlisted logs.
 
@@ -218,7 +218,7 @@ auth.users -- profiles -- households
 Critical constraints:
 
 - Unique participation and whole-transaction rollback prevent duplicate/partial ballots.
-- Frozen content, representatives and deadlines cannot be edited after activation.
+- Frozen content and representatives cannot be edited after activation; an active deadline moves only through the audited deadline change.
 - Candidate IDs must belong to the submitted office/vote.
 - For each completed PRIVATE office, candidate counts plus NOTA equal submitted ballots.
 - Every PUBLIC participation has at least one selected option and obeys its configured cap. Multi-select option counts can exceed participation. Invariant failure withholds results rather than fabricating a fix.
@@ -258,6 +258,8 @@ The privileged client bypasses RLS: use it only in the established provisioning/
 | `20261102100000_optional_rwa_contact_fields` | Optional (blank, hidden) RWA address, email and phone. |
 | `20261103100000_public_private_voting` | Renames stored voting types OPEN/CLOSED to PUBLIC/PRIVATE in data, checks and routines. |
 | `20261103110000_household_label_and_identifier_kind` | Household label and Number/ID identifier kind replace the identifier label. |
+| `20261104100000_rwa_default_lists` | Admin-only Default Households and RWA Positions suggestion lists in RWA settings. |
+| `20261105100000_change_vote_deadline` | Audited `change_vote_deadline` routine; the vote guard lets only it move an active vote's deadline. |
 
 Use the exact ordered filenames in [migrations](../supabase/migrations); do not rewrite an applied migration. New changes require a new versioned migration and fresh/upgrade tests. Never run migrations at application startup or use a reset on an existing real database.
 
@@ -267,7 +269,7 @@ Use the exact ordered filenames in [migrations](../supabase/migrations); do not 
 
 Drafts can be incomplete. Every edit increments `draftRevision`; an update includes the expected revision. A stale edit receives a conflict rather than overwriting someone else's work. Preview identifies its version, and activation must confirm that same version.
 
-Activation checks ballot validity, current selected representatives, future deadline, approvals and retention configuration. It freezes the electorate, historical identity/display data and ballot. Editing a household later affects future votes only.
+Activation checks ballot validity, current selected representatives, future deadline, approvals and retention configuration. It freezes the electorate, historical identity/display data and ballot. Editing a household later affects future votes only. While the vote is Active an administrator may move only its deadline (later or earlier, at least 5 minutes ahead, with an audited reason) through `change_vote_deadline`.
 
 Supabase Cron completes due votes and runs bounded retention. The scheduling role has narrow function grants. Scheduled completion records the deadline as effective completion time even if processing is late. Authorized reads may reconcile an overdue vote, but the transactional deadline remains authoritative.
 
@@ -301,7 +303,7 @@ HTTP groups mirror the same services:
 - `/api/auth/code`, `/verify`, `/sign-out`.
 - `/api/votes`, `/api/votes/{id}`, `/{id}/participation`, `/{id}/submission`, `/{id}/results`, `/{id}/exports/{format}`.
 - `/api/admin/accounts` and `/api/admin/households`, plus record IDs.
-- `/api/admin/votes`, record IDs, `/preview`, `/activate`, `/complete`, `/cancel`, `/participation`.
+- `/api/admin/votes`, record IDs, `/preview`, `/activate`, `/complete`, `/cancel`, `/deadline`, `/participation`.
 - `/api/admin/audit`.
 - `/api/internal/health`.
 
@@ -419,7 +421,7 @@ node scripts\docs\render.mjs
 
 Before capturing, apply every migration to the fixture project (`npx supabase db push --db-url $env:LIVE_DATABASE_URL`, review the `--dry-run` first), run `npm run test:live`, and make sure no other `next dev` server is running in this folder: Playwright starts its own on port 3100 and Next allows one per folder.
 
-Use only the approved disposable fixture project. Capturing creates synthetic Auth users, profiles, households, votes, participation and fixture policy/retention data; never run it against production. It reuses existing fixture helpers. Before capturing, it sets a synthetic RWA profile (Lakeview names, example address and phone, a blank email and website so the pictures show empty optional fields hidden, Teal palette, a welcome message, the **Flat** household label and the **Number** identifier label) and restores the previous profile afterwards; each change is audited as `RWA_PROFILE_UPDATED`. It also creates a PRIVATE election with NOTA and a multi-select PUBLIC poll for the live-turnout and live-results pictures. The illustrated flats use realistic synthetic numbers (**H-513** for the example resident and **H-514** for the added flat, or another unused realistic number when those already exist); other fixture households get random numbers in the same style. Email/code fields that hold a value and email text are masked (an intentionally blank field stays visibly blank), trace/video are off, and screenshots are stored in the documentation image folder. The code-error response and connection failures are deliberately simulated; the rest of the principal voting/administration flows use the real test application and database. The capture does not prove SMTP delivery.
+Use only the approved disposable fixture project. Capturing creates synthetic Auth users, profiles, households, votes, participation and fixture policy/retention data; never run it against production. It reuses existing fixture helpers. Before capturing, it sets a synthetic RWA profile (Lakeview names, example address and phone, a blank email and website so the pictures show empty optional fields hidden, Teal palette, a welcome message, the **Flat** household label and the **Number** identifier label) and restores the previous profile afterwards; each change is audited as `RWA_PROFILE_UPDATED`. It also creates a PRIVATE election with NOTA and a multi-select PUBLIC poll for the live-turnout and live-results pictures. The illustrated flats use realistic synthetic numbers (**H-513** for the example resident and **H-514** for the added flat, or another unused realistic number when those already exist); other fixture households get random numbers in the same style. The illustrated active vote also has its deadline extended by two days with a synthetic reason, so the audit trail shows a `VOTE_DEADLINE_CHANGED` event. Email/code fields that hold a value and email text are masked (an intentionally blank field stays visibly blank), trace/video are off, and screenshots are stored in the documentation image folder. The code-error response and connection failures are deliberately simulated; the rest of the principal voting/administration flows use the real test application and database. The capture does not prove SMTP delivery.
 
 The renderer supports the deliberately small Markdown subset used by these two guides and embeds local images in the printable HTML. It fails on missing local linked files/images. Regenerate both HTML files whenever changing Markdown or screenshots. Do not hand-edit the generated HTML.
 

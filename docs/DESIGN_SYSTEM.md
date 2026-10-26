@@ -155,7 +155,7 @@ Use Lucide React. Line icons only, 1.5px stroke. Always label icons with text un
 
 ### Resident ballot
 - Show title, type, lifecycle status, eligibility, deadline/timezone and instructions before controls.
-- Show an informational `HH:MM:SS` deadline countdown on active voter and administrator vote pages, including after submission; include days for longer intervals and display "Deadline reached" at zero. Render the countdown text and clock icon in the semibold error (red) colour so the deadline stands out; the clock icon and wording keep the meaning from relying on colour alone. Refresh state at zero and keep the database as the only submission authority.
+- Show an informational `HH:MM:SS` deadline countdown on active voter and administrator vote pages, including after submission; include days for longer intervals and display "Deadline reached" at zero. Render the countdown text and clock icon in the semibold error (red) colour so the deadline stands out; the clock icon and wording keep the meaning from relying on colour alone. Refresh state at zero and keep the database as the only submission authority. A deadline changed by an administrator reaches residents on their next page load; a page left open refreshes when its old countdown reaches zero and then counts down to the new deadline.
 - Use a labelled radio group for single-select polls and a checkbox group for multi-select polls; show the required minimum and any maximum. Use a labelled radio group per PRIVATE office with an explicit NOTA (None of the Above) option. The NOTA rule sits behind an (i) disclosure button beside the office-choice heading: it opens on mouse hover or click/tap, exposes `aria-expanded`, and closes on Escape (returning focus) or an outside click. No candidate/option should be preselected.
 - Require at least one PUBLIC choice within the configured maximum, or a candidate/NOTA choice for every PRIVATE office; submit one whole ballot.
 - Review all selections before final confirmation; Back permits correction before submission.
@@ -192,9 +192,10 @@ Use Lucide React. Line icons only, 1.5px stroke. Always label icons with text un
 | Ballot / review | Privacy notice, eligibility, timezone deadline, grouped selections, full review and final confirmation |
 | Results | Completion context, frozen eligible count, submitted count, turnout, counts/denominators, NOTA and tie/no-votes outcomes |
 | Admin vote list | Clear drafts/active/completed/cancelled grouping and next valid action, without live choices |
-| Draft editor | Sectioned setup, validation, electorate selection, preview and explicit activation |
-| Household register | Household, representative, email and eligibility; add/edit/suspend feedback and frozen-electorate explanation |
-| Lifecycle confirmation | Action-specific consequences; required reasons for early completion/cancellation |
+| Draft editor | Sectioned setup, validation, electorate selection, preview and explicit activation; PRIVATE office names suggest the RWA Positions list, and **Add All Positions** adds them as offices |
+| Household register | Household, representative, email and eligibility; add/edit/suspend feedback and frozen-electorate explanation; the identifier field suggests unused Default Households |
+| Lifecycle confirmation | Action-specific consequences; required reasons for early completion/cancellation and deadline changes |
+| Change Deadline | Active votes only: current deadline, a new time in the RWA zone with a live "extended/brought forward by" preview, and a required audit-only reason; refuses times under 5 minutes ahead or equal to the current deadline |
 | Audit History | Readable actor/action/record/time/reason with pagination; no codes or PRIVATE selections |
 | Privacy policy | Public, one H1 and logical section headings; explain PUBLIC/PRIVATE handling, cookies, support mail, optional analytics and deployment-specific policy limits |
 | Contact | Public, labelled name/reply-email/message fields when configured; warning against sending choices/codes; clear unavailable, validation, pending, uncertain and provider-accepted states |
@@ -218,7 +219,7 @@ Public pages use the same Tailwind tokens, including `text-section` and
 
 - Active PUBLIC results show aggregate option counts and turnout; active PRIVATE results show aggregate turnout only. Refresh live aggregates automatically and do not reveal active choices. Hide PRIVATE candidate/NOTA totals until completion. Completed PRIVATE results contain aggregates only; PUBLIC named responses appear only after completion to authorised viewers.
 - Show denominator labels next to percentages. Keep NOTA separate from candidates; zero denominators are not applicable rather than invalid arithmetic.
-- Zero ballots have no winner. Tied positive candidate leaders show Tie. NOTA is counted separately but cannot win; the highest-count candidate is elected even if NOTA has more votes. If no candidate receives a vote, no candidate is elected.
+- Zero ballots have no winner. Tied positive candidate leaders show Tie. NOTA is counted separately but cannot win; the highest-count candidate is elected even if NOTA has more votes. If no candidate receives a vote, no candidate is elected. On PRIVATE results this rule sits behind the same (i) disclosure, beside a **How NOTA is counted** heading; the **Totals only** privacy notice stays visible.
 - Label early completion and display its reason. Completed poll outcomes do not imply spending authorisation or legal approval.
 - Cancelled details display the invalid-result notice without publishing choices.
 - For long PUBLIC response lists, use accessible pagination and complete labels; an export contains the whole authorised dataset, not just the visible page.
