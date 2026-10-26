@@ -6,18 +6,18 @@ The application implements registered-member email OTP access, household/account
 
 ## Source of truth
 
-| Document                                                             | Authority                                                   |
-| -------------------------------------------------------------------- | ----------------------------------------------------------- |
-| [AGENTS.md](./AGENTS.md) | Root instructions and automatic documentation-sync checklist |
-| [docs/AGENTS.md](./docs/AGENTS.md)                                   | Workspace-wide engineering rules                            |
-| [docs/PRD.md](./docs/PRD.md)                                         | Scope, behaviour and acceptance criteria                    |
-| [docs/DESIGN_SYSTEM.md](./docs/DESIGN_SYSTEM.md)                     | Visual tokens, accessibility and responsive behaviour       |
-| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)                       | Stack, boundaries, privacy and operations                   |
-| [docs/API.md](./docs/API.md), [docs/DATABASE.md](./docs/DATABASE.md) | Supporting contracts                                        |
-| [docs/IMPLEMENTATION_PLAN.md](./docs/IMPLEMENTATION_PLAN.md)         | Sequencing                                                  |
-| [docs/OPERATIONS.md](./docs/OPERATIONS.md)                           | Backups, restore, retention, monitoring, incidents          |
-| [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)                           | Production deployment, secrets, migrations and verification |
-| [docs/PILOT_READINESS.md](./docs/PILOT_READINESS.md)                 | Evidence gathered and gates still open                      |
+| Document                                                             | Authority                                                    |
+| -------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [AGENTS.md](./AGENTS.md)                                             | Root instructions and automatic documentation-sync checklist |
+| [docs/AGENTS.md](./docs/AGENTS.md)                                   | Workspace-wide engineering rules                             |
+| [docs/PRD.md](./docs/PRD.md)                                         | Scope, behaviour and acceptance criteria                     |
+| [docs/DESIGN_SYSTEM.md](./docs/DESIGN_SYSTEM.md)                     | Visual tokens, accessibility and responsive behaviour        |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)                       | Stack, boundaries, privacy and operations                    |
+| [docs/API.md](./docs/API.md), [docs/DATABASE.md](./docs/DATABASE.md) | Supporting contracts                                         |
+| [docs/IMPLEMENTATION_PLAN.md](./docs/IMPLEMENTATION_PLAN.md)         | Sequencing                                                   |
+| [docs/OPERATIONS.md](./docs/OPERATIONS.md)                           | Backups, restore, retention, monitoring, incidents           |
+| [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)                           | Production deployment, secrets, migrations and verification  |
+| [docs/PILOT_READINESS.md](./docs/PILOT_READINESS.md)                 | Evidence gathered and gates still open                       |
 
 ## Learning and user documentation
 

@@ -30,13 +30,11 @@ beforeEach(() => {
   vi.stubEnv("CONTACT_EMAIL_TO", "admin@civic.example");
   context.value = createCsrfContext();
   rpc.mockReset().mockResolvedValue({ data: { allowed: true }, error: null });
-  transport
-    .mockReset()
-    .mockResolvedValue(
-      new Response(JSON.stringify({ id: "synthetic-message" }), {
-        status: 200,
-      }),
-    );
+  transport.mockReset().mockResolvedValue(
+    new Response(JSON.stringify({ id: "synthetic-message" }), {
+      status: 200,
+    }),
+  );
   vi.stubGlobal("fetch", transport);
 });
 afterEach(() => {
