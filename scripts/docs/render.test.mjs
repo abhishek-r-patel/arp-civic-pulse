@@ -1,5 +1,7 @@
 // Regression checks for safe offline and public guide rendering.
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { matchesGlob } from "node:path";
 import { test } from "node:test";
 import { guideDocument, guideLink, renderMarkdown } from "./render.mjs";
 
@@ -7,6 +9,23 @@ const options = {
   link: (target) => target,
   image: () => ({ src: "data:image/png;base64,AA==", mobile: true }),
 };
+
+test("deployment retains the guide-linked environment example but excludes real environment files", () => {
+  const rules = readFileSync(new URL("../../.vercelignore", import.meta.url), "utf8")
+    .split(/\r?\n/u)
+    .filter((rule) => rule && !rule.startsWith("#"));
+  const excluded = (name) =>
+    rules.reduce((ignored, rule) => {
+      const exception = rule.startsWith("!");
+      return matchesGlob(name, exception ? rule.slice(1) : rule)
+        ? !exception
+        : ignored;
+    }, false);
+  assert.equal(excluded(".env.example"), false);
+  for (const name of [".env", ".env.local", ".env.production", ".env.preview"]) {
+    assert.equal(excluded(name), true, name);
+  }
+});
 
 test("web guide shares the app favicon without adding network dependencies to offline editions", () => {
   const rendered = renderMarkdown("# Guide\n", options);
