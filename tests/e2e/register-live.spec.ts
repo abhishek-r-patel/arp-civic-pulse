@@ -250,7 +250,7 @@ test.describe("confirmation dialog", () => {
     await page.goto("/admin/accounts/new");
     await page.getByLabel(/Email address/).fill(plusEmail());
     await page.getByLabel(/Representative name/).fill("Dialog Subject");
-    await page.getByLabel("Administrator").check();
+    await page.getByLabel("Management role").selectOption("rwa-admin");
     await page.getByRole("button", { name: "Create Account" }).click();
     await expect(
       page.getByRole("heading", { level: 1, name: "Dialog Subject" }),

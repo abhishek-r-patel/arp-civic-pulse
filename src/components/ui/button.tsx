@@ -36,8 +36,28 @@ export function buttonClasses(
 export function LinkButton({
   variant = "primary",
   className,
+  disabled = false,
   ...rest
-}: Readonly<ComponentProps<typeof Link> & { variant?: ButtonVariant }>) {
+}: Readonly<
+  ComponentProps<typeof Link> & { variant?: ButtonVariant; disabled?: boolean }
+>) {
+  if (disabled) {
+    return (
+      <span
+        role="link"
+        aria-disabled="true"
+        title="Only administrators can make management changes."
+        className={cn(
+          baseClasses,
+          variantClasses[variant],
+          "cursor-not-allowed opacity-60",
+          className,
+        )}
+      >
+        {rest.children}
+      </span>
+    );
+  }
   return (
     <Link
       className={cn(baseClasses, variantClasses[variant], className)}

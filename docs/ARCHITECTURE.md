@@ -61,7 +61,7 @@ Pin supported dependency versions in a lockfile and review licenses/advisories. 
 - Mark protected services and clients server-only. Never serialize full database entities and rely on hidden UI to protect fields.
 - Browser voting reads/writes go through Next.js. This is a boundary for the application, not a substitute for database permissions: assume someone can call the Supabase API directly.
 - Use the RWA-configured household terms throughout member/admin/public screens and printable results: `rwa_settings` stores a household label (for example Flat) and an identifier kind (Number or ID); `buildHouseholdTerms` derives singular, plural, sentence-case and identifier wording; server code reads them with `loadHouseholdTerms()` (request-cached, falling back to the defaults) and client components with `useHouseholdTerms()` from the provider in the app shell. Changes go only through the audited administrator RPC.
-- Keep the RWA profile editable by administrators only. Enabled members see the resulting values on other pages (alias in the “Civic Pulse for {alias}” header, full name on vote/results/home pages, contact block in the footer, welcome message, accent palette) through the narrow `get_rwa_branding` projection; the public sign-in and privacy pages receive only name, alias, address and palette through a server-only service-role routine, so `anon` still executes no routine. Screens and exports show the current RWA name, while each vote keeps its activation-time `rwa_name_snapshot` only as an internal historical record.
+- Keep the RWA profile editable by administrators only; enabled `rwa-readonly` committee observers share the authorized administrative read scope. Enabled members see the resulting values on other pages (alias in the “Civic Pulse for {alias}” header, full name on vote/results/home pages, contact block in the footer, welcome message, accent palette) through the narrow `get_rwa_branding` projection; the public sign-in and privacy pages receive only name, alias, address and palette through a server-only service-role routine, so `anon` still executes no routine. Screens and exports show the current RWA name, while each vote keeps its activation-time `rwa_name_snapshot` only as an internal historical record.
 - Active voter, results and administrator pages display a browser countdown to the current deadline and refresh at zero (a changed deadline resets the countdown). It is informational only; the database's post-lock deadline check remains authoritative.
 - Use the user's verified session for normal database calls. Never use a service-role client to bypass eligibility or obtain live tallies.
 - Validate state-changing request origins and apply anti-CSRF protection appropriate to the route/action. Do not rely on hidden buttons, middleware alone or broad CORS.
@@ -91,7 +91,7 @@ Approved appearance review implementation:
 - `src/components/ui/theme-switcher.tsx`: native header Light/Dark/System menu with Escape/outside dismissal; available before and after authentication.
 - `src/app/layout.tsx` and `src/styles/globals.css`: self-hosted Sora/Manrope, root appearance attribute, Platinum/Obsidian tokens, dark RWA accent variants and light print overrides. Shared button foreground tokens remain contrast-safe.
 - `tests/unit/theme.test.ts`: startup recovery and contrast gates; `tests/e2e/theme.spec.ts`: real-browser mode, persistence, blocked storage, keyboard, accessibility, responsive, self-hosted-font and print checks.
-- `scripts/docs/capture.spec.ts` focused **Platinum and Obsidian** capture: redacted Votes/Accounts review pictures `68`-`74`, refreshing affected overviews. No production data is used.
+- `scripts/docs/capture.spec.ts` captures current Platinum/Obsidian persona screens from synthetic accounts; the former root-level pictures `68`-`74` are archived with the old guide. No production data is used.
 
 After the user approved the concept-aligned Votes screen, the shared style was
 extended to all screen families: compact PageHeader/EmptyState hierarchy,
@@ -109,10 +109,11 @@ checks. `PLAYWRIGHT_PRESERVE_GUIDE=1` makes the existing browser config start Ne
 directly instead of invoking guide generation. Appearance controls expose a
 hydration-readiness marker and disable mode radios until client state is ready.
 
-The User Guide and all its images/HTML are frozen by the user's explicit request
-for this rollout. Technical-guide generation uses exported `renderGuide` for
-TECHNICAL_GUIDE only. New temporary screenshots are not published as guide images;
-existing guide pictures must not be presented as current all-screen visuals.
+The current User Guide is persona-first and uses current application captures
+grouped under `docs/images/user-guide/voter`, `rwa-admin` and
+`rwa-readonly`; public/shared entry screens are grouped with the voter captures.
+`scripts/docs/render.mjs` regenerates both offline HTML and the public copy from
+the active Markdown and embedded assets.
 This is the migration target, not a description of already completed changes. Retain existing feature directories where practical; create helpers only when needed.
 
 ```text
@@ -163,7 +164,9 @@ Keep Supabase user-session and privileged provisioning clients separate. Do not 
 
 Register import and scheduling implementation map:
 
-- `src/components/admin/account-review-table.tsx`: page-scoped account selection, independent enable/eligibility confirmations, administrator warnings and per-row outcomes. Existing `src/app/admin/accounts/page.tsx` defaults to residents and explicitly supports All Roles. Existing `src/server/register/accounts.ts` adds RLS-bound assignment enrichment for only the returned page; shared register contracts define the review projection and action-target helpers. Existing protected PATCH services remain the sole mutation paths, with no new migration or bulk permission bypass.
+- `src/components/admin/account-review-table.tsx`: page-scoped account selection, independent enable/eligibility confirmations, administrator warnings and per-row outcomes. Existing `src/app/admin/accounts/page.tsx` defaults to the implicit `voter` role and explicitly supports All Roles. Existing `src/server/register/accounts.ts` adds RLS-bound assignment enrichment for only the returned page; shared register contracts define the review projection and action-target helpers. Existing protected PATCH services remain the sole mutation paths, with no new migration or bulk permission bypass.
+- `src/components/admin/management-fields.tsx` and `src/app/admin/layout.tsx`: visible, disabled management controls and observer notice. `src/server/authorization/account.ts` separates committee read capability from strict admin mutation checks; `src/server/register/shared.ts` provides explicit committee-read dependencies for read handlers only.
+- `supabase/migrations/20261108100000_readonly_committee_role.sql`: exclusive `is_readonly` role, current-profile committee-read helper, narrowly broadened read routines/RLS, audited atomic role changes and readonly provisioning. `tests/integration/readonly-role.test.ts` exercises management read/write boundaries, household voting, privacy, household assignment and final-admin safeguards; `tests/e2e/readonly-role-live.spec.ts` is an opt-in synthetic disposable-project journey.
 - `scripts/docs/capture.spec.ts` also has a focused **bulk account review** test, refreshing `47-accounts-list` and adding `63-account-review` through `67-enable-admin-warning`. It uses stable-ID synthetic row lookup, independent eligibility/two-account enablement, an unselected account, explicit admin inclusion and a controlled failed request. Ordinary provider/mutation budgets remain in force.
 
 - `src/shared/contracts/register-import.ts`: bounded `csv-parse` parsing, strict row/request validation and outcome types; `tests/unit/register-import.test.ts` covers parsing and orchestration.
@@ -172,7 +175,7 @@ Register import and scheduling implementation map:
 - `src/app/api/admin/votes/[id]/schedule/route.ts` and `schedule/withdraw/route.ts`: confirmed schedule/withdrawal endpoints. Existing lifecycle controls, preview and vote pages provide the UI.
 - `supabase/migrations/20261106100000_register_import.sql`: guarded import inspection/assignment; `tests/integration/register-import.test.ts` verifies conflicts, permissions, concurrency and suspended access.
 - `supabase/migrations/20261107100000_scheduled_opening.sql`: opening fields, scheduled state, freeze/withdraw/opening routines, direct-read ballot privacy and Cron integration; existing `tests/integration/lifecycle.test.ts` exercises boundaries.
-- `scripts/docs/capture.spec.ts`: separate opted-in full and focused synthetic capture tests. The focused import/scheduling test refreshes four existing pictures and adds nine documented workflow images in `docs/images/user-guide/` (`54-import-preview` to `61-schedule-withdrawn`, and `62-import-mobile`). `tests/e2e/support/live.ts` uses the existing operational database helper for verified TLS with a provider CA, not a certificate-verification bypass.
+- `scripts/docs/capture.spec.ts`: opted-in synthetic Resident, RWA Admin and RWA ReadOnly persona captures. Screenshots are written to `docs/images/user-guide/{voter,rwa-admin,rwa-readonly}` with email/code redaction. `tests/e2e/support/live.ts` uses the existing operational database helper for verified TLS with a provider CA, not a certificate-verification bypass.
 
 ### Public discovery and contact additions
 
@@ -195,6 +198,8 @@ authorization. Do not include register, ballot or results URLs in discovery.
 | `src/shared/contracts/contact.ts` | Strict, bounded support payload |
 | `src/app/api/contact/route.ts`, `src/server/contact.ts` | CSRF-protected, rate-limited Resend delivery; never an OTP or voting dependency |
 | `tests/unit/metadata.test.ts`, `tests/unit/contact.test.ts` | Discovery policy, contact protections and controlled transport tests |
+| `docs/USER_GUIDE.md` | Active Resident (`voter`), RWA Admin (`rwa-admin`) and RWA ReadOnly (`rwa-readonly`) procedures with persona-specific current screenshots |
+| `docs/images/user-guide/{voter,rwa-admin,rwa-readonly}` | Current synthetic captures grouped by effective application persona |
 | `public/user-guide.html` | Generated, no-index public user help with embedded synthetic screenshots and no repository-only links; linked from the app footer |
 
 `scripts/docs/render.mjs` generates the web user guide alongside the existing
@@ -237,15 +242,15 @@ Use stable identifiers, foreign keys, nonnegative counter constraints, explicit 
 ### Permission rules
 - Enable RLS on all application tables; revoke unauthenticated application-data access and unnecessary table/function privileges.
 - Deny direct client access to choice storage, including authenticated admin access. Expose active PUBLIC aggregates, active PRIVATE aggregate turnout, and completed data through authorized projections; never expose active choices.
-- Do not expose private tables through Realtime publications or change feeds. Members cannot inspect others' active participation; only administrators may view the active PRIVATE household participation list for follow-up.
+- Do not expose private tables through Realtime publications or change feeds. Members cannot inspect others' active participation; administrators and `rwa-readonly` observers may view the active PRIVATE household participation list for follow-up, never choices.
 - Members cannot update role, suspension, electorate, participation, counters or audit records directly. Never trust a role supplied in user-editable Auth metadata.
-- Guard register/draft mutations with admin checks and enforce frozen configuration in the database, not only the service.
+- Guard every role assignment and register/draft/lifecycle mutation with a true-admin check; `rwa-readonly` is an explicit read capability, never a mutation predicate. Enforce frozen configuration in the database, not only the service.
 - Separate migration-owner privileges from runtime access. Function owners use restricted non-login roles with only the required privileges.
 - For `security definer` functions, fix `search_path`, schema-qualify references, revoke default public execution and grant only required callers. Explicitly validate `auth.uid()`, current profile status, capability and frozen entitlement inside each user-callable function.
 - Never accept an account/household identifier from the request as proof of identity. User-facing functions derive identity from the verified JWT context.
 - Cron runs a separate maintenance entry point with no end-user JWT; grant it only to the scheduling role. Do not make maintenance callable by normal users.
 
-Admin status grants administrative access, not voting entitlement or access to individual PRIVATE choices. Supabase dashboard/database operators are privileged infrastructure operators, not application admins.
+`rwa-admin` and `rwa-readonly` are mutually exclusive management roles. Readonly observers receive the same authorized management reads/downloads as admins, with disabled UI controls; only admins change roles or data. Either enabled role may vote through its own household entitlement, and neither role grants access to individual PRIVATE choices. Supabase dashboard/database operators are privileged infrastructure operators, not application admins.
 
 ## 06 Authentication, Register and Sessions
 - CSV onboarding creates households and representative accounts together after preview/confirmation, with no public signup or role column. Exact matches are skipped; mismatches are reported, never merged. At most 500 rows/256 KiB are accepted. Each row is a separately retryable cross-service workflow, not an all-file transaction; partial or uncertain failures stop further processing. New accounts stay suspended pending review and explicit enablement through existing account controls. CSV data stays in browser page memory and is never logged. A dedicated 1200-request/hour administrator budget covers check/import stages without relaxing ordinary mutation budgets.
@@ -310,7 +315,7 @@ Each `cast_vote` call performs one guarded PostgreSQL transaction:
 - The change runs through one guarded database routine under the vote lock. An overdue vote is completed at its old deadline instead. The reason and previous/new deadlines are recorded only in the audit trail; residents are not notified, but countdowns, admission and due completion follow the new deadline.
 
 ### Results
-- Show active PUBLIC aggregate counts/turnout and active PRIVATE aggregate turnout to eligible voters and admins, but hide active choices. During active PRIVATE elections, only admins may see household participation for follow-up. Keep PRIVATE candidate/NOTA totals hidden until completion. Apply the same authorization to pages, API and exports.
+- Show active PUBLIC aggregate counts/turnout and active PRIVATE aggregate turnout to eligible Residents and authorized RWA Admin/ReadOnly readers, but hide active choices. During active PRIVATE elections, RWA Admins and RWA ReadOnly observers may see household participation for follow-up. Keep PRIVATE candidate/NOTA totals hidden until completion. Apply the same authorization to pages, API and exports.
 - Use one consistent result projection/snapshot for active aggregates and completed screens/exports; only completed data can be exported.
 - Frozen eligible households form the turnout denominator, including households later suspended.
 - Submitted ballots equal accepted participation. Per office, candidate counts plus NOTA count equal submitted ballots; every PUBLIC participant has one or more valid selected-option rows.
@@ -394,7 +399,7 @@ Sources: [Supabase pricing](https://supabase.com/pricing), [SMTP](https://supaba
 - Validate required configuration at startup; fail explicitly for unsafe/missing production settings.
 - Keep canonical application origin, Supabase URL/public client key, server-only privileged credentials and SMTP settings in appropriate environment/provider configuration. The Supabase URL and public key are not secrets; privileged credentials must never use a browser-visible prefix.
 - Store RWA timezone, policy approvals and retention settings in controlled database records. Block real activation until required approvals are recorded.
-- Configure the RWA profile (required full name, alias, household label and identifier kind; optional address, email, phone, website and welcome message, hidden when blank; accent palette) in the administrator-only RWA Settings page. The household and identifier labels are display-only. Only administrators can read the settings projection or change it; updates audit changed field names, not values. Changes apply to all screens and exports immediately, including existing votes.
+- Configure the RWA profile (required full name, alias, household label and identifier kind; optional address, email, phone, website and welcome message, hidden when blank; accent palette) in RWA Settings. RWA Admins can read and update it; RWA ReadOnly observers can read but not change it. The household and identifier labels are display-only. Updates audit changed field names, not values. Changes apply to all screens and exports immediately, including existing votes.
 - Keep local/test/staging/production data and credentials isolated. Use synthetic data and local mail capture; never copy production registers, ballots or backups into development.
 - Enforce HTTPS, secure cookies, restrictive CSP, frame denial, MIME protection and safe origin handling. Limit export concurrency and untrusted text input.
 - Monitor availability, submission failure/latency, invariant failures, Cron lag, database capacity, email and export failures. Disable session replay and payload capture; log allowlisted event classes and random support IDs only.

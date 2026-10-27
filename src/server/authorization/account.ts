@@ -1,3 +1,4 @@
+// Verified current-profile identity and capability guards for server requests.
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cache } from "react";
@@ -6,17 +7,20 @@ import { createUserClient } from "@/server/db/clients";
 import { toApiError } from "@/server/db/errors";
 import { ApiError } from "@/server/http/errors";
 import { log } from "@/server/observability/logger";
+import { canViewAdministration } from "@/shared/contracts/register";
 
 export interface Account {
   id: string;
   representativeName: string;
   isAdmin: boolean;
+  isReadonly?: boolean;
 }
 
 interface ProfileRow {
   id: string;
   representative_name: string;
   is_admin: boolean;
+  is_readonly?: boolean;
 }
 
 /*
@@ -57,7 +61,7 @@ export async function loadEnabledAccount(
 ): Promise<Account | null> {
   const { data, error } = await client
     .from("profiles")
-    .select("id, representative_name, is_admin")
+    .select("id, representative_name, is_admin, is_readonly")
     .eq("id", userId)
     .maybeSingle<ProfileRow>();
 
@@ -74,6 +78,7 @@ export async function loadEnabledAccount(
     id: data.id,
     representativeName: data.representative_name,
     isAdmin: data.is_admin,
+    ...(data.is_readonly ? { isReadonly: true } : {}),
   };
 }
 
@@ -100,6 +105,17 @@ export async function requireAdmin(
 ): Promise<{ account: Account; client: SupabaseClient }> {
   const context = await requireAccount(client);
   if (!context.account.isAdmin) {
+    throw new ApiError("FORBIDDEN");
+  }
+  return context;
+}
+
+/** Committee members can read management data, but cannot use requireAdmin. */
+export async function requireCommittee(
+  client?: SupabaseClient,
+): Promise<{ account: Account; client: SupabaseClient }> {
+  const context = await requireAccount(client);
+  if (!canViewAdministration(context.account)) {
     throw new ApiError("FORBIDDEN");
   }
   return context;

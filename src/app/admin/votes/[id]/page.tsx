@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { DraftEditor } from "@/components/admin/vote-forms";
+import { ManagementFields } from "@/components/admin/management-fields";
 import {
   ChangeDeadline,
   LifecycleActions,
@@ -98,14 +99,16 @@ export default async function VotePage({
             to support: {householdsError?.code ?? "UNKNOWN"}.
           </Notice>
         ) : (
-          <DraftEditor
-            csrfToken={deps.csrfToken}
-            identifierLabel={deps.identifierLabel}
-            initial={vote}
-            households={households}
-            positions={positions}
-            flash={raw.notice ? notices[raw.notice] : undefined}
-          />
+          <ManagementFields canManage={deps.actor.isAdmin}>
+            <DraftEditor
+              csrfToken={deps.csrfToken}
+              identifierLabel={deps.identifierLabel}
+              initial={vote}
+              households={households}
+              positions={positions}
+              flash={raw.notice ? notices[raw.notice] : undefined}
+            />
+          </ManagementFields>
         )
       ) : (
         <>
@@ -116,7 +119,12 @@ export default async function VotePage({
           ) : null}
           <LifecycleSummary vote={vote} />
           {vote.status === "SCHEDULED" ? (
-            <WithdrawVoteSchedule csrfToken={deps.csrfToken} voteId={vote.id} />
+            <ManagementFields canManage={deps.actor.isAdmin}>
+              <WithdrawVoteSchedule
+                csrfToken={deps.csrfToken}
+                voteId={vote.id}
+              />
+            </ManagementFields>
           ) : null}
           <section aria-labelledby="follow-up" className="grid gap-3">
             <h2 id="follow-up" className="text-section font-semibold">
@@ -140,15 +148,19 @@ export default async function VotePage({
             </div>
           </section>
           {vote.status === "ACTIVE" && vote.closesAt ? (
-            <ChangeDeadline
-              csrfToken={deps.csrfToken}
-              voteId={vote.id}
-              closesAt={vote.closesAt}
-              timezone={vote.timezone ?? "UTC"}
-            />
+            <ManagementFields canManage={deps.actor.isAdmin}>
+              <ChangeDeadline
+                csrfToken={deps.csrfToken}
+                voteId={vote.id}
+                closesAt={vote.closesAt}
+                timezone={vote.timezone ?? "UTC"}
+              />
+            </ManagementFields>
           ) : null}
           {vote.status === "ACTIVE" ? (
-            <LifecycleActions csrfToken={deps.csrfToken} voteId={vote.id} />
+            <ManagementFields canManage={deps.actor.isAdmin}>
+              <LifecycleActions csrfToken={deps.csrfToken} voteId={vote.id} />
+            </ManagementFields>
           ) : null}
           <section aria-labelledby="frozen-ballot" className="grid gap-3">
             <h2 id="frozen-ballot" className="text-section font-semibold">

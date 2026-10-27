@@ -5,6 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { instantToLocalInput } from "../../src/shared/time/zoned";
 import {
+  activateVoteFor,
   asUser,
   ensureFixturePolicy,
   freshCode,
@@ -22,8 +23,13 @@ test.skip(
 );
 
 const images = join(process.cwd(), "docs", "images", "user-guide");
+type Persona = "voter" | "rwa-admin" | "rwa-readonly";
+const screenshotPersona = new WeakMap<Page, Persona>();
 
 async function capture(page: Page, name: string, dialogOnly = false, viewportOnly = false) {
+  const persona = screenshotPersona.get(page) ?? "rwa-admin";
+  const personaImages = join(images, persona);
+  await mkdir(personaImages, { recursive: true });
   await page.waitForLoadState("networkidle");
   // Only email/code fields holding a value are redacted, so an intentionally
   // blank optional field (such as the RWA email) is shown as blank.
@@ -36,7 +42,7 @@ async function capture(page: Page, name: string, dialogOnly = false, viewportOnl
   });
   const target = dialogOnly ? page.getByRole("dialog") : page;
   await target.screenshot({
-    path: join(images, `${name}.png`),
+    path: join(personaImages, `${name}.png`),
     ...(dialogOnly ? {} : { fullPage: !viewportOnly }),
     animations: "disabled",
     style: "nextjs-portal { display: none !important; }",
@@ -61,6 +67,9 @@ test("capture Platinum and Obsidian first-slice documentation", async ({ browser
   const a = await adminContext.newPage();
   const r = await residentContext.newPage();
   const p = await publicContext.newPage();
+  screenshotPersona.set(a, "rwa-admin");
+  screenshotPersona.set(r, "voter");
+  screenshotPersona.set(p, "voter");
   const votes: string[] = [];
   async function appearance(page: Page, mode: "Light" | "Dark" | "System") {
     const menu = page.locator("details[data-theme-control]");
@@ -119,6 +128,7 @@ test("capture Platinum and Obsidian first-slice documentation", async ({ browser
     await a.goto("/admin/accounts?status=SUSPENDED");
     const selectable = a.locator("[data-account-review] tbody input[type=checkbox]:not(:disabled)").first();
     if (await selectable.count()) await selectable.check();
+    await r.setViewportSize({ width: 390, height: 844 });
     for (const mode of ["Light", "Dark"] as const) {
       await appearance(r, mode); await appearance(a, mode);
       await accessible(r); await accessible(a);
@@ -140,11 +150,15 @@ test("capture Platinum and Obsidian first-slice documentation", async ({ browser
     await a.setViewportSize({ width: 390, height: 844 });
     await appearance(a, "Light");
     await a.locator("[data-account-review]").getByRole("checkbox").first().scrollIntoViewIfNeeded();
-    await accessible(a); await capture(a, "73-platinum-accounts-mobile", false, true);
+    await accessible(a);
     await p.goto("/sign-in");
     await capture(p, "01-sign-in");
     await p.locator("summary[aria-label='Appearance']").click();
     await capture(p, "74-appearance-menu");
+    await p.goto("/privacy");
+    await capture(p, "75-privacy-public");
+    await p.goto("/contact");
+    await capture(p, "76-contact-public");
   } finally {
     for (const voteId of votes) {
       const vote = await asUser<{ status: string }>(admin.id, "public.get_admin_vote($1)", [voteId]);
@@ -171,6 +185,7 @@ test("capture bulk account review documentation", async ({ browser }) => {
   await asUser(operator.id, "public.update_profile($1, $2::jsonb)", [administrator.id, JSON.stringify({ status: "SUSPENDED" })]);
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
+  screenshotPersona.set(page, "rwa-admin");
   page.setDefaultTimeout(15_000);
   const accountRow = (id: string) => page.getByRole("row").filter({ has: page.locator(`a[href="/admin/accounts/${id}"]`) });
   async function findAccount(id: string, url: string) {
@@ -240,6 +255,8 @@ test("capture bulk import and scheduled opening documentation", async ({ browser
   const mobile = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const a = await desktop.newPage();
   const m = await mobile.newPage();
+  screenshotPersona.set(a, "rwa-admin");
+  screenshotPersona.set(m, "voter");
   a.setDefaultTimeout(15_000);
   m.setDefaultTimeout(15_000);
   let scheduledId: string | undefined;
@@ -276,11 +293,16 @@ test("capture bulk import and scheduled opening documentation", async ({ browser
     const mobileAdmin = await browser.newContext({ viewport: { width: 390, height: 844 }, storageState: await desktop.storageState() });
     try {
       const upload = await mobileAdmin.newPage();
+      screenshotPersona.set(upload, "rwa-admin");
       await upload.goto("/admin/households/import");
       await upload.getByLabel("Register CSV").setInputFiles({ name: "synthetic-register.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
       await upload.getByRole("button", { name: "Check Register", exact: true }).click();
       await expect(upload.getByRole("cell").filter({ hasText: "Exact match; no changes made. Review account access separately." })).toBeVisible();
-      await capture(upload, "62-import-mobile");
+      expect(
+        await upload.evaluate(() =>
+          document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true);
     } finally { await mobileAdmin.close(); }
 
     const draft = await asUser<{ id: string }>(admin.id, "public.create_draft('PUBLIC')");
@@ -328,6 +350,101 @@ test("capture bulk import and scheduled opening documentation", async ({ browser
     }
     await desktop.close(); await mobile.close();
     if (previousProfile) await asUser(admin.id, "public.update_rwa_profile($1::jsonb)", [JSON.stringify(previousProfile)]);
+  }
+});
+
+test("capture administrator assignment of exclusive management roles", async ({ browser }) => {
+  test.setTimeout(300_000);
+  const operator = await provisionAdmin("Role Assignment Administrator (example)");
+  await ensureFixturePolicy(operator.id);
+  const votingResident = await seedHousehold();
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  screenshotPersona.set(page, "rwa-admin");
+  const email = plusEmail();
+  const name = "Committee Observer (example)";
+  try {
+    await signInThroughUi(page, operator.email, operator.code);
+    await page.goto("/admin/accounts/new");
+    await page.getByLabel("Email address").fill(email);
+    await page.getByLabel("Representative name").fill(name);
+    await page.getByLabel("Management role").selectOption("rwa-readonly");
+    await capture(page, "30-create-readonly-role");
+    await page.getByRole("button", { name: "Create Account" }).click();
+    await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+    const accountPath = new URL(page.url()).pathname;
+    await capture(page, "31-readonly-account-suspended");
+    await page.getByRole("button", { name: "Enable Account" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Enable Account" }).click();
+    await expect(page.getByText(/Flat needed first/)).toBeVisible();
+    await capture(page, "32-readonly-household-required");
+
+    await page.goto("/admin/households/new");
+    const identifier = await unusedIdentifier();
+    await page.getByLabel(/^Flat Number/).fill(identifier);
+    const accountOption = (await page.getByLabel(/Representative/).locator("option").allTextContents())
+      .find((option) => option.includes(email));
+    if (!accountOption) throw new Error("Synthetic readonly account is missing from household assignment.");
+    await page.getByLabel(/Representative/).selectOption({ label: accountOption });
+    await page.getByLabel("Eligible to vote").check();
+    await page.getByRole("button", { name: "Add Flat" }).click();
+    await expect(page.getByText("Flat added.")).toBeVisible();
+    await page.goto(accountPath);
+    await page.getByRole("button", { name: "Enable Account" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Enable Account" }).click();
+    await expect(page.getByRole("button", { name: "Suspend Account" })).toBeVisible();
+    await capture(page, "33-readonly-account-enabled");
+
+    await page.getByLabel("Management role").selectOption("rwa-admin");
+    await capture(page, "34-switch-to-admin-role");
+    await page.getByRole("button", { name: "Save Changes" }).click();
+    await expect(page.getByText("RWA Admin", { exact: true })).toBeVisible();
+    await capture(page, "35-admin-role-assigned");
+
+    const publicVote = await activateVoteFor(
+      operator.id,
+      [votingResident.householdId],
+    );
+    const publicOption = publicVote.options[0];
+    if (!publicOption) throw new Error("Synthetic PUBLIC option is missing.");
+    await asUser(votingResident.id, "public.cast_vote($1, $2::jsonb)", [
+      publicVote.id,
+      JSON.stringify({ confirmed: true, optionId: publicOption.id }),
+    ]);
+    await page.goto(`/votes/${publicVote.id}/results`);
+    await capture(page, "36-admin-active-public-results");
+    await asUser(
+      operator.id,
+      "public.complete_vote_early($1, true, 'Guide example completion')",
+      [publicVote.id],
+    );
+
+    const privateVote = await activateVoteFor(
+      operator.id,
+      [votingResident.householdId],
+      "PRIVATE",
+    );
+    await asUser(votingResident.id, "public.cast_vote($1, $2::jsonb)", [
+      privateVote.id,
+      JSON.stringify({
+        confirmed: true,
+        selections: privateVote.offices.map((office) => ({
+          officeId: office.id,
+          candidateId: office.candidates[0]?.id,
+        })),
+      }),
+    ]);
+    await page.goto(`/votes/${privateVote.id}/results`);
+    await capture(page, "37-admin-active-private-turnout");
+    await asUser(
+      operator.id,
+      "public.complete_vote_early($1, true, 'Guide example completion')",
+      [privateVote.id],
+    );
+    await page.goto(`/votes/${privateVote.id}/results`);
+    await capture(page, "38-admin-completed-private-results");
+  } finally {
+    await context.close();
   }
 });
 
@@ -379,6 +496,8 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
   });
   const a = await adminContext.newPage();
   const m = await memberContext.newPage();
+  screenshotPersona.set(a, "rwa-admin");
+  screenshotPersona.set(m, "voter");
   try {
     await stubCodeRequest(m);
     await m.goto("/sign-in");
@@ -751,5 +870,275 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
         JSON.stringify(previousProfile),
       ]);
     }
+  }
+});
+
+test("capture the RWA ReadOnly persona", async ({ browser }) => {
+  test.setTimeout(900_000);
+  await mkdir(images, { recursive: true });
+  const operator = await provisionAdmin("Readonly Guide Administrator (example)");
+  const observer = await seedHousehold();
+  const other = await seedHousehold();
+  await ensureFixturePolicy(operator.id);
+  await asUser(operator.id, "public.update_profile($1, $2::jsonb)", [
+    observer.id,
+    JSON.stringify({ isReadonly: true }),
+  ]);
+  const previousProfile = await asUser<Record<string, unknown>>(
+    operator.id,
+    "public.get_rwa_profile()",
+  );
+  await asUser(operator.id, "public.update_rwa_profile($1::jsonb)", [
+    JSON.stringify({
+      ...previousProfile,
+      fullName: "Lakeview Residents Welfare Association",
+      alias: "Lakeview RWA",
+      address: "1 Example Lake Road, Sample City 000000",
+      email: "",
+      phone: "+91 123 456 7890",
+      website: "",
+      accentPalette: "TEAL",
+      welcomeMessage: "Welcome to Lakeview RWA voting.",
+      householdLabel: "Flat",
+      identifierKind: "NUMBER",
+      defaultHouseholds: ["H-513", "H-514", "H-515"],
+      rwaPositions: ["President", "Secretary", "Treasurer"],
+    }),
+  ]);
+
+  const activePublic = await activateVoteFor(operator.id, [observer.householdId]);
+  const activePrivate = await activateVoteFor(
+    operator.id,
+    [observer.householdId],
+    "PRIVATE",
+  );
+  const completedPublic = await activateVoteFor(operator.id, [other.householdId]);
+  const publicOption = completedPublic.options[0];
+  if (!publicOption) throw new Error("Completed PUBLIC option is missing.");
+  await asUser(other.id, "public.cast_vote($1, $2::jsonb)", [
+    completedPublic.id,
+    JSON.stringify({ confirmed: true, optionId: publicOption.id }),
+  ]);
+  await asUser(
+    operator.id,
+    "public.complete_vote_early($1, true, 'Guide example completion')",
+    [completedPublic.id],
+  );
+  const completedPrivate = await activateVoteFor(
+    operator.id,
+    [other.householdId],
+    "PRIVATE",
+  );
+  await asUser(other.id, "public.cast_vote($1, $2::jsonb)", [
+    completedPrivate.id,
+    JSON.stringify({
+      confirmed: true,
+      selections: completedPrivate.offices.map((office) => ({
+        officeId: office.id,
+        candidateId: office.candidates[0]?.id,
+      })),
+    }),
+  ]);
+  await asUser(
+    operator.id,
+    "public.complete_vote_early($1, true, 'Guide example completion')",
+    [completedPrivate.id],
+  );
+
+  const draft = await asUser<{ id: string }>(
+    operator.id,
+    "public.create_draft('PUBLIC')",
+  );
+  await asUser(operator.id, "public.update_draft($1, 1, $2::jsonb)", [
+    draft.id,
+    JSON.stringify({
+      title: "Which clubhouse improvement should come first?",
+      instructions: "Example draft for committee review.",
+      closesAt: new Date(Date.now() + 172_800_000).toISOString(),
+      options: [
+        { label: "Lighting", position: 1 },
+        { label: "Garden", position: 2 },
+      ],
+      eligibleHouseholdIds: [observer.householdId],
+    }),
+  ]);
+  const scheduledDraft = await asUser<{ id: string }>(
+    operator.id,
+    "public.create_draft('PUBLIC')",
+  );
+  await asUser(operator.id, "public.update_draft($1, 1, $2::jsonb)", [
+    scheduledDraft.id,
+    JSON.stringify({
+      title: "Choose a community meeting date",
+      closesAt: new Date(Date.now() + 259_200_000).toISOString(),
+      options: [
+        { label: "Saturday", position: 1 },
+        { label: "Sunday", position: 2 },
+      ],
+      eligibleHouseholdIds: [observer.householdId],
+    }),
+  ]);
+  await asUser(
+    operator.id,
+    "public.schedule_vote($1, 2, true, $2)",
+    [scheduledDraft.id, new Date(Date.now() + 86_400_000).toISOString()],
+  );
+
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 900 },
+  });
+  const page = await context.newPage();
+  screenshotPersona.set(page, "rwa-readonly");
+  page.setDefaultTimeout(20_000);
+
+  async function appearance(mode: "Light" | "Dark") {
+    const menu = page.locator("details[data-theme-control]");
+    await expect(menu).toHaveAttribute("data-theme-ready", "true");
+    if ((await menu.getAttribute("open")) === null)
+      await menu.locator("summary").click();
+    await menu.getByRole("radio", { name: mode, exact: true }).check();
+    await page.keyboard.press("Escape");
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-theme",
+      mode.toLowerCase(),
+    );
+  }
+
+  try {
+    await signInThroughUi(page, observer.email, await freshCode(observer.email));
+    await expect(page.getByText("RWA ReadOnly", { exact: false }).first()).toBeVisible();
+    await appearance("Light");
+    await capture(page, "01-votes-home-light");
+    await expect(page.getByRole("link", { name: "Accounts" })).toBeVisible();
+    await page.getByText("Committee view", { exact: true }).click();
+    await expect(
+      page.getByText(/View the flats register, accounts and votes/i),
+    ).toBeVisible();
+    await appearance("Dark");
+    await capture(page, "02-votes-home-dark");
+
+    await page.goto("/admin/accounts?isAdmin=all");
+    await expect(page.getByRole("button", { name: "Enable Selected" })).toBeDisabled();
+    await capture(page, "03-accounts-read-all-roles");
+    await page.goto(`/admin/accounts/${observer.id}`);
+    await expect(page.getByLabel("Management role")).toBeDisabled();
+    await capture(page, "04-observer-account-detail");
+    await page.goto("/admin/accounts/new");
+    await expect(page.getByLabel("Email address")).toBeDisabled();
+    await capture(page, "05-create-account-disabled");
+
+    await page.goto("/admin/households");
+    await expect(page.getByRole("link", { name: /^Add Flat$/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await capture(page, "06-household-register-read");
+    await page.goto("/admin/households/new");
+    await expect(page.getByLabel(/^Flat Number/)).toBeDisabled();
+    await capture(page, "07-new-household-disabled");
+    await page.goto(`/admin/households/${other.householdId}`);
+    await expect(page.getByLabel(/^Flat Number/)).toBeDisabled();
+    await capture(page, "08-edit-household-disabled");
+    await page.goto("/admin/households/import");
+    await expect(page.getByLabel("Register CSV")).toBeDisabled();
+    await capture(page, "09-register-import-disabled");
+
+    await page.goto("/admin/settings");
+    await expect(page.getByLabel("RWA Full Name")).toBeDisabled();
+    await capture(page, "10-rwa-settings-read-light");
+    await appearance("Dark");
+    await capture(page, "11-rwa-settings-read-dark");
+
+    await page.goto("/admin/votes");
+    await expect(page.getByRole("link", { name: "New Vote" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await capture(page, "12-vote-list-read");
+    await page.goto("/admin/votes/new");
+    await expect(page.getByRole("radio", { name: /^PUBLIC voting/ })).toBeDisabled();
+    await capture(page, "13-new-vote-disabled");
+    await page.goto(`/admin/votes/${draft.id}`);
+    await expect(page.getByRole("button", { name: "Save Draft" })).toBeDisabled();
+    await capture(page, "14-draft-read-disabled-editor");
+    await page.goto(`/admin/votes/${draft.id}/preview?revision=2`);
+    await expect(page.getByRole("button", { name: "Activate Vote" })).toBeDisabled();
+    await capture(page, "15-draft-preview-disabled-actions");
+    await page.goto(`/admin/votes/${activePublic.id}`);
+    await expect(page.getByRole("button", { name: "Complete Vote Early" })).toBeDisabled();
+    await capture(page, "16-active-vote-disabled-lifecycle");
+    await page.goto(`/admin/votes/${activePrivate.id}/participation`);
+    await capture(page, "17-private-participation-read");
+    await page.goto(`/admin/votes/${scheduledDraft.id}`);
+    await expect(page.getByRole("button", { name: "Return to Draft" })).toBeDisabled();
+    await capture(page, "18-scheduled-vote-disabled-withdrawal");
+    await page.goto("/admin/audit");
+    await capture(page, "19-audit-history-read");
+
+    await page.goto(`/votes/${activePublic.id}`);
+    await capture(page, "20-own-public-ballot");
+    await page.getByRole("radio", { name: "Yes" }).check();
+    await page.getByRole("button", { name: "Review Selections" }).click();
+    await capture(page, "21-own-public-review");
+    await page.getByRole("button", { name: "Submit Vote" }).click();
+    await expect(page.getByRole("heading", { name: "Your vote is recorded." })).toBeVisible();
+    await capture(page, "22-own-public-submitted");
+
+    await page.goto(`/votes/${activePrivate.id}`);
+    await capture(page, "23-own-private-ballot");
+    const privateChoice = page.getByRole("radio", { name: /Asha/ }).first();
+    await privateChoice.check();
+    await page.getByRole("button", { name: "Review Selections" }).click();
+    await capture(page, "24-own-private-review");
+    await page.getByRole("button", { name: "Submit Vote" }).click();
+    await expect(page.getByRole("heading", { name: "Vote submitted." })).toBeVisible();
+    await capture(page, "25-own-private-submitted");
+
+    await page.goto(`/votes/${activePublic.id}/results`);
+    await capture(page, "26-own-live-public-results");
+    await page.goto(`/votes/${completedPublic.id}/results`);
+    await expect(page.getByRole("heading", { name: "Download" })).toBeVisible();
+    await capture(page, "27-other-household-public-results");
+    const download = page.waitForEvent("download");
+    await page.getByRole("link", { name: "Download CSV" }).click();
+    expect((await download).suggestedFilename()).toMatch(/\.csv$/u);
+    await page.goto(`/votes/${completedPrivate.id}/results`);
+    await capture(page, "28-completed-private-results");
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    await appearance("Light");
+    expect(
+      await page.evaluate(() =>
+        document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await appearance("Dark");
+    expect(
+      await page.evaluate(() =>
+        document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+  } finally {
+    await context.close();
+    for (const voteId of [
+      activePublic.id,
+      activePrivate.id,
+      scheduledDraft.id,
+    ]) {
+      const current = await asUser<{ status: string }>(
+        operator.id,
+        "public.get_admin_vote($1)",
+        [voteId],
+      );
+      if (current.status === "ACTIVE")
+        await asUser(operator.id, "public.cancel_vote($1, true, 'Readonly guide capture cleanup')", [voteId]);
+      if (current.status === "SCHEDULED")
+        await asUser(operator.id, "public.withdraw_vote_schedule($1, true, 'Readonly guide capture cleanup')", [voteId]);
+    }
+    if (previousProfile)
+      await asUser(operator.id, "public.update_rwa_profile($1::jsonb)", [
+        JSON.stringify(previousProfile),
+      ]);
   }
 });

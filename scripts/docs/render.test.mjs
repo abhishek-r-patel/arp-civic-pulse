@@ -61,6 +61,24 @@ test("renders accessible headings, lists, tables, links and fenced code", () => 
   }
 });
 
+test("contents nests task subsections under each top-level section", () => {
+  const rendered = renderMarkdown(
+    "# Guide\n\n## Resident Persona\n\n### Find votes\n\n### Submit ballot\n\n## RWA Admin Persona\n\n### Review accounts\n",
+    options,
+  );
+  const document = guideDocument(rendered);
+  assert.ok(
+    document.includes(
+      '<li><a href="#resident-persona">Resident Persona</a><ol><li><a href="#find-votes">Find votes</a></li><li><a href="#submit-ballot">Submit ballot</a></li></ol></li>',
+    ),
+  );
+  assert.ok(
+    document.includes(
+      '<li><a href="#rwa-admin-persona">RWA Admin Persona</a><ol><li><a href="#review-accounts">Review accounts</a></li></ol></li>',
+    ),
+  );
+});
+
 test("escapes raw markup, inline values, code and link attributes", () => {
   const { html } = renderMarkdown(
     '# Guide\n\n<script>alert("x")</script> **<b>** `<i>` [x](./a"b.md)\n',

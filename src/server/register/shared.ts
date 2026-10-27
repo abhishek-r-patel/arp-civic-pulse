@@ -1,9 +1,11 @@
+// Explicit administrator mutations and committee read-only dependencies for register services.
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AUTH_RATE_LIMITS, enforceRateLimit } from "@/server/auth/rate-limit";
 import {
   loadEnabledAccount,
   requireAdmin,
+  requireCommittee,
   type Account,
 } from "@/server/authorization/account";
 import { createAdminClient } from "@/server/db/clients";
@@ -22,6 +24,12 @@ export interface RegisterDeps {
 /** Verifies the caller is a current enabled administrator, then builds the dependencies. */
 export async function registerDeps(): Promise<RegisterDeps> {
   const { account, client } = await requireAdmin();
+  return { client, admin: createAdminClient(), actor: account };
+}
+
+/** Read-only management access; callers must retain admin guards for mutations. */
+export async function committeeReadDeps(): Promise<RegisterDeps> {
+  const { account, client } = await requireCommittee();
   return { client, admin: createAdminClient(), actor: account };
 }
 

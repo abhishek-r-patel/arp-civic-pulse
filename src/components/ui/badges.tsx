@@ -140,8 +140,11 @@ export function AccountStatusBadge({
   );
 }
 
-export function RoleBadge({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
-  const Icon = isAdmin ? ShieldCheck : User;
+export function RoleBadge({
+  isAdmin,
+  isReadonly,
+}: Readonly<{ isAdmin: boolean; isReadonly?: boolean }>) {
+  const Icon = isAdmin || isReadonly ? ShieldCheck : User;
 
   return (
     <span
@@ -153,7 +156,7 @@ export function RoleBadge({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
       )}
     >
       <Icon aria-hidden="true" className="size-4" />
-      {isAdmin ? "Administrator" : "Resident"}
+      {isAdmin ? "RWA Admin" : isReadonly ? "RWA ReadOnly" : "Voter"}
     </span>
   );
 }

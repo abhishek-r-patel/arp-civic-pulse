@@ -1,3 +1,4 @@
+// Client-side account provisioning and profile-management forms.
 "use client";
 
 import { useState, type FormEvent } from "react";
@@ -7,7 +8,7 @@ import { Save, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { ErrorSummary } from "@/components/ui/error-summary";
-import { CheckboxField, TextField } from "@/components/ui/field";
+import { SelectField, TextField } from "@/components/ui/field";
 import { AccountStatusBadge, RoleBadge } from "@/components/ui/badges";
 import { Notice } from "@/components/ui/notice";
 import { useHouseholdTerms } from "@/components/ui/household-terms";
@@ -38,6 +39,7 @@ export function AccountCreateForm({
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isReadonly, setIsReadonly] = useState(false);
   const [failure, setFailure] = useState<ApiFailure | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -51,7 +53,7 @@ export function AccountCreateForm({
 
     const result = await apiRequest<AccountProjection>("/api/admin/accounts", {
       method: "POST",
-      body: { email, representativeName: name, isAdmin },
+      body: { email, representativeName: name, isAdmin, isReadonly },
       csrfToken,
     });
     setPending(false);
@@ -100,14 +102,20 @@ export function AccountCreateForm({
         onChange={(event) => setName(event.target.value)}
         error={fieldErrorFor(failure, "representativeName")}
       />
-      <CheckboxField
-        id="isAdmin"
-        name="isAdmin"
-        label="Administrator"
-        hint="Can manage the register and votes. Does not make this person eligible to vote."
-        checked={isAdmin}
-        onChange={(event) => setIsAdmin(event.target.checked)}
-      />
+      <SelectField
+        id="managementRole"
+        label="Management role"
+        hint={`Roles do not confer voting eligibility. RWA ReadOnly requires an assigned ${terms.household} before enablement.`}
+        value={isAdmin ? "rwa-admin" : isReadonly ? "rwa-readonly" : "voter"}
+        onChange={(event) => {
+          setIsAdmin(event.target.value === "rwa-admin");
+          setIsReadonly(event.target.value === "rwa-readonly");
+        }}
+      >
+        <option value="voter">Voter (voter)</option>
+        <option value="rwa-admin">RWA Admin (rwa-admin)</option>
+        <option value="rwa-readonly">RWA ReadOnly (rwa-readonly)</option>
+      </SelectField>
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button type="submit" loading={pending}>
@@ -143,6 +151,7 @@ export function AccountEditor({
   const [email, setEmail] = useState(initial.email ?? "");
   const [name, setName] = useState(initial.representativeName);
   const [isAdmin, setIsAdmin] = useState(initial.isAdmin);
+  const [isReadonly, setIsReadonly] = useState(initial.isReadonly === true);
   const [failure, setFailure] = useState<ApiFailure | null>(null);
   const [saved, setSaved] = useState<string | null>(flash ?? null);
   const [unchanged, setUnchanged] = useState(false);
@@ -158,6 +167,7 @@ export function AccountEditor({
     setEmail(initial.email ?? "");
     setName(initial.representativeName);
     setIsAdmin(initial.isAdmin);
+    setIsReadonly(initial.isReadonly === true);
   }
 
   const deleted = account.status === "DELETED";
@@ -171,6 +181,13 @@ export function AccountEditor({
       changes.email = email;
     }
     if (isAdmin !== account.isAdmin) {
+      changes.isAdmin = isAdmin;
+    }
+    if (
+      isReadonly !== (account.isReadonly === true) ||
+      isAdmin !== account.isAdmin
+    ) {
+      changes.isReadonly = isReadonly;
       changes.isAdmin = isAdmin;
     }
     return changes;
@@ -201,6 +218,7 @@ export function AccountEditor({
     setEmail(result.data.email ?? "");
     setName(result.data.representativeName);
     setIsAdmin(result.data.isAdmin);
+    setIsReadonly(result.data.isReadonly === true);
     setSaved("Account updated.");
     router.refresh();
   }
@@ -328,7 +346,10 @@ export function AccountEditor({
         </h2>
         <div className="flex flex-wrap items-center gap-2">
           <AccountStatusBadge status={account.status} />
-          <RoleBadge isAdmin={account.isAdmin} />
+          <RoleBadge
+            isAdmin={account.isAdmin}
+            isReadonly={account.isReadonly}
+          />
         </div>
         {deleted ? (
           <p className="text-body text-muted">
@@ -421,15 +442,21 @@ export function AccountEditor({
           onChange={(event) => setEmail(event.target.value)}
           error={fieldErrorFor(failure, "email") ?? duplicateEmail(failure)}
         />
-        <CheckboxField
-          id="isAdmin"
-          name="isAdmin"
-          label="Administrator"
-          hint="Does not make this person eligible to vote."
+        <SelectField
+          id="managementRole"
+          label="Management role"
+          hint={`Roles do not confer voting eligibility. RWA ReadOnly requires an assigned ${terms.household} before enablement.`}
           disabled={deleted}
-          checked={isAdmin}
-          onChange={(event) => setIsAdmin(event.target.checked)}
-        />
+          value={isAdmin ? "rwa-admin" : isReadonly ? "rwa-readonly" : "voter"}
+          onChange={(event) => {
+            setIsAdmin(event.target.value === "rwa-admin");
+            setIsReadonly(event.target.value === "rwa-readonly");
+          }}
+        >
+          <option value="voter">Voter (voter)</option>
+          <option value="rwa-admin">RWA Admin (rwa-admin)</option>
+          <option value="rwa-readonly">RWA ReadOnly (rwa-readonly)</option>
+        </SelectField>
 
         {unchanged ? (
           <Notice tone="info">There are no changes to save.</Notice>

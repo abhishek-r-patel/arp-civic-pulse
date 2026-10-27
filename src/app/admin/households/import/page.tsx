@@ -1,5 +1,6 @@
 /* Protected bulk register workflow; uploaded resident information stays in page memory. */
 import { RegisterImportForm } from "@/components/admin/register-import-form";
+import { ManagementFields } from "@/components/admin/management-fields";
 import { LinkButton } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { PageHeader } from "@/components/ui/layout";
@@ -20,7 +21,9 @@ export default async function ImportRegisterPage() {
           </LinkButton>
         }
       />
-      <RegisterImportForm csrfToken={deps.csrfToken} />
+      <ManagementFields canManage={deps.actor.isAdmin}>
+        <RegisterImportForm csrfToken={deps.csrfToken} />
+      </ManagementFields>
     </div>
   );
 }

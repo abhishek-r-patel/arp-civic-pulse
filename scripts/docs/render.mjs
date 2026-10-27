@@ -177,6 +177,7 @@ pre { background: #eef3f6; padding: 16px; white-space: pre-wrap; font-size: .85r
 pre code { padding: 0; }
 nav { border: 1px solid #cbd8df; background: #f7fafb; padding: 20px; }
 nav ol { padding-left: 1.5rem; }
+nav ol ol { margin: .25rem 0; padding-left: 1.25rem; font-size: .95em; }
 figure { margin: 24px auto 32px; border: 1px solid #d2dce2; padding: 12px; background: #fafcfd; }
 figure.phone { max-width: 414px; }
 figure img { display: block; max-width: 100%; height: auto; margin: auto; }
@@ -212,13 +213,30 @@ th { background: #edf4f5; }
 `;
 
 export function guideDocument({ html, headings }, web = false) {
-  const toc = headings
-    .filter(({ level }) => level === 2)
-    .map(({ id, title }) => `<li><a href="#${id}">${escape(title)}</a></li>`)
+  const sections = [];
+  let section;
+  for (const heading of headings) {
+    if (heading.level === 2) {
+      section = { ...heading, children: [] };
+      sections.push(section);
+    } else if (heading.level === 3 && section) {
+      section.children.push(heading);
+    }
+  }
+  const toc = sections
+    .map(({ id, title, children }) => {
+      const nested = children
+        .map(
+          (child) =>
+            `<li><a href="#${child.id}">${escape(child.title)}</a></li>`,
+        )
+        .join("");
+      return `<li><a href="#${id}">${escape(title)}</a>${nested ? `<ol>${nested}</ol>` : ""}</li>`;
+    })
     .join("");
   return `<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light">${web ? '<meta name="robots" content="noindex, follow"><meta name="description" content="The illustrated Civic Pulse user guide for residents and administrators: sign in, vote, review results and get help."><link rel="icon" href="/icon.svg" type="image/svg+xml" sizes="any">' : ""}<title>${escape(headings[0].title)}</title><style>${css}</style></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light">${web ? '<meta name="robots" content="noindex, follow"><meta name="description" content="The illustrated Civic Pulse persona guide for Residents, RWA Admins and RWA ReadOnly committee members."><link rel="icon" href="/icon.svg" type="image/svg+xml" sizes="any">' : ""}<title>${escape(headings[0].title)}</title><style>${css}</style></head>
 <body><main>
 ${web ? '<a href="/sign-in" style="display:inline-flex;align-items:center;min-height:48px">Back to Civic Pulse</a>' : '<p class="notice">Offline / print edition. Images are embedded; no internet or JavaScript is required. Use your browser\'s Print / Save as PDF. Source-code and supporting-document links require the original repository layout.</p>'}
 <nav aria-label="Contents"><strong>Contents</strong><ol>${toc}</ol></nav>

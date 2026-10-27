@@ -35,7 +35,8 @@ import { uuid } from "@/shared/validation/primitives";
  * being narrowed or an identity is being changed, and re-enabled only after
  * the Auth side is verified consistent. A failure leaves the profile blocked.
  */
-const PROFILE_COLUMNS = "id, representative_name, status, is_admin, updated_at";
+const PROFILE_COLUMNS =
+  "id, representative_name, status, is_admin, is_readonly, updated_at";
 const ENDPOINT = "/api/admin/accounts";
 const BAN_DURATION = "876000h";
 const UNBAN_DURATION = "none";
@@ -45,6 +46,7 @@ interface ProfileRow {
   representative_name: string;
   status: string;
   is_admin: boolean;
+  is_readonly?: boolean;
   updated_at: string;
 }
 
@@ -60,6 +62,7 @@ export function toAccountProjection(
     representativeName: row.representative_name,
     status: accountStatus(row.status),
     isAdmin: row.is_admin,
+    ...(row.is_readonly ? { isReadonly: true } : {}),
     emailVerifiedAt: identity.emailVerifiedAt,
     updatedAt: new Date(row.updated_at).toISOString(),
   };
@@ -80,7 +83,11 @@ export async function listAccounts(
 ): Promise<{ data: ReviewAccountProjection[]; page: PageInfo }> {
   const binding = {
     endpoint: ENDPOINT,
-    filters: { status: query.status, isAdmin: query.isAdmin },
+    filters: {
+      status: query.status,
+      isAdmin: query.isAdmin,
+      isReadonly: query.isReadonly,
+    },
   };
 
   let request = deps.client
@@ -93,6 +100,9 @@ export async function listAccounts(
   }
   if (query.isAdmin !== undefined) {
     request = request.eq("is_admin", query.isAdmin);
+  }
+  if (query.isReadonly !== undefined) {
+    request = request.eq("is_readonly", query.isReadonly);
   }
   if (query.cursor) {
     request = request.gt(
@@ -255,6 +265,7 @@ export async function createAccount(
     email: input.email,
     representativeName: input.representativeName,
     isAdmin: input.isAdmin,
+    isReadonly: input.isReadonly,
     actorProfileId: deps.actor.id,
   });
 
@@ -375,6 +386,9 @@ export async function updateAccount(
   }
   if (changes.isAdmin !== undefined && changes.isAdmin !== current.isAdmin) {
     dbChanges.isAdmin = changes.isAdmin;
+  }
+  if (changes.isReadonly !== undefined) {
+    dbChanges.isReadonly = changes.isReadonly;
   }
   if (target !== undefined && target !== effectiveStatus) {
     dbChanges.status = target;

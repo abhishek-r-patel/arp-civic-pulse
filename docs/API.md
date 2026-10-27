@@ -73,9 +73,9 @@ All list endpoints use keyset pagination:
 | Member votes | Active first by `closesAt ASC`; terminal votes by completion/cancellation time descending; `id ASC` breaks ties | `status`, `votingType` |
 | Administrator votes | `updatedAt DESC`, then `id DESC` | `status`, `votingType` |
 | Households | Normalized household identifier, then `id`, ascending | `isEligible`; optional exact normalized `identifier` |
-| Accounts | Profile `id ASC` | `status`, `isAdmin` |
+| Accounts | Profile `id ASC` | `status`, `isAdmin`, `isReadonly` |
 | PUBLIC named responses | Frozen `householdId ASC` within the vote | None |
-| Administrator participation | Frozen `householdId ASC` within the vote | `submitted` boolean |
+| Management-reader participation | Frozen `householdId ASC` within the vote | `submitted` boolean |
 | Audit history | `occurredAt DESC`, then audit `id DESC` | `action`, `targetType`, `from`, `to` |
 
 Audit times use an inclusive `from` and exclusive `to`; reject inverted ranges. Filters apply before pagination and never broaden authorization. Account email is retrieved only through supported server-only Auth administration, not an application email table/index or direct managed-schema query. Paginate application profiles first and enrich only the authorized page through supported Auth interfaces.
@@ -109,17 +109,26 @@ Supabase Cron invokes restricted SQL maintenance directly; there is no scheduler
 
 ### 3.3 Authorization matrix
 
-| Capability | Enabled member | Current enabled administrator |
-|---|---|---|
-| Discover member votes and view ballots | Own frozen electorate only; no drafts | Own electorate through member APIs; administrative details through admin APIs |
-| Submit and read own participation | Own frozen entitlement only | Own frozen entitlement only; no impersonation |
-| Manage register, accounts, drafts, lifecycle | No | Yes |
-| Inspect participation of others | No | Yes, without choices |
-| View/export completed results | Own frozen electorate | Yes |
-| View completed PUBLIC named responses | Same permission as results | Yes |
-| Retrieve PRIVATE individual choices | Never | Never |
-| Read administrative audit | No | Yes |
-| Invoke maintenance | No | No; dedicated Cron scheduling role only |
+| Capability | Resident (`voter`) | RWA ReadOnly (`rwa-readonly`) | RWA Admin (`rwa-admin`) |
+|---|---|---|---|
+| Discover member votes and view ballots | Own frozen electorate only; no drafts | Own frozen electorate plus authorized administrative vote reads | Own electorate through member APIs; administrative details through admin APIs |
+| Submit and read own participation | Own frozen entitlement only | Own frozen entitlement only; no impersonation | Own frozen entitlement only; no impersonation |
+| Read register, account emails, drafts, settings, audit and participation | No | Yes, same authorized read scope as admin | Yes |
+| Manage register, accounts, drafts or lifecycle | No | No; controls remain visible and disabled | Yes |
+| Inspect participation of others | No | Yes, without choices | Yes, without choices |
+| View/export completed results | Own frozen electorate | Authorized administrative access | Yes |
+| View completed PUBLIC named responses | Same permission as results | Yes | Yes |
+| Retrieve PRIVATE individual choices | Never | Never | Never |
+| Assign or change roles | No | No | Yes, atomically; the two management roles are exclusive |
+| Invoke maintenance | No | No | No; dedicated Cron scheduling role only |
+
+The role codes are `voter`, `rwa-admin` and `rwa-readonly`; their personas are
+Resident, RWA Admin and RWA ReadOnly. `voter` is the default profile state when
+neither management flag is set. `rwa-readonly` requires a household assignment
+before enablement. The management roles are capabilities, not voting
+entitlements; an enabled account can vote only through its own frozen
+household. Only a current enabled `rwa-admin` can assign/change roles or make
+management mutations. The final-enabled-administrator guard remains in force.
 
 Every request and protected database operation checks verified identity, current profile status/role, and object-level access. Normal server-side Supabase clients carry the user's session. User-callable SQL entry points validate non-null `auth.uid()`, current profile capability, and frozen entitlement; never pass custom session digests or use a service-role client for ordinary ballots, results, or exports. UUID possession, hidden buttons, middleware checks, and client role claims are insufficient.
 
@@ -127,7 +136,7 @@ Enable RLS on every application table, starting with revoked privileges and defa
 
 Suspension/deletion blocks access immediately. Current household reassignment affects future activations only: it neither transfers an existing entitlement nor rewrites historical identities. Administrator status alone never grants a ballot entitlement.
 
-For authenticated callers, inaccessible or nonexistent vote IDs return the same `404 NOT_FOUND`. Missing/expired sessions return `401`; authenticated non-administrators requesting administration return `403`.
+For authenticated callers, inaccessible or nonexistent vote IDs return the same `404 NOT_FOUND`. Missing/expired sessions return `401`; residents requesting administration and observers attempting a management mutation receive `403`.
 
 ## 4. Endpoint inventory
 
@@ -140,7 +149,7 @@ retains "Civic Pulse for {alias}". No new public identity fields are exposed.
 | Method and path | Purpose | Request | Successful response |
 |---|---|---|---|
 | `POST /api/auth/code` | Request or resend a Supabase email OTP | `email` | `202`: generic message and configured `resendAfterSeconds`; no application challenge ID |
-| `POST /api/auth/verify` | Verify email OTP and establish the SDK-managed session | `email`, six-digit string `code` | `200`: `account: { id, representativeName, isAdmin }`; SDK-managed cookies, no raw tokens or invented session deadlines |
+| `POST /api/auth/verify` | Verify email OTP and establish the SDK-managed session | `email`, six-digit string `code` | `200`: `account: { id, representativeName, isAdmin, isReadonly? }`; SDK-managed cookies, no raw tokens or invented session deadlines |
 | `POST /api/auth/sign-out` | Sign out through Supabase Auth and clear SDK cookies | Empty object | `204` after successful sign-out or when no session remains; valid origin/CSRF context still required |
 
 Code issuance uses the same response shape, wording, and status for registered, unregistered, disabled, and account-specific delivery-failure cases. Do not return provider errors or invent non-verifiable challenge IDs. Mitigate timing differences and apply additional abuse controls regardless of account existence. Do not persist raw unregistered emails.
@@ -174,9 +183,9 @@ they never disclose scheduled candidate/option totals.
 
 Vote summaries contain `id`, `votingType`, `status`, `title`, `closesAt`, `timezone`, `activatedAt`, `completedAt`, `cancelledAt`, and the caller's `submitted` flag. Inapplicable lifecycle times are `null`. Detail additionally contains `instructions`, type-specific ballot configuration (including `openSelectionMode` and `openSelectionLimit` for PUBLIC polls), frozen RWA display metadata/policy versions, privacy notice, `canSubmit`, available `exportFormats`, completion mode/reason, and cancellation reason when applicable. Administrators viewing a vote outside their own entitlement receive no fabricated member submission state. Omit `pdf` from available formats and hide its controls when unavailable; an authorized request for an unavailable format returns `404 EXPORT_FORMAT_UNAVAILABLE`.
 
-The server supplies type-specific privacy notices. While a PUBLIC poll is active, authorized voters/admins can see aggregate counts and turnout but not individual responses. While a PRIVATE election is active, eligible members and admins can see aggregate turnout only; admins can separately see the frozen household participation list for follow-up, never choices. Candidate/NOTA counts and outcomes stay hidden until completion. Before PUBLIC submission, disclose that frozen representative name, household identifier, and final response will appear in completed results and downloads, and that the voter may replace the response until closure. PRIVATE notices explain aggregate-only application access and the approved assurance limitations.
+The server supplies type-specific privacy notices. While a PUBLIC poll is active, authorized Residents and RWA Admin/ReadOnly readers can see aggregate counts and turnout but not individual responses. While a PRIVATE election is active, eligible Residents and authorized management readers can see aggregate turnout only; RWA Admin and RWA ReadOnly can separately see the frozen household participation list for follow-up, never choices. Candidate/NOTA counts and outcomes stay hidden until completion. Before PUBLIC submission, disclose that frozen representative name, household identifier, and final response will appear in completed results and downloads for authorized viewers, and that the Resident may replace the response until closure. PRIVATE notices explain aggregate-only application access and the approved assurance limitations.
 
-Neither summary nor ballot endpoints include active choice counts or other households' participation. Active PUBLIC aggregates and active PRIVATE turnout are available only through the authorized results projection. Active PRIVATE candidate/NOTA totals remain hidden. The administrator-only participation endpoint may show household-level submission status for follow-up but never choices. A cancelled detail says **"Cancelled; results not valid"**, disables submission, and exposes no choices. Ballot configuration may remain visible, but responses and tallies may not.
+Neither summary nor ballot endpoints include active choice counts or other households' participation. Active PUBLIC aggregates and active PRIVATE turnout are available only through the authorized results projection. Active PRIVATE candidate/NOTA totals remain hidden. The authorized management-reader participation endpoint may show household-level submission status for follow-up but never choices. A cancelled detail says **"Cancelled; results not valid"**, disables submission, and exposes no choices. Ballot configuration may remain visible, but responses and tallies may not.
 
 #### Submission request shapes
 
@@ -206,11 +215,11 @@ After a timeout, lost response, or ambiguous infrastructure error, the client re
 
 **Implemented results, monitoring and export contract (phases 12–14).** `GET /api/votes` lists only the caller's own frozen entitlements (never drafts), active votes first by soonest deadline, then finished ones newest first, with `status`/`votingType` filters and keyset pagination; each row carries only the caller's own `submitted` flag. `GET /api/votes/{id}` returns the ballot, frozen RWA name and policy versions, `entitled`, `submitted`, `canSubmit`, `exportFormats` and `privacyNotice` (`PUBLIC` or `PRIVATE`); an administrator outside the electorate gets `entitled: false` and no submission state. An unknown vote, a draft and a vote outside the electorate are indistinguishable `404`s. An overdue vote is finalised (server-only reconcile) before it is shown.
 
-`GET /api/votes/{id}/results` is available to a frozen eligible representative or enabled administrator. For any unexpired ACTIVE vote, the projection includes eligible/submitted counts and turnout and refreshes in the browser every 10 seconds. ACTIVE PUBLIC additionally returns aggregate option counts and an outcome, with `namedResponses` and `namedPage` null; counts include each participating household's latest selection(s). ACTIVE PRIVATE returns empty `options` and `offices` arrays and no names, exposing no candidate/NOTA totals or outcomes. A COMPLETED result includes PUBLIC frozen names/household identifiers/selected option labels or PRIVATE aggregates only. Cancelled or overdue votes return `409 RESULTS_UNAVAILABLE` until deadline reconciliation completes. Everything comes from one SQL call on one snapshot: eligible/submitted counts as decimal strings, `turnout {numerator, denominator, percent}`, and type-specific results. Each completed PUBLIC named-response row represents one household, with all selected options in `optionLabels`; `limit`/`cursor` page by household and totals always cover every selection. Null/unbounded response pages are completed-only and required for exports. PUBLIC option counts count selections and can exceed submitted households; option `percent` uses submitted households and `eligiblePercent` uses eligible households; both may total over 100% in multi-select polls. A counter/participation mismatch returns `503 RESULTS_INTEGRITY_ERROR` and publishes nothing. Percentages and outcomes are derived once in `src/shared/contracts/results.ts`.
+`GET /api/votes/{id}/results` is available to a frozen eligible Resident and to enabled RWA Admin/ReadOnly readers. For any unexpired ACTIVE vote, the projection includes eligible/submitted counts and turnout and refreshes in the browser every 10 seconds. ACTIVE PUBLIC additionally returns aggregate option counts and an outcome, with `namedResponses` and `namedPage` null; counts include each participating household's latest selection(s). ACTIVE PRIVATE returns empty `options` and `offices` arrays and no names, exposing no candidate/NOTA totals or outcomes. A COMPLETED result includes PUBLIC frozen names/household identifiers/selected option labels or PRIVATE aggregates only. Cancelled or overdue votes return `409 RESULTS_UNAVAILABLE` until deadline reconciliation completes. Everything comes from one SQL call on one snapshot: eligible/submitted counts as decimal strings, `turnout {numerator, denominator, percent}`, and type-specific results. Each completed PUBLIC named-response row represents one household, with all selected options in `optionLabels`; `limit`/`cursor` page by household and totals always cover every selection. Null/unbounded response pages are completed-only and required for exports. PUBLIC option counts count selections and can exceed submitted households; option `percent` uses submitted households and `eligiblePercent` uses eligible households; both may total over 100% in multi-select polls. A counter/participation mismatch returns `503 RESULTS_INTEGRITY_ERROR` and publishes nothing. Percentages and outcomes are derived once in `src/shared/contracts/results.ts`.
 
 `GET /api/votes/{id}/exports/csv` renders the complete file (BOM, CRLF, the fixed columns above, formula-starting cells prefixed with an apostrophe, control characters removed) before any success header, with `Content-Disposition: attachment` and a server-generated name (`civic-pulse-results-<date>-<id8>.csv`), `no-store` and `nosniff`; a render failure is `503 EXPORT_FAILED`. Unknown or disabled formats are `404 EXPORT_FORMAT_UNAVAILABLE` after authorization. PDF availability and per-format rendering bounds are described below. Budgets (provisional): 120 reads and 10 exports per minute per profile.
 
-`GET /api/admin/votes/{id}/participation` (admin only, not for drafts, `submitted` filter, keyset pagination) returns `eligibleCount`, `submittedCount` and rows of frozen representative name, household identifier and `submitted`; never a selection, email or submission time. `GET /api/admin/audit` (admin only; `action`, `targetType`, `from`, `to`; newest first) returns allowlisted fields only: `details` keeps only keys the application itself writes, so a stray key is dropped rather than exposed.
+`GET /api/admin/votes/{id}/participation` (admin or readonly observer, not for drafts, `submitted` filter, keyset pagination) returns `eligibleCount`, `submittedCount` and rows of frozen representative name, household identifier and `submitted`; never a selection, email or submission time. `GET /api/admin/audit` (admin or readonly observer; `action`, `targetType`, `from`, `to`; newest first) returns allowlisted fields only: `details` keeps only keys the application itself writes, so a stray key is dropped rather than exposed.
 
 **Implemented export and operations additions (phases 15 and 17).** `GET /api/votes/{id}/exports/pdf` now renders an A4 portrait, grayscale PDF locally with PDFKit from the same completed-result projection as the screen, API and CSV: header and footer on every page with `Page X of N`, the RWA name and title, type, opened/ended times **with the year**, time zone, how it ended (and the early-completion reason), turnout with its denominator, totals with percentages of submitted responses, outcomes, instructions and the disclaimer; PUBLIC includes the complete named list (no emails) with a repeated table header across pages, PRIVATE only aggregates. Long and unbroken text wraps. Text is shaped with Inter (Latin, Greek, Cyrillic) and Noto Sans Devanagari; a character neither font covers fails the export with `503 EXPORT_FAILED` and the message "The PDF cannot display some characters in this record. Download the CSV instead." It is never dropped or replaced. Headers: `application/pdf`, attachment with `civic-pulse-results-<date>-<id8>.pdf`, `no-store`, `nosniff`. `PDF_EXPORT_ENABLED=0` switches PDF off (`exportFormats` then lists only `csv`, and the endpoint answers `404 EXPORT_FORMAT_UNAVAILABLE`). Rendering is capped (8 CSV, 2 PDF at a time); callers beyond the cap wait up to 15 s and then get `503 DEPENDENCY_UNAVAILABLE` with `Retry-After`. `GET /api/internal/health` answers `{"data":{"status":"ok"}}` (200) or `{"data":{"status":"unavailable"}}` (503) with a request ID after a bounded (3 s) database ping, and nothing else; maintenance mode (`MAINTENANCE_MODE=1`) makes every other API route answer `503` with `Retry-After: 300` and pages show a maintenance notice.
 
@@ -218,9 +227,10 @@ After a timeout, lost response, or ambiguous infrastructure error, the client re
 
 ### 4.3 Administrator register and account management
 
-The Accounts review screen defaults to residents (`isAdmin=false`); **All Roles**
-is an explicit page-filter choice (`isAdmin=all` in the page URL, not a new API
-boolean value). The API retains its existing optional boolean role filter.
+The Accounts review screen defaults to Voters (`isAdmin=false,isReadonly=false`,
+the implicit `voter` role);
+**All Roles**, administrators and readonly observers are explicit page-filter
+choices. The API accepts optional boolean `isAdmin` and `isReadonly` filters.
 `GET /api/admin/accounts` additionally returns `household: null` or
 `{id,identifier,isEligible}` per account, enriched only for the authorized page
 through the caller's RLS session. Individual account detail retains its existing
@@ -239,13 +249,13 @@ Each record commits separately; a failed/uncertain request stops later rows and
 requires review before retry. Page/filter/size changes clear selections; same-page
 refresh prunes stale rows without losing still-actionable selections.
 
-These routes require a current enabled administrator. The HTTP term `account` means one managed Auth identity plus its application profile; `account.id` equals `profiles.id` and the Auth user UUID. It is not a separate accounts table. Profiles are separate from households so administrators without household entitlements can be maintained.
+Read endpoints in this group require a current enabled administrator or readonly observer; write endpoints require a current enabled administrator. The HTTP term `account` means one managed Auth identity plus its application profile; `account.id` equals `profiles.id` and the Auth user UUID. It is not a separate accounts table. Profiles are separate from households; readonly observers must have an assignment before enablement, while an administrator may be intentionally unassigned.
 
 | Method and path | Purpose | Request / query | Successful response |
 |---|---|---|---|
-| `GET /api/admin/accounts` | List registered identities/profiles for register administration | Standard pagination and account filters | `200`: paginated account projections |
-| `POST /api/admin/accounts` | Provision a managed Auth identity and profile | `email`, `representativeName`, `isAdmin` | `201`: provisioned account projection; ordinary residents remain suspended pending household assignment |
-| `PATCH /api/admin/accounts/{id}` | Maintain managed identity or application profile capability/status | Changed fields among `email`, `representativeName`, `status`, `isAdmin` | `200`: updated projection only after required workflow steps succeed |
+| `GET /api/admin/accounts` | List registered identities/profiles for register administration | Standard pagination and account filters | `200`: paginated account projections; admin or readonly observer |
+| `POST /api/admin/accounts` | Provision a managed Auth identity and profile | `email`, `representativeName`, exclusive `isAdmin` / `isReadonly` role flags | `201`: provisioned account projection; new accounts remain suspended pending review and required household assignment |
+| `PATCH /api/admin/accounts/{id}` | Maintain managed identity or application profile capability/status | Changed fields among `email`, `representativeName`, `status`, `isAdmin`, `isReadonly` | `200`: updated projection only after required workflow steps succeed; admin only |
 | `PATCH /api/admin/settings` | Update the RWA profile, branding, household display wording and suggestion lists | Strict object containing `fullName`, `alias`, `address`, `email`, `phone`, `website`, `accentPalette`, `welcomeMessage`, `householdLabel`, `identifierKind`, `defaultHouseholds` and `rwaPositions` | `200`: updated settings; changed field names are audited, never values |
 | `GET /api/admin/households` | List the household register | Standard pagination and household filters | `200`: paginated register projections |
 | `POST /api/admin/households` | Create a household assigned to an existing account | `identifier`, `representativeAccountId`, `isEligible` | `201`: household projection |
@@ -253,7 +263,7 @@ These routes require a current enabled administrator. The HTTP term `account` me
 | `GET /api/admin/households/{id}` | Load a household for editing | Household UUID | `200`: household projection |
 | `PATCH /api/admin/households/{id}` | Change current label, assignment, or eligibility | Changed fields among `identifier`, `representativeAccountId`, `isEligible` | `200`: updated household projection |
 
-Account projections contain `id`, `email`, `representativeName`, `status`, `isAdmin`, `emailVerifiedAt`, and `updatedAt`. Email and verification state come from supported Auth interfaces and are not duplicated in profiles. Household projections contain `id`, `identifier`, `representativeAccountId` (mapped to `representative_profile_id`), `isEligible`, `updatedAt`, and the minimal representative name/email/status needed by the administrator. None are member directory endpoints. Privileged Auth enrichment is restricted to this administrative purpose; never use it for normal voting/results access.
+Account projections contain `id`, `email`, `representativeName`, `status`, `isAdmin`, optional `isReadonly`, `emailVerifiedAt`, and `updatedAt`. Email and verification state come from supported Auth interfaces and are not duplicated in profiles. Household projections contain `id`, `identifier`, `representativeAccountId` (mapped to `representative_profile_id`), `isEligible`, `updatedAt`, and the minimal representative name/email/status needed by authorized management readers. None are member directory endpoints. Privileged Auth enrichment is restricted to this administrative purpose; never use it for normal voting/results access.
 
 Require an existing consistently provisioned, non-deleted identity/profile for a representative assignment; a suspended newly provisioned profile may be assigned without granting access. Enabling an ordinary resident requires its valid household assignment and explicit administrative status change; activation additionally requires enabled selected representatives. Reject ambiguous assignments and normalized duplicate emails/household identifiers with `409 REGISTER_CONFLICT`. Never silently create or merge an account during household mutation. A retained suspended/deleted account's identity must not be replaced to bypass historical references.
 
@@ -312,11 +322,15 @@ After activation or scheduling, configuration/electorate edits return `409 VOTE_
 
 Early completion and cancellation require an explicit confirmation and non-empty reason. Reconcile the deadline first: an overdue vote completes at its frozen deadline, cannot be cancelled, and cannot be relabelled as early completion. Repeating an action against a terminal vote returns `409 LIFECYCLE_CONFLICT` with safe current-state context.
 
-Participation monitoring returns `eligibleCount`, `submittedCount`, turnout, and rows containing frozen representative name, household identifier, and `submitted`. It does not return selections, counter snapshots, email, or per-submission timestamps. It is unavailable for drafts. This administrative participation list is never attached to PRIVATE results/exports.
+Participation monitoring is available to enabled RWA Admin and RWA ReadOnly callers and returns `eligibleCount`, `submittedCount`, turnout, and rows containing frozen representative name, household identifier, and `submitted`. It does not return selections, counter snapshots, email, or per-submission timestamps. It is unavailable for drafts. This management participation list is never attached to PRIVATE results/exports.
 
 `PATCH /api/admin/settings` is administrator-only and CSRF-protected. It accepts a strict object: official full name (1-200 characters), compact alias (1-80), optional address (up to 500, blank allowed), optional email (blank or a valid address up to 254), optional phone (up to 40, blank allowed), optional HTTP(S) website (up to 200, blank allowed), accent palette (`TEAL`, `BLUE`, `FOREST`, `PLUM` or `SLATE`; each preset meets 4.5:1 contrast), optional plain-text welcome message (up to 300 characters, blank allowed), household label (1-40 characters of single-line plain text, such as `Flat` or `Villa`), identifier kind (`NUMBER` or `ID`), `defaultHouseholds` (array of up to 1000 single-line identifiers, each 1-100 characters) and `rwaPositions` (array of up to 50 single-line office names, each 1-200 characters; defaults to President, Vice-President, Secretary, Joint-Secretary, Treasurer). Both arrays are required keys but may be empty, and entries must be unique after the household key normalization (trim, NFKC, collapsed whitespace, case-fold); a duplicate is reported against `defaultHouseholds[i]` or `rwaPositions[i]`. The settings form edits them as comma-separated text. Only the full name, alias, household label and identifier kind are required; blank optional values are hidden wherever they would appear. The guarded database routine independently validates the values, rechecks the current administrator, keeps `rwa_settings.name` equal to the full name, and audits changed field names atomically without storing the values in audit details.
 
-The full settings projection is returned to the settings page only by the administrator-only `get_rwa_profile` routine; the settings page is not available to residents. Residents see the values on other pages through `get_rwa_branding` (enabled members only): the alias in the “Civic Pulse for {alias}” header and the breadcrumb root, the full name on the Votes page, vote pages and results, an RWA contact block (name, address, email, phone and optional website) in the signed-in footer, the welcome message on the Votes page and the administrator Households and Manage Votes pages, the chosen accent palette, and the household label and identifier kind used for all household wording. The two suggestion lists are administrator-only: the new-household form offers default households not yet in the register as identifier suggestions, and PRIVATE draft editors offer RWA positions as office-name suggestions and through **Add All Positions**. They never create households or offices by themselves and are excluded from member branding and the public identity projection. Public pages receive only the full name, alias, address, palette and household label through `get_public_rwa_identity`, which only the server-side service role can execute (sign-in shows name and alias; the privacy page shows name and address). A settings outage falls back to the product name and default palette rather than blocking pages. Member vote, results and export responses carry the **current** RWA name; the vote's activation-time `rwa_name_snapshot` remains an internal historical record and is not displayed. PDF results print the current name, address, email and phone; CSV carries the current name in `rwaName`. Direct `rwa_settings` access remains denied. Changing the household label or identifier kind affects wording across views and reports (for example “Flats” and “Flat Number”) without altering stored identifiers, uniqueness, normalization, API field names or CSV column keys; the UI derives plural and sentence wording from them.
+Enabled RWA Admin and RWA ReadOnly personas can read the full settings projection through `get_rwa_profile`; only RWA Admin can update it. Residents cannot open the settings page. RWA Admins maintain the two suggestion lists; RWA ReadOnly can inspect them but its edit controls are disabled. The lists are not returned by the member branding or public identity projections and never create households or offices by themselves.
+
+Enabled Residents see the narrow `get_rwa_branding` projection: alias in the “Civic Pulse for {alias}” header and breadcrumb root, full name on Votes/vote/results pages, configured contact block in the signed-in footer, welcome message on Votes/Households/Manage Votes, accent palette, and household/identifier wording. Public pages receive only full name, alias, address, palette and household label through `get_public_rwa_identity`, executable only by the server-side service role (sign-in shows name/alias; privacy shows name/address). A settings outage falls back to the product name/default palette rather than blocking pages.
+
+Member vote, results and export responses carry the **current** RWA name; the vote's activation-time `rwa_name_snapshot` remains internal history. PDF results print the current name, address, email and phone; CSV carries the current name in `rwaName`. Direct `rwa_settings` table access remains denied. Changing household label or identifier kind changes wording (for example “Flats” and “Flat Number”) without changing stored identifiers, uniqueness, normalization, API fields or CSV column keys; the UI derives plural and sentence wording.
 
 Audit events expose decimal-string `id`, `actorKind`, authorized actor identifier, `action`, `targetType`, `targetId`, `occurredAt`, required `reason`, and allowlisted action metadata. They never include OTPs, session material, full account records, ballots, or PRIVATE counter deltas.
 
@@ -326,7 +340,7 @@ RWA identity/contact profile fields and the household and identifier labels are 
 
 ### 5.1 Common result projection
 
-Active and completed results use the same projection. Active PUBLIC results contain aggregate option counts and turnout only. Active PRIVATE results contain aggregate turnout only, with empty option/office arrays; only the separate administrator participation endpoint can identify households that have or have not voted. Cancelled requests return `409 RESULTS_UNAVAILABLE` after object authorization. No endpoint leaks active choices or member-facing identities.
+Active and completed results use the same projection. Active PUBLIC results contain aggregate option counts and turnout only. Active PRIVATE results contain aggregate turnout only, with empty option/office arrays; only the separate RWA Admin/ReadOnly participation endpoint can identify households that have or have not voted. Cancelled requests return `409 RESULTS_UNAVAILABLE` after object authorization. No endpoint leaks active choices or member-facing identities.
 
 The completed projection contains:
 
@@ -569,7 +583,7 @@ Use separate credentials, databases, and email destinations in local/test/stagin
 - PRIVATE choices exist transiently for validation/counter increments; never persist individual ballots, cross-office ballot identifiers, selection receipts, counter-update history, or request payloads.
 - Disable body, SQL bind-parameter, cookie, token, code, email-content, session replay, and network-payload capture across application, proxy, APM, error tracker, and database instrumentation.
 - Log only allowlisted event names, safe status classes, latency, and random support IDs. Never attach PRIVATE payloads to errors, audits, traces, emails, or metrics.
-- Deny live tallies, tally snapshots, change feeds, and debug endpoints that enable differencing. Administrators may monitor participation only.
+- Deny live tallies, tally snapshots, change feeds, and debug endpoints that enable differencing. RWA Admins and RWA ReadOnly may monitor participation, never choices.
 - Application-level anonymity does not protect against privileged infrastructure/WAL/PITR correlation, a compromised process, or inference from low turnout. Obtain A2 approval without promising cryptographic anonymity.
 
 ### Failure handling

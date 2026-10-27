@@ -1,3 +1,4 @@
+// Retry-safe Auth identity provisioning coordinated with guarded profile routines.
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -22,6 +23,7 @@ const inputSchema = z.strictObject({
   email: emailAddress,
   representativeName: nameText,
   isAdmin: z.boolean(),
+  isReadonly: z.boolean().optional(),
   actorProfileId: uuid.nullable(),
 });
 
@@ -112,7 +114,8 @@ export async function provisionAccount(
   if (!parsed.success) {
     throw new ApiError("VALIDATION_FAILED");
   }
-  const { email, representativeName, isAdmin, actorProfileId } = parsed.data;
+  const { email, representativeName, isAdmin, isReadonly, actorProfileId } =
+    parsed.data;
 
   const identity = await ensureAuthIdentity(admin, email);
 
@@ -121,6 +124,7 @@ export async function provisionAccount(
     p_representative_name: representativeName,
     p_is_admin: isAdmin,
     p_actor_profile_id: actorProfileId,
+    ...(isReadonly !== undefined ? { p_is_readonly: isReadonly } : {}),
   });
 
   if (error) {

@@ -1,5 +1,4 @@
 // Protected administrator household register.
-import Link from "next/link";
 import { Plus, Upload } from "lucide-react";
 import {
   flashNotices,
@@ -34,7 +33,10 @@ export async function generateMetadata() {
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-const columns = (identifierLabel: string): Column<HouseholdProjection>[] => [
+const columns = (
+  identifierLabel: string,
+  canManage: boolean,
+): Column<HouseholdProjection>[] => [
   {
     key: "identifier",
     header: identifierLabel,
@@ -71,15 +73,17 @@ const columns = (identifierLabel: string): Column<HouseholdProjection>[] => [
     key: "actions",
     header: "Actions",
     cell: (household) => (
-      <Link
+      <LinkButton
         href={`/admin/households/${household.id}`}
-        className="inline-flex touch-target items-center font-semibold text-accent underline underline-offset-2"
+        variant="secondary"
+        disabled={!canManage}
+        className="px-2 py-1"
       >
         Edit
         <span className="sr-only">
           {identifierLabel} {household.identifier}
         </span>
-      </Link>
+      </LinkButton>
     ),
   },
 ];
@@ -127,11 +131,18 @@ export default async function HouseholdsPage({
         description={`The register of ${deps.terms.households} and the one account that represents each. Edits apply to future votes only; a vote already active keeps the names and representatives it started with.`}
         actions={
           <div className="flex flex-wrap gap-3">
-            <LinkButton href="/admin/households/import" variant="secondary">
+            <LinkButton
+              href="/admin/households/import"
+              variant="secondary"
+              disabled={!deps.actor.isAdmin}
+            >
               <Upload aria-hidden="true" className="size-5" />
               Import CSV
             </LinkButton>
-            <LinkButton href="/admin/households/new">
+            <LinkButton
+              href="/admin/households/new"
+              disabled={!deps.actor.isAdmin}
+            >
               <Plus aria-hidden="true" className="size-5" />
               Add {deps.terms.Household}
             </LinkButton>
@@ -207,7 +218,10 @@ export default async function HouseholdsPage({
           <EmptyState
             title={`The register has no ${deps.terms.households} yet`}
             action={
-              <LinkButton href="/admin/households/new">
+              <LinkButton
+                href="/admin/households/new"
+                disabled={!deps.actor.isAdmin}
+              >
                 Add the First {deps.terms.Household}
               </LinkButton>
             }
@@ -223,7 +237,7 @@ export default async function HouseholdsPage({
         <>
           <DataTable
             caption={`${deps.terms.Household} register`}
-            columns={columns(deps.identifierLabel)}
+            columns={columns(deps.identifierLabel, deps.actor.isAdmin)}
             rows={result.data}
             rowKey={(household) => household.id}
           />

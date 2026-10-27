@@ -1,3 +1,4 @@
+// Authorized management page data and role guards for server-rendered screens.
 import "server-only";
 import { notFound, redirect } from "next/navigation";
 import { getSessionState } from "@/server/authorization/account";
@@ -13,6 +14,7 @@ import {
   type HouseholdTerms,
 } from "@/shared/contracts/household-terms";
 import type { RwaBranding, RwaProfile } from "@/shared/contracts/rwa-profile";
+import { canViewAdministration } from "@/shared/contracts/register";
 
 type PageContext = RegisterDeps & {
   /** Current RWA display values; settings-only fields are never included. */
@@ -31,17 +33,17 @@ async function verifiedAdminContext() {
   if (session.state !== "account") {
     redirect("/sign-in");
   }
-  if (!session.account.isAdmin) {
+  if (!canViewAdministration(session.account)) {
     notFound();
   }
   return { session, client: await createUserClient() };
 }
 
 /*
- * Page-level guard for administrator screens. The session was verified once for
+ * Page-level read guard for administrator and committee observer screens. The session was verified once for
  * this request (getSessionState is cached); data access still runs under the
  * administrator's own session, so RLS and the guarded routines re-check the
- * caller. Anyone who is not a current administrator gets a plain not-found.
+ * caller. Management mutations still require a current administrator.
  */
 export async function adminPageContext(): Promise<PageContext> {
   const { session, client } = await verifiedAdminContext();

@@ -193,6 +193,11 @@ select app_private.deployment_bootstrap_admin('<auth user UID>', 'Asha Admin');
 
 Each procedure writes an audit event. `deployment_initialize_settings` can only be run once.
 
+Additional committee accounts use the Accounts page's exclusive management-role
+selector. Assign `rwa-readonly` only to a representative with a household; the
+account must still be explicitly enabled. Role assignment is admin-only and does
+not create or transfer voting entitlement.
+
 > If the SQL Editor reports that it cannot run `app_private` functions, run the same two statements with any PostgreSQL client connected through `LIVE_DATABASE_URL` (for example the `psql` that ships with the portable PostgreSQL).
 
 ### 7.3 Policy approvals (needed to activate a vote)

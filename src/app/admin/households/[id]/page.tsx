@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { HouseholdForm } from "@/components/admin/household-form";
+import { ManagementFields } from "@/components/admin/management-fields";
 import { PageHeader } from "@/components/ui/layout";
 import { ApiError } from "@/server/http/errors";
 import {
@@ -62,13 +63,15 @@ export default async function EditHouseholdPage({
         title={`Edit ${deps.identifierLabel} ${household.identifier}`}
         description={`Change the ${deps.identifierLabel.toLowerCase()}, the representative or eligibility.`}
       />
-      <HouseholdForm
-        csrfToken={deps.csrfToken}
-        identifierLabel={deps.identifierLabel}
-        accounts={accounts}
-        household={household}
-        limited={accounts.length >= MAX_ASSIGNABLE}
-      />
+      <ManagementFields canManage={deps.actor.isAdmin}>
+        <HouseholdForm
+          csrfToken={deps.csrfToken}
+          identifierLabel={deps.identifierLabel}
+          accounts={accounts}
+          household={household}
+          limited={accounts.length >= MAX_ASSIGNABLE}
+        />
+      </ManagementFields>
     </div>
   );
 }

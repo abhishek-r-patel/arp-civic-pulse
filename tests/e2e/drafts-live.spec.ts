@@ -21,9 +21,9 @@ test.skip(
 
 const WIDTHS = [320, 375, 768, 1280];
 const OPEN_NOTICE =
-  "While voting is open, eligible members and RWA admins can see aggregate counts only. You can change your choice until voting closes. After it ends, your name, flat and final choice are visible in results and downloads.";
+  /While voting is open, eligible members, RWA Admins and RWA ReadOnly observers can see aggregate counts only\. You can change your selection until voting closes\. After it ends, your name, .+ and final selections are visible in authorized results and downloads\./;
 const CLOSED_NOTICE =
-  "Your selections are not shown to residents or RWA admins. Results show totals only.";
+  "Your selections are not shown to the Resident, RWA Admin or RWA ReadOnly personas through the app. Results show totals only.";
 const CLOSED_LIMITS =
   "This protects choices within the app, not against privileged infrastructure access. Results from very small elections may allow people to infer choices.";
 
@@ -80,7 +80,7 @@ test.describe("setting up a PUBLIC vote", () => {
       .getByLabel(/^Background/)
       .fill("Read the quote first.\nThen decide.");
 
-    await page.getByLabel("Find a household").fill(household.identifier);
+    await page.getByLabel(/^Find a /).fill(household.identifier);
     await page
       .getByRole("checkbox", { name: new RegExp(household.identifier) })
       .check();
@@ -115,7 +115,7 @@ test.describe("setting up a PUBLIC vote", () => {
     await expect(ballot.getByText("Draft", { exact: true })).toBeVisible();
     await expect(ballot.getByText(OPEN_NOTICE)).toBeVisible();
     await expect(
-      ballot.getByText(/You can change your choice until voting closes/),
+      ballot.getByText(/You can change your selection until voting closes/),
     ).toBeVisible();
     await expect(
       ballot.getByText(/Voting closes .* 1 Jun 2099, 6:00 PM IST/),

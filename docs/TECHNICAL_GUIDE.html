@@ -81,6 +81,11 @@
       nav ol {
         padding-left: 1.5rem;
       }
+      nav ol ol {
+        margin: 0.25rem 0;
+        padding-left: 1.25rem;
+        font-size: 0.95em;
+      }
       figure {
         margin: 24px auto 32px;
         border: 1px solid #d2dce2;
@@ -241,11 +246,18 @@
             <a href="#6-authentication-sessions-and-authorization"
               >6. Authentication, sessions and authorization</a
             >
+            <ol>
+              <li><a href="#sign-in-flow">Sign-in flow</a></li>
+            </ol>
           </li>
           <li>
             <a href="#7-database-model-and-invariants"
               >7. Database model and invariants</a
             >
+            <ol>
+              <li><a href="#permissions">Permissions</a></li>
+              <li><a href="#migration-map">Migration map</a></li>
+            </ol>
           </li>
           <li>
             <a href="#8-lifecycle-and-register-workflows"
@@ -256,6 +268,11 @@
             <a href="#9-pages-and-http-entry-points"
               >9. Pages and HTTP entry points</a
             >
+            <ol>
+              <li>
+                <a href="#errors-and-pagination">Errors and pagination</a>
+              </li>
+            </ol>
           </li>
           <li>
             <a href="#10-results-exports-and-ui-conventions"
@@ -271,6 +288,13 @@
             <a href="#12-tests-what-to-run-and-what-they-prove"
               >12. Tests: what to run and what they prove</a
             >
+            <ol>
+              <li>
+                <a href="#rebuild-these-illustrated-documents"
+                  >Rebuild these illustrated documents</a
+                >
+              </li>
+            </ol>
           </li>
           <li>
             <a href="#13-a-safe-workflow-for-your-first-code-change"
@@ -315,10 +339,12 @@
       </p>
       <h2 id="1-what-the-application-does">1. What the application does</h2>
       <p>
-        Civic Pulse serves one Resident Welfare Association (RWA).
-        Administrators register household representatives, create votes, preview
-        them and explicitly activate them. Residents sign in with an emailed
-        six-digit code and submit once for their frozen household entitlement.
+        Civic Pulse serves one Resident Welfare Association (RWA). Residents
+        (<code>voter</code> role) sign in with an emailed six-digit code and
+        submit once for their frozen household entitlement. RWA Admins
+        (<code>rwa-admin</code>) manage the register and votes; RWA ReadOnly
+        committee observers (<code>rwa-readonly</code>) inspect authorized
+        management data but cannot change it.
       </p>
       <ul>
         <li>
@@ -339,9 +365,9 @@
           Cancelled. Type and status are different concepts.
         </li>
         <li>
-          <strong>Results:</strong> private to entitled members and
-          administrators; CSV is required and PDF is implemented but can be
-          disabled.
+          <strong>Results:</strong> private to entitled Residents and authorized
+          RWA Admin/ReadOnly personas; CSV is required and PDF is implemented
+          but can be disabled.
         </li>
         <li>
           <strong>Operations:</strong> audit history, bounded retention,
@@ -575,11 +601,12 @@
         checks scope, missing counts and aggregate-only projection; the existing
         live capture exercises actual 02 active / 01 scheduled / 01 response and
         real 1-of-2 turnout in a disposable fixture. Those numbers are synthetic
-        test outcomes, not display constants. Refresh screenshots 05/68/69/72
-        from the application whenever this layout changes. No new migration,
-        endpoint or role-based voting entitlement is introduced. Added
-        summary/result reads must be included in hosting latency and read-budget
-        verification; they are not proof of the existing performance gate.
+        test outcomes, not display constants. These screens are now grouped in
+        the Resident persona folder; recapture them from the application
+        whenever this layout changes. No new migration, endpoint or role-based
+        voting entitlement is introduced. Added summary/result reads must be
+        included in hosting latency and read-budget verification; they are not
+        proof of the existing performance gate.
       </p>
       <p>
         Appearance review additions:
@@ -603,12 +630,17 @@
         navigation and all functional contracts are retained. The
         <a href="../tests/e2e/visual-rollout.spec.ts">rollout test</a> uses real
         disposable fixtures and temporary redacted images across page families,
-        including native ballot review/submit and completed results. The User
-        Guide and all its assets are frozen by explicit request, so do not run
-        the documentation capture script or regenerate USER_GUIDE during this
-        rollout. Use <code>PLAYWRIGHT_PRESERVE_GUIDE=1</code> for browser tests
-        and direct Next commands for build/ preview; regenerate this technical
-        copy only with
+        including native ballot review/submit and completed results. The current
+        User Guide is persona-first; screenshots are grouped under
+        <code>docs/images/user-guide/voter</code>, <code>rwa-admin</code> and
+        <code>rwa-readonly</code>. Capture only with
+        <code>LIVE_AUTH=1</code> and <code>DOC_SCREENSHOTS=1</code> on the
+        approved disposable project. Use
+        <code>PLAYWRIGHT_PRESERVE_GUIDE=1</code> when browser tests must not
+        invoke the guide-generation hook. To reuse an already-running local Next
+        server instead of starting a second server in the same checkout, set
+        <code>PLAYWRIGHT_PORT</code> and <code>PLAYWRIGHT_HOST</code> to its
+        port and hostname. Regenerate this technical copy selectively with
         <code
           >node --input-type=module -e &quot;import {renderGuide} from
           &#39;./scripts/docs/render.mjs&#39;; await
@@ -616,11 +648,11 @@
         >. <a href="../tests/unit/theme.test.ts">Unit tests</a> cover
         bootstrap/contrast;
         <a href="../tests/e2e/theme.spec.ts">browser tests</a> cover actual
-        behavior. Focused captures use
-        <code>--grep &quot;Platinum and Obsidian&quot;</code> under the same
-        disposable-project/TLS/redaction safeguards, adding pictures 68-74 and
-        refreshing the affected overviews when guide updates are explicitly
-        resumed. Runtime browser font requests never contact Google.
+        behavior. Focused persona captures use <code>--grep</code> with a named
+        flow under the same disposable-project/TLS/redaction safeguards. The old
+        numbered pictures 68-74 are archived; current captures are stored in the
+        matching persona folders. Runtime browser font requests never contact
+        Google.
       </p>
       <div class="table-scroll">
         <table>
@@ -652,6 +684,17 @@
               <td>
                 Account/household forms, draft editing, preview and lifecycle
                 interaction.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/components/admin/management-fields.tsx"
+                  >src/components/admin/management-fields.tsx</a
+                >
+              </td>
+              <td>
+                Readonly committee presentation; management controls remain
+                visible but disabled.
               </td>
             </tr>
             <tr>
@@ -815,10 +858,9 @@
                 >
               </td>
               <td>
-                Admin-only profile read/update, enabled-member branding
-                projection, per-request branding cache, the service-role public
-                identity read and <code>loadHouseholdTerms()</code> for
-                server-rendered household wording.
+                Admin/ReadOnly full-profile reads, admin-only updates,
+                enabled-member branding projection, service-role public identity
+                read and server household wording.
               </td>
             </tr>
             <tr>
@@ -924,6 +966,15 @@
             <tr>
               <td><a href="../.github">.github</a></td>
               <td>Validation, CodeQL and Dependabot configuration.</td>
+            </tr>
+            <tr>
+              <td><a href="./USER_GUIDE.html">USER_GUIDE.md</a></td>
+              <td>
+                Active Resident (<code>voter</code>), RWA Admin
+                (<code>rwa-admin</code>) and RWA ReadOnly
+                (<code>rwa-readonly</code>) procedures; current captures are
+                grouped by lowercase role code.
+              </td>
             </tr>
           </tbody>
         </table>
@@ -1094,7 +1145,8 @@
             href="../supabase/migrations/20261031100000_rwa_profile_settings.sql"
             >RWA profile migration</a
           >
-          adds guarded admin-only profile settings, and
+          adds guarded profile settings with RWA Admin/ReadOnly reads and
+          Admin-only updates, and
           <a
             href="../supabase/migrations/20261101100000_rwa_branding_and_public_identity.sql"
             >the branding migration</a
@@ -1203,8 +1255,9 @@
             <tr>
               <th>Capability</th>
               <th>Signed out</th>
-              <th>Enabled resident</th>
-              <th>Enabled administrator</th>
+              <th>Resident (<code>voter</code>)</th>
+              <th>RWA ReadOnly (<code>rwa-readonly</code>)</th>
+              <th>RWA Admin (<code>rwa-admin</code>)</th>
             </tr>
           </thead>
           <tbody>
@@ -1213,33 +1266,39 @@
               <td>Yes</td>
               <td>Yes</td>
               <td>Yes</td>
+              <td>Yes</td>
             </tr>
             <tr>
               <td>Member ballot</td>
               <td>No</td>
               <td>Own frozen entitlement only</td>
-              <td>Only own frozen entitlement</td>
+              <td>Own frozen entitlement</td>
+              <td>Own frozen entitlement</td>
             </tr>
             <tr>
-              <td>Completed results/export</td>
+              <td>Administrative reads/downloads</td>
               <td>No</td>
-              <td>Entitled votes only</td>
-              <td>Authorized administrative access</td>
+              <td>No</td>
+              <td>Authorized read scope</td>
+              <td>Authorized read and write scope</td>
             </tr>
             <tr>
-              <td>Register/drafts/lifecycle/audit</td>
+              <td>Manage register/roles/drafts</td>
               <td>No</td>
               <td>No</td>
+              <td>No; controls disabled</td>
               <td>Yes</td>
             </tr>
             <tr>
-              <td>Active PUBLIC aggregates</td>
+              <td>Active PUBLIC/PRIVATE projections</td>
               <td>No</td>
               <td>Eligible voters: yes</td>
-              <td>Yes</td>
+              <td>Authorized admin read scope; no active choices</td>
+              <td>Yes, no active choices</td>
             </tr>
             <tr>
               <td>Individual PRIVATE selections</td>
+              <td>No</td>
               <td>No</td>
               <td>No</td>
               <td>No</td>
@@ -1248,26 +1307,40 @@
         </table>
       </div>
       <p>
+        The role flags are exclusive, only an administrator changes roles, and a
+        readonly observer must have an assigned household before enablement.
+        Neither management role grants another household&#39;s ballot
+        entitlement.
+      </p>
+      <p>
         Suspended/deleted/unprovisioned identities do not gain access merely by
-        holding a valid token. Admin pages use a plain not-found for non-admins;
-        APIs use the appropriate safe status. Inaccessible vote IDs are
-        indistinguishable from nonexistent ones.
+        holding a valid token. Management pages use a plain not-found for
+        accounts without administrative read capability; mutation APIs require
+        the current RWA Admin role. Inaccessible vote IDs are indistinguishable
+        from nonexistent ones.
       </p>
       <h2 id="7-database-model-and-invariants">
         7. Database model and invariants
       </h2>
       <p>
+        For the full column/key/cardinality diagram, see
+        <a href="./DATABASE.md#4-relationships-and-er-diagram"
+          >the detailed Mermaid ERD in the database contract</a
+        >. It shows Supabase Auth as an external identity and distinguishes
+        PUBLIC response rows from PRIVATE aggregate counters.
+      </p>
+      <p>
         Accounts can now be reviewed in one table with their RLS-authorized flat
-        assignment and eligibility. The page defaults to residents; selecting
-        All Roles is explicit. Selections are current-page only and clear on
-        filter/page/size changes. The two actions reuse the existing
-        per-account/per-household PATCH endpoints, not a bulk database write or
-        new grant. Access and eligibility remain independent; admins without
-        flats can be enabled only through explicit inclusion and a warning.
-        Deleted/missing-assignment/already-satisfied rows are excluded as
-        appropriate. Every request rechecks permissions and commits separately.
-        Uncertain failures stop the batch; UI completion never rolls back
-        earlier records or conceals an unknown outcome. Existing
+        assignment and eligibility. The page defaults to the implicit
+        <code>voter</code> role; selecting All Roles is explicit. Selections are
+        current-page only and clear on filter/page/size changes. The two actions
+        reuse the existing per-account/per-household PATCH endpoints, not a bulk
+        database write or new grant. Access and eligibility remain independent;
+        admins without flats can be enabled only through explicit inclusion and
+        a warning. Deleted/missing-assignment/already-satisfied rows are
+        excluded as appropriate. Every request rechecks permissions and commits
+        separately. Uncertain failures stop the batch; UI completion never rolls
+        back earlier records or conceals an unknown outcome. Existing
         mutation/provider limits apply. No new migration is needed.
       </p>
       <p>
@@ -1315,7 +1388,8 @@
               <td><code>profiles</code></td>
               <td>
                 Stable Auth user ID, representative name,
-                enabled/suspended/deleted status and admin flag.
+                enabled/suspended/deleted status and mutually exclusive
+                <code>rwa-admin</code>/<code>rwa-readonly</code> flags.
               </td>
             </tr>
             <tr>
@@ -1550,7 +1624,10 @@
             </tr>
             <tr>
               <td><code>311000_rwa_profile_settings</code></td>
-              <td>Admin-only RWA profile fields and audited update RPC.</td>
+              <td>
+                Admin/ReadOnly profile reads and Admin-only RWA profile updates
+                through an audited RPC.
+              </td>
             </tr>
             <tr>
               <td><code>1101000_rwa_branding_and_public_identity</code></td>
@@ -1582,8 +1659,8 @@
             <tr>
               <td><code>20261104100000_rwa_default_lists</code></td>
               <td>
-                Admin-only Default Households and RWA Positions suggestion lists
-                in RWA settings.
+                Admin-managed Default Households and RWA Positions suggestions;
+                full settings reads are available to Admin/ReadOnly.
               </td>
             </tr>
             <tr>
@@ -1591,6 +1668,27 @@
               <td>
                 Audited <code>change_vote_deadline</code> routine; the vote
                 guard lets only it move an active vote&#39;s deadline.
+              </td>
+            </tr>
+            <tr>
+              <td><code>20261106100000_register_import</code></td>
+              <td>
+                Current-admin import checks and retry-safe household assignment
+                without enabling accounts.
+              </td>
+            </tr>
+            <tr>
+              <td><code>20261107100000_scheduled_opening</code></td>
+              <td>
+                Frozen scheduled state, database-clock opening, direct-read
+                ballot privacy and pre-opening withdrawal.
+              </td>
+            </tr>
+            <tr>
+              <td><code>20261108100000_readonly_committee_role</code></td>
+              <td>
+                Exclusive observer role, admin-equivalent reads, admin-only
+                mutations/role changes and household-enabled voting.
               </td>
             </tr>
           </tbody>
@@ -2135,21 +2233,22 @@ node scripts\docs\render.mjs</code></pre>
         claim to fix them all.
       </p>
       <p>
-        The focused test adds nine images (<code>54-import-preview</code>
-        through <code>61-schedule-withdrawn</code>, plus
-        <code>62-import-mobile</code>) and refreshes only
-        <code>15-admin-home</code>, <code>25-ready-preview</code>,
-        <code>31-admin-votes</code> and <code>44-household-created</code>. It
-        uses real synthetic account provisioning, one-row import, exact-match
-        checking, scheduling and withdrawal. It confirms the imported account is
-        still suspended, the resident sees no voting controls before opening,
-        and the withdrawn vote is hidden again. The fixture profile is restored
-        and any remaining example schedule is withdrawn on cleanup; new accounts
-        remain synthetic test records. Email/code redaction remains enabled. The
-        new confirmation images are dialog crops; the other captures are
-        full-page, including a mobile import and resident view. This is not a
-        500-row capacity test, SMTP test, manual accessibility acceptance or
-        proof of actual scheduled Cron execution.
+        The capture spec contains six synthetic flows for appearance, bulk
+        review, import/scheduling, voting, role assignment and observer access.
+        The active guide uses 111 persona PNGs: 31 Resident, 52 RWA Admin and 28
+        RWA ReadOnly captures, plus three workflow diagrams. Four mobile
+        Admin/ReadOnly captures are excluded because the guide targets laptop
+        layouts for those personas. The corresponding role codes are
+        <code>voter</code>, <code>rwa-admin</code> and
+        <code>rwa-readonly</code>. The observer sequence covers every management
+        read destination, disabled mutation controls, its own PUBLIC and PRIVATE
+        ballots, external completed results and a CSV download. Role assignment
+        captures show the household prerequisite and an atomic switch to
+        <code>rwa-admin</code>. All captures are redacted; fixture RWA settings
+        are restored, and remaining active/scheduled examples are
+        cancelled/withdrawn during cleanup. These are synthetic browser
+        fixtures, not a 500-row capacity test, SMTP delivery test, manual
+        accessibility acceptance or proof of actual scheduled Cron execution.
       </p>
       <p>
         Use only the approved disposable fixture project. Capturing creates

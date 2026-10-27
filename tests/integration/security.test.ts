@@ -195,6 +195,7 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
         "current_uid",
         "has_entitlement",
         "is_enabled_admin",
+        "is_enabled_committee",
         "is_enabled_member",
         "owns_participation",
         "activate_vote",

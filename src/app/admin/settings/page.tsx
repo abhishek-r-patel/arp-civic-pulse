@@ -1,6 +1,7 @@
 // Administrator-controlled RWA identity, contact, display wording and
 // administrator-only suggestion lists.
 import { RwaProfileForm } from "@/components/admin/rwa-profile-form";
+import { ManagementFields } from "@/components/admin/management-fields";
 import { Notice } from "@/components/ui/notice";
 import { PageHeader } from "@/components/ui/layout";
 import { adminRwaSettingsPageContext } from "@/server/register/page-context";
@@ -18,7 +19,7 @@ export default async function RwaSettingsPage() {
     <div className="grid gap-8">
       <PageHeader
         title="RWA Settings"
-        description="Personalize how your RWA appears in Civic Pulse. Only administrators can open this page; residents see the resulting values on other pages. Fields marked * are required; leave any other field blank to hide it everywhere."
+        description="Personalize how your RWA appears in Civic Pulse. Administrators can edit; committee observers have read-only access. Fields marked * are required; leave any other field blank to hide it everywhere."
       />
       <Notice tone="info" heading="Where Each Value Appears">
         Alias: the “Civic Pulse for …” header on every page and the sign-in
@@ -38,23 +39,25 @@ export default async function RwaSettingsPage() {
         It does not rename saved identifiers, change saved values, or alter
         matching rules.
       </Notice>
-      <RwaProfileForm
-        csrfToken={deps.csrfToken}
-        initialProfile={{
-          fullName: deps.fullName,
-          alias: deps.alias,
-          address: deps.address,
-          email: deps.email,
-          phone: deps.phone,
-          website: deps.website,
-          accentPalette: deps.accentPalette,
-          welcomeMessage: deps.welcomeMessage,
-          householdLabel: deps.householdLabel,
-          identifierKind: deps.identifierKind,
-          defaultHouseholds: deps.defaultHouseholds,
-          rwaPositions: deps.rwaPositions,
-        }}
-      />
+      <ManagementFields canManage={deps.actor.isAdmin}>
+        <RwaProfileForm
+          csrfToken={deps.csrfToken}
+          initialProfile={{
+            fullName: deps.fullName,
+            alias: deps.alias,
+            address: deps.address,
+            email: deps.email,
+            phone: deps.phone,
+            website: deps.website,
+            accentPalette: deps.accentPalette,
+            welcomeMessage: deps.welcomeMessage,
+            householdLabel: deps.householdLabel,
+            identifierKind: deps.identifierKind,
+            defaultHouseholds: deps.defaultHouseholds,
+            rwaPositions: deps.rwaPositions,
+          }}
+        />
+      </ManagementFields>
     </div>
   );
 }

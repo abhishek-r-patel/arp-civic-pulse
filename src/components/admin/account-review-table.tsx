@@ -206,7 +206,9 @@ export function AccountReviewTable({
     {
       key: "role",
       header: "Role",
-      cell: (account) => <RoleBadge isAdmin={account.isAdmin} />,
+      cell: (account) => (
+        <RoleBadge isAdmin={account.isAdmin} isReadonly={account.isReadonly} />
+      ),
     },
     {
       key: "status",

@@ -8,8 +8,10 @@ try {
   // No .env.local: the default e2e specs do not need one.
 }
 
-const port = 3100;
-const baseURL = `http://127.0.0.1:${port}`;
+const port = process.env.PLAYWRIGHT_PORT ?? "3100";
+const host =
+  process.env.PLAYWRIGHT_HOST === "localhost" ? "localhost" : "127.0.0.1";
+const baseURL = `http://${host}:${port}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -39,8 +41,8 @@ export default defineConfig({
   webServer: {
     command:
       process.env.PLAYWRIGHT_PRESERVE_GUIDE === "1"
-        ? `node node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port ${port}`
-        : `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
+        ? `node node_modules/next/dist/bin/next dev --hostname ${host} --port ${port}`
+        : `npm run dev -- --hostname ${host} --port ${port}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

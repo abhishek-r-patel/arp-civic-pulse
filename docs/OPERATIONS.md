@@ -27,11 +27,12 @@ npm run ops -- <command> [options]      # = node --env-file-if-exists=.env.local
 
 The all-screen visual rollout changes shared UI surfaces, not operational
 endpoints, rates, retention, permissions or counting. Native ballot submission,
-unknown-outcome recovery and export routes are unchanged. The current User Guide
-hold applies to Markdown, generated HTML/public copies and image assets; do not
-run automated guide recapture/regeneration as part of this rollout. Temporary
-redacted visual test images are separate evidence and not a production-readiness
-claim.
+unknown-outcome recovery and export routes are unchanged. The User Guide now
+documents Resident (`voter`), RWA Admin (`rwa-admin`) and RWA ReadOnly (`rwa-readonly`) separately. Its screenshots are
+persona-grouped.
+Capture tests use synthetic records on the approved disposable project with
+redacted email/code fields. Captures demonstrate those fixtures only and do not
+prove production readiness or real email delivery.
 
 The concept-aligned Votes overview adds three exact RLS head-count reads per
 authorized page, plus bounded-concurrency existing-result reads for active-card
@@ -64,8 +65,11 @@ individually or through the Accounts table's page-local Enable Selected action.
 Make Eligible is separate and never enables sign-in. Residents are the default
 role filter; administrators require explicit inclusion and an access warning.
 The same per-record audit, current-admin checks and 60-mutation/minute budget
-apply; a bulk UI action is not one transaction. Stop on failure, preserve completed
-outcomes and refresh before retrying an uncertain row. Existing
+apply; a bulk UI action is not one transaction. The exclusive `rwa-readonly`
+role can inspect authorized management data but cannot change roles or register
+state; assign it only to an account with a household before enabling it. Role
+transitions are audited and retain the final-enabled-admin safeguard. Stop on
+failure, preserve completed outcomes and refresh before retrying an uncertain row. Existing
 records and frozen scheduled/active electorates are never overwritten by import.
 
 `npm run ops -- status` prints **counts only** (no names, no choices) and exits non-zero on any of:

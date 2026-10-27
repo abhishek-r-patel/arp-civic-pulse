@@ -1,3 +1,4 @@
+// Consistent safe HTTP request/response behavior for application routes.
 import "server-only";
 import { ApiError } from "@/server/http/errors";
 import { errorResponse, newRequestId } from "@/server/http/response";

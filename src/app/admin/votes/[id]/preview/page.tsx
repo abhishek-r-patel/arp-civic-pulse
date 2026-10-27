@@ -12,6 +12,7 @@ import { LinkButton } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { BallotPreview } from "@/components/votes/ballot-preview";
+import { ManagementFields } from "@/components/admin/management-fields";
 import { ApiError } from "@/server/http/errors";
 import { adminPageContext } from "@/server/register/page-context";
 import { getRwaDisplay, getVote, previewDraft } from "@/server/votes/drafts";
@@ -201,7 +202,7 @@ export default async function PreviewPage({
       </div>
 
       {readyToActivate ? (
-        <>
+        <ManagementFields canManage={deps.actor.isAdmin}>
           <ActivateVote
             csrfToken={deps.csrfToken}
             voteId={id}
@@ -216,7 +217,7 @@ export default async function PreviewPage({
               closesAt={vote.closesAt}
             />
           ) : null}
-        </>
+        </ManagementFields>
       ) : null}
     </div>
   );

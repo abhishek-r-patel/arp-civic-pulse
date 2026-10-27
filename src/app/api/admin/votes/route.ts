@@ -1,8 +1,10 @@
+// Administrative vote list reads and administrator-only draft creation endpoint.
 import { assertAuthMutationAllowed } from "@/server/auth/dependencies";
 import { BODY_LIMITS, parseJsonBody, parseQuery } from "@/server/http/request";
 import { ok, paginated } from "@/server/http/response";
 import { route } from "@/server/http/route";
 import { enforceMutationLimit, registerDeps } from "@/server/register/shared";
+import { committeeReadDeps } from "@/server/register/shared";
 import { createDraft, listVotes } from "@/server/votes/drafts";
 import {
   createDraftSchema,
@@ -13,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 export const { GET, POST, PUT, PATCH, DELETE } = route({
   GET: async ({ request, requestId }) => {
-    const deps = await registerDeps();
+    const deps = await committeeReadDeps();
     const query = parseQuery(request, voteListQuerySchema);
     const { data, page } = await listVotes(deps, query);
     return paginated(data, page, requestId);

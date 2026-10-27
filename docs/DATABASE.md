@@ -72,8 +72,8 @@ Exactly one row, maintained through controlled setup and audited administrative 
 | `website` | `text` | Optional HTTP(S) URL; defaults to empty text. Shown in the signed-in footer when set. |
 | `accent_palette` | `text` | One of `TEAL` (default), `BLUE`, `FOREST`, `PLUM`, `SLATE`; maps to a contrast-checked accent in the design tokens. |
 | `welcome_message` | `text` | Optional plain-text message up to 300 characters, no markup; empty by default. |
-| `default_households` | `text[]` | Administrator-only identifier suggestions for new households; up to 1000 single-line entries of 1-100 characters, unique after household key normalization; empty by default. |
-| `rwa_positions` | `text[]` | Administrator-only office-name suggestions for PRIVATE drafts; up to 50 single-line entries of 1-200 characters, unique after normalization; defaults to President, Vice-President, Secretary, Joint-Secretary, Treasurer. |
+| `default_households` | `text[]` | Admin-managed identifier suggestions for new households; readable through the full settings projection by enabled RWA Admin/ReadOnly accounts, not exposed to Residents; up to 1000 single-line entries of 1-100 characters, unique after household key normalization; empty by default. |
+| `rwa_positions` | `text[]` | Admin-managed office-name suggestions for PRIVATE drafts; readable through the full settings projection by enabled RWA Admin/ReadOnly accounts, not exposed to Residents; up to 50 single-line entries of 1-200 characters, unique after normalization; defaults to President, Vice-President, Secretary, Joint-Secretary, Treasurer. |
 | `policy_approvals` | `jsonb` | Object keyed exactly by A1-A7; empty object allowed during setup. Structure below. |
 | `vote_retention_days` | `integer`, nullable | Positive approved period after completion/cancellation; null means unapproved, not unlimited. |
 | `audit_retention_days` | `integer`, nullable | Positive approved period after event creation. |
@@ -95,12 +95,17 @@ Supabase owns `auth.users` and its authentication schema. Its user UUID and regi
 | `id` | `uuid` | PK and FK to `auth.users.id`; `ON DELETE RESTRICT`. No independently generated profile ID. |
 | `representative_name` | `text` | Non-empty current name. |
 | `status` | `text` | `ENABLED`, `SUSPENDED`, or `DELETED`; default `SUSPENDED` until provisioning is complete. |
-| `is_admin` | `boolean` | Default false; does not grant voting entitlement. |
+| `is_admin` | `boolean` | Default false; the `rwa-admin` write-management role; does not grant voting entitlement. |
+| `is_readonly` | `boolean` | Default false; mutually exclusive with `is_admin`. Grants authorized committee reads only, never management writes or voting entitlement. Requires an assigned household before enablement. |
 | `created_at` | `timestamptz` | Database creation time. |
 | `updated_at` | `timestamptz` | Database modification time. |
 | `deleted_at` | `timestamptz`, nullable | Present exactly when status is `DELETED`. |
 
-Keep profile IDs stable across email/register edits and suspension; do not create replacement identities to bypass frozen assignments. Current role/status come from this table, never user-editable Auth metadata. Members cannot update these fields directly. Historical electorate references remain stable. No passwords, date of birth, phone numbers, or ownership documents are application data requirements.
+Keep profile IDs stable across email/register edits and suspension; do not create replacement identities to bypass frozen assignments. Current role/status come from this table, never user-editable Auth metadata. Only administrators may change roles; profile role transitions are atomic, audited and preserve the final-enabled-admin safeguard. Members and observers cannot update these fields directly. Historical electorate references remain stable. No passwords, date of birth, phone numbers, or ownership documents are application data requirements.
+
+The user-facing role code `voter` is derived when both management flags are
+false; there is no separate voter-role column. Personas are titled Resident
+(`voter`), RWA Admin (`rwa-admin`) and RWA ReadOnly (`rwa-readonly`).
 
 Suspension/soft deletion blocks application access immediately through profile checks in RLS and guarded functions, including with an already-issued JWT. Use supported Auth administrative operations for session revocation, bans, email changes, and identity removal as applicable; do not promise instant invalidation of every issued JWT. Auth administrative calls and profile changes are not one transaction: surface partial failures and use retry-safe operations. Keep a profile blocked throughout an identity-change workflow until the Auth identity and register association are verified consistent.
 
@@ -237,7 +242,7 @@ All snapshot fields are null in drafts and non-null after activation, enforced b
 
 PK `(vote_id, household_id)` is also a composite FK to `electorate(vote_id, household_id)`. It is the authoritative exactly-once record and uncertainty-recovery lookup. No selected option, candidate, ballot identifier, request identifier, IP address, or session identifier is stored here.
 
-Participation timestamps must never appear with PRIVATE choice data. Administrators may monitor participation; members may query their own status. PRIVATE result/export projections exclude household and participation lists.
+Participation timestamps must never appear with PRIVATE choice data. RWA Admins and RWA ReadOnly observers may monitor participation; Residents may query their own status. PRIVATE result/export projections exclude household and participation lists.
 
 ### 3.11 `open_responses`
 
@@ -314,25 +319,157 @@ not ballot state; it does not permit storing selections in browser storage.
 
 ```mermaid
 erDiagram
+    AUTH_USERS {
+        uuid id PK "Supabase-managed identity"
+    }
+    PROFILES {
+        uuid id PK, FK "AUTH_USERS.id"
+        text representative_name
+        text status
+        boolean is_admin
+        boolean is_readonly
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at "nullable"
+    }
+    RWA_SETTINGS {
+        smallint id PK "singleton, constrained to 1"
+        text name
+        text full_name
+        text alias
+        text timezone
+        text household_label
+        text identifier_kind
+        text address
+        text email
+        text phone
+        text website
+        text accent_palette
+        text welcome_message
+        text_array default_households
+        text_array rwa_positions
+        jsonb policy_approvals
+        integer vote_retention_days "nullable"
+        integer audit_retention_days "nullable"
+        integer inactive_profile_retention_days "nullable"
+        integer rate_limit_retention_days "nullable"
+        integer backup_retention_days "nullable"
+        timestamptz updated_at
+    }
+    HOUSEHOLDS {
+        uuid id PK
+        text identifier
+        text identifier_normalized UK
+        uuid representative_profile_id FK, UK
+        boolean is_eligible
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    VOTES {
+        uuid id PK
+        text voting_type
+        text open_selection_mode
+        integer open_selection_limit "nullable"
+        text status
+        text title
+        text instructions "nullable"
+        timestamptz closes_at "nullable in draft"
+        integer draft_revision
+        uuid created_by_profile_id FK
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz activated_at "nullable"
+        timestamptz opens_at "nullable"
+        timestamptz scheduled_at "nullable"
+        timestamptz completed_at "nullable"
+        text completion_mode "nullable"
+        text completion_reason "nullable"
+        timestamptz cancelled_at "nullable"
+        text cancellation_reason "nullable"
+        text rwa_name_snapshot "nullable"
+        text timezone_snapshot "nullable"
+        jsonb policy_versions_snapshot "nullable"
+    }
+    OFFICES {
+        uuid id PK
+        uuid vote_id FK
+        text name
+        integer position
+    }
+    CANDIDATES {
+        uuid id PK
+        uuid office_id FK
+        text name
+        integer position
+    }
+    POLL_OPTIONS {
+        uuid id PK
+        uuid vote_id FK
+        text label
+        integer position
+    }
+    ELECTORATE {
+        uuid vote_id PK, FK
+        uuid household_id PK, FK
+        uuid representative_profile_id FK "nullable before freeze"
+        text representative_name_snapshot "nullable before freeze"
+        text household_identifier_snapshot "nullable before freeze"
+    }
+    PARTICIPATION {
+        uuid vote_id PK, FK
+        uuid household_id PK, FK
+        timestamptz accepted_at
+    }
+    OPEN_RESPONSES {
+        uuid vote_id PK, FK
+        uuid household_id PK, FK
+        uuid option_id PK, FK
+    }
+    CLOSED_TALLIES {
+        uuid id PK "static counter id, not ballot id"
+        uuid vote_id FK
+        uuid office_id FK
+        uuid candidate_id FK "nullable for NOTA"
+        bigint accepted_count
+    }
+    AUDIT_EVENTS {
+        bigint id PK
+        uuid actor_profile_id FK "nullable for system/deployment"
+        text actor_kind
+        text action
+        text target_type
+        text target_id "polymorphic, no FK"
+        timestamptz occurred_at
+        text reason "nullable"
+        jsonb details
+    }
+    RATE_LIMIT_BUCKETS {
+        text scope PK
+        bytea subject_digest PK
+        smallint digest_key_version PK
+        timestamptz window_start PK
+        timestamptz expires_at
+        bigint request_count
+    }
+
     AUTH_USERS ||--o| PROFILES : managed_identity
-    PROFILES ||--o| HOUSEHOLDS : currently_represents
+    PROFILES ||--o| HOUSEHOLDS : current_representative
     PROFILES ||--o{ VOTES : creates
+    PROFILES o|--o{ ELECTORATE : frozen_representative
     PROFILES o|--o{ AUDIT_EVENTS : acts
-    VOTES ||--o{ OFFICES : closed_configuration
+    VOTES ||--o{ OFFICES : private_ballot
     OFFICES ||--o{ CANDIDATES : offers
-    VOTES ||--o{ POLL_OPTIONS : open_configuration
+    VOTES ||--o{ POLL_OPTIONS : public_ballot
     VOTES ||--o{ ELECTORATE : selects_then_freezes
     HOUSEHOLDS ||--o{ ELECTORATE : receives_entitlement
-    PROFILES o|--o{ ELECTORATE : frozen_representative
     ELECTORATE ||--o| PARTICIPATION : submits_once
-    PARTICIPATION ||--o{ OPEN_RESPONSES : open_only
+    PARTICIPATION ||--o{ OPEN_RESPONSES : public_only
     POLL_OPTIONS ||--o{ OPEN_RESPONSES : selected_option
-    VOTES ||--o{ CLOSED_TALLIES : closed_aggregates
-    OFFICES ||--o{ CLOSED_TALLIES : counted_per_office
-    CANDIDATES o|--o{ CLOSED_TALLIES : candidate_or_nota
+    OFFICES ||--o{ CLOSED_TALLIES : private_aggregate
+    CANDIDATES o|--o| CLOSED_TALLIES : candidate_counter
 ```
 
-`rwa_settings` is a singleton, not a tenant parent. `rate_limit_buckets` has no identifying foreign keys. The ER diagram shows structural optionality, including incomplete drafts; activation enforces required office/candidate/option/electorate cardinalities. For PRIVATE elections, each candidate has exactly one initialized counter and each office also has one null-candidate NOTA counter. There is deliberately no edge from participation to PRIVATE choices.
+`AUTH_USERS` is Supabase-managed and shown only to explain `profiles.id`; it is not an application-owned table. `rwa_settings` is a singleton, not a tenant parent. `rate_limit_buckets` has no identifying foreign keys. Composite primary/foreign keys are shown by marking each participating column; position uniqueness is scoped to its parent vote or office. The diagram shows structural optionality, including incomplete drafts; activation enforces required office/candidate/option/electorate cardinalities. `PARTICIPATION` reaches the vote through the composite `ELECTORATE` key. For PRIVATE elections, each candidate has at most one initialized counter and each office also has one null-candidate NOTA counter. There is deliberately no relationship from participation to PRIVATE choices or tallies.
 
 ## 5. Integrity, validation, and transaction boundaries
 
@@ -434,7 +571,7 @@ Revoke `PUBLIC` execution on application routines and unsafe schema creation pri
 
 Protected user-callable entry points explicitly validate non-null `auth.uid()`, the matching current profile's enabled status/role, required capability, and frozen entitlement. Never accept an actor/household argument as proof of identity or trust user-editable JWT metadata for role. Server routes verify identity through supported Auth methods before calling with the user's session; SQL permissions must independently remain safe against direct Supabase API calls. Do not pass custom session digests into RPCs.
 
-No runtime routine returns active PRIVATE candidate/NOTA counters; completed PRIVATE counters are exposed only through the authorized result projection. Active PRIVATE turnout is derived from aggregate participation and includes no identities; household-level participation is exposed only by the administrator-only monitoring RPC. Active PUBLIC aggregate counts are derived from current responses, but individual active responses remain inaccessible. Submission routines return own-participation status only. Runtime cannot update/delete audit events; append occurs only inside approved administrative operations. Retention deletion is a separate restricted operation, not an audit-edit capability.
+No runtime routine returns active PRIVATE candidate/NOTA counters; completed PRIVATE counters are exposed only through the authorized result projection. Active PRIVATE turnout is derived from aggregate participation and includes no identities; household-level participation status is exposed only to authorized RWA Admin and RWA ReadOnly callers of the guarded monitoring RPC. Active PUBLIC aggregate counts are derived from current responses, but individual active responses remain inaccessible. Submission routines return own-participation status only. Runtime cannot update/delete audit events; append occurs only inside approved administrative operations. Retention deletion is a separate restricted operation, not an audit-edit capability.
 
 **Implementation notes (migrations `20261024100000`-`20261024100400`).**
 - The protected routine owner is the non-login role `cp_owner`; it owns every application table and routine and has no privileges in the Supabase `auth` schema. `profiles` is created by the migration role (which holds `REFERENCES` on `auth.users`) and then transferred to `cp_owner`.
@@ -479,12 +616,12 @@ No runtime routine returns active PRIVATE candidate/NOTA counters; completed PRI
 **Member reads, results, monitoring and audit (migration `20261024150000`).** Five session routines, all `SECURITY DEFINER`, re-deriving identity from the JWT:
 - `list_member_votes` / `get_member_vote` read only the caller's own frozen entitlement and own participation flag (an administrator outside the electorate may read a non-draft ballot but gets `entitled: false`). Listing order is active-by-deadline then finished-newest-first via a `(rank, key, id)` keyset.
 - `get_vote_results` is the single source for the screen, API and CSV. It share-locks the vote, runs `verify_vote_invariants` and raises `RESULTS_INTEGRITY_ERROR` on a mismatch instead of repairing it, and counts the frozen electorate as the denominator (including households suspended later). An unexpired ACTIVE PUBLIC vote returns option aggregates and turnout only; ACTIVE PRIVATE returns turnout only with empty options/offices arrays. Both have null `namedResponses`/`namedPage`. Cancelled votes remain unavailable. COMPLETED PUBLIC named responses come from the frozen electorate snapshot, never the live register; completed PRIVATE results return aggregates only. `p_limit` defaults to a bounded page; `null` is accepted only for completed-result exports.
-- `get_vote_participation` shows frozen name, household identifier and submitted flag only (never a choice or time) and refuses drafts. `list_audit_events` copies only allowlisted `details` keys.
+- `get_vote_participation` shows frozen name, household identifier and submitted flag only (never a choice or time) and refuses drafts. Enabled admins and readonly observers may call it. `list_audit_events` copies only allowlisted `details` keys.
 - The security test's function allowlist lists all five. Choice storage (`open_responses`, `closed_tallies`) stays unreadable by every API role, administrators included.
 
 **Configurable identifier wording (migration `20261030100000`, superseded by `20261103110000`).** `rwa_settings.identifier_label` defaults to `Household identifier` and stores one bounded, plain-text RWA display label. `get_household_identifier_label()` is an enabled-member RPC returning only that value; `update_household_identifier_label(label)` is administrator-only, rechecks current role in the database, updates the singleton and appends `RWA_IDENTIFIER_LABEL_UPDATED` atomically. Neither routine grants direct table access. This label is presentation-only: changing it does not update household identifiers, normalization keys, uniqueness, snapshots or historical vote data.
 
-**RWA profile settings (migrations `20261031100000`, `20261101100000`).** The singleton also stores the official full name, alias, address, contact email, phone, optional website, accent palette and welcome message with bounded database checks and the requested defaults. Existing official names are copied into `full_name` without changing `name`; deployment initialization writes both columns. `get_rwa_profile()` and `update_rwa_profile(settings)` are administrator-only; updates keep `name` equal to `full_name` and append an audit event containing only changed field names. `get_rwa_branding()` is the enabled-member display projection. `get_public_rwa_identity()` returns only full name, alias, address and palette and is executable by `service_role` alone (it re-checks the claim), so `anon` still executes no routine and the Next.js server supplies the sign-in and privacy pages. Screens and exports use the current name; each vote's `rwa_name_snapshot` is kept unchanged as an internal historical record. The replaced alias-only routine `get_rwa_alias()` is dropped by the second migration.
+**RWA profile settings (migrations `20261031100000`, `20261101100000`).** The singleton also stores the official full name, alias, address, contact email, phone, optional website, accent palette and welcome message with bounded database checks and the requested defaults. Existing official names are copied into `full_name` without changing `name`; deployment initialization writes both columns. `get_rwa_profile()` is available to enabled admins and readonly observers; `update_rwa_profile(settings)` remains administrator-only. Updates keep `name` equal to `full_name` and append an audit event containing only changed field names. `get_rwa_branding()` is the enabled-member display projection. `get_public_rwa_identity()` returns only full name, alias, address and palette and is executable by `service_role` alone (it re-checks the claim), so `anon` still executes no routine and the Next.js server supplies the sign-in and privacy pages. Screens and exports use the current name; each vote's `rwa_name_snapshot` is kept unchanged as an internal historical record. The replaced alias-only routine `get_rwa_alias()` is dropped by the second migration.
 
 **Household label and identifier kind (migration `20261103110000`).** `rwa_settings.identifier_label` is replaced by `household_label` (default `Household`) and `identifier_kind` (`NUMBER` or `ID`, default `NUMBER`). Existing labels are backfilled by stripping a trailing Number/No./ID/Identifier word (so `Flat Number` becomes `Flat` + `NUMBER`, `Villa ID` becomes `Villa` + `ID`, and the default `Household identifier` becomes `Household` + `NUMBER`). `get_household_identifier_label()` and `update_household_identifier_label(text)` are dropped; `get_rwa_profile()` and `get_rwa_branding()` both return `householdLabel` and `identifierKind`, `get_public_rwa_identity()` adds `householdLabel`, and `update_rwa_profile(settings)` accepts and audits the two new keys. Historical `RWA_IDENTIFIER_LABEL_UPDATED` audit events remain readable.
 
@@ -496,7 +633,7 @@ No runtime routine returns active PRIVATE candidate/NOTA counters; completed PRI
 
 - Unauthenticated visitors cannot list members, votes, ballots, participation, or results.
 - Enabled members access only votes whose frozen electorate names their profile; current reassignment does not transfer access to historical votes.
-- Administrators manage register/drafts/lifecycle and inspect participation; their role does not permit voting for someone else.
+- Administrators manage register/drafts/lifecycle; administrators and readonly observers inspect authorized participation/results. Neither role permits voting for someone else.
 - Completed PUBLIC named responses are available to the same authorized viewers as results. Never include registered email in result/export projections.
 - Suspension/deletion overrides membership and administrative capability immediately. Every request, applicable RLS read, and protected database operation rechecks current profile state, even with a still-valid JWT.
 
@@ -506,15 +643,15 @@ Enable RLS on **every application table**, including settings, profiles, audit, 
 
 | Table / surface | Authenticated direct-read policy | Mutation / protected access |
 |---|---|---|
-| `profiles` | Own enabled profile; enabled admins may read profiles needed for register administration. | Role, status, name, and assignments change only through guarded admin operations. Auth emails are obtained only through an authorized server-only register projection. |
-| `households` | Enabled admin register access only; members obtain household labels through their authorized ballot/projection. | Guarded admin operations; representative uniqueness enforced. |
-| `rwa_settings` | No direct client reads; enabled members obtain the display branding projection (including the household label and identifier kind) through a narrow safe RPC; public pages obtain name, alias, address, palette and household label only through a service-role-only routine. | Admin-only guarded RPC reads and updates the full profile; changed field names are audited. Other policy and retention changes remain controlled procedures. |
-| `votes` | Enabled admins may read all; enabled members only non-drafts with their own frozen entitlement. | Guarded draft/lifecycle operations; freeze guards apply independently. |
+| `profiles` | Own enabled profile; enabled admins and readonly observers may read profiles needed for register administration. | Role, status, name, and assignments change only through guarded admin operations. Auth emails are obtained only through an authorized server-only register projection. |
+| `households` | Enabled admin and readonly-observer register access; members obtain household labels through their authorized ballot/projection. | Guarded admin operations; representative uniqueness enforced. |
+| `rwa_settings` | No direct client reads; enabled members obtain the display branding projection (including the household label and identifier kind) through a narrow safe RPC; public pages obtain name, alias, address, palette and household label only through a service-role-only routine. | Admin and readonly observers may call the guarded full-profile read; only admins may update it. Changed field names are audited. Other policy and retention changes remain controlled procedures. |
+| `votes` | Enabled admins and readonly observers may read all; enabled members only non-drafts with their own frozen entitlement. | Guarded draft/lifecycle operations; freeze guards apply independently and remain administrator-only. |
 | `offices`, `candidates`, `poll_options` | Same parent-vote visibility as `votes`; no unrelated ballot discovery. | Guarded draft edits only. |
-| `electorate` | Own frozen entitlement only for enabled members; enabled admins may inspect the electorate. | Guarded draft selection/activation, then frozen. |
-| `participation` | Own entitlement's status only for enabled members; enabled admins may inspect participation without choices. | Submission RPC only; approved terminal retention is separate. |
+| `electorate` | Own frozen entitlement only for enabled members; enabled admins and readonly observers may inspect the electorate. | Guarded draft selection/activation, then frozen. |
+| `participation` | Own entitlement's status only for enabled members; enabled admins and readonly observers may inspect participation without choices. | Submission RPC only; approved terminal retention is separate. |
 | `open_responses`, `closed_tallies` | No direct read policies or client table grants, including for application admins. | Submission RPC writes; completed authorized result RPC reads. |
-| `audit_events` | Enabled administrators only, with safe allowlisted fields. | Append within protected administrative operations; no user update/delete. |
+| `audit_events` | Enabled administrators and readonly observers, with safe allowlisted fields. | Append within protected administrative operations; no user update/delete. |
 | `rate_limit_buckets` | No client reads. | Server-only limiting operation and restricted cleanup; do not expose subject digests or allow callers to reset limits. |
 
 RLS is row-based, not column redaction. Grant only safe columns where needed; otherwise return explicit RPC projections. Define enabled/admin and vote-visibility checks using narrowly scoped, non-recursive helper functions with trusted ownership/search paths; do not create circular `profiles`/`electorate`/`votes` policies. Helpers expose only necessary authorization decisions, never arbitrary records or choices.

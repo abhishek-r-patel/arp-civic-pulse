@@ -25,11 +25,17 @@ export const ACCOUNT_STATUS_LABELS: Record<AccountStatus, string> = {
 
 const householdIdentifier = singleLineText(FIELD_LIMITS.householdLabel);
 
-export const createAccountSchema = z.strictObject({
-  email: emailAddress,
-  representativeName: nameText,
-  isAdmin: z.boolean().default(false),
-});
+export const createAccountSchema = z
+  .strictObject({
+    email: emailAddress,
+    representativeName: nameText,
+    isAdmin: z.boolean().default(false),
+    isReadonly: z.boolean().optional(),
+  })
+  .refine((value) => !(value.isAdmin && value.isReadonly), {
+    message: "Choose either rwa-admin or rwa-readonly, never both.",
+    path: ["isReadonly"],
+  });
 
 const atLeastOne = (value: Record<string, unknown>) =>
   Object.values(value).some((field) => field !== undefined);
@@ -41,8 +47,13 @@ export const patchAccountSchema = z
     representativeName: nameText.optional(),
     status: z.enum(ACCOUNT_STATUSES).optional(),
     isAdmin: z.boolean().optional(),
+    isReadonly: z.boolean().optional(),
   })
-  .refine(atLeastOne, { message: "Provide at least one field to change." });
+  .refine(atLeastOne, { message: "Provide at least one field to change." })
+  .refine((value) => !(value.isAdmin && value.isReadonly), {
+    message: "Choose either rwa-admin or rwa-readonly, never both.",
+    path: ["isReadonly"],
+  });
 
 export const createHouseholdSchema = z.strictObject({
   identifier: householdIdentifier,
@@ -70,9 +81,20 @@ export interface AccountProjection {
   email: string | null;
   representativeName: string;
   status: AccountStatus;
+  /** False with isReadonly=false is the implicit `voter` role. */
   isAdmin: boolean;
+  /** Omitted when false; mutually exclusive with isAdmin and separate from vote entitlement. */
+  isReadonly?: boolean;
   emailVerifiedAt: string | null;
   updatedAt: string;
+}
+
+/** Management-page read capability only; never authorizes mutations or ballots. */
+export function canViewAdministration(account: {
+  isAdmin: boolean;
+  isReadonly?: boolean;
+}): boolean {
+  return account.isAdmin || account.isReadonly === true;
 }
 
 export interface HouseholdProjection {

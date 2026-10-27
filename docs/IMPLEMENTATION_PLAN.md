@@ -39,29 +39,29 @@ Do not treat the scaffold's dependencies, directories, or tests as proof of impl
 
 ### Target and version 1 boundary
 
-The user has now approved visual rollout beyond Votes/Accounts to the remaining
-public, admin and resident screens. Reuse shared hierarchy/field/table/notice/
-dialog primitives and refine ballot/result/admin sections without functional
-changes. The User Guide and screenshots are frozen for this task, overriding
-automatic screenshot refresh; tests must use temporary redacted images and
-guide-preserving startup/build commands. Record any remaining console/manual
-accessibility findings instead of claiming production readiness.
+The user approved visual rollout beyond Votes/Accounts to the remaining public,
+admin and resident screens. Shared hierarchy/field/table/notice/dialog
+primitives and ballot/result/admin sections were updated without functional
+changes. The earlier User Guide hold was later lifted for a persona-first Voter,
+`rwa-admin` and `rwa-readonly` guide with refreshed synthetic captures. Browser
+capture must continue to use synthetic data and guide-preserving startup where appropriate; this is not
+production-readiness or manual accessibility evidence.
 
 The approved Votes concept correction is a fidelity task, not a further redesign
 rollout: implement compact branding/summary/status navigation and rich cards with
 real authorized data, then verify actual light/dark/phone captures. Keep top
 navigation and all lifecycle/eligibility/privacy rules. Reuse existing RLS/results
-instead of adding mock totals or privileged shortcuts. Further screen redesign
-still waits for review.
+instead of adding mock totals or privileged shortcuts. This initial review scope
+was superseded by the later approved all-screen rollout recorded below.
 
 The approved staged appearance work adds the Platinum/Obsidian shared theme
 foundation and Sora/Manrope typography, then refreshes Votes and Accounts for
-approval. Keep top navigation, voting semantics and data contracts unchanged;
-do not roll new layouts into ballot/results/settings/public workflows until the
-review slice is accepted. Browser-local Light/Dark/System requires no migration.
+approval. The initial approval covered Votes and Accounts; the later all-screen
+rollout superseded that limit. Keep top navigation, voting semantics and data
+contracts unchanged. Browser-local Light/Dark/System requires no migration.
 
 The subsequent Accounts review addition uses current-page multi-selection,
-Residents as the default role filter and explicit administrator inclusion with
+the implicit `voter` role as its default filter and explicit RWA Admin inclusion with
 a warning. Separate enable-access and make-flat-eligible commands reuse existing
 protected mutations; records commit independently and stop on failure. No new
 schema migration, automatic import enablement or frozen-electorate change is added.
@@ -73,6 +73,13 @@ residents see only an upcoming summary/countdown. A reasoned withdrawal before
 opening returns to draft. New migrations are reviewed deployment inputs, not
 automatically applied or evidence of hosted verification. See API/Database for
 the owning contracts and readiness for remaining external gates.
+
+The subsequent committee-role addition makes `rwa-readonly` exclusive with
+`rwa-admin`: observers share authorized management reads/downloads, but only
+admins assign roles or mutate management data. The observer must be assigned to
+a household before enablement; either role's ballot access still comes only from
+its own frozen household entitlement. Migration `20261108100000` is a reviewed
+deployment input, not a production-readiness claim.
 
 - One single-RWA, mobile-first Next.js App Router application using TypeScript, React, Tailwind CSS, Lucide React, Zod, Supabase Auth/PostgreSQL/RLS/guarded SQL functions/Cron, Vitest, Playwright, and axe.
 - Normal server database calls carry the verified user's Supabase session. Separate privileged Auth administration from ordinary ballots, results, and exports.
@@ -399,7 +406,7 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Tests required:** Candidate and option ties, NOTA higher than candidates, all-NOTA office outcome, zero turnout, unopposed office, bigint/half-up boundaries, early-completion parity, snapshot consistency, frozen identities after edits, suspended access denial, pagination-independent totals, invariant-error blocking, direct choice-storage denial, and exact page/API agreement.
 
-**Completion criteria:** Active PUBLIC aggregates and active PRIVATE turnout expose no identities; only admins can access active PRIVATE household participation for follow-up. Completed results reconcile exactly and obey publication permissions. Eligible denominators include later-suspended households; active PRIVATE candidate/NOTA totals and cancelled choices remain hidden.
+**Completion criteria:** Active PUBLIC aggregates and active PRIVATE turnout expose no identities; RWA Admins and RWA ReadOnly observers can access active PRIVATE household participation for follow-up. Completed results reconcile exactly and obey publication permissions. Eligible denominators include later-suspended households; active PRIVATE candidate/NOTA totals and cancelled choices remain hidden.
 
 ## Phase 14 - Mandatory complete CSV export
 

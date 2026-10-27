@@ -8,12 +8,12 @@ Companion: [illustrated end-user guide](./USER_GUIDE.md). Printable/offline vers
 
 ## 1. What the application does
 
-Civic Pulse serves one Resident Welfare Association (RWA). Administrators register household representatives, create votes, preview them and explicitly activate them. Residents sign in with an emailed six-digit code and submit once for their frozen household entitlement.
+Civic Pulse serves one Resident Welfare Association (RWA). Residents (`voter` role) sign in with an emailed six-digit code and submit once for their frozen household entitlement. RWA Admins (`rwa-admin`) manage the register and votes; RWA ReadOnly committee observers (`rwa-readonly`) inspect authorized management data but cannot change it.
 
 - **PUBLIC poll:** configured single-select or multi-select; one ballot and participation per household. Authorized completed results contain representative names, household identifiers and the final selected option set.
 - **PRIVATE election:** one candidate or NOTA (None of the Above) for every office. Storage and results use aggregate counters, not retrievable individual ballots. NOTA is counted separately and never wins; the highest-count candidate is elected even if NOTA receives more votes.
 - **Lifecycle:** Draft, Scheduled, Active, Completed or Cancelled. Type and status are different concepts.
-- **Results:** private to entitled members and administrators; CSV is required and PDF is implemented but can be disabled.
+- **Results:** private to entitled Residents and authorized RWA Admin/ReadOnly personas; CSV is required and PDF is implemented but can be disabled.
 - **Operations:** audit history, bounded retention, encrypted backups/restore, health checks and maintenance mode.
 
 ![Application overview](./images/user-guide/overview.svg)
@@ -72,8 +72,9 @@ cancelled access. [vote-dashboard.test.ts](../tests/unit/vote-dashboard.test.ts)
 checks scope, missing counts and aggregate-only projection; the existing live
 capture exercises actual 02 active / 01 scheduled / 01 response and real 1-of-2
 turnout in a disposable fixture. Those numbers are synthetic test outcomes, not
-display constants. Refresh screenshots 05/68/69/72 from the application whenever
-this layout changes. No new migration, endpoint or role-based voting entitlement
+display constants. These screens are now grouped in the Resident persona folder;
+recapture them from the application whenever this layout changes. No new
+migration, endpoint or role-based voting entitlement
 is introduced. Added summary/result reads must be included in hosting latency
 and read-budget verification; they are not proof of the existing performance gate.
 
@@ -92,24 +93,28 @@ light print overrides. After user approval, the shared header, fields, notices,
 tables/dialogs and resident/admin/public page surfaces now follow the same style;
 top navigation and all functional contracts are retained. The [rollout test](../tests/e2e/visual-rollout.spec.ts)
 uses real disposable fixtures and temporary redacted images across page families,
-including native ballot review/submit and completed results. The User Guide and
-all its assets are frozen by explicit request, so do not run the documentation
-capture script or regenerate USER_GUIDE during this rollout. Use
-`PLAYWRIGHT_PRESERVE_GUIDE=1` for browser tests and direct Next commands for build/
-preview; regenerate this technical copy only with
+including native ballot review/submit and completed results. The current User
+Guide is persona-first; screenshots are grouped under
+`docs/images/user-guide/voter`, `rwa-admin` and `rwa-readonly`.
+Capture only with `LIVE_AUTH=1` and `DOC_SCREENSHOTS=1` on the approved disposable
+project. Use `PLAYWRIGHT_PRESERVE_GUIDE=1` when browser tests must not invoke the
+guide-generation hook. To reuse an already-running local Next server instead of
+starting a second server in the same checkout, set `PLAYWRIGHT_PORT` and
+`PLAYWRIGHT_HOST` to its port and hostname. Regenerate this technical copy selectively with
 `node --input-type=module -e "import {renderGuide} from './scripts/docs/render.mjs'; await renderGuide('TECHNICAL_GUIDE');"`.
 [Unit tests](../tests/unit/theme.test.ts)
 cover bootstrap/contrast; [browser tests](../tests/e2e/theme.spec.ts) cover actual
-behavior. Focused captures use `--grep "Platinum and Obsidian"` under the same
-disposable-project/TLS/redaction safeguards, adding pictures 68-74 and refreshing
-the affected overviews when guide updates are explicitly resumed. Runtime browser
-font requests never contact Google.
+behavior. Focused persona captures use `--grep` with a named flow under the same
+disposable-project/TLS/redaction safeguards. The old numbered pictures 68-74 are
+archived; current captures are stored in the matching persona folders. Runtime
+browser font requests never contact Google.
 
 | Path                                                | Responsibility                                                                                                          |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | [src/app](../src/app)                               | Pages, layouts, loading/error boundaries and HTTP route handlers. Route-group parentheses do not appear in URLs.        |
 | [src/components/ui](../src/components/ui)           | Buttons, fields, notices, dialogs, tables, pagination, badges and common layout.                                        |
 | [src/components/admin](../src/components/admin)     | Account/household forms, draft editing, preview and lifecycle interaction.                                              |
+| [src/components/admin/management-fields.tsx](../src/components/admin/management-fields.tsx) | Readonly committee presentation; management controls remain visible but disabled. |
 | [src/components/admin/account-review-table.tsx](../src/components/admin/account-review-table.tsx) | Current-page multi-selection and separate account enablement/flat eligibility confirmations, administrator warning and per-record outcomes. |
 | [src/components/admin/register-import-form.tsx](../src/components/admin/register-import-form.tsx) | Memory-only CSV upload/check, confirmed sequential import, progress/outcomes and account-review links. |
 | [src/shared/contracts/register-import.ts](../src/shared/contracts/register-import.ts) | `csv-parse` parsing, 500-row/256-KiB bounds and strict import contracts. |
@@ -126,7 +131,7 @@ font requests never contact Google.
 | [src/components/votes](../src/components/votes)     | Resident ballots, privacy notices, active deadline countdowns and results.                                               |
 | [src/server](../src/server)                         | Server-only services. Do not import these into client components.                                                       |
 | [src/server/settings](../src/server/settings) | Guarded RWA settings services and member-safe projections. |
-| [src/server/settings/rwa-profile.ts](../src/server/settings/rwa-profile.ts) | Admin-only profile read/update, enabled-member branding projection, per-request branding cache, the service-role public identity read and `loadHouseholdTerms()` for server-rendered household wording. |
+| [src/server/settings/rwa-profile.ts](../src/server/settings/rwa-profile.ts) | Admin/ReadOnly full-profile reads, admin-only updates, enabled-member branding projection, service-role public identity read and server household wording. |
 | [src/shared/contracts/household-terms.ts](../src/shared/contracts/household-terms.ts) | Household label and Number/ID identifier-kind contracts, suggestions, and `buildHouseholdTerms` (singular, plural, sentence-case and identifier wording). |
 | [src/components/ui/household-terms.tsx](../src/components/ui/household-terms.tsx) | Client provider and `useHouseholdTerms()` hook; the app shell supplies the current terms. |
 | [src/shared/contracts/rwa-profile.ts](../src/shared/contracts/rwa-profile.ts) | Strict RWA profile, member branding and public identity projections, palette list and telephone link helper. |
@@ -141,6 +146,7 @@ font requests never contact Google.
 | [scripts/ops](../scripts/ops)                       | Encrypted backup/restore, status, recovery-record and cleanup commands.                                                 |
 | [tests](../tests)                                   | Unit, integration, live-service, browser and capacity suites.                                                           |
 | [.github](../.github)                               | Validation, CodeQL and Dependabot configuration.                                                                        |
+| [USER_GUIDE.md](./USER_GUIDE.md) | Active Resident (`voter`), RWA Admin (`rwa-admin`) and RWA ReadOnly (`rwa-readonly`) procedures; current captures are grouped by lowercase role code. |
 
 Public launch additions are mapped in [Architecture](./ARCHITECTURE.md#public-discovery-and-contact-additions): server-rendered privacy/contact pages, a public metadata allowlist, robots/sitemap, an Open Graph image, escaped JSON-LD, breadcrumbs, opt-in public-only analytics and CSRF/rate-limited contact email. See [Deployment](./DEPLOYMENT.md#public-site-integrations) for provider settings and real delivery verification. Full document navigation between public information and authentication is intentional: an executed analytics script cannot be unloaded by simply removing a React component. Mocked delivery checks never prove inbox receipt.
 
@@ -184,7 +190,7 @@ Read these files in order:
 5. [Submission service](../src/server/votes/submission.ts) enforces a profile budget and calls `cast_vote` using the member's own client.
 6. [cast_vote migration](../supabase/migrations/20261024140000_cast_vote.sql) locks/rechecks/validates/writes atomically; [the PUBLIC multi-select migration](../supabase/migrations/20261027100000_open_multi_select.sql) adds selection-set replacement and dispatches single- versus multi-select submissions; [the NOTA migration](../supabase/migrations/20261028100000_nota_closed_elections.sql) names the built-in PRIVATE choice and changes its result projection; [the live PRIVATE turnout migration](../supabase/migrations/20261029100000_live_closed_turnout.sql) returns turnout without exposing office totals while the election is active.
 7. [Identifier label migration](../supabase/migrations/20261030100000_configurable_identifier_label.sql) added the first RWA-wide display label; [the household label migration](../supabase/migrations/20261103110000_household_label_and_identifier_kind.sql) replaces it with a household label and a Number/ID identifier kind returned by the profile, branding and public identity routines. [The PUBLIC/PRIVATE migration](../supabase/migrations/20261103100000_public_private_voting.sql) renames the stored voting types.
-8. [RWA profile migration](../supabase/migrations/20261031100000_rwa_profile_settings.sql) adds guarded admin-only profile settings, and [the branding migration](../supabase/migrations/20261101100000_rwa_branding_and_public_identity.sql) adds the accent palette, welcome message, the member branding projection and the service-role-only public identity routine. [The optional contact migration](../supabase/migrations/20261102100000_optional_rwa_contact_fields.sql) lets administrators leave the address, email and phone blank so they are hidden.
+8. [RWA profile migration](../supabase/migrations/20261031100000_rwa_profile_settings.sql) adds guarded profile settings with RWA Admin/ReadOnly reads and Admin-only updates, and [the branding migration](../supabase/migrations/20261101100000_rwa_branding_and_public_identity.sql) adds the accent palette, welcome message, the member branding projection and the service-role-only public identity routine. [The optional contact migration](../supabase/migrations/20261102100000_optional_rwa_contact_fields.sql) lets administrators leave the address, email and phone blank so they are hidden.
 9. After commit the response is participation-only: `voteId` and `submitted: true`, wrapped in the common envelope.
 10. A lost, malformed or unavailable acknowledgement triggers an own-participation check. The client must not blindly repeat a submission.
 
@@ -221,21 +227,27 @@ The definitive deadline check uses the **database clock after locking**, not the
 
 CSRF context is a separate HttpOnly cookie; production uses a host-only Secure cookie and SameSite=Strict. The page exposes a derived token, not that secret context. Do not confuse CSRF and session cookies.
 
-| Capability                      | Signed out | Enabled resident            | Enabled administrator            |
-| ------------------------------- | ---------- | --------------------------- | -------------------------------- |
-| Sign-in page/code flow          | Yes        | Yes                         | Yes                              |
-| Member ballot                   | No         | Own frozen entitlement only | Only own frozen entitlement      |
-| Completed results/export        | No         | Entitled votes only         | Authorized administrative access |
-| Register/drafts/lifecycle/audit | No         | No                          | Yes                              |
-| Active PUBLIC aggregates           | No         | Eligible voters: yes        | Yes                              |
-| Individual PRIVATE selections    | No         | No                          | No                               |
+| Capability                      | Signed out | Resident (`voter`) | RWA ReadOnly (`rwa-readonly`) | RWA Admin (`rwa-admin`) |
+| ------------------------------- | ---------- | --------------------------- | ---------------------- | ------------------- |
+| Sign-in page/code flow          | Yes        | Yes                         | Yes                    | Yes                 |
+| Member ballot                   | No         | Own frozen entitlement only | Own frozen entitlement | Own frozen entitlement |
+| Administrative reads/downloads | No         | No                          | Authorized read scope  | Authorized read and write scope |
+| Manage register/roles/drafts    | No         | No                          | No; controls disabled  | Yes                 |
+| Active PUBLIC/PRIVATE projections | No       | Eligible voters: yes        | Authorized admin read scope; no active choices | Yes, no active choices |
+| Individual PRIVATE selections  | No         | No                          | No                     | No                  |
 
-Suspended/deleted/unprovisioned identities do not gain access merely by holding a valid token. Admin pages use a plain not-found for non-admins; APIs use the appropriate safe status. Inaccessible vote IDs are indistinguishable from nonexistent ones.
+The role flags are exclusive, only an administrator changes roles, and a
+readonly observer must have an assigned household before enablement. Neither
+management role grants another household's ballot entitlement.
+
+Suspended/deleted/unprovisioned identities do not gain access merely by holding a valid token. Management pages use a plain not-found for accounts without administrative read capability; mutation APIs require the current RWA Admin role. Inaccessible vote IDs are indistinguishable from nonexistent ones.
 
 ## 7. Database model and invariants
 
+For the full column/key/cardinality diagram, see [the detailed Mermaid ERD in the database contract](./DATABASE.md#4-relationships-and-er-diagram). It shows Supabase Auth as an external identity and distinguishes PUBLIC response rows from PRIVATE aggregate counters.
+
 Accounts can now be reviewed in one table with their RLS-authorized flat assignment
-and eligibility. The page defaults to residents; selecting All Roles is explicit.
+and eligibility. The page defaults to the implicit `voter` role; selecting All Roles is explicit.
 Selections are current-page only and clear on filter/page/size changes. The two
 actions reuse the existing per-account/per-household PATCH endpoints, not a bulk
 database write or new grant. Access and eligibility remain independent; admins
@@ -267,7 +279,7 @@ implementation map and API/schema sections for exact paths/contracts.
 | Entity                   | Relationship and purpose                                                                               |
 | ------------------------ | ------------------------------------------------------------------------------------------------------ |
 | `auth.users`             | Managed Supabase identity; email/verification/session state is not duplicated in application profiles. |
-| `profiles`               | Stable Auth user ID, representative name, enabled/suspended/deleted status and admin flag.             |
+| `profiles`               | Stable Auth user ID, representative name, enabled/suspended/deleted status and mutually exclusive `rwa-admin`/`rwa-readonly` flags.             |
 | `households`             | Unique normalized label and one current representative; controls future eligibility selection.         |
 | `rwa_settings` | Singleton RWA identity/contact profile, household label, identifier kind, timezone, actual A1-A7 approvals and approved retention periods. |
 | `votes`                  | Type, PUBLIC selection mode/limit, status, revision, deadline, terminal reasons and frozen display metadata. |
@@ -333,13 +345,16 @@ The privileged client bypasses RLS: use it only in the established provisioning/
 | `281000_nota_closed_elections`       | Built-in NOTA choice and PRIVATE results projection. |
 | `291000_live_closed_turnout`         | Aggregate turnout during active PRIVATE elections. |
 | `301000_configurable_identifier_label` | RWA-wide configurable display label for identifier values. |
-| `311000_rwa_profile_settings` | Admin-only RWA profile fields and audited update RPC. |
+| `311000_rwa_profile_settings` | Admin/ReadOnly profile reads and Admin-only RWA profile updates through an audited RPC. |
 | `1101000_rwa_branding_and_public_identity` | Accent palette, welcome message, member branding projection and service-role-only public identity. |
 | `20261102100000_optional_rwa_contact_fields` | Optional (blank, hidden) RWA address, email and phone. |
 | `20261103100000_public_private_voting` | Renames stored voting types OPEN/CLOSED to PUBLIC/PRIVATE in data, checks and routines. |
 | `20261103110000_household_label_and_identifier_kind` | Household label and Number/ID identifier kind replace the identifier label. |
-| `20261104100000_rwa_default_lists` | Admin-only Default Households and RWA Positions suggestion lists in RWA settings. |
+| `20261104100000_rwa_default_lists` | Admin-managed Default Households and RWA Positions suggestions; full settings reads are available to Admin/ReadOnly. |
 | `20261105100000_change_vote_deadline` | Audited `change_vote_deadline` routine; the vote guard lets only it move an active vote's deadline. |
+| `20261106100000_register_import` | Current-admin import checks and retry-safe household assignment without enabling accounts. |
+| `20261107100000_scheduled_opening` | Frozen scheduled state, database-clock opening, direct-read ballot privacy and pre-opening withdrawal. |
+| `20261108100000_readonly_committee_role` | Exclusive observer role, admin-equivalent reads, admin-only mutations/role changes and household-enabled voting. |
 
 Use the exact ordered filenames in [migrations](../supabase/migrations); do not rewrite an applied migration. New changes require a new versioned migration and fresh/upgrade tests. Never run migrations at application startup or use a reset on an existing real database.
 
@@ -514,18 +529,21 @@ system store alone does not include the Supabase database CA. Use the provider's
 `rejectUnauthorized: false`. Other older test helpers have their own outstanding
 TLS audit findings; this change does not claim to fix them all.
 
-The focused test adds nine images (`54-import-preview` through
-`61-schedule-withdrawn`, plus `62-import-mobile`) and refreshes only
-`15-admin-home`, `25-ready-preview`, `31-admin-votes` and `44-household-created`.
-It uses real synthetic account provisioning, one-row import, exact-match checking,
-scheduling and withdrawal. It confirms the imported account is still suspended,
-the resident sees no voting controls before opening, and the withdrawn vote is
-hidden again. The fixture profile is restored and any remaining example schedule
-is withdrawn on cleanup; new accounts remain synthetic test records. Email/code
-redaction remains enabled. The new confirmation images are dialog crops; the
-other captures are full-page, including a mobile import and resident view. This
-is not a 500-row capacity test, SMTP test, manual accessibility acceptance or
-proof of actual scheduled Cron execution.
+The capture spec contains six synthetic flows for appearance, bulk review,
+import/scheduling, voting, role assignment and observer access. The active guide
+uses 111 persona PNGs: 31 Resident, 52 RWA Admin and 28 RWA ReadOnly captures,
+plus three workflow diagrams. Four mobile Admin/ReadOnly captures are excluded
+because the guide targets laptop layouts for those personas. The corresponding role codes are
+`voter`, `rwa-admin` and `rwa-readonly`.
+The observer sequence covers
+every management read destination, disabled mutation controls, its own PUBLIC
+and PRIVATE ballots, external completed results and a CSV download. Role
+assignment captures show the household prerequisite and an atomic switch to
+`rwa-admin`. All captures are redacted; fixture RWA settings are restored, and
+remaining active/scheduled examples are cancelled/withdrawn during cleanup.
+These are synthetic browser fixtures, not a 500-row capacity test, SMTP delivery
+test, manual accessibility acceptance or proof of actual scheduled Cron
+execution.
 
 Use only the approved disposable fixture project. Capturing creates synthetic Auth users, profiles, households, votes, participation and fixture policy/retention data; never run it against production. It reuses existing fixture helpers. Before capturing, it sets a synthetic RWA profile (Lakeview names, example address and phone, a blank email and website so the pictures show empty optional fields hidden, Teal palette, a welcome message, the **Flat** household label and the **Number** identifier label) and restores the previous profile afterwards; each change is audited as `RWA_PROFILE_UPDATED`. It also creates a PRIVATE election with NOTA and a multi-select PUBLIC poll for the live-turnout and live-results pictures. The illustrated flats use realistic synthetic numbers (**H-513** for the example resident and **H-514** for the added flat, or another unused realistic number when those already exist); other fixture households get random numbers in the same style. The illustrated active vote also has its deadline extended by two days with a synthetic reason, so the audit trail shows a `VOTE_DEADLINE_CHANGED` event. Email/code fields that hold a value and email text are masked (an intentionally blank field stays visibly blank), trace/video are off, and screenshots are stored in the documentation image folder. The code-error response and connection failures are deliberately simulated; the rest of the principal voting/administration flows use the real test application and database. The capture does not prove SMTP delivery.
 

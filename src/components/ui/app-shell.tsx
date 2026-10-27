@@ -17,6 +17,7 @@ import {
 import { HouseholdTermsProvider } from "./household-terms";
 import { RwaContactBlock } from "./rwa-branding";
 import { ThemeSwitcher } from "./theme-switcher";
+import { canViewAdministration } from "@/shared/contracts/register";
 
 export const MAIN_CONTENT_ID = "main-content";
 
@@ -95,7 +96,11 @@ export async function AppShell({
                   <>
                     <p className="hidden text-caption text-muted sm:block">
                       {account.representativeName}
-                      {account.isAdmin ? " · Administrator" : ""}
+                      {account.isAdmin
+                        ? " · RWA Admin"
+                        : account.isReadonly
+                          ? " · RWA ReadOnly"
+                          : ""}
                     </p>
                     <span
                       className="hidden size-9 shrink-0 items-center justify-center rounded-full border border-border bg-background text-caption font-semibold text-primary sm:inline-flex"
@@ -116,7 +121,7 @@ export async function AppShell({
                   className="flex min-w-0 flex-1 flex-wrap gap-1"
                 >
                   <NavLink href="/">Votes</NavLink>
-                  {account.isAdmin ? (
+                  {canViewAdministration(account) ? (
                     <>
                       <NavLink href="/admin/households">
                         {terms.Households}

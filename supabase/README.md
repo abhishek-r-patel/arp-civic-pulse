@@ -37,6 +37,7 @@ at start-up, and never uses the migration credentials.
 | `20261105100000_change_vote_deadline` | Guarded, audited active deadline changes |
 | `20261106100000_register_import` | Current-admin import checks and retry-safe household assignment without overwriting records or enabling accounts |
 | `20261107100000_scheduled_opening` | Frozen scheduled state, database-clock opening, direct-read ballot privacy, pre-opening withdrawal and existing Cron integration |
+| `20261108100000_readonly_committee_role` | Exclusive `rwa-readonly` profile flag, admin-equivalent authorized reads, admin-only mutations/role assignment and household-voting compatibility |
 
 The last two migrations are deployment inputs, not automatically applied by the
 application. Apply only after independently verifying the target and reviewing

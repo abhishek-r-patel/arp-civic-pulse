@@ -6,6 +6,39 @@ Legend: ✅ proven here by an automated check you can re-run · 🟡 partly prov
 
 ## 1. Automated regression and security evidence
 
+### Committee Read-Only Role
+
+The new `rwa-readonly` role is mutually exclusive with `rwa-admin`; it receives
+the authorized administrative read scope while database mutations and role
+assignment remain admin-only. Enablement requires a household assignment, and
+the account's own frozen household voting entitlement remains independent.
+Seven focused PostgreSQL integration tests exercise register/read scope, denied
+mutations, atomic role switching, final-admin protection, role revocation,
+household-required enablement and own PUBLIC/PRIVATE voting/privacy. The opt-in
+Chromium journey passed on the confirmed disposable Supabase project using
+synthetic accounts; the observer submitted its own ballot and downloaded the
+completed CSV result (and PDF when enabled). Migration `20261108100000` was
+applied there only. This is
+not production deployment, manual accessibility acceptance or governance
+approval. The user subsequently authorized a persona-first guide and refreshed captures; the earlier freeze described below is historical.
+
+### Persona-First User Guide Refresh
+
+The guide is now organized by Resident (`voter`), RWA Admin (`rwa-admin`) and
+RWA ReadOnly (`rwa-readonly`), with
+current-app synthetic screenshots grouped by persona. The ReadOnly journey
+covers management read scope, disabled
+controls, own-household PUBLIC/PRIVATE voting, completed results outside its own
+electorate and downloads. The six capture flows passed individually on the
+confirmed disposable project using verified database TLS and redaction. The
+renderer embedded 111 persona screenshots plus three workflow diagrams and
+checked local assets/links. Mobile Admin/ReadOnly captures are excluded from
+the active guide to match the requested device targets.
+This
+proves the documented fixtures render; it does not prove production identity,
+email delivery, capacity, manual accessibility or launch approval. The previous
+hash of the frozen guide is historical and is no longer the current baseline.
+
 ### All-Screen Visual Rollout
 
 After accepting the concept-aligned Votes screen, the user authorized rollout
@@ -96,7 +129,7 @@ not approval to redesign the remaining layouts or a full manual accessibility au
 
 ### Bulk account review follow-up
 
-The agreed page-local review defaults to Residents, explicitly supports All Roles
+The agreed page-local review defaults to the `voter` role, explicitly supports All Roles
 including administrators, and separates account access from future flat voting
 eligibility. It adds no migration or permission bypass; it uses the existing
 guarded PATCH operations, current-admin checks and per-record audit/budgets.

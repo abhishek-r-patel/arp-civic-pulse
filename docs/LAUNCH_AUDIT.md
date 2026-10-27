@@ -5,8 +5,8 @@ Verdict: **NOT READY for real residents or binding votes**
 
 ## Scope and decision
 
-Subsequent register-import/scheduled-opening implementation adds two forward
-migrations without changing this audit verdict. New accounts remain suspended
+Subsequent register-import/scheduled-opening/committee-role implementation adds
+three forward migrations without changing this audit verdict. New accounts remain suspended
 for review; schedules freeze at confirmation and reveal only upcoming summaries
 to residents. Local regression evidence is not hosted deployment, Auth-quota,
 Cron, browser/screenshot or production approval evidence. The current follow-up

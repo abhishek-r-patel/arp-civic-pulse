@@ -167,15 +167,16 @@ export default async function HomePage({
         </section>
       ) : null}
 
-      {account.isAdmin ? (
+      {account.isAdmin || account.isReadonly ? (
         <details className="border-b border-border pb-3">
           <summary className="touch-target cursor-pointer py-3 text-caption font-semibold text-muted">
-            Administrator tools
+            {account.isReadonly ? "Committee view" : "RWA Admin tools"}
           </summary>
           <p>
-            Maintain the {deps.terms.households} register, accounts and votes.
-            Administrator access does not make you eligible to vote; eligibility
-            comes from the {deps.terms.households} register.
+            {account.isReadonly ? "View" : "Maintain"} the{" "}
+            {deps.terms.households} register, accounts and votes. Management
+            access does not make you eligible to vote; eligibility comes from
+            the {deps.terms.households} register.
           </p>
           <div className="mt-3 flex flex-col gap-3 sm:flex-row">
             <LinkButton href="/admin/votes" variant="secondary">

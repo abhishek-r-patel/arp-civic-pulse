@@ -1,6 +1,7 @@
 // Protected administrator account directory.
 import { UserPlus } from "lucide-react";
 import { AccountReviewTable } from "@/components/admin/account-review-table";
+import { ManagementFields } from "@/components/admin/management-fields";
 import { flashNotices, firstValues } from "@/components/admin/format";
 import { Button, LinkButton } from "@/components/ui/button";
 import { SelectField } from "@/components/ui/field";
@@ -33,12 +34,23 @@ export default async function AccountsPage({
     limit: raw.limit,
     cursor: raw.cursor,
     status: raw.status,
-    isAdmin: roleFilter === "all" ? undefined : roleFilter,
+    isAdmin:
+      roleFilter === "all"
+        ? undefined
+        : roleFilter === "readonly"
+          ? "false"
+          : roleFilter,
+    isReadonly:
+      roleFilter === "all"
+        ? undefined
+        : roleFilter === "readonly"
+          ? "true"
+          : "false",
   });
   const filtersInvalid = !parsed.success;
   const query = parsed.success
     ? parsed.data
-    : accountListQuerySchema.parse({ isAdmin: "false" });
+    : accountListQuerySchema.parse({ isAdmin: "false", isReadonly: "false" });
 
   let result: Awaited<ReturnType<typeof listAccounts>> | null = null;
   let loadError: ApiError | null = null;
@@ -51,7 +63,10 @@ export default async function AccountsPage({
     loadError = error;
   }
 
-  const filtersActive = query.status !== undefined || query.isAdmin !== false;
+  const filtersActive =
+    query.status !== undefined ||
+    query.isAdmin !== false ||
+    query.isReadonly !== false;
 
   return (
     <div className="grid gap-8">
@@ -59,7 +74,7 @@ export default async function AccountsPage({
         title="Accounts"
         description={`People who can sign in. Each account is one sign-in identity plus its role and status. Residents also need a ${deps.terms.household} before they can be enabled.`}
         actions={
-          <LinkButton href="/admin/accounts/new">
+          <LinkButton href="/admin/accounts/new" disabled={!deps.actor.isAdmin}>
             <UserPlus aria-hidden="true" className="size-5" />
             Add Account
           </LinkButton>
@@ -99,8 +114,9 @@ export default async function AccountsPage({
           defaultValue={roleFilter}
         >
           <option value="all">All roles</option>
-          <option value="true">Administrators</option>
-          <option value="false">Residents</option>
+          <option value="true">RWA Admin (rwa-admin)</option>
+          <option value="readonly">RWA ReadOnly (rwa-readonly)</option>
+          <option value="false">Voters (voter)</option>
         </SelectField>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button type="submit">Apply Filters</Button>
@@ -133,7 +149,12 @@ export default async function AccountsPage({
           <EmptyState
             title="There are no accounts yet"
             action={
-              <LinkButton href="/admin/accounts/new">Add an Account</LinkButton>
+              <LinkButton
+                href="/admin/accounts/new"
+                disabled={!deps.actor.isAdmin}
+              >
+                Add an Account
+              </LinkButton>
             }
           >
             <p>Create an account for each resident who will vote.</p>
@@ -141,11 +162,13 @@ export default async function AccountsPage({
         )
       ) : result ? (
         <>
-          <AccountReviewTable
-            key={`${query.cursor ?? "first"}:${query.limit}:${query.status ?? "all"}:${roleFilter}`}
-            accounts={result.data}
-            csrfToken={deps.csrfToken}
-          />
+          <ManagementFields canManage={deps.actor.isAdmin}>
+            <AccountReviewTable
+              key={`${query.cursor ?? "first"}:${query.limit}:${query.status ?? "all"}:${roleFilter}`}
+              accounts={result.data}
+              csrfToken={deps.csrfToken}
+            />
+          </ManagementFields>
           <Pagination
             basePath="/admin/accounts"
             params={{ status: raw.status, isAdmin: roleFilter }}

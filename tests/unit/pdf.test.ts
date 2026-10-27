@@ -267,7 +267,7 @@ describe("renderResultsPdf", () => {
       "Ravi (Tied) 1/4 25%",
       "Meera 0/4 0%",
       "NOTA (None of the Above) 3/4 75%",
-      "Your selections are not shown to residents or RWA admins",
+      "Your selections are not shown to the Resident, RWA Admin or RWA ReadOnly personas through the app",
     ]) {
       expect(text, expected).toContain(squash(expected));
     }

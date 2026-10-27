@@ -1,678 +1,393 @@
-# Civic Pulse: illustrated resident and administrator guide
+# Civic Pulse User Guide: Resident, RWA Admin and RWA ReadOnly
 
-This guide shows how to use the implemented Civic Pulse application. Residents can follow sections 1-8; administrators should also read sections 9-15. No programming knowledge is needed.
+This guide is organized around what each signed-in persona can do. Choose your role below and go directly to that section. The screenshots are current captures of the themed application using synthetic accounts and voting data; email addresses and codes are masked. Production use remains subject to the open approvals and checks in the [launch audit](./LAUNCH_AUDIT.md) and [pilot readiness register](./PILOT_READINESS.md).
 
-**Important:** These are demonstration screens from an isolated test environment, not a live RWA. Production launch is still awaiting the controls and approvals in the [launch audit](./LAUNCH_AUDIT.md). Obtain the real application address and support contact from your RWA; do not use a developer's test address.
+Open **User Guide** in the application footer to read the self-contained public edition without signing in. The repository copy is [USER_GUIDE.html](./USER_GUIDE.html).
 
-Open **User Guide** in the application footer to read this illustrated guide
-without signing in. It opens at `/user-guide.html`; use Contents to jump to a
-topic and **Back to Civic Pulse** to return. The web copy includes the screenshots
-and supports browser Print / Save as PDF. Repository-only supporting-document
-links are not active in the web copy; the technical guide is not published by the
-application.
+## Choose Your Persona
 
-Printable/offline repository copy: [USER_GUIDE.html](./USER_GUIDE.html). Open that file in a browser and choose Print / Save as PDF. Developers: [technical guide](./TECHNICAL_GUIDE.md).
+| Persona | Role code | You can | You cannot |
+| --- | --- | --- | --- |
+| Resident | `voter` | See votes frozen for your household, cast its ballot, review its own participation, and access results allowed to that household. | See management pages, another household's ballot access, active individual choices, or PRIVATE selections. |
+| RWA Admin | `rwa-admin` | Manage accounts, households, settings, drafts, schedules, voting lifecycle, audit history, participation, authorized results and downloads. | Vote for another household, change a frozen electorate, edit an accepted PRIVATE ballot, or retrieve PRIVATE individual choices. |
+| RWA ReadOnly | `rwa-readonly` | Read the authorized management register, emails, settings, drafts, participation, audit history, results and downloads; vote for its own household if entitled. | Change management data, assign roles, or gain another household's voting entitlement. Management controls are visible but disabled. |
 
-## 1. Start here
+`voter`, `rwa-admin` and `rwa-readonly` are the lowercase role codes; **Resident**, **RWA Admin** and **RWA ReadOnly** are the corresponding persona names. The `voter` role is the normal member role; only the two mutually exclusive management roles change administrative access. Only an enabled `rwa-admin` may assign roles. An `rwa-readonly` account must have a household assignment before it can be enabled. No role itself grants a vote: an enabled account votes only through its own frozen household entitlement.
 
-You need:
+![Shared: vote lifecycle states and permitted scheduled return-to-draft path](./images/user-guide/lifecycle.svg)
 
-- An email address already registered by your administrator.
-- Access to that email inbox to receive a six-digit sign-in code.
-- An enabled account and a household assignment to vote as an ordinary resident.
-- A phone, tablet or computer with an up-to-date browser and an internet connection.
+## Shared Sign-In and Appearance
 
-There is **no public signup** and no application password. Ask your RWA administrator to correct your register entry if necessary. Never share your emailed code.
+There is no public signup or application password. Use the email address already registered for your account and enter the newest six-digit code sent to that inbox. The generic request message does not confirm whether an address is registered. Never share a sign-in code.
 
-The footer links, in order, to **Sign In**, **User Guide**, **Privacy Policy** and
-**Contact**. The guide and information pages do not require sign-in.
-When online contact is enabled, supply your name, reply email and a short message;
-never include selections, codes, passwords or identity documents. **Message
-accepted** confirms the mail service accepted the enquiry, not that it reached
-the administrator's inbox. If delivery cannot be confirmed, keep your text and
-wait before retrying, or use your RWA's usual support channel. If online contact
-is not available, the page says so rather than presenting a non-working form.
-Where configured, optional Google Analytics is off by default and can be allowed
-or withdrawn using the checkbox on privacy/contact pages. It does not track
-sign-in or voting screens.
+![Resident 01: registered email sign-in](./images/user-guide/voter/01-sign-in.png)
 
-![Who does what, from administrator setup to resident results](./images/user-guide/overview.svg)
+![Resident 02: six-digit code entry](./images/user-guide/voter/02-code-entry.png)
 
-### How to read these pictures
+![Resident 03: invalid or expired code recovery](./images/user-guide/voter/03-code-error.png)
 
-The 74 screenshots show the principal resident and administrator journeys, plus representative validation, privacy, access and recovery states. Screens 68-74 show the Platinum/Obsidian review slice and appearance menu; the sign-in, vote-list and Accounts overviews were refreshed. Screens 54-62 cover import/scheduling, and 63-67 cover bulk account review. Most resident examples use phone viewports and most administrator examples use desktop viewports. Confirmation pictures are cropped for legibility; the theme Accounts examples show a viewport rather than the entire paginated table. Other workflow pictures remain valid procedural examples, not evidence that every screen has received a layout redesign.
+The header's **Appearance** control offers **Light** (Platinum), **Dark** (Obsidian), and **System**. It works before and after sign-in, is saved only in this browser, and is separate from the RWA accent colour and analytics consent. Print and PDFs remain light. Clearing browser storage restores System; if storage is blocked, the choice lasts until reload.
 
-The pictures use an example RWA profile: **Lakeview Residents Welfare Association** (alias **Lakeview RWA**), the Teal accent colour, a sample welcome message, **Flat** as the household label and **Number** as the identifier label, so screens say **Flats** and **Flat Number** where a default installation says **Households** and **Household Number**. The example website is left blank, so no website link appears in the footer. Your RWA's name, contact details, colour and wording will differ. The public Privacy and Contact pages and the optional-analytics checkbox are described in section 1 but not pictured. Do not treat the images as proof of contact-email delivery.
+![Resident 74: appearance menu with Light, Dark and System](./images/user-guide/voter/74-appearance-menu.png)
 
-Names, addresses, votes, household labels and counts are synthetic. Gray rectangles deliberately hide email addresses (including the example RWA email in the footer and settings form) and sign-in codes. Some lists contain accumulated test records: a count such as “715 eligible” is **not** the size of your RWA, a product limit or a performance guarantee. Dates/time zones are examples; always read the actual vote's displayed deadline.
+Before or after sign-in, the footer links to **Sign In**, **User Guide**, **Privacy Policy** and **Contact**. Contact may be unavailable if the RWA has not configured support email. When enabled, enter a reply address and short message; **Message accepted** means the mail service accepted it, not that it reached the administrator. Do not include ballot choices, codes, passwords or identity documents. Optional Google Analytics is consent-gated on public information pages only and is off until allowed; consent can be withdrawn from the same privacy/contact control.
 
-The invalid-code example and the uncertain-submission examples deliberately simulate errors in the real UI. Screenshots do not prove production email delivery. Countdown values shown are a snapshot; a real page counts down live. Dialog pictures for suspension and deletion show the confirmation stage, not an executed suspension/deletion of the illustrated resident.
+![Shared 75: public Privacy Policy](./images/user-guide/voter/75-privacy-public.png)
 
-Long pictures show the entire page. Zoom/open the original image when reading small details; the accompanying steps are the printable instructions.
+![Shared 76: public Contact page](./images/user-guide/voter/76-contact-public.png)
 
-## 2. Understand the vote before participating
+The pictures show an example RWA named **Lakeview Residents Welfare Association**, alias **Lakeview RWA**, with **Flat** as its household label and **Number** as its identifier wording. Your RWA can use different names, contact details, accent and wording. Screenshots are examples, not population counts, capacity promises or proof of email delivery.
 
-### Choose Your Appearance
+All names, addresses, identifiers, choices and counts are synthetic. Counts may accumulate between disposable capture runs and are not an RWA size or product limit. Dates and time zones are examples; read each live vote's displayed deadline. Countdown values are snapshots. A confirmation-dialog image shows the confirmation step, not necessarily an executed action. A few sign-in/submission error states are intentionally simulated.
+Resident captures use a 390px mobile viewport. RWA Admin and RWA ReadOnly full-page captures use laptop-width viewports; confirmation dialogs are cropped for legibility. Open or zoom an image to read small text. Use the written steps and the live screen as the authority for your RWA's data and deadlines.
 
-The sun, moon or monitor control in the header opens **Appearance**. Choose
-**Light** for Platinum, **Dark** for Obsidian, or **System** to follow your device
-(the default). It works before and after signing in. Escape closes the menu and
-returns focus; clicking elsewhere also closes it. Changes apply immediately.
+## Resident Persona
 
-![74: Header appearance menu with Light, Dark and System choices](./images/user-guide/74-appearance-menu.png)
+### Find your votes
 
-The choice is saved only in this browser, not in your account, and is separate
-from analytics consent and the RWA's accent colour. It remains after sign-out.
-Clearing browser storage restores System. If storage is blocked, your choice
-lasts until reload, which follows System again. Print and downloaded PDFs stay
-light/readable; this standalone guide remains light and script-free.
+The **Votes** page lists only votes available to your frozen household entitlement. Its three figures are **Active votes**, **Scheduled**, and **Your responses**; they cover your household entitlements across pages and type filters, not the whole association. Filters include All, Active, Scheduled and Completed; the voting-type menu also includes cancelled votes and Clear Filters. A missing vote may mean the household was not in that vote's frozen electorate. Clear filters, then contact the RWA administrator if it still appears missing.
 
-The first layout refresh covers **Votes** and **Accounts**; other screens share
-the theme and fonts but retain their established layouts. Vote rules, eligibility,
-privacy, review/confirmation and accepted-ballot behavior do not change.
+One designated representative votes for each household. Your account does not add a vote for every device or family member, and an administrator/observer role does not permit voting for another household.
 
-### Verify the Implemented Design
+![Resident 04: empty Votes list](./images/user-guide/voter/04-empty-votes.png)
 
-These are captures of the actual application using synthetic accounts and real
-recorded fixture responses, not the original static mockup. Votes now includes
-the compact branded header, three-column overview, status links, real turnout,
-recorded-response/live-results footer, ballot action and upcoming-vote row. The
-agreed top navigation and accessible touch/text sizes are deliberately retained.
+![Resident 05: active-vote list](./images/user-guide/voter/05-vote-list.png)
 
-![68: Actual Platinum Votes screen matching the concept, with real own-entitlement totals and turnout](./images/user-guide/68-platinum-votes.png)
+![Resident 68: Platinum Votes overview with real fixture turnout](./images/user-guide/voter/68-platinum-votes.png)
 
-![69: The actual concept-aligned Votes screen in Obsidian, including recorded-response and ballot actions](./images/user-guide/69-obsidian-votes.png)
+![Resident 69: Obsidian Votes overview with real fixture turnout](./images/user-guide/voter/69-obsidian-votes.png)
 
-![72: Actual Obsidian phone view with compact branding, three-column totals, status tabs and real turnout](./images/user-guide/72-obsidian-votes-mobile.png)
+![Resident 72: compact Obsidian Votes view on a phone](./images/user-guide/voter/72-obsidian-votes-mobile.png)
 
-![70: Platinum Accounts with review controls and selected-row highlighting](./images/user-guide/70-platinum-accounts.png)
+A scheduled vote shows its summary and opening/closing times, but no options, candidates or ballot controls until database time opens it. No reminder is sent. The countdown is informational; the database decides whether a vote is open or closed.
 
-![71: Obsidian Accounts with the same data, selection and action semantics](./images/user-guide/71-obsidian-accounts.png)
+On an active vote, the live deadline countdown remains visible before and after submission. At zero the page refreshes its status; a browser countdown never decides whether a ballot is accepted. A changed deadline appears on the next page load or after the page refreshes at the old deadline.
 
-![73: The Accounts review controls and stacked rows at phone width in Platinum](./images/user-guide/73-platinum-accounts-mobile.png)
+![Resident 59: scheduled vote summary on a phone, without ballot choices](./images/user-guide/voter/59-scheduled-member.png)
 
-| Topic                    | PUBLIC voting                                                                                               | PRIVATE voting                                                                                    |
-| ------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Typical use              | One question, such as a yes/no decision.                                                                  | Election with one or more offices and candidates.                                                |
-| Your selection           | Select one option, or multiple options when the administrator enables it. Multi-select polls require at least one choice and may have a maximum. | Choose one candidate or **NOTA (None of the Above)** for every office. |
-| Results while active / after completion | Every entitled voter and enabled admin can view live aggregate counts and turnout while active, whether or not they have voted; after completion, totals plus authorized named household responses. | No results while active; aggregate totals only after completion, including NOTA counts. |
-| Privacy                  | Your name, flat/household and final selection(s) are visible to entitled members and RWA admins after completion, including downloads. | Residents and RWA admins cannot retrieve your selections through the app. |
-| Important limit          | PUBLIC is not a private ballot.                                                                             | Not protection against privileged infrastructure access; very small totals can permit inference. |
+Votes and representatives freeze when a vote is activated or scheduled. A later household reassignment does not transfer an existing entitlement.
 
-For either type:
+### Cast a PUBLIC poll ballot
 
-- You vote for your household entitlement, not once for every device.
-- A PUBLIC ballot can be replaced while the poll is active; its latest selected option(s) count. A PRIVATE election submission is final and cannot be changed or withdrawn.
-- You must review before submitting.
-- Participation can be monitored. Active PUBLIC results show aggregate counts only, not who chose what. During a live PRIVATE election, members see aggregate turnout only; admins can see household participation status for follow-up, but not choices. Candidate and NOTA totals stay hidden until the election ends.
-- Being an administrator does not give extra votes or allow voting on behalf of another household.
+Read the question, deadline and privacy notice. Select one option, or check multiple options when the ballot offers checkboxes. Multi-select requires at least one choice and may set a maximum. Review before submitting. PUBLIC responses can be replaced while the poll remains active; only the latest option set counts and the household is counted once in turnout.
 
-### Status is different from type
+![Resident 06: PUBLIC ballot and privacy notice](./images/user-guide/voter/06-open-ballot.png)
 
-![Draft can become Scheduled or Active; a schedule can return to draft before opening; completed and cancelled votes never reopen](./images/user-guide/lifecycle.svg)
+![Resident 07: required-choice validation](./images/user-guide/voter/07-ballot-validation.png)
 
-| Status    | Meaning for a resident                                                    |
-| --------- | ------------------------------------------------------------------------- |
-| Draft     | Not visible to residents. Administrators are still preparing it.          |
-| Scheduled | Frozen and waiting to open. Entitled residents see summary/instructions, opening/closing times and a countdown, not candidates/options or voting controls. |
-| Active    | Entitled households can submit before the deadline.                       |
-| Completed | No more submissions; authorized results/downloads become available.       |
-| Cancelled | The vote is invalidated. It cannot accept submissions or publish results. |
+![Resident 50: multi-select ballot with two selected choices](./images/user-guide/voter/50-multi-select-ballot.png)
 
-## 3. Sign in and recover from a code error
+![Resident 08: review selections before submission](./images/user-guide/voter/08-review.png)
 
-### Step 1: request a code
+Wait for the acknowledgement. **Your vote is recorded** confirms accepted participation. During an active PUBLIC poll, results show aggregates, not individual selections. After completion, authorized results show named household responses. PUBLIC voting is not private.
 
-1. Open your RWA's Civic Pulse address.
-2. Enter your **Registered email address**.
-3. Select **Send Sign-In Code**.
-4. Read the on-screen instructions. The response intentionally does not disclose whether an address exists in the register.
+![Resident 11: accepted PUBLIC response with the change action](./images/user-guide/voter/11-submitted.png)
 
-![01: Sign-in screen with registered email field](./images/user-guide/01-sign-in.png)
+### Cast a PRIVATE election ballot
 
-### Step 2: enter the emailed code
+For each office choose one candidate or **NOTA (None of the Above)**. NOTA is counted separately and cannot win. The highest-count candidate is elected even if NOTA receives more votes; candidate ties remain ties. If no candidate receives a vote, no candidate is elected. Review each office before submitting. A PRIVATE submission is final; there is no selection receipt or history of individual choices.
 
-1. Check your inbox and spam/junk folders.
-2. Enter the six-digit code in **Six-digit code**.
-3. Select **Verify and Sign In**.
-4. If needed, use the offered resend/change-email control. Observe any wait/cooldown shown; repeatedly clicking does not improve delivery.
+![Resident 33: PRIVATE ballot with candidates and NOTA](./images/user-guide/voter/33-closed-ballot.png)
 
-![02: Six-digit code entry and verification](./images/user-guide/02-code-entry.png)
+![Resident 52: NOTA explanation](./images/user-guide/voter/52-nota-info.png)
 
-### If the code is invalid or expired
+![Resident 34: PRIVATE ballot review](./images/user-guide/voter/34-closed-review.png)
 
-Request a fresh code when allowed, use the newest message and check that the email address is correct. Do not send the code to support. If email does not arrive, ask your administrator to verify the register and email service.
+![Resident 35: PRIVATE participation acknowledgement](./images/user-guide/voter/35-closed-submitted.png)
 
-![03: Simulated invalid or expired code with an inline recovery message](./images/user-guide/03-code-error.png)
+During an active PRIVATE election, members see aggregate turnout only. Candidate and NOTA totals remain hidden until completion. Very small totals may allow inference; this is application-level privacy, not cryptographic anonymity against privileged infrastructure operators.
 
-If the application says your account is blocked or incomplete, a new code does not repair that condition. An administrator must resolve the account/household status.
+### Recover from an uncertain submission
 
-## 4. Find your vote
+A connection failure does not prove that a ballot was rejected. Keep the page open and choose **Check Again**. If the confirmed status is not recorded and the vote is still open, use **Review and Try Again**. Do not blindly repeat an uncertain submission. A deadline cannot be extended by retrying.
 
-After signing in, the **Votes** page shows only votes you are allowed to access. Use status/type filters where offered, and **Next page** for more records.
+![Resident: safe recovery sequence for an uncertain submission](./images/user-guide/submission.svg)
 
-An empty page can be legitimate: no vote may yet have been activated for your household, or the selected filters may match nothing. Clear filters first, then contact the administrator if you believe an active vote is missing.
+![Resident 09: unknown submission outcome and Check Again](./images/user-guide/voter/09-outcome-unknown.png)
 
-![04: Empty resident vote list](./images/user-guide/04-empty-votes.png)
+![Resident 10: confirmed not-recorded status and safe retry](./images/user-guide/voter/10-not-recorded.png)
 
-When a vote appears, check its title, PUBLIC/PRIVATE label, status, deadline and whether you have already submitted. Open the vote to continue.
+### View results and downloads
 
-The three summary figures describe your own frozen entitlements across all pages
-and voting-type filters: **Active votes**, **Scheduled**, and **Your responses**
-(responses recorded in active votes only). These are not whole-association totals;
-being an administrator does not add votes or show everyone else's activity. A
-temporarily unavailable count is shown as unavailable, not zero.
+For an active PUBLIC poll, **View Live Results** shows aggregate option counts and turnout whether or not you have voted. A row such as **Yes 2/4 50%** means two selected households out of four eligible; the leading option is marked **Leading** or **Tied**. Multi-select percentages are shares of eligible households and may add up to more than 100%. For an active PRIVATE election, **View Live Turnout** shows aggregate turnout only. Results refresh about every ten seconds; they never show active choices.
 
-Use the **All**, **Active**, **Scheduled** and **Completed** status links. **Vote
-history** opens Completed. The filter icon opens the voting-type menu, which also
-provides **Cancelled Votes** and **Clear Filters**. Changing status/type resets
-pagination while keeping the other applicable filter. Next page remains available.
+![Resident 12: active PUBLIC aggregates without named responses](./images/user-guide/voter/12-results-not-ready.png)
 
-Active cards show the authorized aggregate turnout count and percentage, never
-individual choices. PUBLIC respondents get **Response recorded** and **View Live
-Results**; PRIVATE respondents get **View Live Turnout**, not candidate totals.
-**Open Ballot** opens an active unsubmitted vote, and completed records offer
-**View Results**. A PUBLIC response can still be changed by opening its title
-link and choosing the existing change action before closure. Deadline chips are
-informational and refresh at zero; only the database admits or rejects ballots.
-If turnout cannot be read, it says temporarily unavailable. Status/privacy words
-remain explicit rather than relying on colour.
+![Resident 51: multi-select live results and tie notice](./images/user-guide/voter/51-multi-live-results.png)
 
-![05: Resident list containing an active PUBLIC poll](./images/user-guide/05-vote-list.png)
+![Resident 49: PRIVATE live turnout without candidate or NOTA totals](./images/user-guide/voter/49-closed-live-turnout.png)
 
-Households and representatives are frozen when a vote is activated. A later register correction does not automatically give a new representative access to an existing vote. An administrator cannot simply transfer an already activated entitlement.
+Completed PUBLIC results include totals and authorized named household responses. Follow pagination when present; downloads contain the complete authorized result, not only the visible page. Completed PRIVATE results contain aggregate totals only. CSV is for spreadsheet use; PDF is a printable copy and may be disabled. PUBLIC downloads contain named household choices; share them only with authorized people. Downloads are ordinary browser links with no separate progress panel or guaranteed inline retry message. Avoid repeatedly starting a download; return to results and retry later. Downloads are not backups or legal signatures, and saved copies cannot be recalled. If PDF is unavailable or cannot print a character, use CSV.
 
-They also freeze when an administrator confirms a scheduled opening. A scheduled
-vote appears in your list as a compact dated upcoming row; open it for the title,
-instructions and start/end times. Candidates/options and voting controls appear
-only once voting opens. The page refreshes when its countdown reaches zero, but
-the database clock determines whether voting is actually open. No reminder email
-or message is sent. A withdrawn schedule becomes a hidden draft until prepared
-and confirmed again.
+Each result row reads like **Yes 2/4 50%**: count, frozen eligible-household denominator and whole-number percentage. A zero denominator has no meaningful percentage. Candidate ties remain ties; NOTA never wins. PUBLIC multi-select option percentages can sum to more than 100%. The result page labels leaders/elected candidates explicitly. The PDF uses the same totals and bars. If PDF cannot represent a character used in a record, download CSV instead; text is not silently discarded.
 
-![59: Resident scheduled-vote summary on a phone, with opening countdown and no candidate/options or voting controls](./images/user-guide/59-scheduled-member.png)
+![Resident 13: completed PUBLIC results and downloads](./images/user-guide/voter/13-open-results.png)
 
-## 5. Submit a PUBLIC poll
+![Resident 36: completed PRIVATE aggregate results](./images/user-guide/voter/36-closed-results.png)
 
-### Step 1: read and choose
+![Resident 38: cancelled vote with no valid result](./images/user-guide/voter/38-cancelled-member.png)
 
-Open the vote, read its background, deadline and privacy warning. Select one option, or tick multiple options if the ballot shows checkboxes. A multi-select ballot requires at least one option and may show a maximum. Authorized voters and admins can see aggregate counts while the poll is active, but not individual choices. After completion, your name/household and final selection(s) appear in authorized results.
+Select **Sign Out** on shared devices. Signing out cannot remove files already downloaded. A voter opening an administrator URL receives a plain not-found response; a URL does not grant a role.
 
-While the vote is active, a live countdown (shown in red) to the displayed deadline appears on the vote and results pages, including after your household has submitted. It reaches zero at the deadline and the page refreshes its status. The countdown is guidance only; the server decides whether a submission is on time.
+![Resident 40: voter denied access to a management URL](./images/user-guide/voter/40-no-admin-access.png)
 
-![06: PUBLIC ballot with choices and the visible non-private-choice warning](./images/user-guide/06-open-ballot.png)
+![Resident 41: signed-out sign-in screen](./images/user-guide/voter/41-signed-out.png)
 
-If you select **Review Selections** without choosing, or exceed the displayed maximum, the form explains what to correct. Select a valid set of options and try the review step again. Nothing is submitted by this validation error.
+## RWA Admin Persona
 
-![07: Required-choice validation on the PUBLIC ballot](./images/user-guide/07-ballot-validation.png)
+### Management access and role assignment
 
-A multi-select poll shows checkboxes and the heading **Choose one or more options**. Tick every option that applies (for example, every meeting date you can attend):
+The administrator navigation includes Households, RWA Settings, Accounts, Manage Votes and Audit History. Administrators may manage these records; they do not get extra votes or vote on behalf of another household. If an administrator has an assigned eligible household included in a vote's frozen electorate, that administrator can also vote only as that household.
 
-![50: Multi-select PUBLIC ballot with two options ticked](./images/user-guide/50-multi-select-ballot.png)
+![RWA Admin 15: home screen and management navigation](./images/user-guide/rwa-admin/15-admin-home.png)
 
-### Step 2: review, then confirm
+The **Management role** selector assigns exactly one of Voter (`voter`), RWA Admin (`rwa-admin`) or RWA ReadOnly (`rwa-readonly`). Only an enabled RWA Admin can change roles. An RWA ReadOnly account needs a household assignment before enablement. Account role is separate from household eligibility and frozen vote entitlement. The database protects the final enabled RWA Admin from removal.
 
-Select **Review Selections**. Check every displayed choice carefully. Use the back control if they are wrong. Only select **Submit Vote** when you are ready; you can replace a PUBLIC ballot again until the poll closes.
+![RWA Admin 30: create account with RWA ReadOnly selected](./images/user-guide/rwa-admin/30-create-readonly-role.png)
 
-![08: PUBLIC review page with the privacy notice and Submit Vote](./images/user-guide/08-review.png)
+![RWA Admin 31: newly created readonly account remains suspended](./images/user-guide/rwa-admin/31-readonly-account-suspended.png)
 
-### Step 3: wait for acknowledgement
+![RWA Admin 32: refusal to enable readonly account before household assignment](./images/user-guide/rwa-admin/32-readonly-household-required.png)
 
-During submission, wait for the outcome. Do not close the page or repeatedly tap the button. **Your vote is recorded.** confirms the application's accepted state. The choices are then cleared from the page.
+![RWA Admin 33: readonly account after household assignment and enablement](./images/user-guide/rwa-admin/33-readonly-account-enabled.png)
 
-![11: Accepted PUBLIC submission, with a control to change the vote before closure](./images/user-guide/11-submitted.png)
+![RWA Admin 34: atomic role switch from readonly to administrator](./images/user-guide/rwa-admin/34-switch-to-admin-role.png)
 
-This is the current response, not a draft or a signed receipt. Select **Change Your Vote** to choose and submit a replacement while voting remains open. Only the latest ballot and its selected options count; the household is counted once in turnout.
+![RWA Admin 35: account after administrator role assignment](./images/user-guide/rwa-admin/35-admin-role-assigned.png)
 
-## 6. If your connection drops during submission
+### Register and accounts
 
-A connection failure does not prove rejection: the server may have accepted your vote before the acknowledgement was lost. Civic Pulse checks your own recorded participation before offering another attempt.
+Create a suspended account, assign it to one unique household, verify the email/name and set future eligibility, then enable it. Residents cannot be enabled before assignment; administrators may intentionally have no household, but still receive no voting entitlement without one.
 
-![Recovery decision tree: check status before any retry](./images/user-guide/submission.svg)
+![RWA Admin: create a suspended account, assign its household and then enable it](./images/user-guide/register.svg)
 
-### “We could not confirm your submission”
+![RWA Admin 16: create resident account](./images/user-guide/rwa-admin/16-create-account.png)
 
-Keep the page open, restore your connection and select **Check Again**. Do not assume you have not voted. While status remains unknown, the interface does not offer a blind resubmit.
+![RWA Admin 42: created account starts suspended](./images/user-guide/rwa-admin/42-created-suspended.png)
 
-![09: Simulated connection failure with unknown submission outcome and Check again](./images/user-guide/09-outcome-unknown.png)
+![RWA Admin 43: resident enablement blocked before household assignment](./images/user-guide/rwa-admin/43-household-required.png)
 
-If this happened while replacing a PUBLIC ballot, your household remains recorded as participating, but the current selection(s) may be the previous or replacement set. Because the server keeps only the latest ballot, it cannot show which one is current during an uncertain outcome. If the poll is still open, you can safely submit the same intended replacement again; a closed poll will reject it. Check the poll status if you need to confirm whether it remains open.
+![RWA Admin 20: add household and choose representative](./images/user-guide/rwa-admin/20-add-household.png)
 
-### “Your vote has not been recorded yet”
+![RWA Admin 44: household and suspended representative in the register](./images/user-guide/rwa-admin/44-household-created.png)
 
-This is a confirmed status check, not just a timeout. If voting is still allowed, select **Review and Try Again**, recheck the selections and submit. If the vote has closed, you cannot use this recovery to extend the deadline.
+![RWA Admin 45: enable-account confirmation](./images/user-guide/rwa-admin/45-enable-dialog.png)
 
-![10: Confirmed not-recorded status with a review-and-retry action](./images/user-guide/10-not-recorded.png)
+![RWA Admin 46: enabled account after assignment](./images/user-guide/rwa-admin/46-enabled-account.png)
 
-If status says submitted, your vote is recorded. For a PUBLIC poll that is still active, you can use **Change Your Vote** if you want to replace it. If access has ended or the vote has closed, follow the displayed guidance and contact your administrator with the support ID, if shown. Never send your choices or sign-in code to diagnose a connection problem.
+![RWA Admin 17: account identity, role and access status](./images/user-guide/rwa-admin/17-account.png)
 
-## 7. Submit a PRIVATE election
+**Enable Selected** and **Make Eligible** are separate page-local operations. Selections cover the current page; they do not alter a frozen electorate. The default role filter is Voters (`voter`). Choose All Roles or RWA Admin (`rwa-admin`) explicitly before selecting an RWA Admin for enablement. Each account commits separately; after a failure, refresh and review before retrying.
 
-For each office, select one candidate or **NOTA (None of the Above)**. Select the **(i)** icon beside **Choose for each office** (or hover over it with a mouse) to read the NOTA rule; press Escape or select elsewhere to close it. NOTA means you are voting but do not support any listed candidate. It is counted separately and cannot win. The candidate with the most votes among candidates is elected even if NOTA receives more votes; ties among candidates remain ties. If no candidate receives a vote, no candidate is elected. You must select a candidate or NOTA for every office before you can review.
+Use list filters and pagination to find records rather than creating duplicates. If the representative selector says its account list is incomplete, do not guess or choose a different person; follow the displayed support guidance. Changing a registered email uses both Auth and the application profile and is not one cross-service transaction. If a partial-failure warning appears, resolve that state before asking the resident to use the new address.
 
-![33: PRIVATE election ballot with candidates and an explicit NOTA option](./images/user-guide/33-closed-ballot.png)
+![RWA Admin 47: Accounts review table and page-local selection controls](./images/user-guide/rwa-admin/47-accounts-list.png)
 
-![52: NOTA explanation opened from the (i) icon beside “Choose for each office”](./images/user-guide/52-nota-info.png)
+![RWA Admin 70: Platinum account review table](./images/user-guide/rwa-admin/70-platinum-accounts.png)
 
-Select **Review Selections**, check every office and then **Submit Vote**. This demonstration intentionally selects NOTA for the Chair office.
+![RWA Admin 71: Obsidian account review table](./images/user-guide/rwa-admin/71-obsidian-accounts.png)
 
-![34: PRIVATE review showing the example NOTA choice before final submission](./images/user-guide/34-closed-review.png)
+![RWA Admin 63: selected rows with identity, eligibility and status](./images/user-guide/rwa-admin/63-account-review.png)
 
-After acknowledgement, the screen confirms participation without revealing a stored selection receipt. The active vote page continues to show the deadline countdown, but the application does not provide a history of your PRIVATE choices.
+![RWA Admin 64: Make Eligible confirmation](./images/user-guide/rwa-admin/64-make-eligible.png)
 
-![35: PRIVATE accepted-submission state](./images/user-guide/35-closed-submitted.png)
+![RWA Admin 65: Enable Selected confirmation](./images/user-guide/rwa-admin/65-enable-selected.png)
 
-The same unknown-outcome recovery described in section 6 applies to PRIVATE voting. An administrator cannot look up your selections to help.
+![RWA Admin 66: per-account outcomes after enablement](./images/user-guide/rwa-admin/66-account-review-result.png)
 
-## 8. View results, download and sign out
+![RWA Admin 67: explicit administrator-access warning](./images/user-guide/rwa-admin/67-enable-admin-warning.png)
 
-### While voting is still active
+A CSV import accepts up to 500 records/256 KiB with `identifier,representative_name,email,is_eligible`. Check and review every row first. Exact matches are skipped; conflicts never overwrite names, roles, assignments, eligibility or access. Imports leave new accounts suspended. Partial provider/connection failures stop processing; recheck before retrying. CSV content remains in page memory, not browser storage.
 
-For an active PUBLIC poll, choose **View Live Results** on the vote page to see aggregate turnout and option counts. This link is available whether or not your household has voted, so you can check the current totals after submitting and then return to the ballot to change your PUBLIC selection(s) before the deadline. Counts include the latest selections from participating households; households are counted once in turnout. Each option is a row such as **Yes 2/4 50%** with a bar underneath: the count out of the eligible households and its percentage, with the current leader highlighted in the accent colour and tagged **Leading** (or **Tied**). In multi-select polls these percentages may add up to more than 100%. The page refreshes automatically about every 10 seconds. It never shows individual choices while voting is active.
+![RWA Admin 54: validated CSV import preview](./images/user-guide/rwa-admin/54-import-preview.png)
 
-During a live PRIVATE election, choose **View Live Turnout** to see a turnout bar showing how many eligible households have voted, for example **3/4 75%**. It refreshes automatically about every 10 seconds. Candidate and NOTA totals stay hidden until the election ends. Members see no household names or individual participation status; admins can use the separate **Participation** page to follow up with households that have or have not voted, without seeing their choices.
+![RWA Admin 55: import confirmation showing suspended accounts](./images/user-guide/rwa-admin/55-import-confirm.png)
 
-![12: Live PUBLIC poll results with aggregate counts and no named responses](./images/user-guide/12-results-not-ready.png)
+![RWA Admin 56: imported accounts linked to review, not automatic enablement](./images/user-guide/rwa-admin/56-import-result.png)
 
-Live results for a multi-select poll explain that percentages are shares of eligible households and can add up to more than 100%. A tie notice appears when options share the highest count:
+Use the household register to add/change identifiers, assignments and eligibility for future votes. Reassignment never transfers a scheduled/active vote entitlement. **Suspend Account** blocks access without deleting historical participation. **Delete Account** is irreversible in the application UI and retains referenced audit/vote history. The last enabled administrator cannot be removed.
 
-![51: Live multi-select PUBLIC results with a tie notice and per-option shares](./images/user-guide/51-multi-live-results.png)
+![RWA Admin 21: edit household and representative assignment](./images/user-guide/rwa-admin/21-household.png)
 
-Live PRIVATE turnout shows only the number and percentage of eligible households that have voted, with the countdown:
+![RWA Admin 18: suspension confirmation](./images/user-guide/rwa-admin/18-suspend-dialog.png)
 
-![49: Live PRIVATE election turnout with candidate and NOTA totals hidden](./images/user-guide/49-closed-live-turnout.png)
+![RWA Admin 19: irreversible-deletion confirmation](./images/user-guide/rwa-admin/19-delete-dialog.png)
 
-### PUBLIC completed results
+### Configure RWA settings
 
-When the vote is Completed, open its results. Read the frozen eligible-household count, submitted count, turnout, final option totals and named household responses. A multi-select response lists all selected options; each option row shows its count out of the eligible households, its percentage and a bar, and multi-select percentages can total more than 100%. Follow response pagination if present; downloads contain the complete authorized result, not just the visible page.
+**RWA Settings** controls the full name, alias, address, email, phone, optional website, accent, welcome message, household label, Number/ID identifier wording and administrator-only suggestion lists. Required fields are marked; blank optional fields are hidden. Display wording changes do not rename stored household identifiers or alter matching. Changes apply immediately, including to older votes/results. Only `rwa-admin` can save settings.
 
-![13: Completed PUBLIC results on a phone, including named responses](./images/user-guide/13-open-results.png)
+The alias appears in the compact header; the full name appears on vote/result pages and exports. Address and configured contacts appear only in their documented footer/privacy/PDF locations. The household-label suggestions are display values, not aliases for stored identifiers. **Default Households** offers up to 1000 unique identifiers (up to 100 characters each); **RWA Positions** offers up to 50 unique office names (up to 200 characters each). These are suggestions only and never create register entries or offices until an administrator selects the relevant action.
 
-The same result uses a wider layout on a computer:
+More specifically, the alias appears below the compact Civic Pulse brand and in the sign-in identity; the full name appears on vote/results/home pages, exports and the footer. Address, email, phone and website are shown only in configured public/signed-in contact locations. Accent colour changes links/buttons/highlights. The welcome message appears on Votes, Households and Manage Votes. Empty optional values stay hidden. Changing these values applies to existing results as well as future screens; the vote's saved RWA name is internal history, not the current display name.
 
-![14: Completed PUBLIC results and download controls on desktop](./images/user-guide/14-desktop-results.png)
+![RWA Admin 48: RWA profile, appearance, wording and suggestion settings](./images/user-guide/rwa-admin/48-rwa-settings.png)
 
-### PRIVATE completed results
+### Prepare, preview and open a vote
 
-After the election is Completed, read candidate and NOTA totals office by office. Results show totals only, not who chose which candidate. Select the **(i)** beside **How NOTA is counted** for the rule: NOTA never wins; the highest-count candidate is elected even if NOTA receives more votes. Tied candidate totals remain a tie, and if no candidate receives a vote no candidate is elected. Very small totals can still allow people to infer choices.
+Under **Manage Votes**, create a PUBLIC poll or PRIVATE election. PUBLIC ballots use options and may be single- or multi-select. PRIVATE ballots use offices/candidates and the built-in NOTA choice. Select the intended currently eligible households, set a future deadline in the RWA time zone, save, then preview. A ready preview is a check, not production approval. Drafts are not visible to voters.
 
-![36: Completed PRIVATE election with aggregate-only and NOTA results](./images/user-guide/36-closed-results.png)
+A PUBLIC poll needs at least two distinct options. A PRIVATE election needs at least one office and at least one named candidate per office; unopposed offices are allowed. NOTA is supplied automatically and must not be added as a candidate.
 
-Every result row reads like **Asha 3/8 38%** above a bar: the count out of the frozen eligible households and its percentage, rounded to a whole number (half up). Turnout, candidates, NOTA and PUBLIC options all use that same denominator, so multi-select percentages can add up to more than 100%. Leaders are highlighted in the accent colour and tagged **Elected**, **Leading** or **Tied**; NOTA has a muted striped bar because it can never win. The PDF prints the same bars. A zero denominator is not a meaningful percentage. An early-completion reason is part of the result context.
+For PUBLIC multi-select, require at least one choice and optionally set a maximum from 2 to 100; no maximum is also allowed. For PRIVATE, provide every office and candidates; office suggestions come from RWA Positions. **Add All Positions** creates eligible suggestions as offices, skipping positions already present. Changing draft type removes the other type's ballot content. In Electorate, a filter changes the rows displayed; **Select all eligible** can include more households than the visible page, so check the final selected count and representatives. Draft revision conflicts require reload and review of the latest version. Activation blockers can include missing content/deadline/eligible electorate and required policy approvals or retention settings.
 
-### CSV and PDF
+For PUBLIC multi-select, require at least one choice and optionally set a maximum from 2 to 100; no maximum is also allowed. For PRIVATE, provide every office and candidates; office suggestions come from RWA Positions. **Add All Positions** creates eligible suggestions as offices, skipping positions already present. Changing draft type removes the other type's ballot content. In Electorate, a filter changes the rows displayed; **Select all eligible** can include more households than the visible page, so check the final selected count and representatives. Draft revision conflicts require reload and review of the latest version. Activation blockers can include missing content/deadline/eligible electorate and required policy approvals or retention settings.
 
-- Choose the available **CSV** or **PDF** download from completed results. The PDF option may be disabled by deployment configuration.
-- CSV is for spreadsheet/tabular use; PDF is a printable presentation of the result.
-- Handle PUBLIC files carefully: they contain named household choices. Do not publish them publicly or email them to unauthorized people.
-- Downloads are normal browser links in the current application. There is no separate progress panel or guaranteed inline retry message. Avoid repeatedly starting the same download.
-- If a download fails, return to results and retry later. If PDF cannot represent a character, use CSV and report the issue; the app does not silently remove unsupported text.
-- An export is not a database backup, proof of completeness after a recovery, or a legal signature substitute.
+![RWA Admin 22: choose voting type](./images/user-guide/rwa-admin/22-voting-types.png)
 
-### Sign out
+![RWA Admin 23: incomplete preview and activation blockers](./images/user-guide/rwa-admin/23-incomplete-preview.png)
 
-Select **Sign Out** at the right end of the tab row in the application header, especially on shared devices. You return to sign-in. Close any downloaded files/tabs containing private information; sign-out does not delete files already saved to your computer.
+![RWA Admin 24: PUBLIC draft editor and electorate](./images/user-guide/rwa-admin/24-open-editor.png)
 
-![41: Sign-in screen after signing out](./images/user-guide/41-signed-out.png)
+![RWA Admin 32: PRIVATE draft editor with office and candidates](./images/user-guide/rwa-admin/32-closed-editor.png)
 
-## 9. Administrator navigation
+![RWA Admin 25: ready ballot preview](./images/user-guide/rwa-admin/25-ready-preview.png)
 
-Only authorized, enabled administrators see the management tools. The main sections are **Households**, **Accounts**, **Manage Votes** and **Audit History**. The resident **Votes** page remains available for their own entitlement.
+Activate immediately only after review. Activation freezes ballot/type, electorate, representative snapshots and deadline. To open later, schedule from the ready preview: scheduling freezes the same information immediately. Before opening, **Return to Draft** requires a reason. At/after opening, withdrawal is refused.
 
-![15: Administrator landing page with household register and management navigation](./images/user-guide/15-admin-home.png)
+Both opening and closure use database time. A delayed scheduled job never permits early voting or extends the deadline; if service processing is delayed through the full window, the vote completes at its original closing time without late submissions. No reminder/notification is sent to households.
 
-Administrators manage the register and lifecycle, not residents' selections. They cannot cast on behalf of households, edit accepted ballots or inspect live choice totals. During a live PRIVATE election, the admin-only **Participation** page identifies which households have or have not submitted so administrators can follow up; it never shows their selections.
+![RWA Admin 26: activation confirmation and freeze warning](./images/user-guide/rwa-admin/26-activate-dialog.png)
 
-## 10. Add a resident: account, household, enable
+![RWA Admin 57: scheduled-opening confirmation](./images/user-guide/rwa-admin/57-schedule-confirm.png)
 
-### Import multiple residents
+![RWA Admin 58: scheduled vote with opening countdown and withdrawal action](./images/user-guide/rwa-admin/58-scheduled-admin.png)
 
-1. Open the register and choose **Import CSV**, then **Download CSV Template**.
-2. Keep exactly `identifier,representative_name,email,is_eligible` as columns
-	(their order may vary). Use one representative per identifier, a unique email,
-	and `true` or `false` for eligibility. Use at most 500 rows and 256 KiB; the
-	identifier column keeps its technical name regardless of your RWA wording.
-3. Select the CSV. Correct every reported format/duplicate error, then choose
-	**Check Register**. Review names, addresses, identifiers and eligibility.
-4. Exact matches are skipped. Conflicts are reported without overwriting existing
-	entries; correct them through the ordinary register workflow. Only ready rows
-	can be imported. Confirm **Import Suspended Accounts**.
-5. Review each successful entry through **Review Account**, then explicitly
-	**Enable Account** when its details and assignment are correct. Import itself
-	never enables access or creates an administrator.
+![RWA Admin 60: reasoned return-to-draft confirmation](./images/user-guide/rwa-admin/60-withdraw-schedule.png)
 
-![54: CSV preview after checking the synthetic register, with the representative email redacted](./images/user-guide/54-import-preview.png)
+![RWA Admin 61: withdrawn schedule back in draft](./images/user-guide/rwa-admin/61-schedule-withdrawn.png)
 
-![55: Explicit confirmation that imported accounts remain suspended](./images/user-guide/55-import-confirm.png)
+### Monitor, finish and audit
 
-![56: Successful import with a Review Account link, not automatic enablement](./images/user-guide/56-import-result.png)
+The active vote page provides lifecycle controls, deadline change, and participation follow-up. Participation reveals frozen household/name and submitted status, never choices. Active PUBLIC pages show aggregate counts; active PRIVATE pages show aggregate turnout only. PRIVATE candidate/NOTA totals are hidden until completion. Deadline changes require a reason, must be at least five minutes in the future, and are allowed only while the vote is active and before its current deadline. There is no maximum extension or limit on how many changes can be made. The reason and old/new deadlines are audited; residents are not notified and see the new time on their next load or refresh.
 
-On a phone, the table scrolls horizontally rather than compressing identifiers
-and representative names. Swipe the table to inspect the remaining columns:
+![RWA Admin 27: active vote with deadline and lifecycle controls](./images/user-guide/rwa-admin/27-active-vote.png)
 
-![62: Mobile register import with readable headers and a horizontally scrollable result table](./images/user-guide/62-import-mobile.png)
+![RWA Admin 28: participation status without selections](./images/user-guide/rwa-admin/28-participation.png)
 
-Rows are saved separately, not as one all-or-nothing file. If a connection,
-provider or rate-limit failure appears, further processing stops: that row may
-be partly or fully saved. Keep the page open and **Check Register** again before
-retrying; successful/unchanged rows stay visible. A new file selection clears
-the preview. Uploads are not retained after leaving/reloading the page. Store
-resident CSVs securely and never upload a production register into a test system.
+![RWA Admin 53: audited deadline change with a required reason](./images/user-guide/rwa-admin/53-change-deadline.png)
 
-Follow this order so a resident is not enabled before their household exists:
+![Resident 49: PRIVATE live turnout without candidate totals](./images/user-guide/voter/49-closed-live-turnout.png)
 
-![Create suspended account, assign household, then enable](./images/user-guide/register.svg)
+Complete early only when authorized; enter a meaningful reason, which is recorded with the final result context. To observe an active PUBLIC poll, use live results rather than ending it early. Cancel an active vote only with the actual reason. Completion is final; cancellation invalidates the vote and publishes no results.
 
-### Step 1: create the account
+![RWA Admin 29: early completion confirmation and reason](./images/user-guide/rwa-admin/29-complete-dialog.png)
 
-1. Open **Accounts** and the new-account action.
-2. Enter the correct email and **Representative name**.
-3. Leave **Administrator** unchecked unless the person actually requires that role.
-4. Select **Create Account**.
+![RWA Admin 30: completed vote management view](./images/user-guide/rwa-admin/30-completed-admin.png)
 
-![16: New-account form](./images/user-guide/16-create-account.png)
+![RWA Admin 37: cancellation reason confirmation](./images/user-guide/rwa-admin/37-cancel-dialog.png)
 
-The ordinary resident account starts **Suspended**. The example below has been created but is not yet enabled.
+Use **Audit History** to review administrative actors/actions, targets and times. It does not contain OTPs or PRIVATE selections. Authorized completed results use the same projections as downloads. PUBLIC reports include named household responses; PRIVATE reports include aggregates only.
 
-![42: Newly created example resident in Suspended state](./images/user-guide/42-created-suspended.png)
+![RWA Admin 31: Manage Votes list and status filters](./images/user-guide/rwa-admin/31-admin-votes.png)
 
-If you try to enable it too early, the app explains **A household is needed first**. This is an intentional safeguard, not something to bypass.
+![RWA Admin 14: completed result projection and download controls](./images/user-guide/rwa-admin/14-desktop-results.png)
 
-![43: Refusal to enable an ordinary resident before household assignment](./images/user-guide/43-household-required.png)
+![RWA Admin 36: active PUBLIC aggregates visible without individual choices](./images/user-guide/rwa-admin/36-admin-active-public-results.png)
 
-### Configure the identifier wording
+![RWA Admin 37: active PRIVATE turnout without candidate or NOTA totals](./images/user-guide/rwa-admin/37-admin-active-private-turnout.png)
 
-Administrators can open **RWA Settings** to personalize how the RWA appears. Fields marked **\*** are required: **RWA Full Name**, **RWA Alias**, **Household Label** and **Identifier Label**. Everything else is optional and unmarked: **RWA Address**, **RWA Email**, **RWA Phone**, **RWA Website**, the **Accent Colour** (a handful of accessible presets, previewed on the form) and a **Welcome Message** (plain text, up to 300 characters). Leave an optional field blank to hide it everywhere; for example, a blank phone number is simply not shown in the footer or on PDF results. Residents never open this page; they see the values on other pages:
+![RWA Admin 38: completed PRIVATE aggregate results](./images/user-guide/rwa-admin/38-admin-completed-private-results.png)
 
-- **Alias:** the compact header shows the chosen Civic Pulse icon/name with your RWA alias beneath it (for example **Lakeview RWA**). The brand link's accessible name remains **Civic Pulse for Lakeview RWA**. The alias is also the first breadcrumb on signed-in pages, and the alias/full name appear on sign-in.
-- **Full name:** the Votes page, each vote page, results, CSV and PDF exports, and the footer.
-- **Address, email, phone, website:** a contact block in the signed-in footer; the address also appears on the public privacy page, and address, email and phone appear at the top of PDF results.
-- **Accent colour:** links, buttons and highlights.
-- **Welcome message:** the Votes page, plus the administrator Households and Manage Votes pages. Leave it blank to show nothing.
+![RWA Admin 39: audit history](./images/user-guide/rwa-admin/39-audit.png)
 
-Two optional lists at the end of the form save typing later. Both are administrator-only suggestions: residents never see them, and they never create anything by themselves.
+## RWA ReadOnly Persona
 
-- **Default Households:** a comma-separated list of identifiers, such as `H-501, H-502, H-503`. When you add a household, identifiers from this list that are not yet in the register are offered as type-ahead suggestions. Up to 1000 entries, each up to 100 characters.
-- **RWA Positions:** a comma-separated list of office names, prefilled with **President, Vice-President, Secretary, Joint-Secretary, Treasurer**. In a PRIVATE draft these names are offered as suggestions for each office, and **Add All Positions** adds every listed position as an office in one step. Up to 50 entries, each up to 200 characters.
+### What you can read
 
-Entries in each list must be unique; the form names any duplicate it finds.
+An enabled `rwa-readonly` account sees the same authorized management destinations and read scope as an administrator: the account directory and emails, household register, RWA settings, drafts and previews, vote lifecycle detail, participation, audit history, results and completed downloads. It can inspect PRIVATE participation status but never PRIVATE choices. While active, PUBLIC choices are not exposed; authorized aggregate results follow the same projection as an administrator.
 
-![48: RWA Settings form with profile, accent colour, welcome message, household wording, default households and RWA positions](./images/user-guide/48-rwa-settings.png)
+Management controls remain visible but disabled. Navigation, filters, read-only previews, result pages, and CSV/PDF downloads remain available. A disabled button is only a usability cue: APIs and PostgreSQL independently reject management writes. Only an administrator can assign/change roles.
 
-Changes apply immediately everywhere, including votes and results that already exist. If you rename the RWA, older results will show the new name. PDF results can only print characters the report fonts support; if a PDF refuses an unusual character in these values, use the CSV or simplify the text.
+![RWA ReadOnly 01: Votes home in Platinum with committee access](./images/user-guide/rwa-readonly/01-votes-home-light.png)
 
-Two settings control household wording:
+![RWA ReadOnly 02: Votes home in Obsidian](./images/user-guide/rwa-readonly/02-votes-home-dark.png)
 
-- **Household Label** is what one home is called in your RWA, in the singular, such as **Flat**, **Apartment** or **Villa** (suggestions are offered, but any short plain text works). It replaces the word “household” everywhere: the menu, page titles, register forms, electorate selection, participation, results, notices and CSV/PDF exports. The app works out the plural (for example **Flats**) and lower-case sentence wording automatically.
-- **Identifier Label** is either **Number** or **ID**. Combined with the household label it names each identifier, for example **Flat Number**, **Apartment Number** or **Villa ID**.
+![RWA ReadOnly 03: Accounts directory across all roles with selection actions disabled](./images/user-guide/rwa-readonly/03-accounts-read-all-roles.png)
 
-The form shows a live wording preview. The defaults are **Household** and **Number**. Changing either setting changes display wording only; it does not rename saved identifiers or alter duplicate matching. This guide uses “household” for the generic concept; your screens show your RWA's label instead.
+![RWA ReadOnly 04: observer account details with role changes disabled](./images/user-guide/rwa-readonly/04-observer-account-detail.png)
 
-### Step 2: add and assign a household
+![RWA ReadOnly 05: account provisioning controls disabled](./images/user-guide/rwa-readonly/05-create-account-disabled.png)
 
-1. Open **Households** and **Add household**.
-2. Enter the unique, correct identifier using the label configured for your RWA (for example **Flat Number**, **Apartment Number** or **Villa ID**). If **Default Households** is set in RWA Settings, start typing to pick one of the listed identifiers that is not registered yet.
-3. Select the intended **Representative**. Verify the email as well as the name.
-4. Set **Eligible to vote** according to the approved register.
-5. Select **Add household**.
+![RWA ReadOnly 06: household register and read-only row actions](./images/user-guide/rwa-readonly/06-household-register-read.png)
 
-![20: Household form with identifier, representative and eligibility controls](./images/user-guide/20-add-household.png)
+![RWA ReadOnly 07: new-household form disabled](./images/user-guide/rwa-readonly/07-new-household-disabled.png)
 
-This shared test register shows a capped candidate-list warning. If a real form says the account list is incomplete, do not assume an omitted account is absent or choose the wrong person. Follow the displayed guidance/contact support; the form is not a bulk-import tool.
+![RWA ReadOnly 08: household edits disabled](./images/user-guide/rwa-readonly/08-edit-household-disabled.png)
 
-Verify the saved household and its representative:
+![RWA ReadOnly 09: CSV import controls disabled](./images/user-guide/rwa-readonly/09-register-import-disabled.png)
 
-![44: Saved example flat in the filtered register, with its representative still suspended pending review](./images/user-guide/44-household-created.png)
+![RWA ReadOnly 10: RWA Settings read in Platinum](./images/user-guide/rwa-readonly/10-rwa-settings-read-light.png)
 
-### Step 3: enable the account
+![RWA ReadOnly 11: RWA Settings read in Obsidian](./images/user-guide/rwa-readonly/11-rwa-settings-read-dark.png)
 
-Return to the account, select **Enable Account**, review the dialog and confirm.
+![RWA ReadOnly 12: vote inventory and draft navigation](./images/user-guide/rwa-readonly/12-vote-list-read.png)
 
-![45: Account-enable confirmation dialog](./images/user-guide/45-enable-dialog.png)
+![RWA ReadOnly 13: new-vote creation controls disabled](./images/user-guide/rwa-readonly/13-new-vote-disabled.png)
 
-The account now shows Enabled and offers **Suspend Account**. The resident can sign in; their ability to access a particular vote still depends on that vote's frozen entitlement.
+![RWA ReadOnly 14: draft ballot editor displayed with save controls disabled](./images/user-guide/rwa-readonly/14-draft-read-disabled-editor.png)
 
-![46: Example account after successful enablement](./images/user-guide/46-enabled-account.png)
+![RWA ReadOnly 15: preview available while activation and scheduling are disabled](./images/user-guide/rwa-readonly/15-draft-preview-disabled-actions.png)
 
-### Account and household lists
+![RWA ReadOnly 16: active vote detail with lifecycle controls disabled](./images/user-guide/rwa-readonly/16-active-vote-disabled-lifecycle.png)
 
-Use list filters/pagination to find existing records rather than creating duplicates.
+![RWA ReadOnly 17: PRIVATE participation status read](./images/user-guide/rwa-readonly/17-private-participation-read.png)
 
-![47: Accounts review table with the Residents default, flat assignments, eligibility, status and selection controls](./images/user-guide/47-accounts-list.png)
+![RWA ReadOnly 18: scheduled vote detail with withdrawal disabled](./images/user-guide/rwa-readonly/18-scheduled-vote-disabled-withdrawal.png)
 
-### Review and approve multiple accounts
+![RWA ReadOnly 19: audit history read](./images/user-guide/rwa-readonly/19-audit-history-read.png)
 
-Open **Accounts**. The **Role** filter defaults to **Residents**, so administrators
-are not included accidentally. Use **Suspended** status to review new accounts.
-Check each name, email, assigned flat, voting eligibility and account status.
+### Your own household vote still works
 
-1. Tick only the valid rows. **Select All on This Page** selects actionable rows
-	currently shown, never hidden pages. Changing page, page size or filters clears
-	selection. A same-page refresh preserves still-valid selections.
-2. **Enable Selected** changes account access only. Residents need a flat
-	assignment first; administrators can be enabled without one. Already enabled,
-	deleted or otherwise non-actionable rows are not included in this action.
-3. **Make Eligible** separately marks assigned flats eligible for future votes.
-	It does not enable accounts. Already eligible or unassigned rows are skipped.
-4. Review the exact list and affected count in each confirmation. The two counts
-	can differ. Nothing adds a representative to an already frozen scheduled or
-	active electorate.
+Management read access does not make a vote for you or grant another household's entitlement. If your enabled account represents a selected household, its frozen ballot remains available. PUBLIC replacement remains allowed only while that poll is open; PRIVATE submission remains final.
 
-![63: Selected account rows reviewed with name, email, flat, eligibility and account status together](./images/user-guide/63-account-review.png)
+![RWA ReadOnly 20: own PUBLIC ballot](./images/user-guide/rwa-readonly/20-own-public-ballot.png)
 
-![64: Make Eligible confirmation changes future register eligibility without enabling sign-in](./images/user-guide/64-make-eligible.png)
+![RWA ReadOnly 21: own PUBLIC ballot review](./images/user-guide/rwa-readonly/21-own-public-review.png)
 
-![65: Enable Selected confirmation lists two accounts and leaves flat eligibility unchanged](./images/user-guide/65-enable-selected.png)
+![RWA ReadOnly 22: own PUBLIC acknowledgement](./images/user-guide/rwa-readonly/22-own-public-submitted.png)
 
-![66: Completed per-account enablement results after the confirmed bulk action](./images/user-guide/66-account-review-result.png)
+![RWA ReadOnly 23: own PRIVATE ballot](./images/user-guide/rwa-readonly/23-own-private-ballot.png)
 
-To include administrators, explicitly choose **All Roles** (or **Administrators**)
-and apply the filter, then select those accounts. Enabling selected administrators
-shows an additional warning because it restores management access:
+![RWA ReadOnly 24: own PRIVATE review](./images/user-guide/rwa-readonly/24-own-private-review.png)
 
-![67: Explicit administrator-access warning before enabling a selected administrator](./images/user-guide/67-enable-admin-warning.png)
+![RWA ReadOnly 25: own PRIVATE acknowledgement](./images/user-guide/rwa-readonly/25-own-private-submitted.png)
 
-Each row commits separately. If a provider, connection or rate-limit failure
-occurs, further processing stops and completed rows stay completed. The failing
-row may be partly or fully changed: refresh and review before retrying. Normal
-administrator/provider rate limits still apply. Leaving the page stops further
-unsubmitted rows but cannot undo a request already accepted by the server.
+### Results and mobile access
 
-Open a household to update its identifier, representative or eligibility for future activations. Save and check the result. Existing active/completed votes keep their historical household/representative data. The RWA-wide household and identifier labels are managed in **RWA Settings**; changing them updates the display wording across the app without changing saved identifiers or their matching rules.
+An observer may read completed PUBLIC named responses and PRIVATE aggregate results even when its own household was not in that vote's electorate, subject to the same authorization/integrity rules as an administrator. Active choices and individual PRIVATE selections remain unavailable. Completed downloads remain enabled; protect PUBLIC named files.
 
-![21: Household edit form and representative assignment](./images/user-guide/21-household.png)
+![RWA ReadOnly 26: own active PUBLIC aggregate results](./images/user-guide/rwa-readonly/26-own-live-public-results.png)
 
-## 11. Edit, suspend or delete an account
+![RWA ReadOnly 27: completed PUBLIC results for another household's vote](./images/user-guide/rwa-readonly/27-other-household-public-results.png)
 
-Open an account to update its name/email or administrative role, then select **Save Changes**. Grant administrator permissions sparingly and confirm the intended person.
+![RWA ReadOnly 28: completed PRIVATE aggregate results](./images/user-guide/rwa-readonly/28-completed-private-results.png)
 
-![17: Account details and role/access controls](./images/user-guide/17-account.png)
+## Troubleshooting and shared limits
 
-Changing an email requires the sign-in service and register to remain consistent. If an error says setup is incomplete, do not tell the resident to continue with an assumed address. Resolve the surfaced issue and verify the final state.
+| Situation | Safe next step |
+| --- | --- |
+| Sign-in code missing/expired | Check the entered address and newest message, wait for the cooldown, and ask an administrator to verify provisioning/SMTP. Do not share codes. |
+| Too many requests | Follow the displayed wait/retry guidance; repeated attempts do not improve delivery and may prolong disruption. |
+| Account suspended or incomplete | A fresh code cannot restore access. An administrator must resolve account status and any required household assignment. |
+| Email/profile change reported incomplete | Do not assume the new address works or create a replacement identity. Ask the administrator to finish/review the Auth and profile recovery steps. |
+| Expected vote missing | Clear filters. The current household assignment does not transfer a frozen entitlement. Ask an administrator to check that vote's frozen electorate. |
+| Required choice missing | Choose at least one PUBLIC option, or select a candidate/NOTA for every PRIVATE office, then review. |
+| Unknown submission outcome | Use Check Again; do not blindly repeat. Retry only when the app confirms not recorded and still offers the action before closure. |
+| Already submitted | Do not switch accounts/devices to cast again. PRIVATE ballots are final; PUBLIC changes are possible only while the poll remains open. |
+| Vote closed or cancelled | A deadline cannot be extended by retrying. Cancelled votes have no valid results and cannot reopen. |
+| Result integrity warning | Stop relying on the result and contact the operations team. Never infer or repair totals yourself. |
+| Download unavailable | Use CSV if enabled, retry later, and report recurring errors. Downloads are not backups. |
+| Management control disabled | For a voter, that is expected. For an observer, request an administrator to make the change; the observer cannot self-promote. |
+| Session expires or role/access changes | Sign in again if allowed. Unsaved selections are not a stored draft and may need to be re-entered. |
+| Draft changed by another administrator | Reload the latest version, reconcile changes and preview again before activation. |
+| Activation blocked | Correct the listed ballot/register/policy/retention blockers. Only authorized approvers can record real policy approvals. |
+| Service/maintenance failure | Follow the displayed support reference and retry later. Maintenance is not another voting channel. |
 
-### Suspend
+When contacting support, include the vote title, action, approximate time, device/browser and visible support reference. Do not send OTPs, cookies, PUBLIC/PRIVATE selections, or another household's personal data.
 
-**Suspend Account** stops application access without deleting historical participation. Suspension can later be reversed. Read the confirmation before proceeding.
+## Limits and approvals
 
-![18: Suspension confirmation, shown but not executed for this pictured resident](./images/user-guide/18-suspend-dialog.png)
+These pictures use real application screens and synthetic data; some network failures are deliberately simulated. They do not prove SMTP delivery, production capacity, Cron operation, restore readiness, manual accessibility acceptance, or governance approval. The app does not provide public signup, delegated voting, reminders, ballot reopening, PRIVATE selection retrieval, cryptographic anonymity, or legal signatures. CSV import does not enable new accounts; schedule and register changes do not alter an already frozen electorate. See [pilot readiness](./PILOT_READINESS.md) and [launch audit](./LAUNCH_AUDIT.md) before real use.
 
-### Delete
-
-**Delete Account** is irreversible in the application UI. Historical vote/audit identity is retained according to policy; this is not a way to erase an accepted ballot. Prefer suspension if the change is temporary.
-
-![19: Irreversible-deletion confirmation, shown but not executed for this pictured resident](./images/user-guide/19-delete-dialog.png)
-
-The system prevents removal of the last enabled administrator. If a provider operation fails partway through suspension/deletion, follow the reported recovery guidance; retrying the same status may finish a previously failed sign-in-service restriction. Do not create a second identity to conceal a partial failure.
-
-## 12. Create and preview a vote
-
-### Step 1: create a draft
-
-Open **Manage Votes**, choose the new-vote action, select **PUBLIC voting** or **PRIVATE voting**, then **Create Draft**.
-
-![22: Choose voting type before creating a draft](./images/user-guide/22-voting-types.png)
-
-Drafts may be incomplete and are not visible to residents. For PUBLIC voting, enter the question/background and at least two distinct options. Choose whether a household selects one option or multiple options; multi-select requires at least one and can have a maximum from 2 to 100 or no maximum. Each household still submits one ballot and counts once in turnout. Add/remove/reorder options as needed.
-
-![24: PUBLIC draft editor with question, options, selected electorate and deadline](./images/user-guide/24-open-editor.png)
-
-For PRIVATE voting, enter the election details, offices and each office's candidates. Office names suggest the **RWA Positions** from RWA Settings as you type. **Add All Positions** fills any blank offices that have no candidates yet, then adds the remaining positions as new offices; positions that are already offices are skipped, and the 50-office limit still applies. The resident ballot includes NOTA automatically; do not add it as a candidate. Verify candidate-to-office assignment and order carefully.
-
-![32: PRIVATE draft editor with offices, candidates and Add All Positions](./images/user-guide/32-closed-editor.png)
-
-Changing a draft's type removes the previous type's ballot content. Do not switch types casually after entering options/candidates.
-
-### Step 2: choose households and deadline
-
-- In **Electorate**, find and select the intended eligible households.
-- Review the actual selected count and representatives. A filter changes what you see; do not assume it changed all selection behavior. “Select all eligible” is broader than manually ticking the one displayed household.
-- Enter a future closing time in the RWA's displayed time zone and verify the resident-facing time.
-- Select **Save Draft**. Do not assume text typed into the form is already saved.
-- Draft versions protect against two administrators overwriting one another. If a conflict appears, reload and review the latest version before editing again.
-
-### Step 3: preview
-
-Select **Preview Ballot**. An incomplete draft clearly lists activation blockers, such as missing content/electorate/deadline or configuration approvals. Correct the listed problems and preview again.
-
-![23: Incomplete preview with activation blockers](./images/user-guide/23-incomplete-preview.png)
-
-A ready preview says **No problems found in this version**. Review the ballot, privacy notice, household count and deadline as a resident would. A successful preview is not production-launch approval; an administrator must still follow actual RWA approvals and operating policy.
-
-![25: Ready, version-bound preview before activation](./images/user-guide/25-ready-preview.png)
-
-## 13. Activate and monitor
-
-### Schedule opening instead
-
-From a ready ballot preview, enter **Voting opens at** in the displayed RWA time
-zone and choose **Schedule Vote**. Opening must be in the future and before the
-saved closing deadline. The confirmation shows both times. **Freeze and Schedule**
-freezes the previewed ballot, electorate and representatives immediately.
-Residents see only the upcoming summary/countdown, not candidates/options.
-
-![57: Schedule confirmation showing opening and closure times and immediate freezing](./images/user-guide/57-schedule-confirm.png)
-
-![58: Scheduled administrator page with an opening countdown and Return to Draft action](./images/user-guide/58-scheduled-admin.png)
-
-The scheduled management page shows its opening time and countdown. Before
-opening only, **Return to Draft** with a written reason withdraws the schedule,
-hides the vote from residents and allows corrections. Review and preview it
-again before scheduling or activating. At/after opening, returning to draft is
-refused, even if the page still says Scheduled. An active/finished vote cannot
-use this action. To abandon a not-yet-opened schedule, withdraw it and leave the
-draft unscheduled; cancellation remains an active-vote action.
-
-![60: Return-to-draft confirmation with a required recorded reason](./images/user-guide/60-withdraw-schedule.png)
-
-![61: Withdrawn schedule restored to an editable draft requiring a fresh preview](./images/user-guide/61-schedule-withdrawn.png)
-
-Opening and closing use database time. A delayed job never permits early voting
-or extends closure. If the service is unavailable for the whole scheduled window,
-the vote completes at its original deadline without late submissions.
-
-Select **Activate Vote**, read the confirmation and explicitly confirm. If the draft changed since preview, refresh and review again.
-
-![26: Activation confirmation and irreversible-freeze warning](./images/user-guide/26-activate-dialog.png)
-
-After activation, the title/content, type, selection rule, options/candidates, electorate and representative snapshots are frozen. You cannot add a late household or repair ballot wording in place. Only the deadline can still be moved while voting is open (see [Change the deadline](#change-the-deadline)).
-
-![27: Active vote management with frozen content, Change Deadline and lifecycle controls](./images/user-guide/27-active-vote.png)
-
-Open **Participation** to see submitted/not-submitted household status and turnout. You cannot see live choices or candidate totals, including for PUBLIC votes before completion.
-
-![28: Administrator participation monitor without individual choices](./images/user-guide/28-participation.png)
-
-If serious frozen-content errors are found, use the approved cancellation process and prepare a new vote. Do not try to alter the database manually.
-
-### Change the deadline
-
-If turnout is low, or the committee decides voting should close sooner, an administrator can move the deadline of an **Active** vote, for PUBLIC and PRIVATE votes alike.
-
-1. Open the active vote and select **Change Deadline**.
-2. Enter the new closing time in the RWA's time zone. The dialog shows what residents will see and whether the deadline is extended or brought forward, and by how much.
-3. Enter the reason and confirm with **Change Deadline**.
-
-![53: Change Deadline dialog extending an active vote by two days, with a required reason](./images/user-guide/53-change-deadline.png)
-
-- The new deadline must be at least 5 minutes from now and different from the current one. To stop voting immediately, use **Complete Vote Early** instead.
-- There is no limit on how often or how far the deadline is moved.
-- It works only while the vote is Active and before its current deadline. Once the deadline passes the vote completes and cannot be reopened or extended.
-- The reason and the previous and new deadlines are recorded in **Audit History** as **Vote deadline changed**. Residents never see the reason.
-- Residents are not notified. Their vote pages simply show the new deadline and countdown, and a page left open refreshes when the old countdown reaches zero.
-
-## 14. Complete or cancel
-
-### Completion at the deadline
-
-Submissions stop at the exact database-enforced deadline (the latest one, if an administrator changed it). Scheduled processing marks the vote Completed; processing delay does not extend voting. A countdown on a device is guidance, not the acceptance authority.
-
-### Complete early
-
-Where approved, an administrator may select **Complete Vote Early**. Enter a meaningful reason and confirm. The reason is recorded with the vote and completion is final.
-
-![29: Early-completion dialog showing that a reason is required](./images/user-guide/29-complete-dialog.png)
-
-After completion, confirm the status and open the results. For an active PUBLIC poll, use its live results page rather than completing early; early completion permanently ends voting.
-
-![30: Completed administrator view after early completion](./images/user-guide/30-completed-admin.png)
-
-The management list helps distinguish Draft, Scheduled, Active, Completed and Cancelled records; use filters and pagination.
-
-![31: Manage Votes filtered to a scheduled example, including its opening countdown and closing deadline](./images/user-guide/31-admin-votes.png)
-
-### Cancel an active vote
-
-Select **Cancel Vote**, enter the actual reason, review the warning and confirm. Cancellation invalidates the vote. There are no valid results/downloads and it cannot reopen.
-
-![37: Cancellation dialog with required reason](./images/user-guide/37-cancel-dialog.png)
-
-Residents then see that the vote was cancelled and cannot submit or view results.
-
-![38: Resident view of a cancelled vote and its reason](./images/user-guide/38-cancelled-member.png)
-
-Cancellation does not silently rewrite or hide the audit trail. Arrange a new vote through the proper draft/preview/activation process if needed.
-
-## 15. Audit and access boundaries
-
-Use **Audit History** to review recorded administrator actions, actor, target and time. Filter by action/record/time as offered, and use pagination. It is an operational history, not a way to inspect sign-in codes or PRIVATE selections.
-
-![39: Administrator audit history](./images/user-guide/39-audit.png)
-
-A resident who enters an admin URL receives a plain not-found page. This deliberately avoids disclosing protected administrative information. Going back to **Votes** or signing in again does not grant an administrator role.
-
-![40: Resident request to an administrator page receives not found](./images/user-guide/40-no-admin-access.png)
-
-## 16. Troubleshooting and safe recovery
-
-| Situation                              | What to do                                                                                                                                                    |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No sign-in email                       | Check the typed address, newest mail and spam folder. Wait for resend cooldown. Ask the admin to check provisioning/SMTP; do not create a new public account. |
-| Invalid/expired code                   | Request a new code when allowed and use the latest message. Never share it.                                                                                   |
-| Too many requests                      | Follow the wait/retry guidance. Repeated rapid attempts can prolong disruption.                                                                               |
-| Account suspended/incomplete           | Ask the administrator to resolve the register/provider workflow. A valid email code is not sufficient authorization.                                          |
-| Empty Votes list                       | Clear filters and check with the admin whether your frozen household was included in an activated vote.                                                       |
-| Required choice missing                | Select one PUBLIC option or a candidate/NOTA for every PRIVATE office, then review.                                                                               |
-| “We could not confirm your submission” | Use Check again; do not blindly repeat submission.                                                                                                            |
-| Confirmed not recorded                 | Use Review and try again only if the app offers it and voting remains allowed.                                                                                |
-| Already submitted                      | Do not attempt another device/account. The accepted ballot is final.                                                                                          |
-| Deadline passed                        | No new submission or retry can extend the deadline, and a closed vote cannot be reopened. Contact the admin about process questions, not a manual ballot edit. |
-| Results not ready                      | Active results are available only for PUBLIC polls; wait until completion for PRIVATE results. Cancelled votes do not publish results.                           |
-| Results pending integrity review       | Stop relying on that result and alert the administrator/operations team. Do not infer missing totals yourself.                                                |
-| PDF fails or is unavailable            | Use CSV if available. Report unsupported text or recurring failure.                                                                                           |
-| Session expired/access changed         | Sign in again if allowed. Unsaved selections are not a stored draft and may need to be re-entered.                                                            |
-| Draft changed by someone else          | Reload the current version, reconcile changes and preview again.                                                                                              |
-| Activation blocked                     | Correct listed ballot/register/configuration blockers. Do not approve policies you are not authorized to approve.                                             |
-| Maintenance/service unavailable        | Wait for the RWA's service announcement and retry later. Maintenance is not an alternate voting channel.                                                      |
-| Unexpected error                       | Keep the support ID and action/time. Contact the approved support channel without OTPs, cookies or PRIVATE choices.                                            |
-
-When asking for help, include the vote title, action, approximate time, visible error/support ID and device/browser. Redact email addresses and other households from screenshots unless the approved support process needs them. **Never include sign-in codes or PRIVATE selections.**
-
-## 17. Coverage, privacy and limits
-
-This guide covers main resident/admin journeys and representative errors, not every possible combination of device, identity, network and ballot. The following are explained in text rather than all individually photographed: real SMTP failure/cooldown, every stale-revision conflict, deadline lock races, maintenance, provider partial failures, last-admin refusal, all browser download errors and every multi-office layout.
-
-The pictures use a real application against synthetic test data. The invalid-code response and lost-connection sequence are intentionally simulated; no real SMTP deliverability claim is made. Actual completed PUBLIC/PRIVATE submissions, results, account creation/assignment/enablement, activation, early completion, cancellation, audit access and sign-out are exercised by the capture journey.
-
-This application does not provide public signup, anonymous public results, delegated voting, PRIVATE ballot editing/withdrawal, reopening a closed vote, messaging/reminders or legal signatures. CSV register import and scheduled opening are available as described above; they do not enable accounts automatically or transfer frozen entitlements.
-
-Before real use, the RWA/operator must complete approvals, production email/capacity/security verification, monitoring, backup/restore and manual device/accessibility acceptance. See [pilot readiness](./PILOT_READINESS.md) and the [launch audit](./LAUNCH_AUDIT.md). A screenshot guide is not launch approval.
+Screenshots cover the core screens and actions available to each persona, not every possible data/state combination. Not individually pictured are a real SMTP outage/cooldown, every stale-draft conflict, deadline lock races, maintenance mode, every provider failure, final-enabled-admin refusal, every export failure, and every possible multi-office ballot layout. These safeguards and recovery rules remain covered in the written steps above and the technical/security test suite; captures are examples, not proof of those edge conditions.

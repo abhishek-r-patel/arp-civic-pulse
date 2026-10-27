@@ -133,7 +133,7 @@ export default async function VotesPage({
         title="Manage Votes"
         description="Create drafts, preview ballots, activate now or schedule opening. Scheduling freezes the vote; it must return to draft before edits."
         actions={
-          <LinkButton href="/admin/votes/new">
+          <LinkButton href="/admin/votes/new" disabled={!deps.actor.isAdmin}>
             <Vote aria-hidden="true" className="size-5" />
             New Vote
           </LinkButton>
@@ -213,7 +213,12 @@ export default async function VotesPage({
           <EmptyState
             title="There are no votes yet"
             action={
-              <LinkButton href="/admin/votes/new">Create a Vote</LinkButton>
+              <LinkButton
+                href="/admin/votes/new"
+                disabled={!deps.actor.isAdmin}
+              >
+                Create a Vote
+              </LinkButton>
             }
           >
             <p>

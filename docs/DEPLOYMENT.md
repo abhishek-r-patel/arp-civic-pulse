@@ -130,15 +130,15 @@ not itself approval to redesign layouts or close manual accessibility gates. The
 user subsequently approved the remaining screen rollout; that approval changes
 presentation scope only, not production readiness or voting guarantees.
 
-During the current User Guide hold, run `node node_modules/next/dist/bin/next build`
-for the application gate, not `npm run build` (whose prebuild regenerates guides).
-Use the analogous direct dev command for preview and
-`PLAYWRIGHT_PRESERVE_GUIDE=1` for browser tests. Technical HTML can be regenerated
-selectively with the renderer's exported `renderGuide('TECHNICAL_GUIDE')`.
-Do not silently regenerate or recapture User Guide assets until the user resumes
-that work; verify their content hashes before/after validation.
+Guide updates are authorized and persona screenshots are kept in
+`docs/images/user-guide/voter`, `rwa-admin` and `rwa-readonly`. The normal
+`predev`/`prebuild` hooks regenerate current HTML from Markdown and images.
+Use `PLAYWRIGHT_PRESERVE_GUIDE=1` when a browser run should preserve already
+rendered guide output; use direct Next commands when intentionally avoiding the
+hooks. The capture suite uses only synthetic data on the approved disposable
+project and never on production.
 
-Apply the complete ordered migration set from `20261024100000_core_schema.sql` through `20261107100000_scheduled_opening.sql`. The final two migrations add guarded register import and frozen scheduled opening; deploy them before the corresponding application revision, outside voting windows. See [supabase/README.md](../supabase/README.md) and [DATABASE.md](./DATABASE.md). The app never migrates at startup or during the Vercel build.
+Apply the complete ordered migration set from `20261024100000_core_schema.sql` through `20261108100000_readonly_committee_role.sql`. The latest migration adds the exclusive committee-observer role and read-only authorization; deploy reviewed migrations before the corresponding application revision, outside voting windows. This role migration was applied only to the explicitly confirmed disposable project for synthetic verification, not production. See [supabase/README.md](../supabase/README.md) and [DATABASE.md](./DATABASE.md). The app never migrates at startup or during the Vercel build.
 
 Before rollout, verify a 500-row synthetic import's Auth-provider quota behavior,
 partial-failure/retry handling and suspended-account review. Verify scheduled

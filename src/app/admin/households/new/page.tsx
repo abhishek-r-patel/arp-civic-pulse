@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { HouseholdForm } from "@/components/admin/household-form";
+import { ManagementFields } from "@/components/admin/management-fields";
 import { PageHeader } from "@/components/ui/layout";
 import {
   MAX_ASSIGNABLE,
@@ -42,13 +43,15 @@ export default async function NewHouseholdPage() {
         title={`Add ${deps.terms.Household}`}
         description={`Assign an existing account to represent this ${deps.terms.household}. This never creates or merges accounts.`}
       />
-      <HouseholdForm
-        csrfToken={deps.csrfToken}
-        identifierLabel={deps.identifierLabel}
-        accounts={accounts}
-        identifierSuggestions={suggestions}
-        limited={accounts.length >= MAX_ASSIGNABLE}
-      />
+      <ManagementFields canManage={deps.actor.isAdmin}>
+        <HouseholdForm
+          csrfToken={deps.csrfToken}
+          identifierLabel={deps.identifierLabel}
+          accounts={accounts}
+          identifierSuggestions={suggestions}
+          limited={accounts.length >= MAX_ASSIGNABLE}
+        />
+      </ManagementFields>
     </div>
   );
 }

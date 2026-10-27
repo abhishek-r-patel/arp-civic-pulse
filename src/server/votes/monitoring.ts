@@ -1,4 +1,4 @@
-// Administrator-only participation and audit-history reads.
+// Authorized RWA Admin/ReadOnly participation and audit-history reads.
 import "server-only";
 import { z } from "zod";
 import { buildKnownPage, decodeCursor } from "@/server/http/cursor";
@@ -18,10 +18,10 @@ import type { PageInfo } from "@/shared/contracts/pagination";
 import { uuid } from "@/shared/validation/primitives";
 
 /*
- * Administrator monitoring. Participation shows who has and has not submitted
+ * Management monitoring. Participation shows who has and has not submitted
  * (frozen name and household identifier) and never a choice, an email or a
  * per-submission time. The audit history exposes allowlisted fields only. Both
- * routines re-check the caller as an enabled administrator.
+ * database routines re-check the caller as an enabled RWA Admin or RWA ReadOnly.
  */
 function parse<Schema extends z.ZodType>(
   schema: Schema,

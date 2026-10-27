@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { AccountEditor } from "@/components/admin/account-forms";
+import { ManagementFields } from "@/components/admin/management-fields";
 import { flashNotices, firstValues } from "@/components/admin/format";
 import { PageHeader } from "@/components/ui/layout";
 import { ApiError } from "@/server/http/errors";
@@ -55,12 +56,14 @@ export default async function AccountPage({
         title={account.representativeName}
         description="Change this person's details, role or access."
       />
-      <AccountEditor
-        key={account.id}
-        csrfToken={deps.csrfToken}
-        account={account}
-        flash={raw.notice ? notices[raw.notice] : undefined}
-      />
+      <ManagementFields canManage={deps.actor.isAdmin}>
+        <AccountEditor
+          key={account.id}
+          csrfToken={deps.csrfToken}
+          account={account}
+          flash={raw.notice ? notices[raw.notice] : undefined}
+        />
+      </ManagementFields>
     </div>
   );
 }

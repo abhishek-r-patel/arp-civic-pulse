@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { AccountCreateForm } from "@/components/admin/account-forms";
+import { ManagementFields } from "@/components/admin/management-fields";
 import { PageHeader } from "@/components/ui/layout";
 import { adminPageContext } from "@/server/register/page-context";
 
@@ -27,7 +28,9 @@ export default async function NewAccountPage() {
         title="Add Account"
         description="Create a sign-in identity and profile for one person."
       />
-      <AccountCreateForm csrfToken={deps.csrfToken} />
+      <ManagementFields canManage={deps.actor.isAdmin}>
+        <AccountCreateForm csrfToken={deps.csrfToken} />
+      </ManagementFields>
     </div>
   );
 }

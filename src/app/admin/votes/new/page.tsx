@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { NewDraftForm } from "@/components/admin/vote-forms";
+import { ManagementFields } from "@/components/admin/management-fields";
 import { PageHeader } from "@/components/ui/layout";
 import { adminPageContext } from "@/server/register/page-context";
 
@@ -28,7 +29,9 @@ export default async function NewVotePage() {
         title="New Vote"
         description="Choose the voting type first. You will add the details, ballot, electorate and deadline next, and can preview everything before activating."
       />
-      <NewDraftForm csrfToken={deps.csrfToken} />
+      <ManagementFields canManage={deps.actor.isAdmin}>
+        <NewDraftForm csrfToken={deps.csrfToken} />
+      </ManagementFields>
     </div>
   );
 }
