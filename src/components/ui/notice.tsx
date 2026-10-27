@@ -1,3 +1,4 @@
+// Clear theme-safe status messages; icons, wording and live-region roles retain their meaning.
 import {
   CircleAlert,
   CircleCheck,
@@ -54,7 +55,7 @@ export function Notice({
     <div
       role={role}
       className={cn(
-        "flex w-full gap-3 rounded-card border p-4",
+        "flex w-full gap-3 rounded-control border border-l-[3px] p-4",
         classes,
         className,
       )}
@@ -62,7 +63,7 @@ export function Notice({
       <Icon aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
       <div className="min-w-0">
         {heading ? (
-          <p className="text-card-heading font-semibold">{heading}</p>
+          <p className="mb-1 text-body font-semibold">{heading}</p>
         ) : null}
         <div className="text-body text-primary">{children}</div>
       </div>

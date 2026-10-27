@@ -254,6 +254,53 @@ If port 3000 is busy, either stop whatever uses it or run `npm run dev -- --port
 
 ### 9.2 A guided first walkthrough
 
+The approved visual style now covers all screen families, with unchanged actions
+and voting rules. For this rollout the User Guide/images/HTML are intentionally
+frozen: run a direct Next build/dev command rather than npm's guide-regeneration
+hooks. Set `PLAYWRIGHT_PRESERVE_GUIDE=1` and run
+`npx playwright test tests/e2e/visual-rollout.spec.ts --project=chromium --workers=1`
+for public checks; add the existing `LIVE_AUTH=1` disposable-project opt-in and
+verified CA setup for admin/resident journeys. This test writes only to temporary
+`test-results/` output, not `docs/images` or published guide files.
+
+Votes now follows the approved concept. Verify the three totals against the
+signed-in fixture's own entitlements (not the whole RWA); filter cards and confirm
+those totals stay unchanged. Record a PUBLIC response, verify real aggregate
+turnout and its live-results link, and confirm PRIVATE candidates never appear
+in the list. Status links, type menu, history and Cancelled/Clear retain discovery
+and pagination. The existing focused `--grep "Platinum and Obsidian"` capture
+creates these actual synthetic states and refreshes the guide; no migration is
+required. All unavailable-data states must remain explicit rather than zero-filled.
+
+The header appearance icon offers Light (Platinum), Dark (Obsidian) and System
+(default). Verify persistence after reload, live device changes in System,
+keyboard/Escape behavior, invalid/blocked local storage and light print output.
+Only `civic-pulse-theme` is persisted; it is not an account setting or ballot data.
+Browser fonts are served locally by Next after build-time font preparation.
+Run `npx playwright test tests/e2e/theme.spec.ts --project=chromium` for the public
+theme checks. The opted-in `--grep "Platinum and Obsidian"` documentation capture
+uses the verified disposable fixture project for actual Votes/Accounts pictures.
+
+For tabular onboarding review, open **Accounts** (Residents is the default role),
+filter Suspended and select valid rows on the current page. **Enable Selected**
+allows sign-in; **Make Eligible** separately changes assigned-flat eligibility
+for future votes. Select All Roles explicitly to include administrators, whose
+enable confirmation carries a management-access warning. Changing page/filters
+clears selection. Use the existing reviewed schema; this UI adds no migration.
+The focused screenshot/browser command is
+`npx playwright test -c playwright.docs.config.ts --grep "bulk account review"`,
+with the documented disposable-project opt-ins and verified CA configuration.
+
+For bulk onboarding, open **Households -> Import CSV**, download the template,
+use synthetic names/emails and explicit `true`/`false` eligibility, then check
+and confirm ready rows. Review each imported account before enabling it. For
+scheduled opening, use **Schedule Vote** on a ready preview, enter an opening
+before closure in the configured RWA time zone, and confirm the immediate freeze.
+Check the resident summary/countdown and pre-opening **Return to Draft** with a
+reason. These workflows require the reviewed `20261106100000` and
+`20261107100000` migrations; apply only to an independently verified disposable
+environment using section 6. Do not point fixtures or captures at production.
+
 Follow this to see every built feature:
 
 1. **Accounts → Add account.** Create a resident (name + email). New accounts start **Suspended**.
@@ -306,6 +353,17 @@ Two optional extras for the integration suite: set `PG_BIN_DIR` to the same `bin
 **Browsers:** the same specs run in Firefox and WebKit (`npx playwright install firefox webkit`, then `--project=firefox` or `--project=webkit`). Two keyboard steps are skipped in the automated WebKit build and must be checked on real Safari (see [PILOT_READINESS.md](./PILOT_READINESS.md)).
 
 **Browser tests:** install Playwright's own Chromium once with `npx playwright install chromium`. On managed Windows machines, policy can close Microsoft Edge shortly after Playwright starts it; the bundled Chromium avoids that. The signed-in specs create users in your project and need `LIVE_AUTH=1`:
+
+The shared browser fixture database helper verifies remote TLS/hostname identity.
+Download the database CA from the Supabase dashboard SSL settings, as explained
+in the [provider guidance](https://supabase.com/docs/guides/platform/ssl-enforcement),
+and set `PGSSLROOTCERT` to its PEM/CRT path in the test shell. The Windows system
+trust store alone may not include this CA; do not disable certificate checks.
+For focused documentation capture, also set `DOC_SCREENSHOTS=1` and run
+`npx playwright test -c playwright.docs.config.ts --grep "bulk import and scheduled opening"`.
+Stop another dev server in the same checkout first. Use only a confirmed
+disposable project with reviewed migrations, synthetic data and image redaction;
+see the technical guide for capture details and cleanup boundaries.
 
 ```powershell
 $env:LIVE_AUTH = "1"

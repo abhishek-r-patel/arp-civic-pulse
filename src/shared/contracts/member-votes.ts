@@ -1,3 +1,4 @@
+// Resident-safe vote summaries, ballots, participation and audit projections.
 import { z } from "zod";
 import {
   instant,
@@ -14,7 +15,12 @@ import { VOTING_TYPES } from "@/shared/contracts/voting";
  * routines in supabase/migrations build these and the schemas below validate
  * them on the way out.
  */
-const MEMBER_STATUSES = ["ACTIVE", "COMPLETED", "CANCELLED"] as const;
+const MEMBER_STATUSES = [
+  "SCHEDULED",
+  "ACTIVE",
+  "COMPLETED",
+  "CANCELLED",
+] as const;
 
 export const memberVoteListQuerySchema = listQuerySchema({
   status: z.enum(MEMBER_STATUSES).optional(),
@@ -27,6 +33,8 @@ export const memberVoteSummarySchema = z.object({
   status: z.enum(MEMBER_STATUSES),
   title: z.string(),
   closesAt: instant,
+  opensAt: instant.nullable().optional(),
+  scheduledAt: instant.nullable().optional(),
   timezone: z.string(),
   activatedAt: instant,
   completedAt: instant.nullable(),
@@ -34,6 +42,18 @@ export const memberVoteSummarySchema = z.object({
   submitted: z.boolean(),
 });
 export type MemberVoteSummary = z.output<typeof memberVoteSummarySchema>;
+
+export interface MemberVoteOverview {
+  active: number;
+  scheduled: number;
+  responded: number;
+}
+
+export interface VoteCardTurnout {
+  eligibleCount: string;
+  submittedCount: string;
+  percent: string | null;
+}
 
 /** The list routine also returns a position for the cursor, which never leaves the server. */
 export const memberVoteRowSchema = memberVoteSummarySchema.extend({
@@ -61,6 +81,8 @@ export const memberVoteDetailSchema = z
     title: z.string(),
     instructions: z.string().nullable(),
     closesAt: instant,
+    opensAt: instant.nullable().optional(),
+    scheduledAt: instant.nullable().optional(),
     timezone: z.string(),
     rwaName: z.string(),
     policyVersions: policyVersionsSchema,

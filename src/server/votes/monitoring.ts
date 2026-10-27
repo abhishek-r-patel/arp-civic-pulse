@@ -1,3 +1,4 @@
+// Administrator-only participation and audit-history reads.
 import "server-only";
 import { z } from "zod";
 import { buildKnownPage, decodeCursor } from "@/server/http/cursor";
@@ -37,7 +38,7 @@ const participationPosition = z.object({ key: z.string().max(100), id: uuid });
 
 export interface ParticipationReport {
   voteId: string;
-  status: "ACTIVE" | "COMPLETED" | "CANCELLED";
+  status: "SCHEDULED" | "ACTIVE" | "COMPLETED" | "CANCELLED";
   eligibleCount: string;
   submittedCount: string;
   rows: {

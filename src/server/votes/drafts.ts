@@ -1,3 +1,4 @@
+// Administrator draft editing and frozen vote discovery under the caller's session.
 import "server-only";
 import { z } from "zod";
 import { ApiError } from "@/server/http/errors";
@@ -36,7 +37,7 @@ import { uuid } from "@/shared/validation/primitives";
  */
 const ENDPOINT = "/api/admin/votes";
 const SUMMARY_COLUMNS =
-  "id, voting_type, status, title, closes_at, draft_revision, updated_at, timezone_snapshot";
+  "id, voting_type, status, title, closes_at, opens_at, draft_revision, updated_at, timezone_snapshot";
 // Selecting a household for a draft is bounded by the collection limit.
 const HOUSEHOLD_SCAN_LIMIT = 1_001;
 
@@ -46,6 +47,7 @@ interface SummaryRow {
   status: AdminVoteSummary["status"];
   title: string;
   closes_at: string | null;
+  opens_at?: string | null;
   draft_revision: number;
   updated_at: string;
   timezone_snapshot: string | null;
@@ -118,6 +120,7 @@ export async function listVotes(
       status: row.status,
       title: row.title,
       closesAt: row.closes_at ? new Date(row.closes_at).toISOString() : null,
+      opensAt: row.opens_at ? new Date(row.opens_at).toISOString() : null,
       draftRevision: row.draft_revision,
       updatedAt: new Date(row.updated_at).toISOString(),
       timezone: row.timezone_snapshot ?? current.timezone,

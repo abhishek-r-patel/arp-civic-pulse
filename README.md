@@ -2,9 +2,50 @@
 
 Mobile-first voting and polls for a single Resident Welfare Association (RWA).
 
-The application implements registered-member email OTP access, household/account administration, PUBLIC polls and PRIVATE elections, protected results, CSV/PDF exports, and operational backup/recovery tooling. Production use remains blocked by the approvals and external-environment checks in [pilot readiness](./docs/PILOT_READINESS.md).
+The application implements registered-member email OTP access, household/account administration with reviewed CSV import, PUBLIC polls and PRIVATE elections with immediate or scheduled opening, protected results, CSV/PDF exports, and operational backup/recovery tooling. Production use remains blocked by the approvals and external-environment checks in [pilot readiness](./docs/PILOT_READINESS.md).
+
+Administrators can open **Import CSV** from the register: upload at most 500 rows
+(256 KiB), check conflicts, confirm import, then review and enable suspended
+accounts using individual controls or the Accounts table's separate **Enable Selected**
+and **Make Eligible** actions. The table defaults to Residents; explicitly select
+All Roles to include administrators. Selections cover only the current page.
+Existing records are never overwritten. From a ready
+ballot preview, **Schedule Vote** freezes the ballot and electorate immediately;
+residents see only the summary and opening countdown until database time permits
+voting. A confirmed, reasoned **Return to Draft** is allowed only before opening.
+Apply the reviewed `20261106100000` and `20261107100000` migrations to a verified
+disposable/staging environment before exercising these flows; the app never
+migrates at startup. See the [user guide](./docs/USER_GUIDE.md).
 
 ## Source of truth
+
+### Appearance Review Slice
+
+Platinum light and Obsidian dark appearance are available through the header's
+sun/moon/monitor menu: **Light**, **Dark** or **System** (default). The preference
+is browser-local, not an account setting, and contains no resident/voting data.
+Sora headings and Manrope body fonts are self-hosted through `next/font` in both
+modes. RWA accent choices stay independent, with contrast-checked dark variants.
+Print remains light and bundled PDF typography is unchanged. The shared foundation
+now extends across resident ballots/review/results, account/household administration,
+vote setup/preview/lifecycle/participation, settings/audit and public access/information
+screens following approval of Votes and Accounts. Existing top navigation, voting
+logic, permissions, exports and recovery flows are retained.
+
+**Documentation hold:** the User Guide, its HTML/public copies and screenshots
+are intentionally unchanged during this rollout, as requested. They are procedural
+references, not current visual evidence for every restyled screen. New visual
+checks write only redacted temporary images under `test-results/`. Set
+`PLAYWRIGHT_PRESERVE_GUIDE=1` for test startup without guide regeneration; a direct
+Next build/dev command also bypasses npm's documentation hooks for this task.
+
+The Votes correction now follows the approved concept: compact logo/alias branding,
+three own-entitlement totals, status navigation, a compact type menu and history
+action, richer vote cards with real turnout, and an upcoming-vote row. Guide
+screenshots **05, 68, 69 and 72** are captures of the actual application, not the
+original mockup. Active/Scheduled/Your Responses totals span the signed-in user's
+frozen entitlements across pages/filters; administrators do not receive association-
+wide counts by role. Unavailable data is labelled, never replaced with sample totals.
 
 | Document                                                             | Authority                                                    |
 | -------------------------------------------------------------------- | ------------------------------------------------------------ |
@@ -22,11 +63,14 @@ The application implements registered-member email OTP access, household/account
 ## Learning and user documentation
 
 - [Junior-developer technical guide](./docs/TECHNICAL_GUIDE.md) — architecture, source map, authentication, database invariants, feature walkthroughs, tests and deployment boundaries. [Printable/offline HTML](./docs/TECHNICAL_GUIDE.html).
-- [Illustrated resident and administrator guide](./docs/USER_GUIDE.md) — step-by-step main flows, recovery guidance, 53 synthetic screenshots and flow diagrams. [Printable/offline HTML](./docs/USER_GUIDE.html).
+- [Illustrated resident and administrator guide](./docs/USER_GUIDE.md) — step-by-step main flows, recovery guidance, 74 synthetic screenshots and flow diagrams, including light/dark review examples, account review, CSV import and scheduled opening. [Printable/offline HTML](./docs/USER_GUIDE.html).
 - HTML copies embed their images, require no CDN/JavaScript, and support browser Print / Save as PDF. Supporting source/document links require the repository layout.
 - The application footer opens `/user-guide.html`, a self-contained public copy generated at `public/user-guide.html`. It embeds the same synthetic screenshots, disables repository-only links and includes a return-to-app link. `npm run dev` and `npm run build` regenerate guides first; footer-only changes do not require new screenshots.
 - Regenerate HTML with `node scripts\docs\render.mjs`; test the small renderer with `node --test scripts\docs\render.test.mjs`.
 - Screenshot capture is deliberately separate from normal tests: set `LIVE_AUTH=1` and `DOC_SCREENSHOTS=1`, then run `npx playwright test -c playwright.docs.config.ts`. Use **only a disposable fixture project**: the run creates synthetic accounts, households, votes and submissions and supplies test-only policy settings. Do not use a production project. See the technical guide for details and coverage limitations.
+- To refresh only import/scheduling pictures, add `--grep "bulk import and scheduled opening"`. The shared browser fixture database helper now verifies TLS using the approved provider CA in `PGSSLROOTCERT`; it never disables certificate/hostname checks. The user-confirmed disposable project received the two new migrations for the 27 October capture, not a production deployment.
+- To refresh only account-review pictures, use `--grep "bulk account review"` with the same disposable-project safeguards. This checks separate eligibility and multi-account enablement, explicit administrator inclusion and a controlled failed request.
+- Appearance review captures use `--grep "Platinum and Obsidian"`, refreshing the affected overviews and adding redacted Votes/Accounts desktop/mobile examples in both modes. Normal theme browser tests are separate: `npx playwright test tests/e2e/theme.spec.ts --project=chromium`.
 
 ## Stack
 

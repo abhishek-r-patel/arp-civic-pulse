@@ -25,6 +25,49 @@ npm run ops -- <command> [options]      # = node --env-file-if-exists=.env.local
 
 ## 2. Monitoring
 
+The all-screen visual rollout changes shared UI surfaces, not operational
+endpoints, rates, retention, permissions or counting. Native ballot submission,
+unknown-outcome recovery and export routes are unchanged. The current User Guide
+hold applies to Markdown, generated HTML/public copies and image assets; do not
+run automated guide recapture/regeneration as part of this rollout. Temporary
+redacted visual test images are separate evidence and not a production-readiness
+claim.
+
+The concept-aligned Votes overview adds three exact RLS head-count reads per
+authorized page, plus bounded-concurrency existing-result reads for active-card
+turnout. Standard read budgets still apply; measure the added latency and quotas
+on the approved host rather than claiming the previous page timing covers it.
+Count/turnout read failures show unavailable, not fabricated zero. No choice
+payloads, identity data or unsafe provider details are logged by this helper.
+The UI change adds no migration or write operation.
+
+Appearance choice is a non-sensitive browser-local key, not an operational RWA
+setting. Clearing `civic-pulse-theme` restores System; blocked storage keeps a
+choice only in memory until reload. Do not copy identity/vote information into
+this key or log browser storage. RWA accent settings, Auth cookies, backups and
+results remain independent. Fonts are self-hosted; a theme outage must not add
+external font/analytics calls to sign-in or voting. Print/PDF stay light.
+
+The existing minute-based due-vote job also opens scheduled votes under the vote
+lock. Authorized member list/detail/submission and administrator detail reads
+reconcile openings as well; neither Cron nor the UI countdown permits early
+admission. If a database resumes after an entire window elapsed, the schedule
+completes at its original deadline without accepting a late ballot. Verify this
+job in the chosen hosted environment; local PostgreSQL tests invoke the routine
+but do not prove hosted scheduling. Do not manually update scheduled states.
+
+Bulk import uses a separate provisional 1200-request/hour budget per admin and
+independent provider quotas. On a partial/unknown outcome, stop and recheck rows;
+do not delete Auth identities as rollback or enable a partially assigned profile.
+New import entries remain suspended until reviewed and explicitly enabled, either
+individually or through the Accounts table's page-local Enable Selected action.
+Make Eligible is separate and never enables sign-in. Residents are the default
+role filter; administrators require explicit inclusion and an access warning.
+The same per-record audit, current-admin checks and 60-mutation/minute budget
+apply; a bulk UI action is not one transaction. Stop on failure, preserve completed
+outcomes and refresh before retrying an uncertain row. Existing
+records and frozen scheduled/active electorates are never overwritten by import.
+
 `npm run ops -- status` prints **counts only** (no names, no choices) and exits non-zero on any of:
 
 | Alert               | Meaning                                                                                             | Action                                                                                  |
@@ -74,7 +117,7 @@ Each run, in bounded batches and using the **current** approved settings (a miss
 3. **Rate-limit buckets** expired for longer than `rate_limit_retention_days` (up to 5000). A bucket still inside its window is never touched.
 4. **Deleted profiles** older than `inactive_profile_retention_days` that nothing refers to (no household, electorate row, authored vote or audit event). The profile is removed; its **Auth identity is then an orphan**.
 
-Active and draft votes are never deleted, and a deletion is re-checked row by row by the database guards, not only by the routine.
+Scheduled, active and draft votes are never deleted, and a deletion is re-checked row by row by the database guards, not only by the routine.
 
 **Removing orphaned Auth identities (manual, periodic):**
 

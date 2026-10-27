@@ -7,7 +7,7 @@
 - **Description:** Civic Pulse is a mobile-first web app that also works on tablets and laptops. It lets one Resident Welfare Association (RWA) run **PRIVATE voting** for committee elections and **PUBLIC voting** for attributable community polls, such as "Buy a water treatment plant from the corpus? Yes / No" or "Which day for the Annual GBM? Mon / Tue / Sat / Sun".
 - **Privacy distinction:** PRIVATE voting exposes only aggregate choices, never a retrievable individual ballot or an identity-to-choice mapping through the application. This is application-level privacy with the limitations in A2. PUBLIC voting publishes respondent names, households and choices to eligible voters and admins only after completion.
 - **Authoritative results:** Supabase PostgreSQL is the source of truth. Completed outcomes are shown in the application and exported as CSV. A readable, printable PDF export is optional and may be deferred beyond version 1; it is not a backup, authoritative record or signature-replacement workflow.
-- **Terminology:** PUBLIC and PRIVATE are voting types. Draft, Active, Completed and Cancelled are separate lifecycle statuses. Neither voting type implies a lifecycle status.
+- **Terminology:** PUBLIC and PRIVATE are voting types. Draft, Scheduled, Active, Completed and Cancelled are separate lifecycle statuses. Neither voting type implies a lifecycle status.
 
 ## 02 Problem
 RWAs run votes through WhatsApp groups, show-of-hands at meetings, paper slips and spreadsheets. In practice:
@@ -55,11 +55,37 @@ These are proposed operating defaults, not recorded RWA approvals. Development m
 | A7 | The database is authoritative. Optional PDF export is only a printable outcome, not a backup, digital signature, signature certificate or legal certification. Replacing physical signatures is not a version 1 requirement. | Acknowledge these limits. Any future signature-replacement claim requires separate bylaw/legal approval. |
 
 ## 06 Scope
+
+### Approved Appearance Review Slice
+
+The user-approved correction requires Votes to faithfully realize the concept:
+compact branded header, three-column own-entitlement summary, compact status/type/
+history navigation, rich turnout/participation cards and dated scheduled entries.
+Retain the agreed top navigation, All/Cancelled discovery, pagination and all
+voting safeguards. Counts are real, identity-scoped and filter-independent;
+Your Responses refers to active-vote participation. Active turnout is aggregate
+only, no PRIVATE candidate totals or individual choices. Unavailable reads must
+not be shown as zero or sample values. The user guide must show actual-app
+captures, not present the original design mockup as implemented behavior.
+
+Use Platinum light/Obsidian dark with Sora headings and Manrope body text,
+self-hosted in both themes. A header Light/Dark/System control defaults to device
+appearance, remembers a non-sensitive per-browser preference, follows live device
+changes in System mode, recovers from corrupt/blocked storage and is available
+before sign-in. RWA accent settings remain independent and contrast-checked in
+both modes. Print/PDF remain light/readable. The shared theme foundation applies
+globally. After approval of the corrected Votes screen, the user authorized the
+same visual language across the remaining public, admin and resident workflows,
+retaining top navigation and all voting safeguards. This is presentation work,
+not approval to change counting, access, eligibility or failure/recovery behavior.
+The User Guide and its screenshots/HTML are expressly frozen for now; defer
+their visual refresh while maintaining technical/design/readiness documentation.
 ### Version 1
 - Single-RWA, mobile-first web access for members and admins.
 - Admin-managed households, registered-member email login and role-based access.
 - PRIVATE multi-office elections and PUBLIC single-choice polls.
-- Preview, explicit activation, frozen electorate and ballot, deadlines, completion and cancellation.
+- Preview, explicit immediate activation or scheduled opening, frozen electorate and ballot, deadlines, completion and cancellation.
+- Reviewed CSV import of households and representative accounts, without public signup, overwriting existing records or automatic account enablement.
 - Atomic one-time submission, participation monitoring, completed on-screen results, CSV exports and administrative audit history.
 - PDF export is optional and may be deferred; it does not block version 1 or pilot readiness.
 
@@ -92,7 +118,6 @@ analytics. Existing screenshots need not change for a footer-only addition.
 - Multiple RWAs or societies; native iOS/Android apps.
 - Public self-registration, social login, or SMS/WhatsApp login.
 - Voting reminders and notifications by email, SMS or WhatsApp, apart from login-code delivery. User-initiated public support enquiries are separate from these excluded notifications.
-- Bulk CSV import of the register, planned after the pilot; CSV results export remains in scope.
 - Proxy/delegated, weighted, ranked-choice, multi-seat or multi-select voting; quorum rules and recurring polls.
 - Candidate nominations, campaigning pages, comments and attachments.
 - Digital signatures, signature certification, blockchain or cryptographically verifiable voting.
@@ -109,6 +134,8 @@ analytics. Existing screenshots need not change for a footer-only addition.
 
 ## 08 Functional Requirements
 ### FR1 - Register and access
+- The Accounts review table defaults to residents and shows flat assignment/eligibility alongside identity, role and access. Administrators may select actionable rows on the current page and independently confirm **Enable Selected** (access only) or **Make Eligible** (assigned-flat eligibility for future votes only). Explicit All Roles/Administrators filtering permits administrator selection with an access warning. Page/filter/size changes clear selection; no hidden pages are selected. Each existing protected operation commits/audits separately, stops subsequent rows on failure, and exposes completed/uncertain outcomes without altering frozen entitlements. Missing flat assignments block resident enablement, not administrator enablement; unassigned rows cannot be made eligible.
+- Administrator CSV import accepts exactly `identifier,representative_name,email,is_eligible` (column order may vary), up to 500 records/256 KiB. Validate the whole file before contacting the register, report duplicate identifiers/emails and invalid fields, then preview existing-record conflicts. Import only ready rows after explicit confirmation. Each row commits independently; exact matches are skipped and conflicts never overwrite names, assignments, roles, eligibility or access. New accounts remain suspended until separate review/enablement. Provider/connection failures stop further rows with an uncertain/partial-state warning and a recheck-before-retry path. No CSV data is persisted in browser storage.
 - Store a unique household identifier, representative name, registered email and eligibility status. Admins can add, edit and suspend entries.
 - Let administrators configure one RWA-wide display label for that identifier (default "Household identifier"); use it consistently in register, electorate-selection, participation, results and printable reports. Derive plural wording for display only. Changing the label never changes stored identifiers, normalization, uniqueness or historical data; historical pages use the current label.
 - Reject duplicate household identifiers and ambiguous account-to-household assignments. Use stable internal identifiers rather than names or emails as record keys.
@@ -128,7 +155,8 @@ analytics. Existing screenshots need not change for a footer-only addition.
 - During voting, eligible voters/admins can see aggregate option counts and turnout, not individual responses. Before submission, explain that the member's name, household identifier and final selection(s) will be visible to authorised viewers after completion and in downloadable records, and that the ballot can be replaced until closure.
 
 ### FR4 - Lifecycle and freezing
-- Support Draft -> Active -> Completed, and Active -> Cancelled. Completed and Cancelled votes cannot reopen or accept submissions.
+- Support Draft -> Active or Draft -> Scheduled -> Active, then Active -> Completed or Active -> Cancelled. Completed and Cancelled votes cannot reopen or accept submissions.
+- Scheduling uses the same revision-bound preview, policy and register checks as activation, freezes the ballot/electorate/representatives immediately and requires a future opening before closure in the RWA time zone. Before opening, residents see only title/instructions/times/countdown, never candidates/options or controls. Database time, not the countdown or Cron timing, governs admission. Before opening only, a confirmed withdrawal with an audit reason returns to draft, clears snapshots/zero counters and advances the revision; edits require preview again. No late electorate transfer or late withdrawal is allowed. No reminders are added.
 - Activation requires validation, preview and an explicit admin action.
 - Freeze voting type, title/context/instructions, offices, candidates/options, household entitlements and representative assignments on activation. The deadline is set at activation.
 - While a vote is Active and before its deadline, an administrator may move the deadline later or earlier (for example after low turnout) for PUBLIC and PRIVATE votes. The change needs confirmation and a reason recorded only in the audit trail, must be at least 5 minutes in the future and differ from the current deadline; there is no limit on how far or how often. Residents are not notified separately; countdowns and admission follow the new deadline. A Completed or Cancelled vote's deadline never changes.

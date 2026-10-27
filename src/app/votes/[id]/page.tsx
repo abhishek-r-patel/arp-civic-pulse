@@ -88,10 +88,22 @@ export default async function MemberVotePage({
       <div className="flex flex-wrap items-center gap-2">
         <VotingTypeBadge type={vote.votingType} />
         <VoteStatusBadge status={vote.status} />
-        {vote.entitled && vote.status !== "CANCELLED" ? (
+        {vote.entitled &&
+        vote.status !== "CANCELLED" &&
+        vote.status !== "SCHEDULED" ? (
           <ParticipationBadge submitted={vote.submitted === true} />
         ) : null}
       </div>
+
+      {vote.status === "SCHEDULED" && vote.opensAt ? (
+        <section className="grid gap-3" aria-label="Scheduled voting">
+          <Notice tone="info" heading="Voting has not opened yet">
+            Opens {formatInZone(vote.opensAt, vote.timezone)}. Closes{" "}
+            {formatInZone(vote.closesAt, vote.timezone)}.
+          </Notice>
+          <DeadlineCountdown deadline={vote.opensAt} opening />
+        </section>
+      ) : null}
 
       {open ? (
         <div className="grid gap-2">
@@ -108,7 +120,7 @@ export default async function MemberVotePage({
         </div>
       ) : null}
 
-      {vote.instructions && open ? (
+      {vote.instructions && (open || vote.status === "SCHEDULED") ? (
         <section aria-labelledby="instructions" className="grid gap-2">
           <h2 id="instructions" className="text-card-heading font-semibold">
             Instructions

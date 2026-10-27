@@ -7,7 +7,7 @@
 - Preserve **Supabase** for PostgreSQL, Auth, RLS, guarded SQL functions and scheduled database maintenance, and **Tailwind CSS** for styling.
 - **Supabase PostgreSQL is the source of truth** for eligibility, accepted participation, responses, totals and audit history. On-screen results and exports are derived views, never independent editable records.
 - PDF is an optional printable results export and may be deferred beyond version 1. No voting, completion or recovery operation depends on a PDF.
-- PUBLIC and PRIVATE are voting types, separate from Draft, Active, Completed and Cancelled lifecycle statuses.
+- PUBLIC and PRIVATE are voting types, separate from Draft, Scheduled, Active, Completed and Cancelled lifecycle statuses.
 - PRIVATE voting provides application-level privacy under PRD assumption A2, not cryptographic anonymity against infrastructure operators.
 - Obtain approval of PRD assumptions A1-A7, providers, region, retention and recovery objectives before real voting.
 - No separate backend application, microservices, Redis, queue, AI, or application file storage for the MVP. Approved off-site backup storage is a separate operational requirement.
@@ -71,6 +71,48 @@ Pin supported dependency versions in a lockfile and review licenses/advisories. 
 - Follow the existing design system: 48px touch targets, at least 16px input text, visible labels/focus, keyboard access and WCAG 2.2 AA. Test phone widths of 320-430 CSS pixels and laptop widths of 1280-1440.
 
 ## 04 Target Project Structure
+
+Concept-fidelity correction: `src/components/votes/vote-list-card.tsx` owns the
+server-rendered rich card and compact upcoming row; `src/app/page.tsx` owns status
+links, compact type/history controls and the three-column overview. Existing
+`src/server/votes/member.ts` adds RLS-bound own-entitlement counts and narrows
+existing authorized results to turnout only. `MemberVoteOverview` and
+`VoteCardTurnout` in the shared member-vote contracts describe those internal
+projections, not new HTTP endpoints. `tests/unit/vote-dashboard.test.ts` verifies
+identity scoping, aggregate-only projection and unavailable-data handling. Existing
+countdown helpers/components supply informational compact deadline chips. The
+shared shell reuses the chosen icon/alias with an authenticated initials avatar;
+navigation, authentication and permissions are unchanged. No migration is needed.
+
+Approved appearance review implementation:
+
+- `src/shared/theme.ts`: the non-sensitive mode/storage key and static pre-paint normalizer; no ballot or identity storage.
+- `src/components/ui/theme-provider.tsx`: `next-themes` 0.4.6 integration for System mode, browser persistence and cross-tab/media updates.
+- `src/components/ui/theme-switcher.tsx`: native header Light/Dark/System menu with Escape/outside dismissal; available before and after authentication.
+- `src/app/layout.tsx` and `src/styles/globals.css`: self-hosted Sora/Manrope, root appearance attribute, Platinum/Obsidian tokens, dark RWA accent variants and light print overrides. Shared button foreground tokens remain contrast-safe.
+- `tests/unit/theme.test.ts`: startup recovery and contrast gates; `tests/e2e/theme.spec.ts`: real-browser mode, persistence, blocked storage, keyboard, accessibility, responsive, self-hosted-font and print checks.
+- `scripts/docs/capture.spec.ts` focused **Platinum and Obsidian** capture: redacted Votes/Accounts review pictures `68`-`74`, refreshing affected overviews. No production data is used.
+
+After the user approved the concept-aligned Votes screen, the shared style was
+extended to all screen families: compact PageHeader/EmptyState hierarchy,
+refined Field controls, quiet Notice/DataTable/ConfirmDialog surfaces, native
+ballot options/review, ResultsView/ResultBars, lifecycle facts, and admin draft/
+register/audit/participation filter sections. Top navigation and all server-side
+authorization/submission/result paths remain unchanged. Theme preference adds no
+API, cookie, migration or analytics dependency; PDF rendering remains unchanged.
+
+`tests/e2e/visual-rollout.spec.ts` verifies the actual public, admin and resident
+surfaces in explicit Light/Dark modes and phone widths, writes only temporary
+redacted test images, and performs synthetic PUBLIC/PRIVATE selection, review,
+acceptance, active results, completed results, lifecycle-dialog and participation
+checks. `PLAYWRIGHT_PRESERVE_GUIDE=1` makes the existing browser config start Next
+directly instead of invoking guide generation. Appearance controls expose a
+hydration-readiness marker and disable mode radios until client state is ready.
+
+The User Guide and all its images/HTML are frozen by the user's explicit request
+for this rollout. Technical-guide generation uses exported `renderGuide` for
+TECHNICAL_GUIDE only. New temporary screenshots are not published as guide images;
+existing guide pictures must not be presented as current all-screen visuals.
 This is the migration target, not a description of already completed changes. Retain existing feature directories where practical; create helpers only when needed.
 
 ```text
@@ -118,6 +160,19 @@ docs\
 ```
 
 Keep Supabase user-session and privileged provisioning clients separate. Do not introduce a second frontend/backend package or speculative abstraction layers.
+
+Register import and scheduling implementation map:
+
+- `src/components/admin/account-review-table.tsx`: page-scoped account selection, independent enable/eligibility confirmations, administrator warnings and per-row outcomes. Existing `src/app/admin/accounts/page.tsx` defaults to residents and explicitly supports All Roles. Existing `src/server/register/accounts.ts` adds RLS-bound assignment enrichment for only the returned page; shared register contracts define the review projection and action-target helpers. Existing protected PATCH services remain the sole mutation paths, with no new migration or bulk permission bypass.
+- `scripts/docs/capture.spec.ts` also has a focused **bulk account review** test, refreshing `47-accounts-list` and adding `63-account-review` through `67-enable-admin-warning`. It uses stable-ID synthetic row lookup, independent eligibility/two-account enablement, an unselected account, explicit admin inclusion and a controlled failed request. Ordinary provider/mutation budgets remain in force.
+
+- `src/shared/contracts/register-import.ts`: bounded `csv-parse` parsing, strict row/request validation and outcome types; `tests/unit/register-import.test.ts` covers parsing and orchestration.
+- `src/server/register/import.ts`: current-admin checks, supported Auth lookup/provisioning and guarded row assignment. It never enables accounts or overwrites records.
+- `src/components/admin/register-import-form.tsx`, `src/app/admin/households/import/page.tsx`: memory-only CSV selection, preview, progress, confirmation and account-review links; `src/app/api/admin/households/import/route.ts` processes bounded per-row requests.
+- `src/app/api/admin/votes/[id]/schedule/route.ts` and `schedule/withdraw/route.ts`: confirmed schedule/withdrawal endpoints. Existing lifecycle controls, preview and vote pages provide the UI.
+- `supabase/migrations/20261106100000_register_import.sql`: guarded import inspection/assignment; `tests/integration/register-import.test.ts` verifies conflicts, permissions, concurrency and suspended access.
+- `supabase/migrations/20261107100000_scheduled_opening.sql`: opening fields, scheduled state, freeze/withdraw/opening routines, direct-read ballot privacy and Cron integration; existing `tests/integration/lifecycle.test.ts` exercises boundaries.
+- `scripts/docs/capture.spec.ts`: separate opted-in full and focused synthetic capture tests. The focused import/scheduling test refreshes four existing pictures and adds nine documented workflow images in `docs/images/user-guide/` (`54-import-preview` to `61-schedule-withdrawn`, and `62-import-mobile`). `tests/e2e/support/live.ts` uses the existing operational database helper for verified TLS with a provider CA, not a certificate-verification bypass.
 
 ### Public discovery and contact additions
 
@@ -193,6 +248,7 @@ Use stable identifiers, foreign keys, nonnegative counter constraints, explicit 
 Admin status grants administrative access, not voting entitlement or access to individual PRIVATE choices. Supabase dashboard/database operators are privileged infrastructure operators, not application admins.
 
 ## 06 Authentication, Register and Sessions
+- CSV onboarding creates households and representative accounts together after preview/confirmation, with no public signup or role column. Exact matches are skipped; mismatches are reported, never merged. At most 500 rows/256 KiB are accepted. Each row is a separately retryable cross-service workflow, not an all-file transaction; partial or uncertain failures stop further processing. New accounts stay suspended pending review and explicit enablement through existing account controls. CSV data stays in browser page memory and is never logged. A dedicated 1200-request/hour administrator budget covers check/import stages without relaxing ordinary mutation budgets.
 - Disable public sign-up. Use Supabase Auth email OTP with `shouldCreateUser: false` for login and a six-digit code template using `{{ .Token }}`.
 - Admin provisioning creates the Auth identity and associated profile/household assignment through controlled server-only code. Auth and application-record changes are not one cross-service transaction: use a retry-safe provisioning workflow, surface partial failure, and do not grant access until the application assignment is valid.
 - Bootstrap the first admin through a controlled deployment command against an approved address; no public bootstrap endpoint or default credentials.
@@ -233,12 +289,14 @@ Each `cast_vote` call performs one guarded PostgreSQL transaction:
 
 ## 08 Lifecycle, Maintenance and Counting
 ### Draft and activation
+- A ready preview may instead schedule a future opening in the RWA time zone. Scheduling freezes ballot, electorate, representatives and policy/display snapshots immediately and initializes zero PRIVATE counters. Residents see only summary/instructions/times/countdown until opening; RLS also hides candidates/options from direct reads. The database-clock opening helper shares the vote lock and admission timeout. Cron and authorized list/detail/submission calls reconcile due openings; delayed processing never opens early or extends closure. A missed window completes with zero participation at its original deadline.
+- A confirmed withdrawal with a reason may return a scheduled vote to draft only before opening. It clears frozen snapshots/zero counters, advances the revision and records `VOTE_SCHEDULE_WITHDRAWN`; fresh preview and scheduling/activation are required. No active or terminal vote can use this path.
 - Use draft revision checks to prevent lost edits and stale preview confirmations.
 - Activation atomically revalidates the previewed revision, freezes ballot content/electorate/representative assignments (the deadline can later move only through the audited deadline change below) and relevant display metadata, initializes counters, changes state and appends audit history.
 - Later register edits affect future votes only. Suspension may block access but does not transfer an active entitlement or remove accepted votes.
 
 ### Completion and cancellation
-- Only Draft -> Active -> Completed and Active -> Cancelled are supported. Terminal votes never reopen.
+- Draft -> Active or Draft -> Scheduled -> Active precedes completion/cancellation; only a not-yet-opened schedule may return to draft. Terminal votes never reopen.
 - Schedule idempotent due completion through Supabase Cron, initially once per minute. It uses the same guarded lifecycle logic and vote-row locks.
 - Authorized service reads may invoke narrowly scoped overdue reconciliation before fetching state/results; plain download responses must not perform unrelated mutations.
 - Submission deadline checks remain authoritative even if Cron is delayed or unavailable. Database pausing prevents Cron from executing; Cron is not a keep-alive guarantee.

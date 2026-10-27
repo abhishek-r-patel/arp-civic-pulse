@@ -82,6 +82,14 @@ export default async function PrivacyPage() {
           control on these public pages. Google may process technical device and
           network information, including IP addresses, under its own policies.
         </p>
+        <p>
+          Your Light, Dark or System appearance preference is kept in this
+          browser&apos;s local storage, separately from analytics consent. It
+          contains no account details or voting selections and is not synced
+          through your account. Clearing it restores the device-based default;
+          if browser storage is blocked, the choice lasts only for the open
+          page.
+        </p>
       </section>
       <section className="grid gap-2">
         <h2 className="text-section font-semibold text-primary md:text-section-lg">

@@ -16,3 +16,14 @@ export function formatCountdown(seconds: number): string {
 
   return `${days > 0 ? `${days}d ` : ""}${twoDigits(hours)}:${twoDigits(minutes)}:${twoDigits(remainingSeconds)}`;
 }
+
+export function formatCompactCountdown(seconds: number): string {
+  const remaining = Math.max(0, Math.floor(seconds));
+  const days = Math.floor(remaining / 86_400);
+  const hours = Math.floor((remaining % 86_400) / 3_600);
+  const minutes = Math.floor((remaining % 3_600) / 60);
+  const padded = (value: number) => String(value).padStart(2, "0");
+  if (days) return `${padded(days)}d ${padded(hours)}h`;
+  if (hours) return `${padded(hours)}h ${padded(minutes)}m`;
+  return minutes ? `${padded(minutes)}m` : "less than 1m";
+}

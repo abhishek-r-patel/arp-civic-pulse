@@ -1,3 +1,4 @@
+// Exact voting vocabulary and separation of type/status labels.
 import { describe, expect, it } from "vitest";
 import {
   VOTE_STATUSES,
@@ -11,6 +12,7 @@ describe("voting vocabulary", () => {
     expect(VOTING_TYPES).toEqual(["PUBLIC", "PRIVATE"]);
     expect(VOTE_STATUSES).toEqual([
       "DRAFT",
+      "SCHEDULED",
       "ACTIVE",
       "COMPLETED",
       "CANCELLED",

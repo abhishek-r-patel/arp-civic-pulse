@@ -1,3 +1,4 @@
+// Guarded vote activation, scheduling, deadline and terminal transitions.
 import "server-only";
 import { ApiError } from "@/server/http/errors";
 import { log } from "@/server/observability/logger";
@@ -64,6 +65,38 @@ export async function completeVoteEarly(
   await assertCurrentAdmin(deps);
   return appliedOrConflict(
     await callRoutine<Outcome>(deps.client, "complete_vote_early", {
+      p_vote_id: id,
+      p_confirmed: true,
+      p_reason: reason,
+    }),
+  );
+}
+
+export async function scheduleVote(
+  deps: RegisterDeps,
+  id: string,
+  expectedRevision: number,
+  opensAt: string,
+): Promise<AdminVoteDetail> {
+  await assertCurrentAdmin(deps);
+  return parseDetail(
+    await callRoutine(deps.client, "schedule_vote", {
+      p_vote_id: id,
+      p_expected_revision: expectedRevision,
+      p_confirmed: true,
+      p_opens_at: opensAt,
+    }),
+  );
+}
+
+export async function withdrawVoteSchedule(
+  deps: RegisterDeps,
+  id: string,
+  reason: string,
+): Promise<AdminVoteDetail> {
+  await assertCurrentAdmin(deps);
+  return parseDetail(
+    await callRoutine(deps.client, "withdraw_vote_schedule", {
       p_vote_id: id,
       p_confirmed: true,
       p_reason: reason,

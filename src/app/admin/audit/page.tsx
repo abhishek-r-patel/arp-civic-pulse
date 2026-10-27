@@ -197,7 +197,7 @@ export default async function AuditPage({
 
       <form
         method="get"
-        className="grid gap-4 rounded-card border border-border bg-surface p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+        className="grid gap-4 border-y border-border py-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
       >
         <SelectField
           id="action"

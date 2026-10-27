@@ -1,3 +1,4 @@
+// Authorized resident vote discovery, results and export projections.
 import "server-only";
 import { z } from "zod";
 import { VOTE_RATE_LIMITS, enforceRateLimit } from "@/server/auth/rate-limit";
@@ -5,6 +6,7 @@ import { buildKnownPage, decodeCursor } from "@/server/http/cursor";
 import { ApiError } from "@/server/http/errors";
 import {
   callRoutine,
+  assertOk,
   mapLimit,
   type RegisterDeps,
 } from "@/server/register/shared";
@@ -19,6 +21,8 @@ import {
   memberVoteSummarySchema,
   type MemberVoteDetailResponse,
   type MemberVoteSummary,
+  type MemberVoteOverview,
+  type VoteCardTurnout,
 } from "@/shared/contracts/member-votes";
 import {
   projectResults,
@@ -27,6 +31,8 @@ import {
   type VoteResults,
 } from "@/shared/contracts/results";
 import { uuid } from "@/shared/validation/primitives";
+import { percentage } from "@/shared/validation/numbers";
+import { log } from "@/server/observability/logger";
 
 /*
  * Member discovery, ballot and authorized result reads. Every read runs under
@@ -38,7 +44,7 @@ import { uuid } from "@/shared/validation/primitives";
 const ENDPOINT = "/api/votes";
 
 const positionSchema = z.object({
-  rank: z.enum(["0", "1"]),
+  rank: z.enum(["0", "1", "2"]),
   key: z.string().regex(/^-?\d{1,20}$/u),
   id: uuid,
 });
@@ -146,6 +152,64 @@ export async function getMemberVote(
     exportFormats,
     privacyNotice: vote.votingType,
   };
+}
+
+export async function getMemberVoteOverview(
+  deps: RegisterDeps,
+): Promise<MemberVoteOverview> {
+  await enforceReadLimit(deps);
+  async function count(
+    status: "ACTIVE" | "SCHEDULED",
+    participated = false,
+  ): Promise<number> {
+    const result = await deps.client
+      .from("electorate")
+      .select(
+        participated
+          ? "votes!inner(status),participation!inner(vote_id)"
+          : "votes!inner(status)",
+        { count: "exact", head: true },
+      )
+      .eq("representative_profile_id", deps.actor.id)
+      .eq("votes.status", status);
+    assertOk(result.error, result.status);
+    return parse(z.number().int().nonnegative(), result.count);
+  }
+  const [active, scheduled, responded] = await Promise.all([
+    count("ACTIVE"),
+    count("SCHEDULED"),
+    count("ACTIVE", true),
+  ]);
+  return { active, scheduled, responded };
+}
+
+export async function getVoteCardTurnouts(
+  deps: RegisterDeps,
+  votes: readonly MemberVoteSummary[],
+): Promise<Map<string, VoteCardTurnout | null>> {
+  const active = votes.filter((vote) => vote.status === "ACTIVE");
+  const rows = await mapLimit(active, 4, async (vote) => {
+    try {
+      await enforceReadLimit(deps);
+      const results = await fetchResultsReconciling(deps, vote.id, {
+        limit: 1,
+      });
+      return [
+        vote.id,
+        {
+          eligibleCount: results.eligibleCount,
+          submittedCount: results.submittedCount,
+          percent: percentage(results.submittedCount, results.eligibleCount),
+        },
+      ] as const;
+    } catch (error) {
+      log("warn", "votes.card_turnout_unavailable", {
+        errorCode: error instanceof ApiError ? error.code : "UNKNOWN",
+      });
+      return [vote.id, null] as const;
+    }
+  });
+  return new Map(rows);
 }
 
 // Screens and exports show the RWA's current official name; the vote's saved snapshot stays an internal record.

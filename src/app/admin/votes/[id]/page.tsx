@@ -7,6 +7,7 @@ import { DraftEditor } from "@/components/admin/vote-forms";
 import {
   ChangeDeadline,
   LifecycleActions,
+  WithdrawVoteSchedule,
 } from "@/components/admin/lifecycle-actions";
 import { flashNotices, firstValues } from "@/components/admin/format";
 import { PageHeader } from "@/components/ui/layout";
@@ -114,6 +115,9 @@ export default async function VotePage({
             </Notice>
           ) : null}
           <LifecycleSummary vote={vote} />
+          {vote.status === "SCHEDULED" ? (
+            <WithdrawVoteSchedule csrfToken={deps.csrfToken} voteId={vote.id} />
+          ) : null}
           <section aria-labelledby="follow-up" className="grid gap-3">
             <h2 id="follow-up" className="text-section font-semibold">
               Follow-up
@@ -151,8 +155,8 @@ export default async function VotePage({
               Frozen ballot
             </h2>
             <p className="text-body text-muted">
-              This is the ballot as it was activated. It can no longer be
-              edited.
+              This is the frozen ballot. A scheduled vote must return to draft
+              before editing; an active or finished ballot cannot be edited.
             </p>
             <BallotPreview vote={vote} terms={deps.terms} />
           </section>

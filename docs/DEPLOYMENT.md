@@ -120,7 +120,41 @@ embedded images, print layout and **Back to Civic Pulse** on the deployed host.
 
 ## 4. Production database and migrations
 
-There are **13 immutable migrations**, from `20261024100000_core_schema.sql` through `20261026100000_open_poll_live_results_and_changes.sql`. See [supabase/README.md](../supabase/README.md) and [DATABASE.md](./DATABASE.md). The app never migrates at startup or during the Vercel build.
+The appearance review slice adds no database migration or account preference
+service. Include the locked `next-themes` dependency and allow Next's build-time
+Sora/Manrope preparation; the browser must load fonts from this application, not
+Google. Keep the existing CSP rather than adding remote font/script permissions.
+Check saved and System startup modes, both RWA accent variants, blocked storage,
+cross-tab changes and light print in staging. Theme foundation inheritance is
+not itself approval to redesign layouts or close manual accessibility gates. The
+user subsequently approved the remaining screen rollout; that approval changes
+presentation scope only, not production readiness or voting guarantees.
+
+During the current User Guide hold, run `node node_modules/next/dist/bin/next build`
+for the application gate, not `npm run build` (whose prebuild regenerates guides).
+Use the analogous direct dev command for preview and
+`PLAYWRIGHT_PRESERVE_GUIDE=1` for browser tests. Technical HTML can be regenerated
+selectively with the renderer's exported `renderGuide('TECHNICAL_GUIDE')`.
+Do not silently regenerate or recapture User Guide assets until the user resumes
+that work; verify their content hashes before/after validation.
+
+Apply the complete ordered migration set from `20261024100000_core_schema.sql` through `20261107100000_scheduled_opening.sql`. The final two migrations add guarded register import and frozen scheduled opening; deploy them before the corresponding application revision, outside voting windows. See [supabase/README.md](../supabase/README.md) and [DATABASE.md](./DATABASE.md). The app never migrates at startup or during the Vercel build.
+
+Before rollout, verify a 500-row synthetic import's Auth-provider quota behavior,
+partial-failure/retry handling and suspended-account review. Verify scheduled
+opening/withdrawal, direct pre-opening candidate/option denial and the existing
+completion Cron job in disposable staging. Both start and closure must remain
+database-clock enforced if Cron is delayed. Discard old finished-vote list cursors
+after deployment because scheduled discovery adds a pagination rank. Refresh
+affected guide screenshots only on the migrated disposable fixture project.
+
+The 27 October screenshot run applied the two follow-up migrations only to the
+user-confirmed disposable project and exercised the focused browser capture.
+That is not a production rollout. Migrations using `SET LOCAL ROLE` must restore
+the deployment role before the CLI records history; the first failed attempt
+was verified fully rolled back before correcting the unapplied files and retrying.
+Browser fixture connections now require the provider CA via `PGSSLROOTCERT` and
+retain certificate/hostname verification.
 
 Before any write:
 
@@ -143,7 +177,7 @@ Before any write:
    supabase migration list --db-url $env:MIGRATION_DATABASE_URL
    ```
 
-6. Confirm all 12 versions appear locally/remotely, RLS/grants match the migrations, and the supported Auth/Data API access checks pass in staging. Never run the destructive test fixtures or live test suites against production.
+6. Confirm every reviewed local migration version appears remotely, RLS/grants match the migrations, and the supported Auth/Data API access checks pass in staging. Never run the destructive test fixtures or live test suites against production.
 7. Enable/verify `pg_cron` using supported provider controls. Migrations can skip scheduling when it is absent; a successful push is not proof of scheduling. Verify both jobs and recent run status read-only:
 
    ```sql

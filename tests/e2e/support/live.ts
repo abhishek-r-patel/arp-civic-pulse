@@ -1,7 +1,9 @@
+// Synthetic browser fixtures for explicitly opted-in disposable projects; database TLS is verified.
 import { randomBytes, randomInt } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { expect, type Page } from "@playwright/test";
-import { Client } from "pg";
+import type { Client } from "pg";
+import { operationalDatabaseClient } from "../../../scripts/ops/database";
 
 /*
  * Helpers for the LIVE_AUTH browser specs. They talk to YOUR disposable hosted
@@ -103,11 +105,7 @@ function realisticIdentifier(): string {
 }
 
 function liveSql(): Client {
-  return new Client({
-    connectionString: process.env.LIVE_DATABASE_URL,
-    // TLS is used; verification is relaxed because this is a throwaway test project.
-    ssl: { rejectUnauthorized: false },
-  });
+  return operationalDatabaseClient(process.env.LIVE_DATABASE_URL ?? "");
 }
 
 /**
@@ -168,11 +166,7 @@ export async function seedHousehold(
   });
   expect(provisioned.error).toBeNull();
 
-  const sql = new Client({
-    connectionString: process.env.LIVE_DATABASE_URL,
-    // TLS is used; verification is relaxed because this is a throwaway test project.
-    ssl: { rejectUnauthorized: false },
-  });
+  const sql = liveSql();
   await sql.connect();
   let householdId = "";
   try {
@@ -203,10 +197,7 @@ export async function asUser<T>(
   sql: string,
   params: unknown[] = [],
 ): Promise<T> {
-  const client = new Client({
-    connectionString: process.env.LIVE_DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-  });
+  const client = liveSql();
   await client.connect();
   try {
     await client.query("begin");
@@ -283,10 +274,7 @@ export async function activateVoteFor(
  * copied to a real deployment. Idempotent.
  */
 export async function ensureFixturePolicy(adminId: string): Promise<void> {
-  const sql = new Client({
-    connectionString: process.env.LIVE_DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-  });
+  const sql = liveSql();
   await sql.connect();
   try {
     const settings = await sql.query("select 1 from public.rwa_settings");

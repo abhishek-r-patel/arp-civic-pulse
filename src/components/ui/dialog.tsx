@@ -1,3 +1,4 @@
+// Deliberate lifecycle/account confirmations with native focus containment and theme-safe surfaces.
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
@@ -61,7 +62,7 @@ export function ConfirmDialog({
         }
       }}
       className={cn(
-        "fixed inset-x-0 bottom-0 m-0 w-full max-w-none rounded-t-card border border-border bg-surface p-0 text-primary shadow-xl",
+        "fixed inset-x-0 bottom-0 m-0 w-full max-w-none rounded-t-card border border-t-[3px] border-border border-t-accent bg-surface p-0 text-primary shadow-xl",
         "pb-[env(safe-area-inset-bottom)] backdrop:bg-primary/50",
         "sm:inset-auto sm:m-auto sm:max-w-lg sm:rounded-card sm:pb-0",
         "max-h-[90dvh] overflow-y-auto",
@@ -70,7 +71,7 @@ export function ConfirmDialog({
       <div className="grid gap-4 p-4 sm:p-6">
         <h2
           id="confirm-dialog-title"
-          className="text-section font-semibold sm:text-section-lg"
+          className="font-heading text-section font-semibold sm:text-section-lg"
         >
           {title}
         </h2>

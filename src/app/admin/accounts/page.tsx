@@ -1,14 +1,8 @@
 // Protected administrator account directory.
-import Link from "next/link";
 import { UserPlus } from "lucide-react";
-import {
-  flashNotices,
-  firstValues,
-  formatInstant,
-} from "@/components/admin/format";
-import { AccountStatusBadge, RoleBadge } from "@/components/ui/badges";
+import { AccountReviewTable } from "@/components/admin/account-review-table";
+import { flashNotices, firstValues } from "@/components/admin/format";
 import { Button, LinkButton } from "@/components/ui/button";
-import { DataTable, type Column } from "@/components/ui/data-table";
 import { SelectField } from "@/components/ui/field";
 import { EmptyState, PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
@@ -17,7 +11,6 @@ import { ApiError } from "@/server/http/errors";
 import { listAccounts } from "@/server/register/accounts";
 import { adminPageContext } from "@/server/register/page-context";
 import { accountListQuerySchema } from "@/shared/contracts/admin-votes";
-import type { AccountProjection } from "@/shared/contracts/register";
 
 export const metadata = {
   title: "Accounts",
@@ -28,64 +21,24 @@ export const metadata = {
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-const columns: Column<AccountProjection>[] = [
-  {
-    key: "name",
-    header: "Name",
-    cell: (account) => (
-      <span className="grid gap-1">
-        <span className="font-semibold">{account.representativeName}</span>
-        <span className="text-caption break-all text-muted">
-          {account.email ?? "Email unavailable"}
-          {account.email && !account.emailVerifiedAt ? " · not verified" : ""}
-        </span>
-      </span>
-    ),
-  },
-  {
-    key: "role",
-    header: "Role",
-    cell: (account) => <RoleBadge isAdmin={account.isAdmin} />,
-  },
-  {
-    key: "status",
-    header: "Status",
-    cell: (account) => <AccountStatusBadge status={account.status} />,
-  },
-  {
-    key: "updated",
-    header: "Last changed",
-    cell: (account) => formatInstant(account.updatedAt),
-  },
-  {
-    key: "actions",
-    header: "Actions",
-    cell: (account) => (
-      <Link
-        href={`/admin/accounts/${account.id}`}
-        className="inline-flex touch-target items-center font-semibold text-accent underline underline-offset-2"
-      >
-        Manage<span className="sr-only"> {account.representativeName}</span>
-      </Link>
-    ),
-  },
-];
-
 export default async function AccountsPage({
   searchParams,
 }: Readonly<{ searchParams: SearchParams }>) {
   const deps = await adminPageContext();
   const raw = firstValues(await searchParams);
   const flash = raw.notice ? flashNotices(deps.terms)[raw.notice] : undefined;
+  const roleFilter = raw.isAdmin ?? "false";
 
   const parsed = accountListQuerySchema.safeParse({
     limit: raw.limit,
     cursor: raw.cursor,
     status: raw.status,
-    isAdmin: raw.isAdmin,
+    isAdmin: roleFilter === "all" ? undefined : roleFilter,
   });
   const filtersInvalid = !parsed.success;
-  const query = parsed.success ? parsed.data : accountListQuerySchema.parse({});
+  const query = parsed.success
+    ? parsed.data
+    : accountListQuerySchema.parse({ isAdmin: "false" });
 
   let result: Awaited<ReturnType<typeof listAccounts>> | null = null;
   let loadError: ApiError | null = null;
@@ -98,8 +51,7 @@ export default async function AccountsPage({
     loadError = error;
   }
 
-  const filtersActive =
-    query.status !== undefined || query.isAdmin !== undefined;
+  const filtersActive = query.status !== undefined || query.isAdmin !== false;
 
   return (
     <div className="grid gap-8">
@@ -127,7 +79,7 @@ export default async function AccountsPage({
 
       <form
         method="get"
-        className="grid gap-4 rounded-card border border-border bg-surface p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+        className="grid gap-4 border-y border-border py-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
       >
         <SelectField
           id="status"
@@ -144,9 +96,9 @@ export default async function AccountsPage({
           id="isAdmin"
           name="isAdmin"
           label="Role"
-          defaultValue={raw.isAdmin ?? ""}
+          defaultValue={roleFilter}
         >
-          <option value="">Any role</option>
+          <option value="all">All roles</option>
           <option value="true">Administrators</option>
           <option value="false">Residents</option>
         </SelectField>
@@ -189,15 +141,14 @@ export default async function AccountsPage({
         )
       ) : result ? (
         <>
-          <DataTable
-            caption="Accounts"
-            columns={columns}
-            rows={result.data}
-            rowKey={(account) => account.id}
+          <AccountReviewTable
+            key={`${query.cursor ?? "first"}:${query.limit}:${query.status ?? "all"}:${roleFilter}`}
+            accounts={result.data}
+            csrfToken={deps.csrfToken}
           />
           <Pagination
             basePath="/admin/accounts"
-            params={{ status: raw.status, isAdmin: raw.isAdmin }}
+            params={{ status: raw.status, isAdmin: roleFilter }}
             page={result.page}
             hasCursor={Boolean(raw.cursor)}
           />

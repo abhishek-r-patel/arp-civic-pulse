@@ -1,5 +1,6 @@
 // Session-aware server shell with safe public navigation and contextual breadcrumbs.
 import type { ReactNode } from "react";
+import Image from "next/image";
 import { SignOutButton } from "@/components/access/sign-out-button";
 import { getSessionState } from "@/server/authorization/account";
 import { getCsrfToken } from "@/server/http/csrf-cookie";
@@ -15,6 +16,7 @@ import {
 } from "@/server/settings/rwa-profile";
 import { HouseholdTermsProvider } from "./household-terms";
 import { RwaContactBlock } from "./rwa-branding";
+import { ThemeSwitcher } from "./theme-switcher";
 
 export const MAIN_CONTENT_ID = "main-content";
 
@@ -42,6 +44,13 @@ export async function AppShell({
   const publicIdentity = account ? null : await loadPublicRwaIdentity();
   const rwaAlias = branding?.alias ?? publicIdentity?.alias ?? null;
   const headerTitle = rwaAlias ? `Civic Pulse for ${rwaAlias}` : "Civic Pulse";
+  const initials =
+    account?.representativeName
+      .trim()
+      .split(/\s+/u)
+      .slice(0, 2)
+      .map((part) => Array.from(part)[0] ?? "")
+      .join("") ?? "";
   const palette = (branding ?? publicIdentity)?.accentPalette;
   const terms = await loadHouseholdTerms();
 
@@ -59,19 +68,45 @@ export async function AppShell({
               and Sign Out on the right, so the button stays beside the tabs
               at every width instead of wrapping onto its own line. */}
           <div className="mx-auto grid w-full max-w-content gap-1 px-4 py-2 md:px-6">
-            <div className="flex flex-wrap items-center justify-between gap-x-6">
+            <div className="flex items-center justify-between gap-3">
               <a
                 href={account ? "/" : "/sign-in"}
-                className="inline-flex touch-target items-center text-card-heading font-bold text-primary"
+                aria-label={headerTitle}
+                className="inline-flex touch-target min-w-0 flex-1 items-center gap-3 py-1 text-primary"
               >
-                {headerTitle}
+                <Image
+                  src="/icon.svg"
+                  width={32}
+                  height={32}
+                  alt=""
+                  className="size-8 shrink-0"
+                />
+                <span className="grid min-w-0 gap-0.5">
+                  <span className="font-heading text-lg font-semibold">
+                    Civic Pulse
+                  </span>
+                  {rwaAlias ? (
+                    <span className="text-caption text-muted">{rwaAlias}</span>
+                  ) : null}
+                </span>
               </a>
-              {account ? (
-                <p className="hidden text-caption text-muted sm:block">
-                  {account.representativeName}
-                  {account.isAdmin ? " · Administrator" : ""}
-                </p>
-              ) : null}
+              <div className="flex shrink-0 items-center gap-3">
+                {account ? (
+                  <>
+                    <p className="hidden text-caption text-muted sm:block">
+                      {account.representativeName}
+                      {account.isAdmin ? " · Administrator" : ""}
+                    </p>
+                    <span
+                      className="hidden size-9 shrink-0 items-center justify-center rounded-full border border-border bg-background text-caption font-semibold text-primary sm:inline-flex"
+                      aria-hidden="true"
+                    >
+                      {initials}
+                    </span>
+                  </>
+                ) : null}
+                <ThemeSwitcher />
+              </div>
             </div>
 
             {account ? (

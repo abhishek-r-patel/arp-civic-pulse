@@ -9,11 +9,29 @@
 - Use same-origin Next.js route handlers under `/api`, server-only application services, Supabase Auth, Supabase PostgreSQL with RLS and guarded SQL RPCs, and approved custom SMTP.
 - Supabase PostgreSQL is authoritative. CSV export is required for version 1; PDF is an optional derived printable outcome and may be deferred without blocking pilot readiness. Neither export is a backup or signature-replacement workflow.
 - Server-rendered pages call application services directly, not the application's HTTP endpoints. Browser requests use the same services and authorization rules.
-- Voting types are `PUBLIC` and `PRIVATE`. Lifecycle states are independently `DRAFT`, `ACTIVE`, `COMPLETED`, and `CANCELLED`.
+- Voting types are `PUBLIC` and `PRIVATE`. Lifecycle states are independently `DRAFT`, `SCHEDULED`, `ACTIVE`, `COMPLETED`, and `CANCELLED`.
 - There is no public registration, public results API, GraphQL API, separate API version, or API for retrieving PRIVATE selections. Browser application journeys go through Next.js, but assume callers can access the Supabase API directly: RLS, grants, and RPC checks must independently enforce the same boundaries.
 - No payments, resident messaging, reminders, attachments, signatures, external PDF rendering, or AI integration is required. The public launch additions provide support enquiries and optional opt-in public-page analytics only, never voting/authentication tracking.
 
 ## 2. Transport and common contracts
+
+Appearance is entirely browser-side: `civic-pulse-theme` contains only
+`light`/`dark`/`system`, separate from Auth and analytics consent. It is not sent
+as an account-setting payload and adds no endpoint, cookie or database field.
+The RWA accent palette contract is unchanged; CSS provides accessible appearance
+variants without writing new settings. The concept-aligned Votes overview counts
+only the verified caller's frozen entitlements across pagination/type filters:
+ACTIVE votes, SCHEDULED votes and participation in ACTIVE votes. It uses exact
+head-count queries through the caller's RLS session, explicitly filtering
+`electorate.representative_profile_id` even for administrators; it is not an
+association-wide total or a new privileged endpoint. The active-card turnout
+service reuses `get_vote_results` with a bounded page, validates its projection,
+and forwards only eligible/submitted counts plus their shared-policy percentage
+to the server-rendered card. PRIVATE choices remain absent; PUBLIC choice totals
+read internally never become card payloads. Normal read budgets and bounded
+concurrency apply. Read failures display unavailable, never fabricated zeroes.
+Submission/counting/entitlement contracts and existing API response shapes remain
+unchanged; no migration is introduced for these server-rendered projections.
 
 ### 2.1 Requests and responses
 
@@ -113,6 +131,10 @@ For authenticated callers, inaccessible or nonexistent vote IDs return the same 
 
 ## 4. Endpoint inventory
 
+The compact brand presentation does not change RWA identity contracts: the same
+alias is shown beneath the icon/product name, while the link's accessible name
+retains "Civic Pulse for {alias}". No new public identity fields are exposed.
+
 ### 4.1 Authentication
 
 | Method and path | Purpose | Request | Successful response |
@@ -130,6 +152,16 @@ Verify the normalized email/code through Supabase Auth's supported email OTP ver
 There is no public bootstrap, self-registration, password reset, or role-assignment endpoint. Initial administrator provisioning is a controlled, audited deployment operation.
 
 ### 4.2 Member votes, participation, results, and exports
+
+Scheduled votes are visible only through frozen entitlements (or administrative
+access). Summary/detail projections add nullable `opensAt` and `scheduledAt`;
+scheduled detail has empty `options`/`offices`, `canSubmit: false` and no exports.
+The list accepts `status=SCHEDULED`, orders active votes first (cursor rank 0),
+scheduled votes next by opening (rank 1), finished votes last (rank 2). Old
+finished-vote cursors should be discarded after deploying this pagination change.
+Authorized list/detail reads and submissions reconcile due openings under the
+vote lock. Direct result requests may remain unavailable until reconciliation;
+they never disclose scheduled candidate/option totals.
 
 | Method and path | Purpose | Input | Successful response |
 |---|---|---|---|
@@ -186,6 +218,27 @@ After a timeout, lost response, or ambiguous infrastructure error, the client re
 
 ### 4.3 Administrator register and account management
 
+The Accounts review screen defaults to residents (`isAdmin=false`); **All Roles**
+is an explicit page-filter choice (`isAdmin=all` in the page URL, not a new API
+boolean value). The API retains its existing optional boolean role filter.
+`GET /api/admin/accounts` additionally returns `household: null` or
+`{id,identifier,isEligible}` per account, enriched only for the authorized page
+through the caller's RLS session. Individual account detail retains its existing
+projection. No general member directory or privileged household lookup is added.
+
+Page-local selections invoke existing `PATCH /api/admin/accounts/{id}` with
+`{status:"ENABLED"}` for **Enable Selected**, or existing
+`PATCH /api/admin/households/{id}` with `{isEligible:true}` for **Make Eligible**.
+There is no bulk bypass endpoint or schema migration. Each request independently
+rechecks current administrator capability, normal budgets, Auth/profile consistency
+and assignment requirements. Administrator accounts are allowed only after an
+explicit role-filter choice and confirmation warning. UI target filtering is
+convenience, not authorization. Enablement never implicitly changes eligibility;
+eligibility never implicitly enables access. Neither rewrites frozen electorates.
+Each record commits separately; a failed/uncertain request stops later rows and
+requires review before retry. Page/filter/size changes clear selections; same-page
+refresh prunes stale rows without losing still-actionable selections.
+
 These routes require a current enabled administrator. The HTTP term `account` means one managed Auth identity plus its application profile; `account.id` equals `profiles.id` and the Auth user UUID. It is not a separate accounts table. Profiles are separate from households so administrators without household entitlements can be maintained.
 
 | Method and path | Purpose | Request / query | Successful response |
@@ -196,6 +249,7 @@ These routes require a current enabled administrator. The HTTP term `account` me
 | `PATCH /api/admin/settings` | Update the RWA profile, branding, household display wording and suggestion lists | Strict object containing `fullName`, `alias`, `address`, `email`, `phone`, `website`, `accentPalette`, `welcomeMessage`, `householdLabel`, `identifierKind`, `defaultHouseholds` and `rwaPositions` | `200`: updated settings; changed field names are audited, never values |
 | `GET /api/admin/households` | List the household register | Standard pagination and household filters | `200`: paginated register projections |
 | `POST /api/admin/households` | Create a household assigned to an existing account | `identifier`, `representativeAccountId`, `isEligible` | `201`: household projection |
+| `POST /api/admin/households/import` | Check or import one validated CSV row | `row: {identifier, representativeName, email, isEligible}`, `action: preview` or `import`; import requires `confirmed: true` | `200`: `{identifier,state,message,accountId?}`; state `READY`, `EXISTING`, `CONFLICT` or `IMPORTED` |
 | `GET /api/admin/households/{id}` | Load a household for editing | Household UUID | `200`: household projection |
 | `PATCH /api/admin/households/{id}` | Change current label, assignment, or eligibility | Changed fields among `identifier`, `representativeAccountId`, `isEligible` | `200`: updated household projection |
 
@@ -211,7 +265,7 @@ Suspension/soft deletion immediately blocks application access through current-p
 
 If the Auth ban fails after a suspension/deletion commits, repeat the same status-only PATCH to retry the Auth stage. An already-blocked profile is not mistaken for a fully completed workflow: the ban is retried and any continuing failure remains `503 PROVISIONING_INCOMPLETE`. A repeated `DELETED` status never restores or edits the deleted profile. Auth identity searches return absence only after completing the search; provider failures or the bounded lookup ceiling return `503 DEPENDENCY_UNAVAILABLE`. Email-change preflight failures do not suspend the target or start the Auth update.
 
-Application-database register/profile writes commit atomically with their audit records and serialize against activation/submission where required; Auth administrative steps require the separate retry-safe workflow above. Current edits never rewrite frozen snapshots. Bulk CSV register import is out of scope for version 1; maintain entries individually.
+Application-database register/profile writes commit atomically with their audit records and serialize against activation/submission where required; Auth administrative steps require the separate retry-safe workflow above. Current edits never rewrite frozen snapshots. The CSV screen validates at most 500 rows/256 KiB using `csv-parse`, checks each row, and imports ready rows sequentially. Every request rechecks current admin access and register conflicts. Exact matches are skipped; conflicts never overwrite records. Matching unassigned suspended non-admin profiles may be reused for retry-safe onboarding. New accounts are never enabled by import: use the existing confirmed account-status action after review. Each row is independent, not a whole-file transaction. After a network/provider/rate-limit failure, stop and check again before retry; successful/unchanged rows remain visible. CSV contents stay in page memory only. Import checks and mutations share a dedicated provisional per-admin budget of 1200 requests/hour, sufficient for a 500-row check plus import; ordinary mutation budgets remain unchanged. Auth-provider quotas apply independently. No raw CSV, email or provider error body enters logs/audit details.
 
 ### 4.4 Administrator draft and lifecycle management
 
@@ -223,6 +277,8 @@ Application-database register/profile writes commit atomically with their audit 
 | `PATCH /api/admin/votes/{id}` | Atomically edit a draft | `expectedRevision` and permitted draft fields | `200`: revised detail with incremented `draftRevision` |
 | `POST /api/admin/votes/{id}/preview` | Validate and render the resident ballot/privacy preview | `expectedRevision` | `200`: preview, revision, readiness, and activation blockers |
 | `POST /api/admin/votes/{id}/activate` | Freeze and activate the previewed draft | `expectedRevision`, `confirmed: true` | `200`: activated vote detail |
+| `POST /api/admin/votes/{id}/schedule` | Freeze now; open at a future database-clock time | `expectedRevision`, `confirmed: true`, offset-bearing `opensAt` | `200`: `SCHEDULED` detail with `opensAt`/`scheduledAt` |
+| `POST /api/admin/votes/{id}/schedule/withdraw` | Return to draft strictly before opening | `confirmed: true`, non-empty `reason` | `200`: draft detail with incremented revision and cleared frozen state |
 | `POST /api/admin/votes/{id}/complete` | Complete an active vote early | `confirmed: true`, `reason` | `200`: completed lifecycle summary |
 | `POST /api/admin/votes/{id}/cancel` | Cancel an active vote before deadline | `confirmed: true`, `reason` | `200`: cancelled lifecycle summary |
 | `POST /api/admin/votes/{id}/deadline` | Move an active vote's deadline later or earlier | `confirmed: true`, `closesAt`, `reason` | `200`: active detail with the new `closesAt` |
@@ -252,7 +308,7 @@ Every draft edit, including electorate or child edits, increments the parent rev
 
 Activation revalidates the supplied revision, complete type-specific ballot, future deadline, eligible enabled representatives, current settings, A1-A7 approvals, and retention configuration. It freezes type, configuration, deadline, household/representative identity snapshots, RWA name/timezone, and policy versions; initializes PRIVATE counters; and commits lifecycle plus audit atomically. Preview is not a durable guarantee that subsequent activation will succeed.
 
-After activation, configuration and electorate edits return `409 VOTE_FROZEN`. Only `DRAFT -> ACTIVE`, `ACTIVE -> COMPLETED`, and `ACTIVE -> CANCELLED` exist. The only change allowed to an active vote is its deadline, through the guarded deadline endpoint above. There are no reopen, active-edit, or manual result-edit endpoints, and a finished vote's deadline cannot change.
+After activation or scheduling, configuration/electorate edits return `409 VOTE_FROZEN`. Legal transitions are `DRAFT -> ACTIVE`, `DRAFT -> SCHEDULED -> ACTIVE`, pre-opening `SCHEDULED -> DRAFT`, and `ACTIVE -> COMPLETED/CANCELLED`. Scheduling validates a future opening strictly before closure, freezes the same state as activation and records `VOTE_SCHEDULED`. Opening records one system `VOTE_ACTIVATED` with effective opening and processing time; a missed window completes at the original deadline. Withdrawal requires a reason (`VOTE_SCHEDULE_WITHDRAWN`), rejects at/after opening, removes zero counters and snapshots, advances the draft revision, and requires a fresh preview. The only change allowed to an active vote is its deadline. There are no reopen, active-edit, or manual result-edit endpoints; terminal deadlines never change.
 
 Early completion and cancellation require an explicit confirmation and non-empty reason. Reconcile the deadline first: an overdue vote completes at its frozen deadline, cannot be cancelled, and cannot be relabelled as early completion. Repeating an action against a terminal vote returns `409 LIFECYCLE_CONFLICT` with safe current-state context.
 

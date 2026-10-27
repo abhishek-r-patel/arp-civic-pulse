@@ -1,3 +1,4 @@
+// Shared accessible role, eligibility, voting type and lifecycle badges.
 import {
   Ban,
   Circle,
@@ -5,6 +6,7 @@ import {
   CircleDot,
   CircleOff,
   CirclePause,
+  Clock,
   Eye,
   Lock,
   PencilLine,
@@ -43,6 +45,10 @@ const statusConfig: Record<VoteStatus, { icon: LucideIcon; classes: string }> =
     DRAFT: {
       icon: PencilLine,
       classes: "border-muted/40 bg-muted/10 text-muted",
+    },
+    SCHEDULED: {
+      icon: Clock,
+      classes: "border-secondary/40 bg-secondary/10 text-secondary",
     },
     ACTIVE: {
       icon: CircleDot,

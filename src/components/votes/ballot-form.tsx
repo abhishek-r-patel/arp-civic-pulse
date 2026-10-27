@@ -1,3 +1,4 @@
+// Native ballot choices, deliberate review and honest recovery states; unsent choices stay in memory only.
 "use client";
 
 import Link from "next/link";
@@ -302,7 +303,7 @@ export function BallotForm({
     onSelect: (checked: boolean) => void;
   }>) {
     return (
-      <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-control border border-border bg-surface px-3 py-2 has-[:checked]:border-accent has-[:checked]:bg-accent/5">
+      <label className="flex min-h-14 cursor-pointer items-center gap-3 rounded-control border border-control-border bg-surface px-4 py-3 transition-colors hover:bg-primary/5 has-[:checked]:border-accent has-[:checked]:bg-accent/10 has-[:checked]:shadow-[inset_3px_0_var(--color-accent)]">
         <input
           type="checkbox"
           name={name}
@@ -490,7 +491,7 @@ export function BallotForm({
           Review your selections
         </h2>
         <ErrorSummary failure={failure} />
-        <dl className="grid max-w-ballot gap-3 rounded-card border border-border bg-surface p-4">
+        <dl className="grid max-w-ballot gap-5 border-y border-border py-5">
           {vote.votingType === "PUBLIC" ? (
             <div className="grid gap-0.5">
               <dt className="text-caption font-semibold text-muted">
@@ -757,9 +758,11 @@ function Group({
       id={id}
       aria-describedby={describedBy}
       aria-invalid={error ? true : undefined}
-      className="grid max-w-ballot gap-2"
+      className="grid max-w-ballot gap-3 border-b border-border pb-6"
     >
-      <legend className="pb-2 text-card-heading font-semibold">{legend}</legend>
+      <legend className="pb-3 font-heading text-card-heading font-semibold">
+        {legend}
+      </legend>
       {children}
       {error ? (
         <p id={describedBy} className="text-caption font-semibold text-error">
@@ -786,7 +789,7 @@ function Radio({
   onSelect: () => void;
 }>) {
   return (
-    <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-control border border-border bg-surface px-3 py-2 has-[:checked]:border-accent has-[:checked]:bg-accent/5">
+    <label className="flex min-h-14 cursor-pointer items-center gap-3 rounded-control border border-control-border bg-surface px-4 py-3 transition-colors hover:bg-primary/5 has-[:checked]:border-accent has-[:checked]:bg-accent/10 has-[:checked]:shadow-[inset_3px_0_var(--color-accent)]">
       <input
         type="radio"
         name={name}

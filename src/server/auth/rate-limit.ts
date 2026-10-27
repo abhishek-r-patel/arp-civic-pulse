@@ -1,3 +1,4 @@
+// Shared atomic endpoint budgets; subjects are HMAC digests, never resident data.
 import "server-only";
 import { createHmac, randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -30,6 +31,11 @@ export const AUTH_RATE_LIMITS = {
     scope: "admin.mutation.profile",
     limit: 60,
     windowSeconds: 60,
+  },
+  registerImportByProfile: {
+    scope: "admin.import.profile",
+    limit: 1200,
+    windowSeconds: 3600,
   },
 } as const satisfies Record<string, RateLimitPolicy>;
 

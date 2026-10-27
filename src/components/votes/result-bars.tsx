@@ -1,3 +1,4 @@
+// Authoritative result/turnout rows with exact labels and decorative theme-safe comparison bars.
 import { cn } from "@/components/ui/cn";
 
 /*
@@ -31,14 +32,17 @@ export function ResultBars({
   totalNoun: string;
 }>) {
   return (
-    <ul aria-label={label} className="grid max-w-ballot gap-4">
+    <ul aria-label={label} className="grid max-w-ballot gap-5">
       {rows.map((row) => (
-        <li key={row.id} className="grid gap-1.5">
+        <li
+          key={row.id}
+          className="grid gap-2 border-b border-border pb-4 last:border-b-0"
+        >
           <div className="flex items-baseline justify-between gap-x-4">
             <span className="min-w-0 text-body font-semibold text-primary">
               {row.label}
               {row.tag ? (
-                <span className="ml-2 inline-block rounded-full border border-accent px-2 text-caption font-semibold text-accent">
+                <span className="ml-2 inline-block rounded-control bg-accent/10 px-2 py-0.5 text-caption font-semibold text-accent">
                   {row.tag}
                 </span>
               ) : null}
@@ -58,11 +62,11 @@ export function ResultBars({
           <div
             aria-hidden="true"
             data-testid="result-bar"
-            className="h-3 w-full overflow-hidden rounded-full bg-primary/10"
+            className="h-2 w-full overflow-hidden rounded-sm bg-primary/10"
           >
             <div
               className={cn(
-                "h-full rounded-full",
+                "h-full rounded-sm",
                 row.tone === "leader"
                   ? "bg-accent"
                   : row.tone === "muted"

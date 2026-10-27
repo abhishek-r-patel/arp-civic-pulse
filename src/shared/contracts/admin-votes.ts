@@ -1,3 +1,4 @@
+// Validated administrator vote editing, lifecycle and listing requests.
 import { z } from "zod";
 import { VOTE_STATUSES, VOTING_TYPES } from "@/shared/contracts/voting";
 import { listQuerySchema, queryBoolean } from "@/shared/contracts/pagination";
@@ -232,6 +233,10 @@ export const revisionOnlySchema = z.strictObject({
 export const activateSchema = z.strictObject({
   expectedRevision: revision,
   confirmed,
+});
+
+export const scheduleVoteSchema = activateSchema.extend({
+  opensAt: offsetInstant,
 });
 
 // Early completion and cancellation need explicit confirmation and a recorded reason.

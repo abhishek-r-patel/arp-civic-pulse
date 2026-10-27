@@ -40,7 +40,7 @@ sign-in or voting screens.
 
 ### How to read these pictures
 
-The 53 screenshots show the principal resident and administrator journeys, plus representative validation, privacy, access and recovery states. Resident screens use a narrow phone viewport; most administration screens use a desktop viewport. The same application adapts to the device.
+The 74 screenshots show the principal resident and administrator journeys, plus representative validation, privacy, access and recovery states. Screens 68-74 show the Platinum/Obsidian review slice and appearance menu; the sign-in, vote-list and Accounts overviews were refreshed. Screens 54-62 cover import/scheduling, and 63-67 cover bulk account review. Most resident examples use phone viewports and most administrator examples use desktop viewports. Confirmation pictures are cropped for legibility; the theme Accounts examples show a viewport rather than the entire paginated table. Other workflow pictures remain valid procedural examples, not evidence that every screen has received a layout redesign.
 
 The pictures use an example RWA profile: **Lakeview Residents Welfare Association** (alias **Lakeview RWA**), the Teal accent colour, a sample welcome message, **Flat** as the household label and **Number** as the identifier label, so screens say **Flats** and **Flat Number** where a default installation says **Households** and **Household Number**. The example website is left blank, so no website link appears in the footer. Your RWA's name, contact details, colour and wording will differ. The public Privacy and Contact pages and the optional-analytics checkbox are described in section 1 but not pictured. Do not treat the images as proof of contact-email delivery.
 
@@ -51,6 +51,45 @@ The invalid-code example and the uncertain-submission examples deliberately simu
 Long pictures show the entire page. Zoom/open the original image when reading small details; the accompanying steps are the printable instructions.
 
 ## 2. Understand the vote before participating
+
+### Choose Your Appearance
+
+The sun, moon or monitor control in the header opens **Appearance**. Choose
+**Light** for Platinum, **Dark** for Obsidian, or **System** to follow your device
+(the default). It works before and after signing in. Escape closes the menu and
+returns focus; clicking elsewhere also closes it. Changes apply immediately.
+
+![74: Header appearance menu with Light, Dark and System choices](./images/user-guide/74-appearance-menu.png)
+
+The choice is saved only in this browser, not in your account, and is separate
+from analytics consent and the RWA's accent colour. It remains after sign-out.
+Clearing browser storage restores System. If storage is blocked, your choice
+lasts until reload, which follows System again. Print and downloaded PDFs stay
+light/readable; this standalone guide remains light and script-free.
+
+The first layout refresh covers **Votes** and **Accounts**; other screens share
+the theme and fonts but retain their established layouts. Vote rules, eligibility,
+privacy, review/confirmation and accepted-ballot behavior do not change.
+
+### Verify the Implemented Design
+
+These are captures of the actual application using synthetic accounts and real
+recorded fixture responses, not the original static mockup. Votes now includes
+the compact branded header, three-column overview, status links, real turnout,
+recorded-response/live-results footer, ballot action and upcoming-vote row. The
+agreed top navigation and accessible touch/text sizes are deliberately retained.
+
+![68: Actual Platinum Votes screen matching the concept, with real own-entitlement totals and turnout](./images/user-guide/68-platinum-votes.png)
+
+![69: The actual concept-aligned Votes screen in Obsidian, including recorded-response and ballot actions](./images/user-guide/69-obsidian-votes.png)
+
+![72: Actual Obsidian phone view with compact branding, three-column totals, status tabs and real turnout](./images/user-guide/72-obsidian-votes-mobile.png)
+
+![70: Platinum Accounts with review controls and selected-row highlighting](./images/user-guide/70-platinum-accounts.png)
+
+![71: Obsidian Accounts with the same data, selection and action semantics](./images/user-guide/71-obsidian-accounts.png)
+
+![73: The Accounts review controls and stacked rows at phone width in Platinum](./images/user-guide/73-platinum-accounts-mobile.png)
 
 | Topic                    | PUBLIC voting                                                                                               | PRIVATE voting                                                                                    |
 | ------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -70,11 +109,12 @@ For either type:
 
 ### Status is different from type
 
-![Draft becomes Active, then Completed or Cancelled; neither terminal state reopens](./images/user-guide/lifecycle.svg)
+![Draft can become Scheduled or Active; a schedule can return to draft before opening; completed and cancelled votes never reopen](./images/user-guide/lifecycle.svg)
 
 | Status    | Meaning for a resident                                                    |
 | --------- | ------------------------------------------------------------------------- |
 | Draft     | Not visible to residents. Administrators are still preparing it.          |
+| Scheduled | Frozen and waiting to open. Entitled residents see summary/instructions, opening/closing times and a countdown, not candidates/options or voting controls. |
 | Active    | Entitled households can submit before the deadline.                       |
 | Completed | No more submissions; authorized results/downloads become available.       |
 | Cancelled | The vote is invalidated. It cannot accept submissions or publish results. |
@@ -117,9 +157,40 @@ An empty page can be legitimate: no vote may yet have been activated for your ho
 
 When a vote appears, check its title, PUBLIC/PRIVATE label, status, deadline and whether you have already submitted. Open the vote to continue.
 
+The three summary figures describe your own frozen entitlements across all pages
+and voting-type filters: **Active votes**, **Scheduled**, and **Your responses**
+(responses recorded in active votes only). These are not whole-association totals;
+being an administrator does not add votes or show everyone else's activity. A
+temporarily unavailable count is shown as unavailable, not zero.
+
+Use the **All**, **Active**, **Scheduled** and **Completed** status links. **Vote
+history** opens Completed. The filter icon opens the voting-type menu, which also
+provides **Cancelled Votes** and **Clear Filters**. Changing status/type resets
+pagination while keeping the other applicable filter. Next page remains available.
+
+Active cards show the authorized aggregate turnout count and percentage, never
+individual choices. PUBLIC respondents get **Response recorded** and **View Live
+Results**; PRIVATE respondents get **View Live Turnout**, not candidate totals.
+**Open Ballot** opens an active unsubmitted vote, and completed records offer
+**View Results**. A PUBLIC response can still be changed by opening its title
+link and choosing the existing change action before closure. Deadline chips are
+informational and refresh at zero; only the database admits or rejects ballots.
+If turnout cannot be read, it says temporarily unavailable. Status/privacy words
+remain explicit rather than relying on colour.
+
 ![05: Resident list containing an active PUBLIC poll](./images/user-guide/05-vote-list.png)
 
 Households and representatives are frozen when a vote is activated. A later register correction does not automatically give a new representative access to an existing vote. An administrator cannot simply transfer an already activated entitlement.
+
+They also freeze when an administrator confirms a scheduled opening. A scheduled
+vote appears in your list as a compact dated upcoming row; open it for the title,
+instructions and start/end times. Candidates/options and voting controls appear
+only once voting opens. The page refreshes when its countdown reaches zero, but
+the database clock determines whether voting is actually open. No reminder email
+or message is sent. A withdrawn schedule becomes a hidden draft until prepared
+and confirmed again.
+
+![59: Resident scheduled-vote summary on a phone, with opening countdown and no candidate/options or voting controls](./images/user-guide/59-scheduled-member.png)
 
 ## 5. Submit a PUBLIC poll
 
@@ -254,6 +325,40 @@ Administrators manage the register and lifecycle, not residents' selections. The
 
 ## 10. Add a resident: account, household, enable
 
+### Import multiple residents
+
+1. Open the register and choose **Import CSV**, then **Download CSV Template**.
+2. Keep exactly `identifier,representative_name,email,is_eligible` as columns
+	(their order may vary). Use one representative per identifier, a unique email,
+	and `true` or `false` for eligibility. Use at most 500 rows and 256 KiB; the
+	identifier column keeps its technical name regardless of your RWA wording.
+3. Select the CSV. Correct every reported format/duplicate error, then choose
+	**Check Register**. Review names, addresses, identifiers and eligibility.
+4. Exact matches are skipped. Conflicts are reported without overwriting existing
+	entries; correct them through the ordinary register workflow. Only ready rows
+	can be imported. Confirm **Import Suspended Accounts**.
+5. Review each successful entry through **Review Account**, then explicitly
+	**Enable Account** when its details and assignment are correct. Import itself
+	never enables access or creates an administrator.
+
+![54: CSV preview after checking the synthetic register, with the representative email redacted](./images/user-guide/54-import-preview.png)
+
+![55: Explicit confirmation that imported accounts remain suspended](./images/user-guide/55-import-confirm.png)
+
+![56: Successful import with a Review Account link, not automatic enablement](./images/user-guide/56-import-result.png)
+
+On a phone, the table scrolls horizontally rather than compressing identifiers
+and representative names. Swipe the table to inspect the remaining columns:
+
+![62: Mobile register import with readable headers and a horizontally scrollable result table](./images/user-guide/62-import-mobile.png)
+
+Rows are saved separately, not as one all-or-nothing file. If a connection,
+provider or rate-limit failure appears, further processing stops: that row may
+be partly or fully saved. Keep the page open and **Check Register** again before
+retrying; successful/unchanged rows stay visible. A new file selection clears
+the preview. Uploads are not retained after leaving/reloading the page. Store
+resident CSVs securely and never upload a production register into a test system.
+
 Follow this order so a resident is not enabled before their household exists:
 
 ![Create suspended account, assign household, then enable](./images/user-guide/register.svg)
@@ -279,7 +384,7 @@ If you try to enable it too early, the app explains **A household is needed firs
 
 Administrators can open **RWA Settings** to personalize how the RWA appears. Fields marked **\*** are required: **RWA Full Name**, **RWA Alias**, **Household Label** and **Identifier Label**. Everything else is optional and unmarked: **RWA Address**, **RWA Email**, **RWA Phone**, **RWA Website**, the **Accent Colour** (a handful of accessible presets, previewed on the form) and a **Welcome Message** (plain text, up to 300 characters). Leave an optional field blank to hide it everywhere; for example, a blank phone number is simply not shown in the footer or on PDF results. Residents never open this page; they see the values on other pages:
 
-- **Alias:** the header of every page reads **Civic Pulse for** your alias (for example **Civic Pulse for Lakeview RWA**), and the alias is the first breadcrumb on signed-in pages; the alias and full name also appear on the sign-in page.
+- **Alias:** the compact header shows the chosen Civic Pulse icon/name with your RWA alias beneath it (for example **Lakeview RWA**). The brand link's accessible name remains **Civic Pulse for Lakeview RWA**. The alias is also the first breadcrumb on signed-in pages, and the alias/full name appear on sign-in.
 - **Full name:** the Votes page, each vote page, results, CSV and PDF exports, and the footer.
 - **Address, email, phone, website:** a contact block in the signed-in footer; the address also appears on the public privacy page, and address, email and phone appear at the top of PDF results.
 - **Accent colour:** links, buttons and highlights.
@@ -317,7 +422,7 @@ This shared test register shows a capped candidate-list warning. If a real form 
 
 Verify the saved household and its representative:
 
-![44: Newly created example household in the filtered register](./images/user-guide/44-household-created.png)
+![44: Saved example flat in the filtered register, with its representative still suspended pending review](./images/user-guide/44-household-created.png)
 
 ### Step 3: enable the account
 
@@ -333,7 +438,45 @@ The account now shows Enabled and offers **Suspend Account**. The resident can s
 
 Use list filters/pagination to find existing records rather than creating duplicates.
 
-![47: Accounts list with status and role filters](./images/user-guide/47-accounts-list.png)
+![47: Accounts review table with the Residents default, flat assignments, eligibility, status and selection controls](./images/user-guide/47-accounts-list.png)
+
+### Review and approve multiple accounts
+
+Open **Accounts**. The **Role** filter defaults to **Residents**, so administrators
+are not included accidentally. Use **Suspended** status to review new accounts.
+Check each name, email, assigned flat, voting eligibility and account status.
+
+1. Tick only the valid rows. **Select All on This Page** selects actionable rows
+	currently shown, never hidden pages. Changing page, page size or filters clears
+	selection. A same-page refresh preserves still-valid selections.
+2. **Enable Selected** changes account access only. Residents need a flat
+	assignment first; administrators can be enabled without one. Already enabled,
+	deleted or otherwise non-actionable rows are not included in this action.
+3. **Make Eligible** separately marks assigned flats eligible for future votes.
+	It does not enable accounts. Already eligible or unassigned rows are skipped.
+4. Review the exact list and affected count in each confirmation. The two counts
+	can differ. Nothing adds a representative to an already frozen scheduled or
+	active electorate.
+
+![63: Selected account rows reviewed with name, email, flat, eligibility and account status together](./images/user-guide/63-account-review.png)
+
+![64: Make Eligible confirmation changes future register eligibility without enabling sign-in](./images/user-guide/64-make-eligible.png)
+
+![65: Enable Selected confirmation lists two accounts and leaves flat eligibility unchanged](./images/user-guide/65-enable-selected.png)
+
+![66: Completed per-account enablement results after the confirmed bulk action](./images/user-guide/66-account-review-result.png)
+
+To include administrators, explicitly choose **All Roles** (or **Administrators**)
+and apply the filter, then select those accounts. Enabling selected administrators
+shows an additional warning because it restores management access:
+
+![67: Explicit administrator-access warning before enabling a selected administrator](./images/user-guide/67-enable-admin-warning.png)
+
+Each row commits separately. If a provider, connection or rate-limit failure
+occurs, further processing stops and completed rows stay completed. The failing
+row may be partly or fully changed: refresh and review before retrying. Normal
+administrator/provider rate limits still apply. Leaving the page stops further
+unsubmitted rows but cannot undo a request already accepted by the server.
 
 Open a household to update its identifier, representative or eligibility for future activations. Save and check the result. Existing active/completed votes keep their historical household/representative data. The RWA-wide household and identifier labels are managed in **RWA Settings**; changing them updates the display wording across the app without changing saved identifiers or their matching rules.
 
@@ -399,6 +542,34 @@ A ready preview says **No problems found in this version**. Review the ballot, p
 
 ## 13. Activate and monitor
 
+### Schedule opening instead
+
+From a ready ballot preview, enter **Voting opens at** in the displayed RWA time
+zone and choose **Schedule Vote**. Opening must be in the future and before the
+saved closing deadline. The confirmation shows both times. **Freeze and Schedule**
+freezes the previewed ballot, electorate and representatives immediately.
+Residents see only the upcoming summary/countdown, not candidates/options.
+
+![57: Schedule confirmation showing opening and closure times and immediate freezing](./images/user-guide/57-schedule-confirm.png)
+
+![58: Scheduled administrator page with an opening countdown and Return to Draft action](./images/user-guide/58-scheduled-admin.png)
+
+The scheduled management page shows its opening time and countdown. Before
+opening only, **Return to Draft** with a written reason withdraws the schedule,
+hides the vote from residents and allows corrections. Review and preview it
+again before scheduling or activating. At/after opening, returning to draft is
+refused, even if the page still says Scheduled. An active/finished vote cannot
+use this action. To abandon a not-yet-opened schedule, withdraw it and leave the
+draft unscheduled; cancellation remains an active-vote action.
+
+![60: Return-to-draft confirmation with a required recorded reason](./images/user-guide/60-withdraw-schedule.png)
+
+![61: Withdrawn schedule restored to an editable draft requiring a fresh preview](./images/user-guide/61-schedule-withdrawn.png)
+
+Opening and closing use database time. A delayed job never permits early voting
+or extends closure. If the service is unavailable for the whole scheduled window,
+the vote completes at its original deadline without late submissions.
+
 Select **Activate Vote**, read the confirmation and explicitly confirm. If the draft changed since preview, refresh and review again.
 
 ![26: Activation confirmation and irreversible-freeze warning](./images/user-guide/26-activate-dialog.png)
@@ -445,9 +616,9 @@ After completion, confirm the status and open the results. For an active PUBLIC 
 
 ![30: Completed administrator view after early completion](./images/user-guide/30-completed-admin.png)
 
-The management list helps distinguish Draft, Active, Completed and Cancelled records; use filters and pagination.
+The management list helps distinguish Draft, Scheduled, Active, Completed and Cancelled records; use filters and pagination.
 
-![31: Manage Votes list after completion](./images/user-guide/31-admin-votes.png)
+![31: Manage Votes filtered to a scheduled example, including its opening countdown and closing deadline](./images/user-guide/31-admin-votes.png)
 
 ### Cancel an active vote
 
@@ -502,6 +673,6 @@ This guide covers main resident/admin journeys and representative errors, not ev
 
 The pictures use a real application against synthetic test data. The invalid-code response and lost-connection sequence are intentionally simulated; no real SMTP deliverability claim is made. Actual completed PUBLIC/PRIVATE submissions, results, account creation/assignment/enablement, activation, early completion, cancellation, audit access and sign-out are exercised by the capture journey.
 
-This application does not provide public signup, anonymous public results, bulk register CSV import, delegated voting, ballot editing/withdrawal, reopening a closed vote, messaging/reminders or legal signatures.
+This application does not provide public signup, anonymous public results, delegated voting, PRIVATE ballot editing/withdrawal, reopening a closed vote, messaging/reminders or legal signatures. CSV register import and scheduled opening are available as described above; they do not enable accounts automatically or transfer frozen entitlements.
 
 Before real use, the RWA/operator must complete approvals, production email/capacity/security verification, monitoring, backup/restore and manual device/accessibility acceptance. See [pilot readiness](./PILOT_READINESS.md) and the [launch audit](./LAUNCH_AUDIT.md). A screenshot guide is not launch approval.

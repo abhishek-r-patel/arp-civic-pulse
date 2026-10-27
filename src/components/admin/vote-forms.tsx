@@ -1,3 +1,4 @@
+// Guarded vote setup and draft editing presented as clear sections without altering revision semantics.
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -533,6 +534,7 @@ export function DraftEditor({
         void save();
       }}
       noValidate
+      data-admin-draft
       className="grid max-w-ballot gap-8"
     >
       {saved ? (
@@ -682,7 +684,7 @@ export function DraftEditor({
           </h2>
           {state.votingType === "PUBLIC" ? (
             <>
-              <fieldset className="grid gap-3 rounded-card border border-border bg-surface p-3">
+              <fieldset className="grid gap-4 border-y border-border py-4">
                 <legend className="px-1 text-card-heading font-semibold">
                   Choices per {terms.household}
                 </legend>
@@ -1116,7 +1118,7 @@ function OfficesEditor({
       {offices.map((office, officeIndex) => (
         <fieldset
           key={office.key}
-          className="grid gap-3 rounded-card border border-border bg-surface p-3"
+          className="grid gap-4 border-y border-border py-5"
         >
           <legend className="px-1 text-card-heading font-semibold">
             Office {officeIndex + 1}

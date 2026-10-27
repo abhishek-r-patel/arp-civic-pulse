@@ -12,7 +12,7 @@ Civic Pulse serves one Resident Welfare Association (RWA). Administrators regist
 
 - **PUBLIC poll:** configured single-select or multi-select; one ballot and participation per household. Authorized completed results contain representative names, household identifiers and the final selected option set.
 - **PRIVATE election:** one candidate or NOTA (None of the Above) for every office. Storage and results use aggregate counters, not retrievable individual ballots. NOTA is counted separately and never wins; the highest-count candidate is elected even if NOTA receives more votes.
-- **Lifecycle:** Draft, Active, Completed or Cancelled. Type and status are different concepts.
+- **Lifecycle:** Draft, Scheduled, Active, Completed or Cancelled. Type and status are different concepts.
 - **Results:** private to entitled members and administrators; CSV is required and PDF is implemented but can be disabled.
 - **Operations:** audit history, bounded retention, encrypted backups/restore, health checks and maintenance mode.
 
@@ -63,11 +63,61 @@ Never disable certificate verification to solve corporate TLS problems. Configur
 
 ## 4. Folder and file map
 
+The faithful Votes correction adds [vote-list-card.tsx](../src/components/votes/vote-list-card.tsx)
+for rich server-rendered records and a compact scheduled row. The page uses exact
+own-entitlement counts (explicit actor filtering through RLS, including admins)
+and turnout narrowed from the existing result routine. It never uses mock totals
+or forwards choices to the card. Status/type/history links retain pagination and
+cancelled access. [vote-dashboard.test.ts](../tests/unit/vote-dashboard.test.ts)
+checks scope, missing counts and aggregate-only projection; the existing live
+capture exercises actual 02 active / 01 scheduled / 01 response and real 1-of-2
+turnout in a disposable fixture. Those numbers are synthetic test outcomes, not
+display constants. Refresh screenshots 05/68/69/72 from the application whenever
+this layout changes. No new migration, endpoint or role-based voting entitlement
+is introduced. Added summary/result reads must be included in hosting latency
+and read-budget verification; they are not proof of the existing performance gate.
+
+Appearance review additions: [theme constants/bootstrap](../src/shared/theme.ts),
+[theme provider](../src/components/ui/theme-provider.tsx) and
+[header switcher](../src/components/ui/theme-switcher.tsx) use a dedicated
+`civic-pulse-theme` key containing only `light`, `dark` or `system`. System is the
+default; invalid values are cleared before paint and blocked storage is handled
+without losing page usability. `next-themes` owns media/preference/cross-tab
+updates. The root alone suppresses the expected theme-attribute hydration mismatch;
+other rendering errors must not be hidden. No ballot storage exception is added.
+
+Sora/Manrope are self-hosted through Next's font loader. PDF fonts remain bundled
+Inter/Noto. Semantic CSS tokens cover Platinum/Obsidian and all RWA accents, with
+light print overrides. After user approval, the shared header, fields, notices,
+tables/dialogs and resident/admin/public page surfaces now follow the same style;
+top navigation and all functional contracts are retained. The [rollout test](../tests/e2e/visual-rollout.spec.ts)
+uses real disposable fixtures and temporary redacted images across page families,
+including native ballot review/submit and completed results. The User Guide and
+all its assets are frozen by explicit request, so do not run the documentation
+capture script or regenerate USER_GUIDE during this rollout. Use
+`PLAYWRIGHT_PRESERVE_GUIDE=1` for browser tests and direct Next commands for build/
+preview; regenerate this technical copy only with
+`node --input-type=module -e "import {renderGuide} from './scripts/docs/render.mjs'; await renderGuide('TECHNICAL_GUIDE');"`.
+[Unit tests](../tests/unit/theme.test.ts)
+cover bootstrap/contrast; [browser tests](../tests/e2e/theme.spec.ts) cover actual
+behavior. Focused captures use `--grep "Platinum and Obsidian"` under the same
+disposable-project/TLS/redaction safeguards, adding pictures 68-74 and refreshing
+the affected overviews when guide updates are explicitly resumed. Runtime browser
+font requests never contact Google.
+
 | Path                                                | Responsibility                                                                                                          |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | [src/app](../src/app)                               | Pages, layouts, loading/error boundaries and HTTP route handlers. Route-group parentheses do not appear in URLs.        |
 | [src/components/ui](../src/components/ui)           | Buttons, fields, notices, dialogs, tables, pagination, badges and common layout.                                        |
 | [src/components/admin](../src/components/admin)     | Account/household forms, draft editing, preview and lifecycle interaction.                                              |
+| [src/components/admin/account-review-table.tsx](../src/components/admin/account-review-table.tsx) | Current-page multi-selection and separate account enablement/flat eligibility confirmations, administrator warning and per-record outcomes. |
+| [src/components/admin/register-import-form.tsx](../src/components/admin/register-import-form.tsx) | Memory-only CSV upload/check, confirmed sequential import, progress/outcomes and account-review links. |
+| [src/shared/contracts/register-import.ts](../src/shared/contracts/register-import.ts) | `csv-parse` parsing, 500-row/256-KiB bounds and strict import contracts. |
+| [src/server/register/import.ts](../src/server/register/import.ts) | Retry-safe Auth orchestration and guarded import assignment; never enables accounts. |
+| [src/app/admin/households/import/page.tsx](../src/app/admin/households/import/page.tsx) | Protected import page reached from the register. |
+| [src/app/api/admin/households/import/route.ts](../src/app/api/admin/households/import/route.ts) | Per-row check/import endpoint with CSRF, current-admin checks and import budget. |
+| [src/app/api/admin/votes/[id]/schedule/route.ts](../src/app/api/admin/votes/[id]/schedule/route.ts) | Schedule a previewed draft and freeze it immediately. |
+| [src/app/api/admin/votes/[id]/schedule/withdraw/route.ts](../src/app/api/admin/votes/[id]/schedule/withdraw/route.ts) | Confirmed, reasoned pre-opening return to draft. |
 | [src/components/admin/rwa-profile-form.tsx](../src/components/admin/rwa-profile-form.tsx) | Administrator form for RWA identity, contact, palette, welcome message and identifier wording. |
 | [src/components/ui/rwa-branding.tsx](../src/components/ui/rwa-branding.tsx) | Plain-text signed-in footer contact block and welcome message shown to residents and administrators. |
 | [src/components/ui/info-tip.tsx](../src/components/ui/info-tip.tsx) | Compact (i) disclosure that opens on mouse hover or click/tap and closes on Escape or an outside click; used for the NOTA rule. |
@@ -183,6 +233,36 @@ CSRF context is a separate HttpOnly cookie; production uses a host-only Secure c
 Suspended/deleted/unprovisioned identities do not gain access merely by holding a valid token. Admin pages use a plain not-found for non-admins; APIs use the appropriate safe status. Inaccessible vote IDs are indistinguishable from nonexistent ones.
 
 ## 7. Database model and invariants
+
+Accounts can now be reviewed in one table with their RLS-authorized flat assignment
+and eligibility. The page defaults to residents; selecting All Roles is explicit.
+Selections are current-page only and clear on filter/page/size changes. The two
+actions reuse the existing per-account/per-household PATCH endpoints, not a bulk
+database write or new grant. Access and eligibility remain independent; admins
+without flats can be enabled only through explicit inclusion and a warning.
+Deleted/missing-assignment/already-satisfied rows are excluded as appropriate.
+Every request rechecks permissions and commits separately. Uncertain failures stop
+the batch; UI completion never rolls back earlier records or conceals an unknown
+outcome. Existing mutation/provider limits apply. No new migration is needed.
+
+CSV import checks every record without overwriting existing state, then applies
+ready rows independently. Exact retries are skipped; conflicting identifiers,
+names, roles, assignments or eligibility are reported. Auth provisioning and
+database writes are not one transaction. Newly provisioned profiles remain
+suspended; administrators use the existing confirmed account workflow to enable
+them after review. Unknown/partial failures stop subsequent rows and require a
+recheck, not blind account deletion. CSV records remain in page memory only.
+
+Scheduling uses the same guarded freeze helper as immediate activation.
+`opens_at` is the effective start and `scheduled_at` is the confirmation/freeze
+time; `activated_at` stores the effective start even while scheduled. Ballot,
+electorate and representative snapshots freeze now, not at opening. RLS and the
+member projection hide candidates/options before opening. Database-time
+reconciliation under the vote lock opens due votes, and a missed whole window
+completes at the original deadline. Strictly before opening, a confirmed reasoned
+withdrawal clears snapshots and zero counters, advances the revision, and requires
+new preview. It never reopens an active or terminal vote. See the architecture
+implementation map and API/schema sections for exact paths/contracts.
 
 | Entity                   | Relationship and purpose                                                                               |
 | ------------------------ | ------------------------------------------------------------------------------------------------------ |
@@ -413,13 +493,39 @@ The [capture spec](../scripts/docs/capture.spec.ts) is outside the ordinary e2e 
 ```powershell
 # On a network with TLS inspection, let Node trust the system store first (see LOCAL_SETUP troubleshooting).
 $env:NODE_USE_SYSTEM_CA = "1"
+# Download the database CA through the provider's SSL settings; this is a certificate, not a key.
+$env:PGSSLROOTCERT = "C:\approved-certificates\prod-ca-2021.crt"
 $env:LIVE_AUTH = "1"
 $env:DOC_SCREENSHOTS = "1"
 npx playwright test -c playwright.docs.config.ts
+# Or refresh only the new import/scheduling workflow and its affected existing images:
+npx playwright test -c playwright.docs.config.ts --grep "bulk import and scheduled opening"
+# Or refresh the Accounts table and its five bulk-review pictures:
+npx playwright test -c playwright.docs.config.ts --grep "bulk account review"
 node scripts\docs\render.mjs
 ```
 
-Before capturing, apply every migration to the fixture project (`npx supabase db push --db-url $env:LIVE_DATABASE_URL`, review the `--dry-run` first), run `npm run test:live`, and make sure no other `next dev` server is running in this folder: Playwright starts its own on port 3100 and Next allows one per folder.
+Before capturing, confirm the disposable target, review pending migrations with `--dry-run`, and obtain authorization before applying any. On CLIs supporting it, use `--skip-vault` to limit the push to reviewed SQL rather than unrelated vault configuration. Run the relevant live checks separately and make sure no other `next dev` server is running in this folder: Playwright starts its own on port 3100 and Next allows one per folder. Every migration that uses `SET LOCAL ROLE cp_owner` must `RESET ROLE` before returning, so the CLI can record its history entry as the deployment role; the two follow-up migrations were corrected before their first successful hosted application.
+
+The shared browser-fixture SQL helper uses `scripts/ops/database.ts`: verified
+TLS and hostname checks, with `PGSSLROOTCERT` for the provider CA. The Windows
+system store alone does not include the Supabase database CA. Use the provider's
+[SSL guidance](https://supabase.com/docs/guides/platform/ssl-enforcement), not
+`rejectUnauthorized: false`. Other older test helpers have their own outstanding
+TLS audit findings; this change does not claim to fix them all.
+
+The focused test adds nine images (`54-import-preview` through
+`61-schedule-withdrawn`, plus `62-import-mobile`) and refreshes only
+`15-admin-home`, `25-ready-preview`, `31-admin-votes` and `44-household-created`.
+It uses real synthetic account provisioning, one-row import, exact-match checking,
+scheduling and withdrawal. It confirms the imported account is still suspended,
+the resident sees no voting controls before opening, and the withdrawn vote is
+hidden again. The fixture profile is restored and any remaining example schedule
+is withdrawn on cleanup; new accounts remain synthetic test records. Email/code
+redaction remains enabled. The new confirmation images are dialog crops; the
+other captures are full-page, including a mobile import and resident view. This
+is not a 500-row capacity test, SMTP test, manual accessibility acceptance or
+proof of actual scheduled Cron execution.
 
 Use only the approved disposable fixture project. Capturing creates synthetic Auth users, profiles, households, votes, participation and fixture policy/retention data; never run it against production. It reuses existing fixture helpers. Before capturing, it sets a synthetic RWA profile (Lakeview names, example address and phone, a blank email and website so the pictures show empty optional fields hidden, Teal palette, a welcome message, the **Flat** household label and the **Number** identifier label) and restores the previous profile afterwards; each change is audited as `RWA_PROFILE_UPDATED`. It also creates a PRIVATE election with NOTA and a multi-select PUBLIC poll for the live-turnout and live-results pictures. The illustrated flats use realistic synthetic numbers (**H-513** for the example resident and **H-514** for the added flat, or another unused realistic number when those already exist); other fixture households get random numbers in the same style. The illustrated active vote also has its deadline extended by two days with a synthetic reason, so the audit trail shows a `VOTE_DEADLINE_CHANGED` event. Email/code fields that hold a value and email text are masked (an intentionally blank field stays visibly blank), trace/video are off, and screenshots are stored in the documentation image folder. The code-error response and connection failures are deliberately simulated; the rest of the principal voting/administration flows use the real test application and database. The capture does not prove SMTP delivery.
 

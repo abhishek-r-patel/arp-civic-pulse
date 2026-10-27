@@ -1,8 +1,10 @@
+// Voting types and the independently enforced database lifecycle states.
 export const VOTING_TYPES = ["PUBLIC", "PRIVATE"] as const;
 export type VotingType = (typeof VOTING_TYPES)[number];
 
 export const VOTE_STATUSES = [
   "DRAFT",
+  "SCHEDULED",
   "ACTIVE",
   "COMPLETED",
   "CANCELLED",
@@ -17,6 +19,7 @@ export const VOTING_TYPE_LABELS: Record<VotingType, string> = {
 
 export const VOTE_STATUS_LABELS: Record<VoteStatus, string> = {
   DRAFT: "Draft",
+  SCHEDULED: "Scheduled",
   ACTIVE: "Active",
   COMPLETED: "Completed",
   CANCELLED: "Cancelled",

@@ -4,14 +4,17 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { firstValues } from "@/components/admin/format";
-import { ActivateVote } from "@/components/admin/lifecycle-actions";
+import {
+  ActivateVote,
+  ScheduleVote,
+} from "@/components/admin/lifecycle-actions";
 import { LinkButton } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { BallotPreview } from "@/components/votes/ballot-preview";
 import { ApiError } from "@/server/http/errors";
 import { adminPageContext } from "@/server/register/page-context";
-import { getVote, previewDraft } from "@/server/votes/drafts";
+import { getRwaDisplay, getVote, previewDraft } from "@/server/votes/drafts";
 import type { BlockerSection } from "@/shared/contracts/drafts";
 import { idParamsSchema } from "@/shared/contracts/register";
 import { revision as revisionSchema } from "@/shared/validation/primitives";
@@ -113,6 +116,7 @@ export default async function PreviewPage({
   }
 
   const { blockers, readyToActivate, electorate, vote } = preview;
+  const display = readyToActivate ? await getRwaDisplay(deps) : null;
 
   return (
     <div className="grid gap-8">
@@ -171,11 +175,12 @@ export default async function PreviewPage({
         </p>
       </section>
 
-      <Notice tone="info" heading="What freezes when the vote is activated">
+      <Notice tone="info" heading="What freezes when activated or scheduled">
         <p>
           The voting type, ballot content, electorate, each{" "}
-          {deps.terms.household}&apos;s representative and the deadline cannot
-          be changed afterwards.
+          {deps.terms.household}&apos;s representative freeze at confirmation. A
+          scheduled vote can return to draft before opening. Once active, only
+          the deadline can be moved through the audited deadline action.
         </p>
       </Notice>
 
@@ -196,11 +201,22 @@ export default async function PreviewPage({
       </div>
 
       {readyToActivate ? (
-        <ActivateVote
-          csrfToken={deps.csrfToken}
-          voteId={id}
-          revision={preview.revision}
-        />
+        <>
+          <ActivateVote
+            csrfToken={deps.csrfToken}
+            voteId={id}
+            revision={preview.revision}
+          />
+          {vote.closesAt && display?.timezone ? (
+            <ScheduleVote
+              csrfToken={deps.csrfToken}
+              voteId={id}
+              revision={preview.revision}
+              timezone={display.timezone}
+              closesAt={vote.closesAt}
+            />
+          ) : null}
+        </>
       ) : null}
     </div>
   );

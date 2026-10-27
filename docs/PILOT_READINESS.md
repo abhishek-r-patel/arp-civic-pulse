@@ -6,6 +6,152 @@ Legend: ✅ proven here by an automated check you can re-run · 🟡 partly prov
 
 ## 1. Automated regression and security evidence
 
+### All-Screen Visual Rollout
+
+After accepting the concept-aligned Votes screen, the user authorized rollout
+across the remaining screens while explicitly freezing the User Guide, its HTML/
+public copies and screenshots. Shared hierarchy, field, notice, table/dialog,
+ballot/review, result and lifecycle/admin sections now use the same presentation;
+no permissions, payload, counting, export or submission rules were changed.
+460 unit tests passed. The guide-preserving visual matrix passed public pages in
+both modes at 375/1280px, fifteen admin destinations in both desktop modes and
+dark phone mode, and actual PUBLIC multi-select/PRIVATE NOTA selection, review,
+durable acknowledgement, active turnout/results, completed results, deadline
+dialogs and participation. Theme readiness and resolved mode are explicitly
+checked; per-surface overflow and axe checks passed. Representative temporary
+ballot-review, result and settings images were visually inspected.
+
+One native appearance-disclosure `open` hydration warning remained in automation
+despite the readiness wait; it was not hidden with additional hydration-warning
+suppression and remains a follow-up console finding. This does not turn manual
+device/accessibility or production gates into passes. Guide assets must match
+their pre-rollout content hash. Tests use `PLAYWRIGHT_PRESERVE_GUIDE=1` and direct
+Next startup, with temporary screenshots only; technical documentation is updated
+separately. Final build/lint/format and exclusion-hash results are recorded below
+when executed, not inferred from historical runs.
+
+Final rollout gates: direct Next production build and TypeScript, lint and
+repository formatting passed; all 460 unit tests, both new visual-matrix tests,
+27 foundation/appearance browser checks and seven renderer tests passed. The
+existing health case was explicitly excluded from the foundation run. SHA-256
+comparison of all 82 User Guide Markdown/HTML/public/image files matched the
+pre-rollout baseline exactly. Only the technical HTML was regenerated. The app
+preview uses direct Next startup to preserve the hold. Manual device/accessibility,
+production approval and the recorded disclosure hydration warning remain separate
+follow-ups; no new migration or production data change was performed.
+
+### Votes Concept Fidelity Correction
+
+The user identified that the initial colour/font slice did not match the approved
+concept closely enough. The correction implements compact branding, history by
+the title, a three-column own-entitlement overview, status links/type menu, rich
+turnout/participation cards and upcoming scheduled entries. The real-fixture
+capture passed with 2 active votes, 1 scheduled vote, 1 active response and actual
+1/2 (50%) turnout; filtering to PRIVATE did not alter the overview or expose
+candidates. A separate administrator without entitlement receives zero own active
+votes, not an association-wide count. Scope/failure/countdown tests are local
+evidence; performance/read-budget verification on the approved host, manual
+accessibility and all production gates remain open. No schema migration or new
+permission/endpoint was added. Guide images must be actual application captures.
+
+Final correction evidence: all 460 unit tests passed, including identity-scoped
+overview, missing-count handling, aggregate-only turnout and compact countdown
+formatting. The final real-fixture capture passed after checking the administrator
+zero-entitlement case and filtered-card/global-own-summary distinction. All 27
+Chromium foundation/appearance checks passed with the existing health case
+explicitly excluded. Production build/TypeScript, lint and seven guide-renderer
+checks passed. The refreshed phone, light desktop and dark phone images were
+visually compared with the concept; top navigation is intentionally retained as
+previously agreed. These checks do not close hosting latency/read-budget,
+production or manual device/accessibility gates.
+
+### Appearance Review Slice
+
+The approved first slice adds Platinum/Obsidian with browser-local Light/Dark/
+System, Sora/Manrope typography and Votes/Accounts layouts; top navigation and
+voting safeguards remain unchanged. 455 unit tests passed, including pre-paint
+normalization, blocked-storage fallback and contrast gates. Four focused Chromium
+checks passed for System/live media changes, saved preference, cross-tab updates,
+keyboard/Escape, corrupt/blocked storage, both-mode phone/desktop accessibility,
+self-hosted browser fonts and light print. Rendered Accounts testing caught a
+warning-badge contrast failure on a selected-row tint; the light warning token
+was corrected and the same check passed. The focused real-fixture capture uses
+the already confirmed disposable project, not production. Record final capture
+and quality-gate results separately; manual device/accessibility acceptance,
+production readiness and redesign of the remaining layouts are not claimed.
+
+Final 27 October appearance checks: production build/TypeScript and lint passed;
+all 455 unit tests, seven documentation-renderer checks and the focused actual
+Votes/Accounts capture passed. The combined Chromium appearance/foundation run
+passed 26 checks; its guide check assumed the first PNG was Sign-in and failed
+after the new appearance section changed image order. That check was corrected
+to select the named Sign-in image, expanded to load the new appearance images,
+and passed on its focused rerun. The existing unavailable-health case was
+explicitly excluded, not counted as passed. Narrow 320px and 375px views,
+self-hosted fonts, light native print controls, live System switching and blocked
+storage were exercised. Dependency audit reported zero known vulnerabilities.
+Seven new redacted images and three affected overviews were captured; representative
+desktop/phone/menu images were visually inspected. These are review-slice evidence,
+not approval to redesign the remaining layouts or a full manual accessibility audit.
+
+### Bulk account review follow-up
+
+The agreed page-local review defaults to Residents, explicitly supports All Roles
+including administrators, and separates account access from future flat voting
+eligibility. It adds no migration or permission bypass; it uses the existing
+guarded PATCH operations, current-admin checks and per-record audit/budgets.
+435 unit tests passed, including assignment enrichment and independent target
+rules. A focused Chromium run against the confirmed disposable project passed:
+one eligibility change left access suspended, two selected accounts were enabled,
+another account remained suspended, enabling did not change another flat's
+ineligibility, administrator enablement required explicit inclusion/warning, and
+a controlled 503 left access blocked with review-before-retry guidance. The test
+also exposed/fixed a same-page refresh selection race and uses stable IDs for
+same-named synthetic residents. Five new redacted screenshots and the Accounts
+overview were refreshed. These results are not production, peak quota, real-device
+or manual accessibility approval; existing launch gates remain open.
+
+### Register import and scheduled opening follow-up
+
+The requested implementation uses combined household/representative CSV rows,
+suspended-account review, scheduling-time freezing and summary-only upcoming
+votes. The two forward migrations were applied on 27 October 2026 only to the
+user-confirmed disposable screenshot project, after authorization and a dry run;
+there was no production deployment or reset. Focused local PostgreSQL 17 checks
+cover import conflicts/concurrent retries/suspended access and scheduling,
+direct pre-opening ballot denial, early/late admission, frozen register identities,
+withdrawal and missed-window completion. Unit checks cover malformed/oversized CSV,
+duplicates, confirmation, provider failure and current-admin checks. Record final
+gate results separately from historical counts below.
+
+Final local verification on 27 October 2026: production build and TypeScript
+passed; ESLint passed after removing unchecked fixture assertions; 432 unit tests,
+249 PostgreSQL integration tests and 7 documentation-renderer checks passed.
+Seven environment-gated database checks were skipped, not passed. The 23
+Chromium foundation checks passed with the unavailable database-health check
+explicitly excluded. They verify the public surface/guide, not authenticated new
+workflows. `npm audit` reported zero known vulnerabilities after using patched
+`csv-parse` 7.0.3. Guide regeneration checked 82 technical-guide and 4 user-guide
+local links; the lifecycle diagram now includes scheduled opening/withdrawal.
+
+The focused Chromium documentation capture passed against that migrated project:
+real synthetic provisioning/import with suspended-account review, exact-match
+checking on mobile, revision-bound scheduling, summary-only resident rendering,
+reasoned withdrawal and renewed draft invisibility. Nine new redacted screenshots
+and four affected existing pictures were captured; representative desktop/mobile
+captures and a dialog crop were visually inspected. The
+shared browser-fixture SQL helper now uses verified TLS/hostname checks with the
+provider CA; the earlier bypass is not used by this capture. The first CLI push
+rolled back because the migration retained the restricted owner role; a read-only
+check confirmed no schema/history change, `RESET ROLE` was added while unapplied,
+and the authorized retry succeeded. No migration ledger was edited manually.
+
+Still required: hosted provisioning failure/retry and Auth quota behavior at
+500 rows; manual/device accessibility for the new workflows; actual scheduled
+Cron execution; and all production/security/recovery/SMTP gates below. Screenshots
+and one-row browser evidence do not establish any of those approvals or capacity
+claims. Other older test helpers still need their own verified-TLS audit fixes.
+
 The table below includes historical runs, not a claim that every suite passes
 against the currently configured services. In the **26 October 2026 public-launch
 change run**, build/lint/typecheck, 374 unit tests, four documentation-renderer

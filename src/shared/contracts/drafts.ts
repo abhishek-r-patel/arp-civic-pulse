@@ -1,3 +1,4 @@
+// Administrative draft and frozen vote projections returned by guarded routines.
 import { z } from "zod";
 import { VOTE_STATUSES, VOTING_TYPES } from "@/shared/contracts/voting";
 
@@ -40,6 +41,8 @@ export const adminVoteDetailSchema = z
     title: z.string(),
     instructions: z.string().nullable(),
     closesAt: instant.nullable(),
+    opensAt: instant.nullable().optional(),
+    scheduledAt: instant.nullable().optional(),
     draftRevision: z.number().int().min(1),
     createdAt: instant,
     updatedAt: instant,
@@ -114,6 +117,7 @@ export interface AdminVoteSummary {
   status: (typeof VOTE_STATUSES)[number];
   title: string;
   closesAt: string | null;
+  opensAt?: string | null;
   draftRevision: number;
   updatedAt: string;
   timezone: string | null;

@@ -1,6 +1,6 @@
 // Protected administrator household register.
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import {
   flashNotices,
   firstValues,
@@ -126,10 +126,16 @@ export default async function HouseholdsPage({
         title={deps.terms.Households}
         description={`The register of ${deps.terms.households} and the one account that represents each. Edits apply to future votes only; a vote already active keeps the names and representatives it started with.`}
         actions={
-          <LinkButton href="/admin/households/new">
-            <Plus aria-hidden="true" className="size-5" />
-            Add {deps.terms.Household}
-          </LinkButton>
+          <div className="flex flex-wrap gap-3">
+            <LinkButton href="/admin/households/import" variant="secondary">
+              <Upload aria-hidden="true" className="size-5" />
+              Import CSV
+            </LinkButton>
+            <LinkButton href="/admin/households/new">
+              <Plus aria-hidden="true" className="size-5" />
+              Add {deps.terms.Household}
+            </LinkButton>
+          </div>
         }
       />
       <WelcomeMessage message={deps.branding.welcomeMessage} />
@@ -147,7 +153,7 @@ export default async function HouseholdsPage({
 
       <form
         method="get"
-        className="grid gap-4 rounded-card border border-border bg-surface p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+        className="grid gap-4 border-y border-border py-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
       >
         <SelectField
           id="isEligible"

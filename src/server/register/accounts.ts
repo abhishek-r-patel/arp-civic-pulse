@@ -1,3 +1,4 @@
+// Retry-safe account administration and authorized review-table enrichment.
 import "server-only";
 import { z } from "zod";
 import { ApiError } from "@/server/http/errors";
@@ -22,6 +23,7 @@ import type {
   AccountStatus,
   CreateAccountInput,
   PatchAccountInput,
+  ReviewAccountProjection,
 } from "@/shared/contracts/register";
 import type { PageInfo } from "@/shared/contracts/pagination";
 import { uuid } from "@/shared/validation/primitives";
@@ -75,7 +77,7 @@ function incomplete(
 export async function listAccounts(
   deps: RegisterDeps,
   query: z.output<typeof accountListQuerySchema>,
-): Promise<{ data: AccountProjection[]; page: PageInfo }> {
+): Promise<{ data: ReviewAccountProjection[]; page: PageInfo }> {
   const binding = {
     endpoint: ENDPOINT,
     filters: { status: query.status, isAdmin: query.isAdmin },
@@ -111,13 +113,44 @@ export async function listAccounts(
     rows.map((row) => row.id),
   );
 
+  const assignments = rows.length
+    ? await deps.client
+        .from("households")
+        .select("id, identifier, representative_profile_id, is_eligible")
+        .in(
+          "representative_profile_id",
+          rows.map((row) => row.id),
+        )
+        .limit(rows.length)
+        .returns<
+          {
+            id: string;
+            identifier: string;
+            representative_profile_id: string;
+            is_eligible: boolean;
+          }[]
+        >()
+    : { data: [], error: null, status: 200 };
+  assertOk(assignments.error, assignments.status);
+  const households = new Map(
+    (assignments.data ?? []).map((household) => [
+      household.representative_profile_id,
+      {
+        id: household.id,
+        identifier: household.identifier,
+        isEligible: household.is_eligible,
+      },
+    ]),
+  );
+
   return {
-    data: rows.map((row) =>
-      toAccountProjection(
+    data: rows.map((row) => ({
+      ...toAccountProjection(
         row,
         identities.get(row.id) ?? { email: null, emailVerifiedAt: null },
       ),
-    ),
+      household: households.get(row.id) ?? null,
+    })),
     page,
   };
 }

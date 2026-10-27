@@ -1,6 +1,9 @@
+// Explicitly opted-in, synthetic documentation captures; screenshots redact emails and codes.
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import { instantToLocalInput } from "../../src/shared/time/zoned";
 import {
   asUser,
   ensureFixturePolicy,
@@ -20,7 +23,7 @@ test.skip(
 
 const images = join(process.cwd(), "docs", "images", "user-guide");
 
-async function capture(page: Page, name: string) {
+async function capture(page: Page, name: string, dialogOnly = false, viewportOnly = false) {
   await page.waitForLoadState("networkidle");
   // Only email/code fields holding a value are redacted, so an intentionally
   // blank optional field (such as the RWA email) is shown as blank.
@@ -31,9 +34,10 @@ async function capture(page: Page, name: string) {
       input.toggleAttribute("data-doc-mask", input.value !== "");
     }
   });
-  await page.screenshot({
+  const target = dialogOnly ? page.getByRole("dialog") : page;
+  await target.screenshot({
     path: join(images, `${name}.png`),
-    fullPage: true,
+    ...(dialogOnly ? {} : { fullPage: !viewportOnly }),
     animations: "disabled",
     style: "nextjs-portal { display: none !important; }",
     mask: [
@@ -43,6 +47,289 @@ async function capture(page: Page, name: string) {
     maskColor: "#CBD5E1",
   });
 }
+
+test("capture Platinum and Obsidian first-slice documentation", async ({ browser }) => {
+  test.setTimeout(300_000);
+  const admin = await provisionAdmin("Appearance Review Administrator (example)");
+  const resident = await seedHousehold();
+  const neighbour = await seedHousehold();
+  await ensureFixturePolicy(admin.id);
+  const previous = await asUser<Record<string, unknown>>(admin.id, "public.get_rwa_profile()");
+  const adminContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const residentContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const publicContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const a = await adminContext.newPage();
+  const r = await residentContext.newPage();
+  const p = await publicContext.newPage();
+  const votes: string[] = [];
+  async function appearance(page: Page, mode: "Light" | "Dark" | "System") {
+    const menu = page.locator("details[data-theme-control]");
+    if (await menu.getAttribute("open") === null) await menu.locator("summary").click();
+    await menu.getByRole("radio", { name: mode, exact: true }).check();
+    await page.keyboard.press("Escape");
+    await page.evaluate(() => document.fonts.ready);
+  }
+  async function accessible(page: Page) {
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+    const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
+    expect(result.violations).toEqual([]);
+  }
+  try {
+    await asUser(admin.id, "public.update_rwa_profile($1::jsonb)", [JSON.stringify({ ...previous,
+      fullName: "Lakeview Residents Welfare Association", alias: "Lakeview RWA",
+      address: "1 Example Lake Road, Sample City 000000", email: "", phone: "+91 123 456 7890", website: "",
+      householdLabel: "Flat", identifierKind: "NUMBER", accentPalette: "TEAL", welcomeMessage: "",
+    })]);
+    for (const type of ["PUBLIC", "PRIVATE"] as const) {
+      const draft = await asUser<{ id: string }>(admin.id, "public.create_draft($1)", [type]);
+      votes.push(draft.id);
+      const prepared = await asUser<{ options: { id: string }[] }>(admin.id, "public.update_draft($1, 1, $2::jsonb)", [draft.id, JSON.stringify({
+        title: type === "PUBLIC" ? "Should we repaint the clubhouse?" : "Elect your next committee",
+        instructions: type === "PUBLIC" ? "Review the proposal before choosing your response." : "Choose one candidate or NOTA for every office.",
+        closesAt: new Date(Date.now() + 172_800_000).toISOString(), eligibleHouseholdIds: [resident.householdId, neighbour.householdId],
+        ...(type === "PUBLIC" ? { options: [{ label: "Yes", position: 1 }, { label: "No", position: 2 }] } : {
+          offices: [{ name: "Chair", position: 1, candidates: [{ name: "Asha (example)", position: 1 }, { name: "Ravi (example)", position: 2 }] }],
+        }),
+      })]);
+      await asUser(admin.id, "public.activate_vote($1, 2, true)", [draft.id]);
+      if (type === "PUBLIC") {
+        const option = prepared.options[0];
+        if (!option) throw new Error("Synthetic PUBLIC option is missing.");
+        await asUser(resident.id, "public.cast_vote($1, $2::jsonb)", [draft.id, JSON.stringify({ confirmed: true, optionId: option.id })]);
+      }
+    }
+    const scheduled = await asUser<{ id: string }>(admin.id, "public.create_draft('PUBLIC')");
+    votes.push(scheduled.id);
+    await asUser(admin.id, "public.update_draft($1, 1, $2::jsonb)", [scheduled.id, JSON.stringify({
+      title: "Which meeting date suits you?", closesAt: new Date(Date.now() + 259_200_000).toISOString(),
+      options: [{ label: "Saturday", position: 1 }, { label: "Sunday", position: 2 }], eligibleHouseholdIds: [resident.householdId],
+    })]);
+    await asUser(admin.id, "public.schedule_vote($1, 2, true, $2)", [scheduled.id, new Date(Date.now() + 86_400_000).toISOString()]);
+    await signInThroughUi(r, resident.email, await freshCode(resident.email));
+    const overview = r.getByRole("region", { name: "Your vote overview" });
+    await expect(overview.locator("dl > div").nth(0).locator("dd").first()).toHaveText("02");
+    await expect(overview.locator("dl > div").nth(1).locator("dd").first()).toHaveText("01");
+    await expect(overview.locator("dl > div").nth(2).locator("dd").first()).toHaveText("01");
+    await expect(r.getByText("1 / 2", { exact: true })).toBeVisible();
+    await expect(r.getByText("50% turnout", { exact: true })).toBeVisible();
+    await expect(r.getByRole("link", { name: /^View Live Results/ })).toBeVisible();
+    await expect(r.getByText("Asha (example)", { exact: true })).toHaveCount(0);
+    await signInThroughUi(a, admin.email, admin.code);
+    await expect(a.getByRole("region", { name: "Your vote overview" }).locator("dl > div").nth(0).locator("dd").first()).toHaveText("00");
+    await a.goto("/admin/accounts?status=SUSPENDED");
+    const selectable = a.locator("[data-account-review] tbody input[type=checkbox]:not(:disabled)").first();
+    if (await selectable.count()) await selectable.check();
+    for (const mode of ["Light", "Dark"] as const) {
+      await appearance(r, mode); await appearance(a, mode);
+      await accessible(r); await accessible(a);
+      await capture(r, mode === "Light" ? "68-platinum-votes" : "69-obsidian-votes");
+      await capture(a, mode === "Light" ? "70-platinum-accounts" : "71-obsidian-accounts", false, true);
+      if (mode === "Light") await capture(a, "47-accounts-list", false, true);
+    }
+    await r.setViewportSize({ width: 390, height: 844 });
+    await appearance(r, "Light"); await capture(r, "05-vote-list");
+    await appearance(r, "Dark");
+    await accessible(r); await capture(r, "72-obsidian-votes-mobile");
+    await r.getByRole("navigation", { name: "Vote status" }).getByRole("link", { name: "Active", exact: true }).click();
+    await r.locator("summary[aria-label='Voting type filter']").click();
+    await r.getByLabel("Voting type", { exact: true }).selectOption("PRIVATE");
+    await r.getByRole("button", { name: "Apply Filters", exact: true }).click();
+    await expect(r.getByRole("heading", { name: "Should we repaint the clubhouse?", exact: true })).toHaveCount(0);
+    await expect(r.getByRole("heading", { name: "Elect your next committee", exact: true })).toBeVisible();
+    await expect(overview.locator("dl > div").nth(0).locator("dd").first()).toHaveText("02");
+    await a.setViewportSize({ width: 390, height: 844 });
+    await appearance(a, "Light");
+    await a.locator("[data-account-review]").getByRole("checkbox").first().scrollIntoViewIfNeeded();
+    await accessible(a); await capture(a, "73-platinum-accounts-mobile", false, true);
+    await p.goto("/sign-in");
+    await capture(p, "01-sign-in");
+    await p.locator("summary[aria-label='Appearance']").click();
+    await capture(p, "74-appearance-menu");
+  } finally {
+    for (const voteId of votes) {
+      const vote = await asUser<{ status: string }>(admin.id, "public.get_admin_vote($1)", [voteId]);
+      if (vote.status === "ACTIVE") await asUser(admin.id, "public.cancel_vote($1, true, 'Synthetic appearance capture completed')", [voteId]);
+      if (vote.status === "SCHEDULED") await asUser(admin.id, "public.withdraw_vote_schedule($1, true, 'Synthetic appearance capture completed')", [voteId]);
+    }
+    await adminContext.close(); await residentContext.close(); await publicContext.close();
+    await asUser(admin.id, "public.update_rwa_profile($1::jsonb)", [JSON.stringify(previous)]);
+  }
+});
+
+test("capture bulk account review documentation", async ({ browser }) => {
+  test.setTimeout(300_000);
+  const operator = await provisionAdmin("Account Review Operator (example)");
+  const resident = await seedHousehold();
+  const other = await seedHousehold();
+  const untouched = await seedHousehold();
+  const administrator = await provisionAdmin("Review Administrator (example)");
+  await asUser(operator.id, "public.update_profile($1, $2::jsonb)", [resident.id, JSON.stringify({ status: "SUSPENDED", representativeName: "Review Resident (example)" })]);
+  await asUser(operator.id, "public.update_profile($1, $2::jsonb)", [other.id, JSON.stringify({ status: "SUSPENDED", representativeName: "Second Review Resident (example)" })]);
+  await asUser(operator.id, "public.update_profile($1, $2::jsonb)", [untouched.id, JSON.stringify({ status: "SUSPENDED", representativeName: "Unselected Resident (example)" })]);
+  await asUser(operator.id, "public.update_household($1, $2::jsonb)", [other.householdId, JSON.stringify({ isEligible: false })]);
+  await asUser(operator.id, "public.update_household($1, $2::jsonb)", [resident.householdId, JSON.stringify({ isEligible: false })]);
+  await asUser(operator.id, "public.update_profile($1, $2::jsonb)", [administrator.id, JSON.stringify({ status: "SUSPENDED" })]);
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const page = await context.newPage();
+  page.setDefaultTimeout(15_000);
+  const accountRow = (id: string) => page.getByRole("row").filter({ has: page.locator(`a[href="/admin/accounts/${id}"]`) });
+  async function findAccount(id: string, url: string) {
+    await page.goto(url);
+    for (let index = 0; index < 30; index += 1) {
+      if (await accountRow(id).count()) return;
+      const next = page.getByRole("link", { name: /Next page/i });
+      if (!await next.count()) break;
+      await next.click();
+    }
+    throw new Error("Synthetic review account was not found in the paginated register.");
+  }
+  try {
+    await signInThroughUi(page, operator.email, operator.code);
+    await page.goto("/admin/accounts");
+    await expect(page.getByLabel(/^Role/)).toHaveValue("false");
+    await capture(page, "47-accounts-list");
+    await findAccount(resident.id, "/admin/accounts?status=SUSPENDED&limit=100");
+    await expect(accountRow(administrator.id)).toHaveCount(0);
+    await accountRow(resident.id).getByRole("checkbox").check();
+    await capture(page, "63-account-review");
+    await page.getByRole("button", { name: "Make Eligible (1)", exact: true }).click();
+    await capture(page, "64-make-eligible", true);
+    await page.getByRole("dialog").getByRole("button", { name: "Make Eligible", exact: true }).click();
+    await expect(page.getByText("1 completed", { exact: true })).toBeVisible();
+    const state = await asUser<{ status: string; eligible: boolean }>(operator.id, "jsonb_build_object('status', (select status from public.profiles where id=$1), 'eligible', (select is_eligible from public.households where id=$2))", [resident.id, resident.householdId]);
+    expect(state).toEqual({ status: "SUSPENDED", eligible: true });
+    await accountRow(resident.id).getByRole("checkbox").check();
+    await accountRow(other.id).getByRole("checkbox").check();
+    await page.getByRole("button", { name: "Enable Selected (2)", exact: true }).click();
+    await capture(page, "65-enable-selected", true);
+    await page.getByRole("dialog").getByRole("button", { name: "Enable Selected", exact: true }).click();
+    await expect(page.getByText("2 completed", { exact: true })).toBeVisible();
+    await capture(page, "66-account-review-result");
+    expect(await asUser(operator.id, "(select status from public.profiles where id=$1)", [resident.id])).toBe("ENABLED");
+    expect(await asUser(operator.id, "(select status from public.profiles where id=$1)", [other.id])).toBe("ENABLED");
+    expect(await asUser(operator.id, "(select is_eligible from public.households where id=$1)", [other.householdId])).toBe(false);
+    expect(await asUser(operator.id, "(select status from public.profiles where id=$1)", [untouched.id])).toBe("SUSPENDED");
+    await findAccount(administrator.id, "/admin/accounts?status=SUSPENDED&isAdmin=all&limit=100");
+    await expect(page.getByLabel(/^Role/)).toHaveValue("all");
+    await expect(page.getByText("0 selected", { exact: true })).toBeVisible();
+    await accountRow(administrator.id).getByRole("checkbox").check();
+    await page.getByRole("button", { name: "Enable Selected (1)", exact: true }).click();
+    await expect(page.getByText("Administrator access", { exact: true })).toBeVisible();
+    await capture(page, "67-enable-admin-warning", true);
+    await page.getByRole("dialog").getByRole("button", { name: "Enable Selected", exact: true }).click();
+    await expect(page.getByText("1 completed", { exact: true })).toBeVisible();
+    expect(await asUser(operator.id, "(select status from public.profiles where id=$1)", [administrator.id])).toBe("ENABLED");
+    await findAccount(untouched.id, "/admin/accounts?status=SUSPENDED&limit=100");
+    await page.route(`**/api/admin/accounts/${untouched.id}`, (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "DEPENDENCY_UNAVAILABLE", message: "Synthetic provider outage." }, requestId: "documentation-failure-example" }) }));
+    await accountRow(untouched.id).getByRole("checkbox").check();
+    await page.getByRole("button", { name: "Enable Selected (1)", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Enable Selected", exact: true }).click();
+    await expect(page.getByText("Review before retrying", { exact: true })).toBeVisible();
+    expect(await asUser(operator.id, "(select status from public.profiles where id=$1)", [untouched.id])).toBe("SUSPENDED");
+  } finally { await context.close(); }
+});
+
+test("capture bulk import and scheduled opening documentation", async ({ browser }) => {
+  test.setTimeout(300_000);
+  await mkdir(images, { recursive: true });
+  const admin = await provisionAdmin("Documentation Administrator (example)");
+  await ensureFixturePolicy(admin.id);
+  const resident = await seedHousehold();
+  const previousProfile = await asUser<Record<string, unknown>>(admin.id, "public.get_rwa_profile()");
+  const desktop = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const mobile = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const a = await desktop.newPage();
+  const m = await mobile.newPage();
+  a.setDefaultTimeout(15_000);
+  m.setDefaultTimeout(15_000);
+  let scheduledId: string | undefined;
+  try {
+    await asUser(admin.id, "public.update_rwa_profile($1::jsonb)", [JSON.stringify({
+      ...previousProfile,
+      fullName: "Lakeview Residents Welfare Association", alias: "Lakeview RWA",
+      address: "1 Example Lake Road, Sample City 000000", email: "", phone: "+91 123 456 7890", website: "",
+      accentPalette: "TEAL", welcomeMessage: "Welcome to Lakeview RWA voting. Please vote before each displayed deadline.",
+      householdLabel: "Flat", identifierKind: "NUMBER",
+    })]);
+    await signInThroughUi(a, admin.email, admin.code);
+    await a.goto("/admin");
+    await capture(a, "15-admin-home");
+    await a.goto("/admin/households/import");
+    const identifier = await unusedIdentifier();
+    const importedEmail = plusEmail();
+    const csv = `identifier,representative_name,email,is_eligible\n${identifier},Arun Shah (example),${importedEmail},true\n`;
+    await a.getByLabel("Register CSV").setInputFiles({ name: "synthetic-register.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+    await a.getByRole("button", { name: "Check Register", exact: true }).click();
+    await expect(a.getByText("Ready to import. New accounts remain suspended.", { exact: true })).toBeVisible();
+    await capture(a, "54-import-preview");
+    await a.getByRole("button", { name: "Import 1 Flats", exact: true }).click();
+    await expect(a.getByRole("dialog")).toBeVisible();
+    await capture(a, "55-import-confirm", true);
+    await a.getByRole("dialog").getByRole("button", { name: "Import Suspended Accounts", exact: true }).click();
+    await expect(a.getByRole("cell").filter({ hasText: "Imported with a suspended account. Review and enable the account separately." })).toBeVisible();
+    await capture(a, "56-import-result");
+    await a.getByRole("link", { name: "Review Account", exact: true }).click();
+    await expect(a.getByRole("heading", { level: 1, name: "Arun Shah (example)" })).toBeVisible();
+    await expect(a.getByRole("button", { name: "Enable Account", exact: true })).toBeVisible();
+    await a.goto(`/admin/households?identifier=${encodeURIComponent(identifier)}`);
+    await capture(a, "44-household-created");
+    const mobileAdmin = await browser.newContext({ viewport: { width: 390, height: 844 }, storageState: await desktop.storageState() });
+    try {
+      const upload = await mobileAdmin.newPage();
+      await upload.goto("/admin/households/import");
+      await upload.getByLabel("Register CSV").setInputFiles({ name: "synthetic-register.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+      await upload.getByRole("button", { name: "Check Register", exact: true }).click();
+      await expect(upload.getByRole("cell").filter({ hasText: "Exact match; no changes made. Review account access separately." })).toBeVisible();
+      await capture(upload, "62-import-mobile");
+    } finally { await mobileAdmin.close(); }
+
+    const draft = await asUser<{ id: string }>(admin.id, "public.create_draft('PUBLIC')");
+    scheduledId = draft.id;
+    await asUser(admin.id, "public.update_draft($1, 1, $2::jsonb)", [draft.id, JSON.stringify({
+      title: "Should we repaint the clubhouse?", instructions: "Example poll. Review the proposal before choosing.",
+      closesAt: new Date(Date.now() + 172_800_000).toISOString(),
+      options: [{ label: "Yes", position: 1 }, { label: "No", position: 2 }],
+      eligibleHouseholdIds: [resident.householdId],
+    })]);
+    await a.goto(`/admin/votes/${draft.id}/preview`);
+    await expect(a.getByText("No problems found in this version", { exact: true })).toBeVisible();
+    await capture(a, "25-ready-preview");
+    const display = await asUser<{ timezone: string }>(admin.id, "public.get_rwa_display()");
+    const opening = new Date(Date.now() + 86_400_000).toISOString();
+    await a.getByLabel(/^Voting opens at/).fill(instantToLocalInput(opening, display.timezone));
+    await a.getByRole("button", { name: "Schedule Vote", exact: true }).click();
+    await expect(a.getByRole("dialog")).toBeVisible();
+    await capture(a, "57-schedule-confirm", true);
+    await a.getByRole("dialog").getByRole("button", { name: "Freeze and Schedule", exact: true }).click();
+    await expect(a.getByText(/^Vote scheduled\./)).toBeVisible();
+    await capture(a, "58-scheduled-admin");
+    await a.goto("/admin/votes?status=SCHEDULED");
+    await capture(a, "31-admin-votes");
+    await signInThroughUi(m, resident.email, await freshCode(resident.email));
+    await m.goto(`/votes/${draft.id}`);
+    await expect(m.getByText("Voting has not opened yet", { exact: true })).toBeVisible();
+    await expect(m.getByRole("radio")).toHaveCount(0);
+    await expect(m.getByRole("button", { name: "Review Selections", exact: true })).toHaveCount(0);
+    await capture(m, "59-scheduled-member");
+    await a.goto(`/admin/votes/${draft.id}`);
+    await a.getByRole("button", { name: "Return to Draft", exact: true }).click();
+    await a.getByLabel(/^Reason/).fill("Documentation example: correct the proposal before opening.");
+    await capture(a, "60-withdraw-schedule", true);
+    await a.getByRole("dialog").getByRole("button", { name: "Return to Draft", exact: true }).click();
+    await expect(a.getByText(/^Schedule withdrawn\./)).toBeVisible();
+    await capture(a, "61-schedule-withdrawn");
+    await m.reload();
+    await expect(m.getByRole("heading", { name: /not found/i })).toBeVisible();
+    scheduledId = undefined;
+  } finally {
+    if (scheduledId) {
+      const vote = await asUser<{ status: string }>(admin.id, "public.get_admin_vote($1)", [scheduledId]);
+      if (vote.status === "SCHEDULED") await asUser(admin.id, "public.withdraw_vote_schedule($1, true, 'Documentation capture cleanup')", [scheduledId]);
+    }
+    await desktop.close(); await mobile.close();
+    if (previousProfile) await asUser(admin.id, "public.update_rwa_profile($1::jsonb)", [JSON.stringify(previousProfile)]);
+  }
+});
 
 test("capture the illustrated documentation journeys", async ({ browser }) => {
   test.setTimeout(900_000);

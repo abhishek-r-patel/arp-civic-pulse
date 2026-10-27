@@ -1,3 +1,4 @@
+// Confirmed administrator lifecycle controls, with RWA-zone dates and server-side rechecks.
 "use client";
 
 import { useMemo, useState } from "react";
@@ -20,6 +21,204 @@ import {
   instantToLocalInput,
   zonedLocalToInstant,
 } from "@/shared/time/zoned";
+
+export function ScheduleVote({
+  csrfToken,
+  voteId,
+  revision,
+  timezone,
+  closesAt,
+}: Readonly<{
+  csrfToken: string | undefined;
+  voteId: string;
+  revision: number;
+  timezone: string;
+  closesAt: string;
+}>) {
+  const router = useRouter();
+  const [local, setLocal] = useState("");
+  const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [failure, setFailure] = useState<ApiFailure | null>(null);
+  const [error, setError] = useState<string>();
+  const converted = zonedLocalToInstant(local, timezone);
+
+  function review() {
+    if (
+      !converted.ok ||
+      new Date(converted.instant).getTime() <= Date.now() ||
+      converted.instant >= closesAt
+    ) {
+      setError(
+        "Choose a future opening time before the closing deadline. Ambiguous or nonexistent local times are not accepted.",
+      );
+      return;
+    }
+    setError(undefined);
+    setOpen(true);
+  }
+  async function schedule() {
+    if (!converted.ok) return;
+    setPending(true);
+    setFailure(null);
+    const result = await apiRequest<AdminVoteDetail>(
+      `/api/admin/votes/${voteId}/schedule`,
+      {
+        method: "POST",
+        csrfToken,
+        body: {
+          expectedRevision: revision,
+          confirmed: true,
+          opensAt: converted.instant,
+        },
+      },
+    );
+    setPending(false);
+    setOpen(false);
+    if (!result.ok) {
+      setFailure(result);
+      router.refresh();
+      return;
+    }
+    router.push(`/admin/votes/${voteId}?notice=vote-scheduled`);
+    router.refresh();
+  }
+  return (
+    <section
+      className="grid max-w-ballot gap-4"
+      aria-labelledby="schedule-heading"
+    >
+      <h2 id="schedule-heading" className="text-section font-semibold">
+        Schedule Opening
+      </h2>
+      <ErrorSummary failure={failure} />
+      <TextField
+        id="scheduled-opening"
+        label="Voting opens at"
+        type="datetime-local"
+        hint={`RWA time zone: ${timezone}. Voting closes ${formatInZone(closesAt, timezone)}.`}
+        value={local}
+        onChange={(event) => {
+          setLocal(event.target.value);
+          setError(undefined);
+        }}
+        error={error}
+        disabled={pending}
+      />
+      <div>
+        <Button variant="secondary" onClick={review} disabled={pending}>
+          <CalendarClock className="size-5" aria-hidden="true" />
+          Schedule Vote
+        </Button>
+      </div>
+      <ConfirmDialog
+        open={open}
+        title="Schedule this vote?"
+        confirmLabel="Freeze and Schedule"
+        busy={pending}
+        onCancel={() => setOpen(false)}
+        onConfirm={() => void schedule()}
+      >
+        <p>
+          Freeze version {revision}, its ballot, electorate and representatives
+          now. Voting opens{" "}
+          {converted.ok ? formatInZone(converted.instant, timezone) : ""} and
+          closes {formatInZone(closesAt, timezone)}.
+        </p>
+        <p>
+          Residents see only the summary and opening countdown until voting
+          starts. Before opening, an administrator can return this vote to draft
+          with a recorded reason.
+        </p>
+      </ConfirmDialog>
+    </section>
+  );
+}
+
+export function WithdrawVoteSchedule({
+  csrfToken,
+  voteId,
+}: Readonly<{ csrfToken: string | undefined; voteId: string }>) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [pending, setPending] = useState(false);
+  const [failure, setFailure] = useState<ApiFailure | null>(null);
+  const [error, setError] = useState<string>();
+  async function withdraw() {
+    if (!reason.trim()) {
+      setError("Enter a reason for returning to draft.");
+      return;
+    }
+    setPending(true);
+    setFailure(null);
+    const result = await apiRequest<AdminVoteDetail>(
+      `/api/admin/votes/${voteId}/schedule/withdraw`,
+      {
+        method: "POST",
+        csrfToken,
+        body: { confirmed: true, reason },
+      },
+    );
+    setPending(false);
+    setOpen(false);
+    if (!result.ok) {
+      setFailure(result);
+      router.refresh();
+      return;
+    }
+    router.push(`/admin/votes/${voteId}?notice=schedule-withdrawn`);
+    router.refresh();
+  }
+  return (
+    <section className="grid gap-4" aria-labelledby="withdraw-schedule-heading">
+      <h2 id="withdraw-schedule-heading" className="text-section font-semibold">
+        Return to Draft
+      </h2>
+      <ErrorSummary failure={failure} />
+      <div>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setReason("");
+            setError(undefined);
+            setOpen(true);
+          }}
+          disabled={pending}
+        >
+          <CalendarClock className="size-5" aria-hidden="true" />
+          Return to Draft
+        </Button>
+      </div>
+      <ConfirmDialog
+        open={open}
+        title="Withdraw the scheduled opening?"
+        confirmLabel="Return to Draft"
+        busy={pending}
+        onCancel={() => setOpen(false)}
+        onConfirm={() => void withdraw()}
+      >
+        <p>
+          The scheduled opening is removed and the vote becomes editable and
+          hidden from residents. Review and preview it again before scheduling
+          or activating. This is refused at or after the opening time.
+        </p>
+        <TextAreaField
+          id="withdraw-schedule-reason"
+          label="Reason"
+          required
+          maxLength={2000}
+          value={reason}
+          onChange={(event) => {
+            setReason(event.target.value);
+            setError(undefined);
+          }}
+          error={error}
+        />
+      </ConfirmDialog>
+    </section>
+  );
+}
 
 type ActionProps = Readonly<{
   csrfToken: string | undefined;

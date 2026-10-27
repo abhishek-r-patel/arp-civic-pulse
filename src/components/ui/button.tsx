@@ -1,3 +1,4 @@
+// Shared accessible buttons with contrast-safe foreground tokens in either appearance mode.
 import Link from "next/link";
 import type { ButtonHTMLAttributes, ComponentProps } from "react";
 import { cn } from "./cn";
@@ -13,11 +14,11 @@ type ButtonProps = Readonly<
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "border-accent bg-accent text-white hover:border-accent-strong hover:bg-accent-strong active:bg-accent-strong",
+    "border-accent bg-accent text-on-accent hover:border-accent-strong hover:bg-accent-strong active:bg-accent-strong",
   secondary:
     "border-control-border bg-surface text-primary hover:bg-primary/5 active:bg-primary/10",
   destructive:
-    "border-error bg-error text-white hover:border-error-strong hover:bg-error-strong active:bg-error-strong",
+    "border-error bg-error text-on-error hover:border-error-strong hover:bg-error-strong active:bg-error-strong",
 };
 
 const baseClasses =

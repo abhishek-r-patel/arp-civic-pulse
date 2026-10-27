@@ -61,7 +61,7 @@ test("footer opens the illustrated user guide with working contents and embedded
     })
     .click();
   await expect(page).toHaveURL(/#3-sign-in-and-recover-from-a-code-error$/);
-  const screenshot = page.locator('img[src^="data:image/png"]').first();
+  const screenshot = page.getByRole("img", { name: /^01: Sign-in screen/ });
   await screenshot.scrollIntoViewIfNeeded();
   await expect
     .poll(() =>
@@ -90,6 +90,23 @@ test("footer opens the illustrated user guide with working contents and embedded
     .analyze();
   expect(result.violations).toEqual([]);
   expect((await request.get("/user-guide.html")).status()).toBe(200);
+  for (const number of [
+    54, 55, 56, 57, 58, 59, 60, 61, 62, 68, 69, 70, 71, 72, 73, 74,
+  ]) {
+    const updatedImage = page.getByRole("img", {
+      name: new RegExp(`^${number}:`),
+    });
+    await expect(updatedImage).toHaveCount(1);
+    await updatedImage.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() =>
+        updatedImage.evaluate(
+          (image: HTMLImageElement) =>
+            image.complete && image.naturalWidth > 0 && image.naturalHeight > 0,
+        ),
+      )
+      .toBe(true);
+  }
   await page.getByRole("link", { name: "Back to Civic Pulse" }).click();
   await expect(page).toHaveURL(/\/sign-in$/);
 });

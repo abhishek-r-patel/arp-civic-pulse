@@ -1,3 +1,4 @@
+// Real-PostgreSQL grants, RLS and authenticated routine inventory checks.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   createTestDatabase,
@@ -188,6 +189,7 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
       expect(
         (await executable("authenticated")).rows.map((r) => r.name),
       ).toEqual([
+        "can_view_ballot",
         "can_view_office",
         "can_view_vote",
         "current_uid",
@@ -199,6 +201,7 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
         "cancel_vote",
         "cast_vote",
         "change_vote_deadline",
+        "check_register_import",
         "complete_vote_early",
         "create_draft",
         "create_household",
@@ -210,14 +213,17 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
         "get_rwa_profile",
         "get_vote_participation",
         "get_vote_results",
+        "import_register_household",
         "list_audit_events",
         "list_member_votes",
         "normalize_household_identifier",
         "preview_draft",
+        "schedule_vote",
         "update_draft",
         "update_household",
         "update_profile",
         "update_rwa_profile",
+        "withdraw_vote_schedule",
       ]);
     });
 

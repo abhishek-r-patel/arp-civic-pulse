@@ -39,12 +39,47 @@ Do not treat the scaffold's dependencies, directories, or tests as proof of impl
 
 ### Target and version 1 boundary
 
+The user has now approved visual rollout beyond Votes/Accounts to the remaining
+public, admin and resident screens. Reuse shared hierarchy/field/table/notice/
+dialog primitives and refine ballot/result/admin sections without functional
+changes. The User Guide and screenshots are frozen for this task, overriding
+automatic screenshot refresh; tests must use temporary redacted images and
+guide-preserving startup/build commands. Record any remaining console/manual
+accessibility findings instead of claiming production readiness.
+
+The approved Votes concept correction is a fidelity task, not a further redesign
+rollout: implement compact branding/summary/status navigation and rich cards with
+real authorized data, then verify actual light/dark/phone captures. Keep top
+navigation and all lifecycle/eligibility/privacy rules. Reuse existing RLS/results
+instead of adding mock totals or privileged shortcuts. Further screen redesign
+still waits for review.
+
+The approved staged appearance work adds the Platinum/Obsidian shared theme
+foundation and Sora/Manrope typography, then refreshes Votes and Accounts for
+approval. Keep top navigation, voting semantics and data contracts unchanged;
+do not roll new layouts into ballot/results/settings/public workflows until the
+review slice is accepted. Browser-local Light/Dark/System requires no migration.
+
+The subsequent Accounts review addition uses current-page multi-selection,
+Residents as the default role filter and explicit administrator inclusion with
+a warning. Separate enable-access and make-flat-eligible commands reuse existing
+protected mutations; records commit independently and stop on failure. No new
+schema migration, automatic import enablement or frozen-electorate change is added.
+
+The approved follow-up adds CSV household/representative onboarding and scheduled
+opening. Imports preview conflicts, never overwrite records and leave new accounts
+suspended for explicit review/enablement. Scheduling freezes at confirmation;
+residents see only an upcoming summary/countdown. A reasoned withdrawal before
+opening returns to draft. New migrations are reviewed deployment inputs, not
+automatically applied or evidence of hosted verification. See API/Database for
+the owning contracts and readiness for remaining external gates.
+
 - One single-RWA, mobile-first Next.js App Router application using TypeScript, React, Tailwind CSS, Lucide React, Zod, Supabase Auth/PostgreSQL/RLS/guarded SQL functions/Cron, Vitest, Playwright, and axe.
 - Normal server database calls carry the verified user's Supabase session. Separate privileged Auth administration from ordinary ballots, results, and exports.
 - Supabase PostgreSQL is authoritative. CSV is mandatory; PDFKit-based PDF is an optional derived printable export, not a launch dependency, backup, signature, or legal certification.
 - Prefer Vercel and the approved Supabase region, with Mumbai as the documented starting preference if available. Hosting eligibility, quotas, capacity, costs, and recovery require validation and approval.
 - Preserve the zero-monthly-cost feasibility objective, excluding an optional domain, without weakening correctness, availability decisions, privacy, or recovery. Approve paid capacity if necessary.
-- No bulk CSV register import, multiple RWAs, native apps, public signup, messaging/reminders, multilingual UI, signatures, payments/spending authorization, advanced election rules, AI, Redis, queues, separate backend, external PDF renderer, or application report storage.
+- No multiple RWAs, native apps, public signup, messaging/reminders, multilingual UI, signatures, payments/spending authorization, advanced election rules, AI, Redis, queues, separate backend, external PDF renderer, or application report storage.
 - Approved encrypted off-site backup storage is an operational requirement, not speculative application file storage.
 
 ### Execution discipline
@@ -220,8 +255,8 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 **Goal:** Migrate reusable UI to the current Civic Pulse design identity without introducing a second palette.
 
 **Tasks**
-1. Adapt existing global tokens/layout/components to the design system's slate/teal/indigo Tailwind theme in `src\styles\globals.css`. Use token classes, not component hex values or the superseded warm-neutral palette.
-2. Configure self-hosted Inter via `next/font`, prescribed typography/layout spacing, Lucide icons, distinct type/status/participation badges, and approved privacy copy.
+1. Adapt global tokens/components to the approved Platinum/Obsidian semantic Tailwind themes in `src\styles\globals.css`, preserving independent RWA accent selection. Use token classes, not component hex values or a competing palette.
+2. Configure self-hosted Sora headings/Manrope body text via `next/font`, prescribed spacing, Lucide icons, distinct type/status/participation badges and approved privacy copy. PDF fonts remain independent Inter/Noto.
 3. Migrate reusable buttons, fields/native radio cards, notices, feedback, tables, pagination, and shell/navigation. Replace CSS Modules incrementally and remove each only after migrated callers pass checks.
 4. Add mobile-bottom-sheet/desktop-modal confirmations with focus containment/return, explicit cancel actions, safe-area/mobile-keyboard handling, loading/empty/error states, and reduced motion.
 5. Implement registered-email access, one six-digit text input with paste/autocomplete/leading-zero support, cooldown/recovery, access denial, and sign-out using Phase 6.

@@ -1,3 +1,4 @@
+// Real-PostgreSQL activation, scheduling, authorization and lifecycle regression tests.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   createTestDatabase,
@@ -977,6 +978,264 @@ describe.skipIf(!hasDatabase)("activation and lifecycle routines", () => {
       );
       expect(guarded.message).toBe("VOTING_CLOSED");
       expect(await runCron()).toEqual({ completed: 1, blocked: 0 });
+    });
+  });
+
+  describe("scheduled opening", () => {
+    const schedule = (vote: Detail, opensAt: string, sub = admin()) =>
+      call<Detail>(sub, "public.schedule_vote($1, $2, true, $3)", [
+        vote.id,
+        vote.draftRevision,
+        opensAt,
+      ]);
+
+    it("requires admin access, a future opening before closure and the previewed revision", async () => {
+      const draft = await readyDraft();
+      const future = new Date(Date.now() + 60_000).toISOString();
+      expect(
+        (await dbError(schedule(draft, future, world.alice.id))).message,
+      ).toBe("FORBIDDEN");
+      expect(
+        (
+          await dbError(
+            schedule(draft, new Date(Date.now() - 1000).toISOString()),
+          )
+        ).message,
+      ).toBe("VALIDATION_FAILED");
+      if (!draft.closesAt) throw new Error("The fixture needs a deadline.");
+      expect((await dbError(schedule(draft, draft.closesAt))).message).toBe(
+        "VALIDATION_FAILED",
+      );
+      expect(
+        (await dbError(schedule({ ...draft, draftRevision: 1 }, future)))
+          .message,
+      ).toBe("STALE_REVISION");
+    });
+
+    it.each(["PUBLIC", "PRIVATE"] as const)(
+      "freezes a %s vote, hides ballot data and rejects early submission",
+      async (type) => {
+        const draft = await readyDraft(type);
+        expect(
+          (await schedule(draft, new Date(Date.now() + 60_000).toISOString()))
+            .status,
+        ).toBe("SCHEDULED");
+        const member = await call<{
+          status: string;
+          options: unknown[];
+          offices: unknown[];
+          canSubmit: boolean;
+        }>(world.alice.id, "public.get_member_vote($1)", [draft.id]);
+        expect(member).toMatchObject({
+          status: "SCHEDULED",
+          options: [],
+          offices: [],
+          canSubmit: false,
+        });
+        await db.asRole("authenticated", { sub: world.alice.id }, async (c) => {
+          expect(
+            (
+              await c.query(
+                "select * from public.poll_options where vote_id = $1",
+                [draft.id],
+              )
+            ).rows,
+          ).toEqual([]);
+          expect(
+            (
+              await c.query("select * from public.offices where vote_id = $1", [
+                draft.id,
+              ])
+            ).rows,
+          ).toEqual([]);
+          expect(
+            (
+              await c.query(
+                "select * from public.candidates where office_id in (select id from public.offices where vote_id = $1)",
+                [draft.id],
+              )
+            ).rows,
+          ).toEqual([]);
+        });
+        expect(
+          (
+            await dbError(
+              call(world.alice.id, "public.cast_vote($1, $2::jsonb)", [
+                draft.id,
+                JSON.stringify({ confirmed: true, optionId: UNKNOWN }),
+              ]),
+            )
+          ).message,
+        ).toBe("VOTING_CLOSED");
+        expect(
+          (
+            await dbError(
+              update(draft.id, draft.draftRevision, { title: "Changed" }),
+            )
+          ).message,
+        ).toBe("VOTE_FROZEN");
+        const list = await call<{ rows: { id: string; status: string }[] }>(
+          world.alice.id,
+          "public.list_member_votes('SCHEDULED')",
+        );
+        expect(list.rows).toContainEqual(
+          expect.objectContaining({ id: draft.id, status: "SCHEDULED" }),
+        );
+      },
+    );
+
+    it.each(["PUBLIC", "PRIVATE"] as const)(
+      "returns a %s schedule to a clean draft and can schedule it again",
+      async (type) => {
+        const draft = await readyDraft(type);
+        await schedule(draft, new Date(Date.now() + 60_000).toISOString());
+        expect(
+          (
+            await dbError(
+              call(admin(), "public.withdraw_vote_schedule($1, true, '')", [
+                draft.id,
+              ]),
+            )
+          ).message,
+        ).toBe("VALIDATION_FAILED");
+        const withdrawn = await call<Detail>(
+          admin(),
+          "public.withdraw_vote_schedule($1, true, 'Correct the ballot')",
+          [draft.id],
+        );
+        expect(withdrawn).toMatchObject({
+          status: "DRAFT",
+          activatedAt: null,
+          draftRevision: 3,
+        });
+        expect(
+          await rows("select * from public.closed_tallies where vote_id = $1", [
+            draft.id,
+          ]),
+        ).toEqual([]);
+        expect(
+          await rows(
+            "select * from public.electorate where vote_id = $1 and representative_profile_id is not null",
+            [draft.id],
+          ),
+        ).toEqual([]);
+        expect(
+          (
+            await schedule(
+              withdrawn,
+              new Date(Date.now() + 60_000).toISOString(),
+            )
+          ).status,
+        ).toBe("SCHEDULED");
+        expect(await audit(draft.id)).toContainEqual(
+          expect.objectContaining({
+            action: "VOTE_SCHEDULE_WITHDRAWN",
+            reason: "Correct the ballot",
+          }),
+        );
+      },
+    );
+
+    it("preserves frozen names and entitlement after register edits and accepts only after opening", async () => {
+      const draft = await readyDraft();
+      await schedule(draft, new Date(Date.now() + 1200).toISOString());
+      await call(admin(), "public.update_profile($1, $2::jsonb)", [
+        world.alice.id,
+        JSON.stringify({ representativeName: "Alice Updated" }),
+      ]);
+      await call(admin(), "public.update_household($1, $2::jsonb)", [
+        world.alice.householdId,
+        JSON.stringify({ isEligible: false }),
+      ]);
+      try {
+        expect(
+          await rows(
+            "select representative_name_snapshot from public.electorate where vote_id=$1 and representative_profile_id=$2",
+            [draft.id, world.alice.id],
+          ),
+        ).toEqual([{ representative_name_snapshot: "Alice Rao" }]);
+        await sleep(1300);
+        const [option] = await rows<{ id: string }>(
+          "select id from public.poll_options where vote_id=$1 order by position limit 1",
+          [draft.id],
+        );
+        if (!option) throw new Error("The fixture needs a poll option.");
+        expect(
+          await call(world.alice.id, "public.cast_vote($1, $2::jsonb)", [
+            draft.id,
+            JSON.stringify({ confirmed: true, optionId: option.id }),
+          ]),
+        ).toMatchObject({ accepted: true });
+      } finally {
+        await call(admin(), "public.update_profile($1, $2::jsonb)", [
+          world.alice.id,
+          JSON.stringify({ representativeName: "Alice Rao" }),
+        ]);
+        await call(admin(), "public.update_household($1, $2::jsonb)", [
+          world.alice.householdId,
+          JSON.stringify({ isEligible: true }),
+        ]);
+      }
+    });
+
+    it("lets Cron open a vote without member requests and completes a missed window at its deadline", async () => {
+      const draft = await readyDraft("PRIVATE", { closesInMs: 3000 });
+      await schedule(draft, new Date(Date.now() + 1200).toISOString());
+      await sleep(3200);
+      const result = await runCron();
+      expect(result.blocked).toBe(0);
+      const completed = await read(draft.id);
+      expect(completed).toMatchObject({
+        status: "COMPLETED",
+        completedAt: draft.closesAt,
+        completionMode: "DEADLINE",
+      });
+      expect(
+        (await audit(draft.id)).filter(
+          (event) => event.action === "VOTE_ACTIVATED",
+        ),
+      ).toHaveLength(1);
+      expect(
+        (
+          await dbError(
+            call(world.alice.id, "public.cast_vote($1, $2::jsonb)", [
+              draft.id,
+              JSON.stringify({ confirmed: true, selections: [] }),
+            ]),
+          )
+        ).message,
+      ).toBe("VOTING_CLOSED");
+    });
+
+    it("opens on an authorized read after the start and never permits a late withdrawal", async () => {
+      const draft = await readyDraft();
+      await schedule(draft, new Date(Date.now() + 1200).toISOString());
+      await sleep(1300);
+      expect(
+        (
+          await dbError(
+            call(
+              admin(),
+              "public.withdraw_vote_schedule($1, true, 'Too late')",
+              [draft.id],
+            ),
+          )
+        ).message,
+      ).toBe("LIFECYCLE_CONFLICT");
+      const member = await call<{
+        status: string;
+        options: unknown[];
+        canSubmit: boolean;
+      }>(world.alice.id, "public.get_member_vote($1)", [draft.id]);
+      expect(member.status).toBe("ACTIVE");
+      expect(member.options).toHaveLength(2);
+      expect(member.canSubmit).toBe(true);
+      expect((await read(draft.id)).status).toBe("ACTIVE");
+      expect(
+        (await audit(draft.id)).filter(
+          (event) => event.action === "VOTE_ACTIVATED",
+        ),
+      ).toHaveLength(1);
     });
   });
 

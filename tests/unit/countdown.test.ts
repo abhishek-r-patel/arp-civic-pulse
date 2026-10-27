@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { formatCountdown, secondsUntilDeadline } from "@/shared/time/countdown";
+import {
+  formatCompactCountdown,
+  formatCountdown,
+  secondsUntilDeadline,
+} from "@/shared/time/countdown";
 
 describe("secondsUntilDeadline", () => {
   const deadline = "2026-10-26T12:00:00.000Z";
@@ -18,6 +22,12 @@ describe("secondsUntilDeadline", () => {
 });
 
 describe("formatCountdown", () => {
+  it("formats compact concept-card deadlines without losing the deadline boundary", () => {
+    expect(formatCompactCountdown(194400)).toBe("02d 06h");
+    expect(formatCompactCountdown(3661)).toBe("01h 01m");
+    expect(formatCompactCountdown(120)).toBe("02m");
+    expect(formatCompactCountdown(1)).toBe("less than 1m");
+  });
   it("formats hours, minutes and seconds with leading zeroes", () => {
     expect(formatCountdown(3_661)).toBe("01:01:01");
   });

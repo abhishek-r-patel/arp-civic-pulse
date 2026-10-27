@@ -5,6 +5,13 @@ Verdict: **NOT READY for real residents or binding votes**
 
 ## Scope and decision
 
+Subsequent register-import/scheduled-opening implementation adds two forward
+migrations without changing this audit verdict. New accounts remain suspended
+for review; schedules freeze at confirmation and reveal only upcoming summaries
+to residents. Local regression evidence is not hosted deployment, Auth-quota,
+Cron, browser/screenshot or production approval evidence. The current follow-up
+checks and subsequently completed disposable-project captures are tracked in [pilot readiness](./PILOT_READINESS.md). Those captures do not close production, capacity, manual-accessibility, SMTP or scheduled-Cron gates.
+
 Reviewed the implemented application against [PRD.md](./PRD.md), [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) (the actual design document), [ARCHITECTURE.md](./ARCHITECTURE.md), [DATABASE.md](./DATABASE.md), [API.md](./API.md), and root/documentation agent guidance.
 
 The exercised core workflows pass. No new critical counting, atomicity or authorization defect was reproduced in the exercised scenarios. That is not proof of exhaustive security, production availability or regulatory/bylaw approval. Mandatory launch gates remain open, including a missing abuse-control implementation and external operating controls.

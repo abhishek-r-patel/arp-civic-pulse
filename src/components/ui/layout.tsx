@@ -1,3 +1,4 @@
+// Shared quiet page hierarchy, loading placeholders and explicit empty states in both themes.
 import type { ReactNode } from "react";
 import { cn } from "./cn";
 
@@ -34,7 +35,7 @@ export function EmptyState({
   return (
     <section
       aria-labelledby="empty-state-title"
-      className="grid gap-3 rounded-card border border-dashed border-control-border bg-surface p-6"
+      className="grid gap-3 border-y border-border py-8 md:py-10"
     >
       <h2
         id="empty-state-title"
@@ -60,16 +61,21 @@ export function PageHeader({
   actions?: ReactNode;
 }>) {
   return (
-    <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div className="grid max-w-ballot gap-2">
-        <h1 className="text-page-title font-semibold md:text-page-title-lg">
+    <header
+      data-page-header
+      className="flex min-w-0 flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-start sm:justify-between md:pb-6"
+    >
+      <div className="grid max-w-ballot min-w-0 gap-2">
+        <h1 className="font-heading text-page-title font-semibold md:text-page-title-lg">
           {title}
         </h1>
         {description ? (
           <p className="text-body text-muted">{description}</p>
         ) : null}
       </div>
-      {actions ? <div className="flex flex-wrap gap-3">{actions}</div> : null}
+      {actions ? (
+        <div className="flex shrink-0 flex-wrap gap-3">{actions}</div>
+      ) : null}
     </header>
   );
 }

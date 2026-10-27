@@ -1,3 +1,4 @@
+// Administrator-only identity, contact and display settings with immediate scoped accent preview.
 "use client";
 
 import { useState, type FormEvent } from "react";
@@ -149,7 +150,7 @@ export function RwaProfileForm({
         id="alias"
         name="alias"
         label="RWA Alias"
-        hint="A short name shown in the header as “Civic Pulse for <alias>” on every page, and with the full name on the sign-in page."
+        hint="A short name shown beneath Civic Pulse in the compact header, and with the full name on the sign-in page."
         required
         maxLength={80}
         autoComplete="off"

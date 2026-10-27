@@ -33,6 +33,23 @@ at start-up, and never uses the migration credentials.
 | `20261102100000_optional_rwa_contact_fields` | Makes RWA address, email and phone optional (empty text allowed and hidden); full name, alias and identifier label stay required |
 | `20261103100000_public_private_voting` | Renames voting types `OPEN`/`CLOSED` to `PUBLIC`/`PRIVATE` in data, checks and routines; internal names, error codes and audit history unchanged |
 | `20261103110000_household_label_and_identifier_kind` | Replaces the identifier label with a household label and a Number/ID identifier kind (backfilled), drops the old label RPCs, and returns the new values from the profile, branding and public identity routines |
+| `20261104100000_rwa_default_lists` | Administrator-only household and office suggestion lists |
+| `20261105100000_change_vote_deadline` | Guarded, audited active deadline changes |
+| `20261106100000_register_import` | Current-admin import checks and retry-safe household assignment without overwriting records or enabling accounts |
+| `20261107100000_scheduled_opening` | Frozen scheduled state, database-clock opening, direct-read ballot privacy, pre-opening withdrawal and existing Cron integration |
+
+The last two migrations are deployment inputs, not automatically applied by the
+application. Apply only after independently verifying the target and reviewing
+pending changes, outside voting windows. Local integration tests create/drop
+their own disposable databases; they do not migrate your configured hosted project.
+
+For the separately authorized 27 October screenshot capture, the last two
+migrations were applied to the confirmed disposable hosted project through the
+CLI, with a preceding dry run and `--skip-vault`; production was untouched.
+They end with `RESET ROLE` so the deployment role, not `cp_owner`, records the
+CLI history entry. The initial failed attempt rolled back fully, verified
+read-only before correcting the then-unapplied files. Never manually repair
+history or rewrite an already-recorded migration to reproduce that fix.
 
 All objects are owned by `cp_owner` (non-login, no superuser, no BYPASSRLS, no access to the Supabase `auth`
 schema). `anon` and `authenticated` hold no write privileges; `service_role` can only execute the three

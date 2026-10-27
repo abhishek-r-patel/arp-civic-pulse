@@ -1,3 +1,4 @@
+// Theme-consistent authorized result sections; active privacy and export projections are unchanged.
 "use client";
 
 import { useEffect } from "react";
@@ -331,7 +332,7 @@ export function ResultsView({
   }, [active, router]);
 
   return (
-    <div className="grid gap-8">
+    <div data-results-view className="grid gap-7 md:gap-8">
       <div className="flex flex-wrap items-center gap-2">
         <VotingTypeBadge type={vote.votingType} />
         <VoteStatusBadge status={vote.status} />
@@ -345,7 +346,10 @@ export function ResultsView({
         </Notice>
       ) : null}
 
-      <section aria-labelledby="turnout" className="grid gap-2">
+      <section
+        aria-labelledby="turnout"
+        className="grid gap-3 border-y border-border py-5"
+      >
         <h2 id="turnout" className="text-section font-semibold">
           Turnout
         </h2>
@@ -410,7 +414,10 @@ export function ResultsView({
       </Notice>
 
       {vote.status === "COMPLETED" ? (
-        <section aria-labelledby="download" className="grid gap-3">
+        <section
+          aria-labelledby="download"
+          className="grid gap-3 border-t border-border pt-5"
+        >
           <h2 id="download" className="text-section font-semibold">
             Download
           </h2>

@@ -31,7 +31,7 @@ import { formatInZone } from "@/shared/time/zoned";
 export const metadata = {
   title: "Manage Votes",
   description:
-    "Manage draft, active, completed and cancelled association polls and elections.",
+    "Manage draft, scheduled, active, completed and cancelled association polls and elections.",
   alternates: { canonical: "/admin/votes" },
 };
 
@@ -66,6 +66,14 @@ const columns: Column<AdminVoteSummary>[] = [
     header: "Deadline",
     cell: (vote) => (
       <div className="grid gap-1">
+        {vote.status === "SCHEDULED" && vote.opensAt ? (
+          <>
+            <span>
+              Opens {formatInZone(vote.opensAt, vote.timezone ?? "UTC")}
+            </span>
+            <DeadlineCountdown deadline={vote.opensAt} opening />
+          </>
+        ) : null}
         <span>
           {vote.closesAt
             ? vote.timezone
@@ -123,7 +131,7 @@ export default async function VotesPage({
     <div className="grid gap-8">
       <PageHeader
         title="Manage Votes"
-        description="Create drafts, preview exactly what residents will see, and review every vote. Drafts can be edited until a vote is activated."
+        description="Create drafts, preview ballots, activate now or schedule opening. Scheduling freezes the vote; it must return to draft before edits."
         actions={
           <LinkButton href="/admin/votes/new">
             <Vote aria-hidden="true" className="size-5" />
@@ -146,7 +154,7 @@ export default async function VotesPage({
 
       <form
         method="get"
-        className="grid gap-4 rounded-card border border-border bg-surface p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+        className="grid gap-4 border-y border-border py-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
       >
         <SelectField
           id="status"

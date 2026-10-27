@@ -1,3 +1,4 @@
+// Theme-safe form controls with persistent labels, explicit errors and accessible touch targets.
 import { CircleAlert } from "lucide-react";
 import type {
   InputHTMLAttributes,
@@ -15,7 +16,7 @@ import { cn } from "./cn";
  * 16px text, and non-colour error cues. Placeholders are never the label.
  */
 const controlClasses =
-  "touch-target w-full rounded-control border bg-surface px-3 py-2 text-body text-primary focus:border-accent disabled:cursor-not-allowed disabled:bg-primary/5 disabled:text-muted";
+  "touch-target w-full rounded-control border bg-surface px-3.5 py-3 text-body text-primary transition-colors placeholder:text-muted focus:border-accent focus:bg-surface disabled:cursor-not-allowed disabled:bg-primary/5 disabled:text-muted";
 
 type FieldChrome = Readonly<{
   label: string;
@@ -36,7 +37,7 @@ function Chrome({
   children,
 }: FieldChrome & Readonly<{ id: string; children: ReactNode }>) {
   return (
-    <div className="grid gap-1.5">
+    <div className="grid min-w-0 gap-2">
       <label htmlFor={id} className="text-body font-semibold text-primary">
         {label}
         {required ? (

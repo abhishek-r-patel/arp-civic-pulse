@@ -11,7 +11,7 @@ The design implements assumptions A1-A7 provisionally. Production activation req
 ### Required boundaries
 
 - One designated representative and one entitlement per household per vote.
-- `PUBLIC` and `PRIVATE` are voting types; `DRAFT`, `ACTIVE`, `COMPLETED`, and `CANCELLED` are separate lifecycle states.
+- `PUBLIC` and `PRIVATE` are voting types; `DRAFT`, `SCHEDULED`, `ACTIVE`, `COMPLETED`, and `CANCELLED` are separate lifecycle states.
 - PUBLIC VOTING supports configured single- or multi-select ballots. Publish aggregate option counts during the active poll without identities; publish identities and each household's final selection set only after completion.
 - PRIVATE VOTING stores cumulative candidate/NOTA counters, never individual ballots. Participation records contain no choices.
 - Freeze ballot configuration, electorate and representative identity snapshots at activation. The deadline is set at activation and may then only be moved by an administrator, with a reason, while the vote is active. The RWA name is also saved as an internal snapshot, but screens and exports show the current RWA name.
@@ -22,6 +22,19 @@ The design implements assumptions A1-A7 provisionally. Production activation req
 There are no tenant, campaign, nomination, signature, attachment, notification, report-file, or individual closed-ballot tables. Supabase Auth owns authentication identities, OTPs, and sessions; do not add parallel application authentication tables. No Redis or separate identity service is required.
 
 ## 2. Conventions
+
+The Votes concept overview reads exact counts from frozen `electorate` joined to
+vote status and, for responses, its `participation` row. Every query uses the
+verified user's client and explicitly filters the representative profile ID, even
+when RLS also permits administrator reads. Card turnout reuses the authorized
+result routine and is narrowed server-side to counts/percentage. No direct tally
+grant, schema migration or new RPC is added; no PRIVATE selection is retrieved.
+
+Browser appearance (`light`/`dark`/`system`) is not stored in `profiles`,
+`rwa_settings` or any vote row. It needs no migration or new grant. Existing RWA
+accent values remain unchanged; appearance variants are presentation tokens.
+The dedicated browser key contains no identity, entitlement, participation or
+choice data and does not relax the prohibition on persisted ballot selections.
 
 | Concern | Convention |
 |---|---|
@@ -123,7 +136,7 @@ Each household has exactly one current representative; a profile represents at m
 | `voting_type` | `text` | `PUBLIC` or `PRIVATE`. |
 | `open_selection_mode` | `text` | `SINGLE` or `MULTIPLE`; existing votes default to `SINGLE`. PRIVATE votes are fixed to `SINGLE`. |
 | `open_selection_limit` | `integer`, nullable | `1` for `SINGLE`; `2` to `100` for capped `MULTIPLE`; `NULL` allows any number of configured options. |
-| `status` | `text` | `DRAFT`, `ACTIVE`, `COMPLETED`, or `CANCELLED`; default `DRAFT`. |
+| `status` | `text` | `DRAFT`, `SCHEDULED`, `ACTIVE`, `COMPLETED`, or `CANCELLED`; default `DRAFT`. |
 | `title` | `text` | Title/question; may be empty while drafting, required at activation. |
 | `instructions` | `text`, nullable | PUBLIC context or PRIVATE instructions; non-empty PRIVATE instructions required at activation. |
 | `closes_at` | `timestamptz`, nullable | Required and strictly future at activation; afterwards changeable only by the guarded `change_vote_deadline` routine while `ACTIVE`. |
@@ -131,7 +144,9 @@ Each household has exactly one current representative; a profile represents at m
 | `created_by_profile_id` | `uuid` | FK to `profiles.id`. |
 | `created_at` | `timestamptz` | Creation time. |
 | `updated_at` | `timestamptz` | Modification time, including lifecycle transitions. |
-| `activated_at` | `timestamptz`, nullable | Actual activation time. |
+| `activated_at` | `timestamptz`, nullable | Effective start: immediate activation time, or scheduled opening time (already stored while scheduled). |
+| `opens_at` | `timestamptz`, nullable | Scheduled effective opening, strictly between scheduling confirmation and closure; null for immediate activation. |
+| `scheduled_at` | `timestamptz`, nullable | Database time when scheduling froze the vote; null for immediate activation or after withdrawal. |
 | `completed_at` | `timestamptz`, nullable | Effective completion: deadline or confirmed early-completion time. |
 | `completion_mode` | `text`, nullable | `DEADLINE` or `EARLY`; present only when completed. |
 | `completion_reason` | `text`, nullable | Non-empty for early completion; null for deadline completion. |
@@ -143,7 +158,23 @@ Each household has exactly one current representative; a profile represents at m
 
 State-dependent checks require activation/deadline/snapshot fields for non-drafts; completion fields only for `COMPLETED`; cancellation fields only for `CANCELLED`. Drafts have no terminal/activation fields. Require `activated_at < closes_at`; deadline completion has `completed_at = closes_at`; early completion and cancellation occur at or after activation and strictly before the deadline.
 
-Only `DRAFT -> ACTIVE`, `ACTIVE -> COMPLETED`, and `ACTIVE -> CANCELLED` are legal. A transition operation records the actor, processing time, effective time, and reason in the audit event. This distinguishes delayed automatic processing from the effective deadline without an extra lifecycle history table.
+Legal transitions are `DRAFT -> ACTIVE`, `DRAFT -> SCHEDULED -> ACTIVE`, strictly pre-opening `SCHEDULED -> DRAFT`, and `ACTIVE -> COMPLETED/CANCELLED`. `schedule_vote` delegates to the same guarded freeze helper as activation. Both initialize PRIVATE counters and frozen electorate snapshots atomically. `open_if_due` locks the parent and checks `clock_timestamp()`; Cron and authorized discovery/detail/submission calls use it. If both opening and closure have elapsed, the vote completes at its deadline without admitting a ballot. `withdraw_vote_schedule` requires confirmation/reason, clears snapshots/counters/opening fields, advances the revision and audits the previous opening. Neither scheduled nor active ballot content can be edited. A partial `(status, opens_at, id)` scheduling index bounds due processing. Existing five-second lock limits apply before the opening/submission lock. No API role gets direct writes or direct execution of internal helpers.
+
+Scheduled summary discovery retains `can_view_vote`, while offices/options use
+`can_view_ballot` and candidates use the strengthened `can_view_office`: residents
+cannot directly read the ballot before opening through PostgREST. The member
+projection also strips options/offices while scheduled. Administrators may inspect
+the frozen ballot. These policies do not expose active choice totals.
+
+Register import adds no data table. `check_register_import(text,text,uuid,boolean)`
+and `import_register_household(text,text,uuid,boolean)` require a current enabled
+administrator, use the existing identifier normalization and profile constraints,
+and never update existing records. Assignment locks the profile and uses the
+guarded `create_household` routine/audit. Exact concurrent retries return
+`EXISTING`; mismatched names, eligibility, assignments or unsuitable profiles
+return `CONFLICT`. Auth identities are resolved/provisioned separately through
+supported server-only APIs, never queried by `cp_owner`. Imported profiles remain
+suspended; enabling is the existing separate confirmed workflow. See API 4.3.
 
 ### 3.6 `offices`
 

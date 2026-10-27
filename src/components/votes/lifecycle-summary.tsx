@@ -1,3 +1,4 @@
+// Frozen lifecycle facts and informational opening/deadline countdowns.
 import { Clock } from "lucide-react";
 import { Notice } from "@/components/ui/notice";
 import { DeadlineCountdown } from "@/components/votes/deadline-countdown";
@@ -9,6 +10,8 @@ export type LifecycleFields = Pick<
   | "status"
   | "timezone"
   | "activatedAt"
+  | "opensAt"
+  | "scheduledAt"
   | "closesAt"
   | "completedAt"
   | "completionMode"
@@ -73,8 +76,20 @@ export function LifecycleSummary({
         </Notice>
       ) : null}
 
-      <dl className="grid max-w-ballot gap-3 rounded-card border border-border bg-surface p-4 sm:grid-cols-2">
-        <Fact label="Activated">{at(vote.activatedAt)}</Fact>
+      <dl className="grid max-w-ballot gap-5 border-y border-border py-5 sm:grid-cols-2">
+        {vote.status === "SCHEDULED" && vote.opensAt ? (
+          <>
+            <Fact label="Scheduled">{at(vote.scheduledAt ?? null)}</Fact>
+            <Fact label="Opens">
+              <div className="grid gap-2">
+                {at(vote.opensAt)}
+                <DeadlineCountdown deadline={vote.opensAt} opening />
+              </div>
+            </Fact>
+          </>
+        ) : (
+          <Fact label="Activated">{at(vote.activatedAt)}</Fact>
+        )}
         <Fact label="Deadline">
           <div className="grid gap-2">
             <span className="inline-flex items-center gap-2">

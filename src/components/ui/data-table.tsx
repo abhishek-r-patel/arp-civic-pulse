@@ -1,3 +1,4 @@
+// Shared quiet register/report tables with stable semantics and stacked phone rows.
 import type { ReactNode } from "react";
 import { cn } from "./cn";
 
@@ -30,13 +31,19 @@ export function DataTable<Row>({
   rowKey,
 }: DataTableProps<Row>) {
   return (
-    <div className="rounded-card border border-border bg-surface">
-      <table role="table" className="w-full text-left text-body max-md:block">
+    <div
+      data-data-table
+      className="rounded-card border border-border bg-surface shadow-panel"
+    >
+      <table
+        role="table"
+        className="w-full text-left text-body tabular-nums max-md:block"
+      >
         <caption className="sr-only">{caption}</caption>
         <thead role="rowgroup" className="max-md:sr-only">
           <tr
             role="row"
-            className="border-b border-border text-caption text-muted"
+            className="border-b border-border bg-background text-caption text-muted"
           >
             {columns.map((column) => (
               <th
@@ -58,7 +65,7 @@ export function DataTable<Row>({
             <tr
               key={rowKey(row)}
               role="row"
-              className="max-md:block max-md:border-b max-md:border-border max-md:p-4 md:border-b md:border-border md:last:border-b-0"
+              className="transition-colors hover:bg-primary/5 max-md:block max-md:border-b max-md:border-border max-md:p-4 md:border-b md:border-border md:last:border-b-0"
             >
               {columns.map((column) => (
                 <td

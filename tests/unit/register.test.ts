@@ -1,3 +1,4 @@
+// Account/register behavior, including independent page-scoped review actions.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 import { toApiError } from "@/server/db/errors";
@@ -18,6 +19,9 @@ import {
 import { postgrestQuote, type RegisterDeps } from "@/server/register/shared";
 import { accountListQuerySchema } from "@/shared/contracts/admin-votes";
 import {
+  accountReviewTargets,
+  canReviewAccount,
+  type ReviewAccountProjection,
   createAccountSchema,
   createHouseholdSchema,
   householdListQuerySchema,
@@ -48,6 +52,7 @@ class Query {
   order = (...args: unknown[]) => this.record("order", args);
   limit = (...args: unknown[]) => this.record("limit", args);
   eq = (...args: unknown[]) => this.record("eq", args);
+  in = (...args: unknown[]) => this.record("in", args);
   neq = (...args: unknown[]) => this.record("neq", args);
   gt = (...args: unknown[]) => this.record("gt", args);
   or = (...args: unknown[]) => this.record("or", args);
@@ -287,6 +292,92 @@ describe("register contracts", () => {
     expect(householdListQuerySchema.safeParse({ search: "a" }).success).toBe(
       false,
     );
+  });
+});
+
+describe("account review assignments", () => {
+  const resident: ReviewAccountProjection = {
+    id: TARGET,
+    email: "resident@example.test",
+    representativeName: "Resident",
+    status: "SUSPENDED",
+    isAdmin: false,
+    emailVerifiedAt: null,
+    updatedAt: "2030-01-01T00:00:00Z",
+    household: { id: HOUSEHOLD, identifier: "A-101", isEligible: false },
+  };
+  it("keeps enabling and eligibility independent and never targets hidden IDs", () => {
+    const selected = new Set([TARGET, OTHER]);
+    expect(accountReviewTargets([resident], selected, "enable")).toEqual([
+      resident,
+    ]);
+    expect(accountReviewTargets([resident], selected, "eligible")).toEqual([
+      resident,
+    ]);
+    expect(canReviewAccount({ ...resident, status: "ENABLED" }, "enable")).toBe(
+      false,
+    );
+    expect(
+      canReviewAccount({ ...resident, status: "ENABLED" }, "eligible"),
+    ).toBe(true);
+    expect(
+      canReviewAccount(
+        {
+          ...resident,
+          household: { id: HOUSEHOLD, identifier: "A-101", isEligible: true },
+        },
+        "eligible",
+      ),
+    ).toBe(false);
+  });
+  it("requires a flat for residents but permits selected suspended administrators without one", () => {
+    expect(canReviewAccount({ ...resident, household: null }, "enable")).toBe(
+      false,
+    );
+    expect(
+      canReviewAccount(
+        { ...resident, household: null, isAdmin: true },
+        "enable",
+      ),
+    ).toBe(true);
+    expect(
+      canReviewAccount(
+        { ...resident, household: null, isAdmin: true },
+        "eligible",
+      ),
+    ).toBe(false);
+    expect(
+      canReviewAccount({ ...resident, status: "DELETED" }, "eligible"),
+    ).toBe(false);
+    expect(canReviewAccount({ ...resident, email: null }, "enable")).toBe(
+      false,
+    );
+  });
+  it("enriches only the visible page with household identifiers and eligibility", async () => {
+    const w = world({
+      tables: {
+        profiles: [ok([profile(TARGET)])],
+        households: [
+          ok([
+            {
+              id: HOUSEHOLD,
+              identifier: "A-101",
+              representative_profile_id: TARGET,
+              is_eligible: false,
+            },
+          ]),
+        ],
+      },
+    });
+    const result = await listAccounts(w.deps, accountListQuerySchema.parse({}));
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]).toMatchObject({
+      id: TARGET,
+      household: { id: HOUSEHOLD, identifier: "A-101", isEligible: false },
+    });
+    expect(
+      w.queries.find((query) => query.table === "households")?.query.calls,
+    ).toContainEqual(["in", ["representative_profile_id", [TARGET]]]);
   });
 });
 

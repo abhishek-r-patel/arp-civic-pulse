@@ -13,6 +13,14 @@ required for this browser-tab icon.
 
 Civic Pulse should feel like a well-run community notice board: confident but never flashy. Screens use generous whitespace, one clear action per screen, and plain language aimed at non-technical and older residents.
 
+The approved appearance direction is **Platinum** (light) and **Obsidian** (dark),
+using one consistent layout and Sora/Manrope typography. Following approval of
+the concept-aligned Votes screen, the user authorized rollout across all screen
+families. Top navigation, ballot rules, authorization, privacy and confirmations
+remain unchanged. The User Guide and its screenshots are explicitly excluded
+from this rollout; use temporary test captures for verification until that hold
+is lifted.
+
 This document is the visual and UX specification for [PRD.md](./PRD.md), implemented through the Supabase and Tailwind direction in [ARCHITECTURE.md](./ARCHITECTURE.md). It describes target behavior, not a claim that every component already exists.
 
 - Make eligibility, privacy, deadlines, consequences and the next safe action understandable.
@@ -25,27 +33,52 @@ This document is the visual and UX specification for [PRD.md](./PRD.md), impleme
 ## 02 Colour Palette
 | Name | Hex | Use for |
 |----------------|---------|--------------------------------------------------------|
-| Primary | #0F172A | Main text, headings, key UI, PRIVATE badge |
-| Accent | #0F766E | Primary buttons, links, highlights, selected options |
-| Secondary | #4F46E5 | Secondary actions, PUBLIC badge, focus ring |
-| Background | #F8FAFC | Page background |
+| Primary | #1D2522 | Main text, headings, key UI, PRIVATE badge |
+| Accent | #0C6953 | Primary buttons, links, highlights, selected options |
+| Secondary | #275D79 | Secondary actions, PUBLIC badge, focus ring |
+| Background | #F4F6F5 | Page background |
 | Surface | #FFFFFF | Cards, inputs, sheets |
-| Success | #15803D | Success states, "Submitted", confirmations |
-| Warning | #B45309 | Privacy and disclosure notices, closing-soon states |
+| Success | #166534 | Success states, "Submitted", confirmations |
+| Warning | #92400E | Privacy and disclosure notices, closing-soon states; readable on selected-row tints |
 | Error | #B91C1C | Errors, destructive actions, cancelled votes |
-| Muted | #475569 | Secondary text, captions |
-| Border | #CBD5E1 | Dividers and card outlines |
-| Control Border | #64748B | Input, radio and secondary-button borders (3:1 contrast) |
+| Muted | #52635A | Secondary text, captions |
+| Border | #D7DFDA | Dividers and card outlines |
+| Control Border | #687B70 | Input, radio and secondary-button borders (3:1 contrast) |
+
+Obsidian overrides: background `#111616`, surface `#1A2020`, primary `#EDF2EF`,
+muted `#A9B5B0`, secondary `#A4D5EF`, control border `#7F9188`, divider `#35403C`,
+success `#9CDDA8`, warning `#EDC681` and error `#FFAAA5`. Dark accent variants
+are Teal `#8BE4C8`, Blue `#93C5FD`, Forest `#A3D9A5`, Plum `#D8B4FE` and Slate
+`#CBD5E1`. Filled actions use `on-accent`/`on-error` foreground tokens, not fixed
+white text. Light text/control and all dark accent pairs have automated contrast
+gates; tinted/selected combinations also require rendered axe checks.
+
+### Appearance Preferences
+
+- Offer a labelled icon menu in the header on signed-in and public pages, using
+	native Light/Dark/System radios, Escape dismissal, outside dismissal and focus return.
+- Default to System and follow live device changes. Persist only the explicit mode
+	under `civic-pulse-theme` in local storage; never account data or selections.
+	The choice is per browser, survives sign-out, and is not synced across devices.
+- Normalize invalid stored values before paint. Blocked storage falls back to
+	System at startup and permits an in-memory choice until reload. `next-themes`
+	handles preference/media/cross-tab updates; theme-change transitions are disabled.
+- Resolve appearance before rendering rather than flashing the opposite mode.
+	No new CSP permission is introduced; the small static bootstrap uses the existing
+	inline-script policy and accepts only known mode values.
+- Keep RWA accent selection independent. Print always uses light surfaces and
+	readable light accent variants; PDFs and the script-free offline/public guides
+	keep their existing light presentation.
 
 - **Tints:** For badge and notice backgrounds, use a palette colour at 10% opacity on Surface. The text on it uses the full colour.
 - **Colour is never the only signal.** Always pair it with an icon and a label (for example, a lock icon and "PRIVATE voting").
 - **Voting type:** PUBLIC is Secondary with an Eye icon. PRIVATE is Primary with a Lock icon.
-- **Status:** Draft is Muted, Active is Accent, Completed is Success, and Cancelled is Error.
+- **Status:** Draft is Muted, Scheduled is Secondary with a clock icon, Active is Accent, Completed is Success, and Cancelled is Error.
 - Use Border for decorative dividers and Control Border for essential input/control boundaries; do not substitute the lighter divider colour for controls.
 - Verify actual foreground/background pairings, including tinted notices, selected states and focus indicators. Tokens alone do not establish accessibility.
 
 ## 03 Typography
-- **Font:** Inter (self-hosted via `next/font`). If PDF export is implemented, use bundled Inter and an explicitly configured fallback such as Noto Sans Devanagari for approved scripts; verify rendering rather than assuming automatic fallback.
+- **Fonts:** Sora headings and Manrope body/control text, self-hosted through `next/font` in both themes. Browser requests never go to Google Fonts. PDF export retains bundled Inter and Noto Sans Devanagari; it does not inherit the interface theme or new font choice.
 - **Display:** 48px, Bold (32px on mobile), reserved for introductory/brand content.
 - **Page title:** 36px, Semibold (28px on mobile), for functional pages such as votes, register and setup.
 - **Section heading:** 24px, Semibold (20px on mobile).
@@ -53,6 +86,7 @@ This document is the visual and UX specification for [PRD.md](./PRD.md), impleme
 - **Body:** 16px, Regular (never smaller on inputs, so iOS does not zoom)
 - **Caption:** 14px, Regular
 - Line height is 1.5 for body text and 1.25 for headings. Keep line length to 70 characters or fewer.
+- Letter spacing is zero. Keep appearance changes from changing font families or causing layout jumps between modes.
 - Show dates in the RWA timezone with a timezone label, for example "Sat 2 Nov, 6:00 PM IST".
 - Use one semantic page-level heading and logical heading order; heading appearance does not dictate its HTML level.
 - Use sentence case and plain action labels. Do not use long uppercase passages; keep PUBLIC/PRIVATE terminology consistent.
@@ -68,13 +102,13 @@ Use the existing 8px-led scale with a 4px half-step: 4, 8, 16, 24, 32, 48, 64px.
 
 ## 05 Border Radius
 - Small elements (badges, inputs): 8px
-- Cards: 12px
+- Cards: 8px
 - Buttons: 8px
 
 ## 06 Components
-- **Primary button:** Accent background, white text, 8px radius, at least 48px high, full width on mobile. One prominent primary action per view.
-- **Secondary button:** White background, 1px Control Border grey border, Primary text
-- **Destructive button:** Error background, white text. Always behind a confirmation dialog.
+- **Primary button:** Accent background, contrast-safe `on-accent` text (white in light mode, dark ink in dark mode), 8px radius, at least 48px high, full width on mobile. One prominent primary action per view.
+- **Secondary button:** Surface background, 1px Control Border, Primary text in either theme.
+- **Destructive button:** Error background and contrast-safe `on-error` text. Always behind a confirmation dialog.
 - **Inputs:** 1px Control Border grey border, 8px radius, accent border on focus, a visible label above (never placeholder-only), and an inline error message in Error colour with an icon.
 - **Focus:** Every interactive element has a visible 2px Secondary focus ring with a 2px offset.
 - **Vote card:** A card showing title, type badge, status badge, deadline, and the user's state ("Not voted", "Submitted").
@@ -89,6 +123,8 @@ Use the existing 8px-led scale with a 4px half-step: 4, 8, 16, 24, 32, 48, 64px.
 - **Print and optional PDF:** Follow section 15 when implemented. PDF availability is not a prerequisite for viewing completed results.
 
 ### Component states
+- Shared page headers use a quiet bottom divider and compact heading/action hierarchy, not decorative enclosing cards. Empty states use unframed bands. All form controls retain 16px text/48px targets with improved padding and focus/disabled contrast. Notices use a restrained left rule and body-scale heading, keeping icon/text/live-region semantics. Tables retain semantic headers and stacked mobile rows, with quiet header tint and hover/selection feedback.
+- Ballot radio and multi-select options use 56px rows, essential-control borders and a checked tint/inset marker. Keep native controls and the existing choose/review/submit state machine; review summaries use dividers rather than nested cards. Results use slimmer comparison bars with explicit counts/denominators and worded outcomes; NOTA keeps its non-winner stripe. Lifecycle facts and admin setup sections use unframed separators. Dialogs remain native modal/bottom-sheet controls with a restrained accent top rule, unchanged confirmation order and focus handling.
 - Define default, hover, pressed, focus, disabled and loading states using shared semantic tokens. Do not add ad-hoc colours or component-specific hex values.
 - Never rely on hover for instructions. Disabled actions explain the prerequisite where needed; loading actions retain a meaningful accessible name.
 - Use a 2px focus indicator with 2px offset, verify its contrast and ensure it is never clipped or hidden behind sticky UI.
@@ -124,6 +160,7 @@ Use Lucide React. Line icons only, 1.5px stroke. Always label icons with text un
 - Write button labels in Title Case (minor words such as "a", "and", "to" stay lowercase unless first), for example "Submit Vote", "Review Selections", "Activate Vote", "Complete Vote Early", "Cancel Vote" and "Sign Out", not technical labels such as "Commit ballot" or vague "OK".
 
 ## 10 Navigation and Information Architecture
+- Compact branding uses the existing chosen icon, the Civic Pulse name and the RWA alias on a separate line; the brand link retains the full accessible "Civic Pulse for {alias}" name. Authenticated initials are supplementary and never replace the signed-in identity. Keep the previously agreed top navigation and sign-out controls rather than introducing the mockup's sidebar in this correction.
 - **Members:** Votes, account context and sign-out. Show eligible current votes first and keep authorised completed results accessible.
 - **Admins:** Clearly identified Votes, Households and Audit History tabs, with a visible way back to the member experience. Share the application shell rather than creating a separate app.
 - Admin capability does not imply eligibility to vote; show personal submission status only for the admin's own entitlement.
@@ -147,6 +184,12 @@ Use Lucide React. Line icons only, 1.5px stroke. Always label icons with text un
 - Keep verification errors safe and actionable. Offer retry/support guidance when delivery is unavailable without exposing register details.
 
 ### Admin setup
+- The Accounts review slice uses quiet divider-based filters, a consistent action strip and a visible selected-row tint/inset marker in either theme. The Votes correction must match the approved concept, not merely recolour the previous form: compact chosen logo/alias branding, history beside the title at phone widths, a three-column Active/Scheduled/Your Responses strip, compact status links and a type-filter menu, restrained records with inline state/deadline metadata, real turnout, and participation/action footer. These totals cover only the user's frozen entitlements across pages/filters; administrator role does not broaden them. The filter menu retains Cancelled/Clear access and All retains unfiltered discovery. Scheduled entries use a compact dated upcoming row. Administrator shortcuts remain available in a disclosure, leaving top navigation unchanged.
+- Vote-card metadata and deadline chips may use 12px text, while body copy and inputs stay at least 16px and actionable targets stay at least 48px. Do not achieve concept fidelity by making body text too small. Keep recorded-response/result actions on one line where they fit, but allow coherent wrapping at narrower widths. Status navigation must not show clipped partial labels. Selected/recorded states, real aggregate turnout and unavailable-data states must all be captured in actual-app examples, never mock values. Compact countdowns are informational and refresh at zero; full authoritative deadline behavior is unchanged.
+- Accounts supports page-scoped checkboxes, an indeterminate **Select All on This Page**, and distinct **Enable Selected** and **Make Eligible** commands with affected counts. The Role filter defaults to Residents; All Roles is explicit. Show name/email, flat identifier, eligibility, role, access status and last change together. Confirmation lists use separate name/email/identifier lines; include a warning for administrator access. Keep per-row results visible and distinguish uncertain/failed requests from durable completion. Existing mobile stacked-table semantics remain in use; never make enabled state imply voting eligibility.
+- The register offers a CSV template and labelled file input, whole-file validation, a horizontally scrollable row preview, sequential progress, confirmation and persistent outcomes. Exact matches and conflicts are distinct; successful entries link to account review, not automatic enablement. Stop on provider/network/rate-limit failure and offer a register recheck before retry. Use configured household wording and never store the CSV in browser storage.
+- Keep the import table at least 64rem wide inside its own scroll container, with non-wrapping headers; narrow screens must scroll the table rather than breaking headers and names into vertical letters. Documentation may crop confirmation screenshots to the dialog for legibility without changing the actual controls.
+- A ready preview offers immediate activation or **Schedule Opening**, entered in the RWA time zone with the existing DST-safe converter and a confirmation of both times and immediate freezing. Scheduled administration shows the opening countdown and a reasoned **Return to Draft** dialog, refused once opening is reached. Residents see only summary/instructions and times/countdown until opening, with no candidates/options, participation badge or voting controls. Countdown refreshes state but is never admission authority.
 - Organize into voting type, ballot content, electorate, deadline and preview.
 - Provide an administrator-only RWA Settings page for the full name, alias, address, email, phone, optional website, accent palette, welcome message, household label (free text with suggestions such as Flat, Apartment or Villa) and identifier label (a Number/ID radio group). Explain where each value appears, preview the chosen accent on the form, show a live wording preview (singular, plural, identifier and plural identifier), and warn that changes apply everywhere immediately. Use Title Case for the page title, section headings and field labels (for example “RWA Full Name”). Mark only the required fields (RWA Full Name, RWA Alias, Household Label and Identifier Label) with `*`; show no marker on optional fields, and hide any blank optional value (address, email, phone, website, welcome message) everywhere it would appear. Accent palettes are a fixed set of presets that each meet 4.5:1 contrast on the surface and background; only the accent token changes through a `data-palette` wrapper. The header reads “Civic Pulse for {alias}” (plain “Civic Pulse” when no RWA identity is available). User-visible copy never hard-codes “household”: it uses the configured household terms (capitalised for headings and labels, lower case mid-sentence). Residents never see this page; the footer contact block and welcome message use plain text with 48px link targets.
 - Explain PUBLIC/PRIVATE before type selection. For PUBLIC polls, let admins set single-select or multi-select and show the optional multi-select maximum. For elections, group candidates by office.

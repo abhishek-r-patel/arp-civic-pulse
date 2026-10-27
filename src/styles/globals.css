@@ -1,28 +1,31 @@
-@import "tailwindcss";
-
 /*
- * Civic Pulse design tokens (docs/DESIGN_SYSTEM.md). Define values here once;
+ * Platinum/Obsidian design tokens (docs/DESIGN_SYSTEM.md). Define values here once;
  * components use token classes (bg-accent, text-muted, ...), never raw hex.
  */
+@import "tailwindcss";
+
 @theme {
-  --color-primary: #0f172a;
-  --color-accent: #0f766e;
-  --color-secondary: #4f46e5;
-  --color-background: #f8fafc;
+  --color-primary: #1d2522;
+  --color-accent: #0c6953;
+  --color-secondary: #275d79;
+  --color-background: #f4f6f5;
   --color-surface: #ffffff;
   --color-success: #166534;
-  --color-warning: #b45309;
+  --color-warning: #92400e;
   --color-error: #b91c1c;
-  --color-muted: #475569;
-  --color-border: #cbd5e1;
-  --color-control-border: #64748b;
+  --color-muted: #52635a;
+  --color-border: #d7dfda;
+  --color-control-border: #687b70;
+  --color-on-accent: #ffffff;
+  --color-on-error: #ffffff;
+  --shadow-panel: 0 8px 28px #162b200a;
 
   /* Interaction shades derived from palette colours rather than new hues. */
   --color-accent-strong: color-mix(in oklab, var(--color-accent) 80%, black);
   --color-error-strong: color-mix(in oklab, var(--color-error) 80%, black);
 
   --radius-control: 0.5rem;
-  --radius-card: 0.75rem;
+  --radius-card: 0.5rem;
 
   --container-content: 70rem;
   --container-ballot: 40rem;
@@ -49,8 +52,9 @@
 
 @theme inline {
   --font-sans:
-    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    var(--font-manrope), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     sans-serif;
+  --font-heading: var(--font-sora), var(--font-manrope), sans-serif;
 }
 
 /*
@@ -61,33 +65,141 @@
  * The derived strong shade is restated because it resolves where it is declared.
  */
 [data-palette="TEAL"] {
-  --color-accent: #0f766e;
+  --color-accent: #0c6953;
+  --color-print-accent: #0c6953;
   --color-accent-strong: color-mix(in oklab, var(--color-accent) 80%, black);
 }
 [data-palette="BLUE"] {
   --color-accent: #1d4ed8;
+  --color-print-accent: #1d4ed8;
   --color-accent-strong: color-mix(in oklab, var(--color-accent) 80%, black);
 }
 
 [data-palette="FOREST"] {
   --color-accent: #166534;
+  --color-print-accent: #166534;
   --color-accent-strong: color-mix(in oklab, var(--color-accent) 80%, black);
 }
 
 [data-palette="PLUM"] {
   --color-accent: #6b21a8;
+  --color-print-accent: #6b21a8;
   --color-accent-strong: color-mix(in oklab, var(--color-accent) 80%, black);
 }
 
 [data-palette="SLATE"] {
   --color-accent: #334155;
+  --color-print-accent: #334155;
   --color-accent-strong: color-mix(in oklab, var(--color-accent) 80%, black);
+}
+
+:root[data-theme="dark"] {
+  --color-primary: #edf2ef;
+  --color-accent: #8be4c8;
+  --color-secondary: #a4d5ef;
+  --color-background: #111616;
+  --color-surface: #1a2020;
+  --color-success: #9cdda8;
+  --color-warning: #edc681;
+  --color-error: #ffaaa5;
+  --color-muted: #a9b5b0;
+  --color-border: #35403c;
+  --color-control-border: #7f9188;
+  --color-on-accent: #10251c;
+  --color-on-error: #321414;
+  --color-accent-strong: color-mix(in oklab, var(--color-accent) 85%, white);
+  --color-error-strong: color-mix(in oklab, var(--color-error) 85%, white);
+  --shadow-panel: 0 8px 28px #00000020;
+}
+
+:root[data-theme="dark"] [data-palette="TEAL"] {
+  --color-accent: #8be4c8;
+}
+:root[data-theme="dark"] [data-palette="BLUE"] {
+  --color-accent: #93c5fd;
+}
+:root[data-theme="dark"] [data-palette="FOREST"] {
+  --color-accent: #a3d9a5;
+}
+:root[data-theme="dark"] [data-palette="PLUM"] {
+  --color-accent: #d8b4fe;
+}
+:root[data-theme="dark"] [data-palette="SLATE"] {
+  --color-accent: #cbd5e1;
+}
+:root[data-theme="dark"] [data-palette] {
+  --color-accent-strong: color-mix(in oklab, var(--color-accent) 85%, white);
+}
+
+@media print {
+  :root[data-theme],
+  :root {
+    color-scheme: light !important;
+    --color-primary: #1d2522;
+    --color-accent: #0c6953;
+    --color-secondary: #275d79;
+    --color-background: #ffffff;
+    --color-surface: #ffffff;
+    --color-success: #166534;
+    --color-warning: #92400e;
+    --color-error: #b91c1c;
+    --color-muted: #52635a;
+    --color-border: #d7dfda;
+    --color-control-border: #687b70;
+    --color-on-accent: #ffffff;
+    --color-on-error: #ffffff;
+    --shadow-panel: none;
+  }
+  :root[data-theme] [data-palette] {
+    --color-accent: var(--color-print-accent, #0c6953);
+    --color-accent-strong: color-mix(in oklab, var(--color-accent) 80%, black);
+  }
+  [data-theme-control] {
+    display: none !important;
+  }
 }
 
 /* Minimum interactive target is 48 x 48 CSS pixels. */
 @utility touch-target {
   min-height: 3rem;
   min-width: 3rem;
+}
+
+[data-account-review] table thead {
+  background: color-mix(
+    in oklab,
+    var(--color-background) 85%,
+    var(--color-surface)
+  );
+}
+[data-account-review] table tbody tr {
+  transition: background-color 140ms ease;
+}
+[data-account-review] table tbody tr:hover {
+  background: color-mix(in oklab, var(--color-accent) 4%, var(--color-surface));
+}
+[data-account-review] table tbody tr:has(input:checked) {
+  background: color-mix(in oklab, var(--color-accent) 9%, var(--color-surface));
+  box-shadow: inset 3px 0 var(--color-accent);
+}
+
+[data-vote-card] {
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+[data-vote-card]:focus-within {
+  border-color: var(--color-accent);
+}
+
+[data-admin-draft] > section + section {
+  border-top: 1px solid var(--color-border);
+  padding-top: 1.5rem;
+}
+
+[data-results-view] > section + section {
+  border-top: 1px solid var(--color-border);
+  padding-top: 1.5rem;
 }
 
 @layer base {
@@ -97,6 +209,7 @@
     color: var(--color-primary);
     font-family: var(--font-sans);
     font-size: 100%;
+    letter-spacing: 0;
     -webkit-text-size-adjust: 100%;
   }
 
@@ -107,6 +220,7 @@
     font-size: var(--text-body);
     line-height: 1.5;
     font-variant-numeric: normal;
+    accent-color: var(--color-accent);
     /* Long words and addresses wrap instead of forcing sideways scrolling. */
     overflow-wrap: anywhere;
   }
@@ -120,6 +234,7 @@
   h2,
   h3,
   h4 {
+    font-family: var(--font-heading);
     line-height: 1.25;
   }
 

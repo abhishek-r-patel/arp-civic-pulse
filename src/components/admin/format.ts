@@ -18,6 +18,10 @@ export function flashNotices(
       "Draft created. Add the details, ballot, electorate and deadline, then preview it.",
     "vote-activated":
       "Vote activated. Its type, ballot, electorate and representatives are now frozen; only the deadline can still be changed.",
+    "vote-scheduled":
+      "Vote scheduled. Its ballot, electorate and representatives are frozen until it opens or returns to draft.",
+    "schedule-withdrawn":
+      "Schedule withdrawn. Review the draft and preview it again before scheduling or activating.",
     "vote-completed": "Vote completed early.",
     "vote-cancelled": "Vote cancelled.",
     "deadline-changed":

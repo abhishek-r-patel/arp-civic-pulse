@@ -335,8 +335,8 @@
           receives more votes.
         </li>
         <li>
-          <strong>Lifecycle:</strong> Draft, Active, Completed or Cancelled.
-          Type and status are different concepts.
+          <strong>Lifecycle:</strong> Draft, Scheduled, Active, Completed or
+          Cancelled. Type and status are different concepts.
         </li>
         <li>
           <strong>Results:</strong> private to entitled members and
@@ -559,6 +559,69 @@
         pattern into new runtime/deployment code.
       </p>
       <h2 id="4-folder-and-file-map">4. Folder and file map</h2>
+      <p>
+        The faithful Votes correction adds
+        <a href="../src/components/votes/vote-list-card.tsx"
+          >vote-list-card.tsx</a
+        >
+        for rich server-rendered records and a compact scheduled row. The page
+        uses exact own-entitlement counts (explicit actor filtering through RLS,
+        including admins) and turnout narrowed from the existing result routine.
+        It never uses mock totals or forwards choices to the card.
+        Status/type/history links retain pagination and cancelled access.
+        <a href="../tests/unit/vote-dashboard.test.ts"
+          >vote-dashboard.test.ts</a
+        >
+        checks scope, missing counts and aggregate-only projection; the existing
+        live capture exercises actual 02 active / 01 scheduled / 01 response and
+        real 1-of-2 turnout in a disposable fixture. Those numbers are synthetic
+        test outcomes, not display constants. Refresh screenshots 05/68/69/72
+        from the application whenever this layout changes. No new migration,
+        endpoint or role-based voting entitlement is introduced. Added
+        summary/result reads must be included in hosting latency and read-budget
+        verification; they are not proof of the existing performance gate.
+      </p>
+      <p>
+        Appearance review additions:
+        <a href="../src/shared/theme.ts">theme constants/bootstrap</a>,
+        <a href="../src/components/ui/theme-provider.tsx">theme provider</a> and
+        <a href="../src/components/ui/theme-switcher.tsx">header switcher</a>
+        use a dedicated <code>civic-pulse-theme</code> key containing only
+        <code>light</code>, <code>dark</code> or <code>system</code>. System is
+        the default; invalid values are cleared before paint and blocked storage
+        is handled without losing page usability. <code>next-themes</code> owns
+        media/preference/cross-tab updates. The root alone suppresses the
+        expected theme-attribute hydration mismatch; other rendering errors must
+        not be hidden. No ballot storage exception is added.
+      </p>
+      <p>
+        Sora/Manrope are self-hosted through Next&#39;s font loader. PDF fonts
+        remain bundled Inter/Noto. Semantic CSS tokens cover Platinum/Obsidian
+        and all RWA accents, with light print overrides. After user approval,
+        the shared header, fields, notices, tables/dialogs and
+        resident/admin/public page surfaces now follow the same style; top
+        navigation and all functional contracts are retained. The
+        <a href="../tests/e2e/visual-rollout.spec.ts">rollout test</a> uses real
+        disposable fixtures and temporary redacted images across page families,
+        including native ballot review/submit and completed results. The User
+        Guide and all its assets are frozen by explicit request, so do not run
+        the documentation capture script or regenerate USER_GUIDE during this
+        rollout. Use <code>PLAYWRIGHT_PRESERVE_GUIDE=1</code> for browser tests
+        and direct Next commands for build/ preview; regenerate this technical
+        copy only with
+        <code
+          >node --input-type=module -e &quot;import {renderGuide} from
+          &#39;./scripts/docs/render.mjs&#39;; await
+          renderGuide(&#39;TECHNICAL_GUIDE&#39;);&quot;</code
+        >. <a href="../tests/unit/theme.test.ts">Unit tests</a> cover
+        bootstrap/contrast;
+        <a href="../tests/e2e/theme.spec.ts">browser tests</a> cover actual
+        behavior. Focused captures use
+        <code>--grep &quot;Platinum and Obsidian&quot;</code> under the same
+        disposable-project/TLS/redaction safeguards, adding pictures 68-74 and
+        refreshing the affected overviews when guide updates are explicitly
+        resumed. Runtime browser font requests never contact Google.
+      </p>
       <div class="table-scroll">
         <table>
           <thead>
@@ -590,6 +653,82 @@
                 Account/household forms, draft editing, preview and lifecycle
                 interaction.
               </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/components/admin/account-review-table.tsx"
+                  >src/components/admin/account-review-table.tsx</a
+                >
+              </td>
+              <td>
+                Current-page multi-selection and separate account
+                enablement/flat eligibility confirmations, administrator warning
+                and per-record outcomes.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/components/admin/register-import-form.tsx"
+                  >src/components/admin/register-import-form.tsx</a
+                >
+              </td>
+              <td>
+                Memory-only CSV upload/check, confirmed sequential import,
+                progress/outcomes and account-review links.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/shared/contracts/register-import.ts"
+                  >src/shared/contracts/register-import.ts</a
+                >
+              </td>
+              <td>
+                <code>csv-parse</code> parsing, 500-row/256-KiB bounds and
+                strict import contracts.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/server/register/import.ts"
+                  >src/server/register/import.ts</a
+                >
+              </td>
+              <td>
+                Retry-safe Auth orchestration and guarded import assignment;
+                never enables accounts.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/app/admin/households/import/page.tsx"
+                  >src/app/admin/households/import/page.tsx</a
+                >
+              </td>
+              <td>Protected import page reached from the register.</td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/app/api/admin/households/import/route.ts"
+                  >src/app/api/admin/households/import/route.ts</a
+                >
+              </td>
+              <td>
+                Per-row check/import endpoint with CSRF, current-admin checks
+                and import budget.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                [src/app/api/admin/votes/[id]/schedule/route.ts](../src/app/api/admin/votes/[id]/schedule/route.ts)
+              </td>
+              <td>Schedule a previewed draft and freeze it immediately.</td>
+            </tr>
+            <tr>
+              <td>
+                [src/app/api/admin/votes/[id]/schedule/withdraw/route.ts](../src/app/api/admin/votes/[id]/schedule/withdraw/route.ts)
+              </td>
+              <td>Confirmed, reasoned pre-opening return to draft.</td>
             </tr>
             <tr>
               <td>
@@ -1117,6 +1256,45 @@
       <h2 id="7-database-model-and-invariants">
         7. Database model and invariants
       </h2>
+      <p>
+        Accounts can now be reviewed in one table with their RLS-authorized flat
+        assignment and eligibility. The page defaults to residents; selecting
+        All Roles is explicit. Selections are current-page only and clear on
+        filter/page/size changes. The two actions reuse the existing
+        per-account/per-household PATCH endpoints, not a bulk database write or
+        new grant. Access and eligibility remain independent; admins without
+        flats can be enabled only through explicit inclusion and a warning.
+        Deleted/missing-assignment/already-satisfied rows are excluded as
+        appropriate. Every request rechecks permissions and commits separately.
+        Uncertain failures stop the batch; UI completion never rolls back
+        earlier records or conceals an unknown outcome. Existing
+        mutation/provider limits apply. No new migration is needed.
+      </p>
+      <p>
+        CSV import checks every record without overwriting existing state, then
+        applies ready rows independently. Exact retries are skipped; conflicting
+        identifiers, names, roles, assignments or eligibility are reported. Auth
+        provisioning and database writes are not one transaction. Newly
+        provisioned profiles remain suspended; administrators use the existing
+        confirmed account workflow to enable them after review. Unknown/partial
+        failures stop subsequent rows and require a recheck, not blind account
+        deletion. CSV records remain in page memory only.
+      </p>
+      <p>
+        Scheduling uses the same guarded freeze helper as immediate activation.
+        <code>opens_at</code> is the effective start and
+        <code>scheduled_at</code> is the confirmation/freeze time;
+        <code>activated_at</code> stores the effective start even while
+        scheduled. Ballot, electorate and representative snapshots freeze now,
+        not at opening. RLS and the member projection hide candidates/options
+        before opening. Database-time reconciliation under the vote lock opens
+        due votes, and a missed whole window completes at the original deadline.
+        Strictly before opening, a confirmed reasoned withdrawal clears
+        snapshots and zero counters, advances the revision, and requires new
+        preview. It never reopens an active or terminal vote. See the
+        architecture implementation map and API/schema sections for exact
+        paths/contracts.
+      </p>
       <div class="table-scroll">
         <table>
           <thead>
@@ -1430,7 +1608,7 @@
       </h2>
       <figure class="wide">
         <img
-          src="data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMTAwMCIKICBoZWlnaHQ9IjMyMCIKICB2aWV3Qm94PSIwIDAgMTAwMCAzMjAiCiAgcm9sZT0iaW1nIgogIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyIKPgogIDx0aXRsZSBpZD0idGl0bGUiPlZvdGUgbGlmZWN5Y2xlPC90aXRsZT4KICA8ZGVzYyBpZD0iZGVzYyI+CiAgICBBIGRyYWZ0IGNhbiBiZSBlZGl0ZWQuIEV4cGxpY2l0IGFjdGl2YXRpb24gZnJlZXplcyBpdC4gQW4gYWN0aXZlIHZvdGUKICAgIGNvbXBsZXRlcyBhdCBpdHMgZGVhZGxpbmUgb3IgZWFybHkgd2l0aCBhIHJlYXNvbiwgb3IgaXMgY2FuY2VsbGVkIHdpdGggYQogICAgcmVhc29uLiBUZXJtaW5hbCB2b3RlcyBuZXZlciByZW9wZW4uCiAgPC9kZXNjPgogIDxkZWZzPgogICAgPG1hcmtlcgogICAgICBpZD0iYSIKICAgICAgbWFya2VyV2lkdGg9IjEwIgogICAgICBtYXJrZXJIZWlnaHQ9IjEwIgogICAgICByZWZYPSI4IgogICAgICByZWZZPSIzIgogICAgICBvcmllbnQ9ImF1dG8iCiAgICA+CiAgICAgIDxwYXRoIGQ9Ik0wIDAgTDAgNiBMOCAzWiIgZmlsbD0iIzQ3NTU2OSIgLz4KICAgIDwvbWFya2VyPgogIDwvZGVmcz4KICA8cmVjdCB3aWR0aD0iMTAwMCIgaGVpZ2h0PSIzMjAiIHJ4PSIxMiIgZmlsbD0iI2Y4ZmFmYyIgLz4KICA8ZyBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMwZjE3MmEiPgogICAgPHRleHQgeD0iNTAwIiB5PSIzMiIgZm9udC1zaXplPSIyMiIgZm9udC13ZWlnaHQ9ImJvbGQiPgogICAgICBWb3RpbmcgdHlwZSBpcyBzZXBhcmF0ZSBmcm9tIGxpZmVjeWNsZSBzdGF0dXMKICAgIDwvdGV4dD4KICAgIDxnIGZpbGw9IiNmZmYiIHN0cm9rZS13aWR0aD0iMiI+CiAgICAgIDxyZWN0IHg9IjI1IiB5PSIxMDAiIHdpZHRoPSIxOTAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgc3Ryb2tlPSIjNjQ3NDhiIiAvPgogICAgICA8cmVjdCB4PSIzNjAiIHk9IjEwMCIgd2lkdGg9IjE5MCIgaGVpZ2h0PSI5MCIgcng9IjEwIiBzdHJva2U9IiMwZjc2NmUiIC8+CiAgICAgIDxyZWN0IHg9Ijc4MCIgeT0iNjAiIHdpZHRoPSIxOTUiIGhlaWdodD0iOTAiIHJ4PSIxMCIgc3Ryb2tlPSIjMTU4MDNkIiAvPgogICAgICA8cmVjdCB4PSI3ODAiIHk9IjIwNSIgd2lkdGg9IjE5NSIgaGVpZ2h0PSI4MCIgcng9IjEwIiBzdHJva2U9IiNiOTFjMWMiIC8+CiAgICA8L2c+CiAgICA8ZyBmb250LXNpemU9IjE5IiBmb250LXdlaWdodD0iYm9sZCI+CiAgICAgIDx0ZXh0IHg9IjEyMCIgeT0iMTM1Ij5EcmFmdDwvdGV4dD4KICAgICAgPHRleHQgeD0iNDU1IiB5PSIxMzUiPkFjdGl2ZTwvdGV4dD4KICAgICAgPHRleHQgeD0iODc3IiB5PSI5NSI+Q29tcGxldGVkPC90ZXh0PgogICAgICA8dGV4dCB4PSI4NzciIHk9IjIzOCI+Q2FuY2VsbGVkPC90ZXh0PgogICAgPC9nPgogICAgPGcgZm9udC1zaXplPSIxNSI+CiAgICAgIDx0ZXh0IHg9IjEyMCIgeT0iMTYyIj5FZGl0YWJsZSwgbm90IHJlc2lkZW50LXZpc2libGU8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjQ1NSIgeT0iMTYyIj5Gcm96ZW4sIGFjY2VwdHMgZWxpZ2libGUgdm90ZXM8L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg3NyIgeT0iMTIyIj5BdXRob3JpemVkIHJlc3VsdHMgYXZhaWxhYmxlPC90ZXh0PgogICAgICA8dGV4dCB4PSI4NzciIHk9IjI2NSI+Tm8gdmFsaWQgcmVzdWx0cyBvciBleHBvcnRzPC90ZXh0PgogICAgICA8dGV4dCB4PSIyODYiIHk9IjkwIj5QcmV2aWV3ICsgY29uZmlybTwvdGV4dD4KICAgICAgPHRleHQgeD0iNjU2IiB5PSI3MSI+RGVhZGxpbmUgb3IgZWFybHkgKyByZWFzb248L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjY1NiIgeT0iMjE3Ij5DYW5jZWwgKyByZWFzb248L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjQ2MCIgeT0iMjkwIj4KICAgICAgICBObyByZW9wZW5pbmcsIGRlYWRsaW5lIGV4dGVuc2lvbiBvciBiYWxsb3QgZWRpdHMgYWZ0ZXIgYWN0aXZhdGlvbi4KICAgICAgPC90ZXh0PgogICAgPC9nPgogIDwvZz4KICA8ZyBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIgbWFya2VyLWVuZD0idXJsKCNhKSI+CiAgICA8cGF0aCBkPSJNMjE1IDE0NUgzNTAiIC8+CiAgICA8cGF0aCBkPSJNNTUwIDEzMEg2NTBWMTA1SDc3MCIgLz4KICAgIDxwYXRoIGQ9Ik01NTAgMTY1SDY1MFYyNDVINzcwIiAvPgogIDwvZz4KPC9zdmc+Cg=="
+          src="data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMTAwMCIKICBoZWlnaHQ9IjQyMCIKICB2aWV3Qm94PSIwIDAgMTAwMCA0MjAiCiAgcm9sZT0iaW1nIgogIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyIKPgogIDx0aXRsZSBpZD0idGl0bGUiPlZvdGUgbGlmZWN5Y2xlPC90aXRsZT4KICA8ZGVzYyBpZD0iZGVzYyI+CiAgICBBIGRyYWZ0IGNhbiBhY3RpdmF0ZSBub3cgb3IgZnJlZXplIGFzIFNjaGVkdWxlZC4gQSBzY2hlZHVsZWQgdm90ZSBvcGVucyBhdAogICAgZGF0YWJhc2UgdGltZSBvciByZXR1cm5zIHRvIGRyYWZ0IGJlZm9yZSBvcGVuaW5nIHdpdGggYSByZWNvcmRlZCByZWFzb24uCiAgICBBY3RpdmUgdm90aW5nIGNvbXBsZXRlcyBhdCB0aGUgZGVhZGxpbmUgb3IgZWFybHkgd2l0aCBhIHJlYXNvbiwgb3IgaXMKICAgIGNhbmNlbGxlZCB3aXRoIGEgcmVhc29uLiBUZXJtaW5hbCB2b3RlcyBuZXZlciByZW9wZW4uCiAgPC9kZXNjPgogIDxkZWZzPgogICAgPG1hcmtlcgogICAgICBpZD0iYSIKICAgICAgbWFya2VyV2lkdGg9IjEwIgogICAgICBtYXJrZXJIZWlnaHQ9IjEwIgogICAgICByZWZYPSI4IgogICAgICByZWZZPSIzIgogICAgICBvcmllbnQ9ImF1dG8iCiAgICA+CiAgICAgIDxwYXRoIGQ9Ik0wIDAgTDAgNiBMOCAzWiIgZmlsbD0iIzQ3NTU2OSIgLz4KICAgIDwvbWFya2VyPgogIDwvZGVmcz4KICA8cmVjdCB3aWR0aD0iMTAwMCIgaGVpZ2h0PSI0MjAiIHJ4PSIxMiIgZmlsbD0iI2Y4ZmFmYyIgLz4KICA8ZyBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMwZjE3MmEiPgogICAgPHRleHQgeD0iNTAwIiB5PSIzMiIgZm9udC1zaXplPSIyMiIgZm9udC13ZWlnaHQ9ImJvbGQiPgogICAgICBWb3RpbmcgdHlwZSBpcyBzZXBhcmF0ZSBmcm9tIGxpZmVjeWNsZSBzdGF0dXMKICAgIDwvdGV4dD4KICAgIDxnIGZpbGw9IiNmZmYiIHN0cm9rZS13aWR0aD0iMiI+CiAgICAgIDxyZWN0IHg9IjI1IiB5PSIxMDAiIHdpZHRoPSIxOTAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgc3Ryb2tlPSIjNjQ3NDhiIiAvPgogICAgICA8cmVjdCB4PSIyNSIgeT0iMjM1IiB3aWR0aD0iMTkwIiBoZWlnaHQ9IjkwIiByeD0iMTAiIHN0cm9rZT0iIzQ3NTU2OSIgLz4KICAgICAgPHJlY3QgeD0iMzYwIiB5PSIxMDAiIHdpZHRoPSIxOTAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgc3Ryb2tlPSIjMGY3NjZlIiAvPgogICAgICA8cmVjdCB4PSI3ODAiIHk9IjYwIiB3aWR0aD0iMTk1IiBoZWlnaHQ9IjkwIiByeD0iMTAiIHN0cm9rZT0iIzE1ODAzZCIgLz4KICAgICAgPHJlY3QgeD0iNzgwIiB5PSIyMDUiIHdpZHRoPSIxOTUiIGhlaWdodD0iODAiIHJ4PSIxMCIgc3Ryb2tlPSIjYjkxYzFjIiAvPgogICAgPC9nPgogICAgPGcgZm9udC1zaXplPSIxOSIgZm9udC13ZWlnaHQ9ImJvbGQiPgogICAgICA8dGV4dCB4PSIxMjAiIHk9IjEzNSI+RHJhZnQ8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjEyMCIgeT0iMjcwIj5TY2hlZHVsZWQ8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjQ1NSIgeT0iMTM1Ij5BY3RpdmU8L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg3NyIgeT0iOTUiPkNvbXBsZXRlZDwvdGV4dD4KICAgICAgPHRleHQgeD0iODc3IiB5PSIyMzgiPkNhbmNlbGxlZDwvdGV4dD4KICAgIDwvZz4KICAgIDxnIGZvbnQtc2l6ZT0iMTUiPgogICAgICA8dGV4dCB4PSIxMjAiIHk9IjE2MiI+RWRpdGFibGUsIG5vdCByZXNpZGVudC12aXNpYmxlPC90ZXh0PgogICAgICA8dGV4dCB4PSIxMjAiIHk9IjI5OCI+RnJvemVuLCBzdW1tYXJ5IHZpc2libGU8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjQ1NSIgeT0iMTYyIj5Gcm96ZW4sIGFjY2VwdHMgZWxpZ2libGUgdm90ZXM8L3RleHQ+CiAgICAgIDx0ZXh0IHg9Ijg3NyIgeT0iMTIyIj5BdXRob3JpemVkIHJlc3VsdHMgYXZhaWxhYmxlPC90ZXh0PgogICAgICA8dGV4dCB4PSI4NzciIHk9IjI2NSI+Tm8gdmFsaWQgcmVzdWx0cyBvciBleHBvcnRzPC90ZXh0PgogICAgICA8dGV4dCB4PSIyODYiIHk9IjkwIj5QcmV2aWV3ICsgYWN0aXZhdGUgbm93PC90ZXh0PgogICAgICA8dGV4dCB4PSIyMjAiIHk9IjIyMCI+RnJlZXplICsgc2NoZWR1bGU8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjMwMCIgeT0iMzEyIj5PcGVucyBhdXRvbWF0aWNhbGx5PC90ZXh0PgogICAgICA8dGV4dCB4PSIxMjAiIHk9IjM1NSI+UmV0dXJuIHRvIGRyYWZ0PC90ZXh0PgogICAgICA8dGV4dCB4PSIxMjAiIHk9IjM3NSI+QmVmb3JlIG9wZW5pbmcgKyByZWFzb248L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjY1NiIgeT0iNzEiPkRlYWRsaW5lIG9yIGVhcmx5ICsgcmVhc29uPC90ZXh0PgogICAgICA8dGV4dCB4PSI2NTYiIHk9IjIxNyI+Q2FuY2VsICsgcmVhc29uPC90ZXh0PgogICAgICA8dGV4dCB4PSI2MjUiIHk9IjM5MCI+CiAgICAgICAgTm8gdGVybWluYWwgcmVvcGVuaW5nLiBBY3RpdmUgZGVhZGxpbmVzIG1heSBtb3ZlIHdpdGggYSByZWFzb24uCiAgICAgIDwvdGV4dD4KICAgIDwvZz4KICA8L2c+CiAgPGcgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiIG1hcmtlci1lbmQ9InVybCgjYSkiPgogICAgPHBhdGggZD0iTTIxNSAxNDVIMzUwIiAvPgogICAgPHBhdGggZD0iTTEyMCAxOTBWMjI1IiAvPgogICAgPHBhdGggZD0iTTIxNSAyODBIMzAwVjE4NUgzNTAiIC8+CiAgICA8cGF0aCBkPSJNMjUgMjgwSDEwVjE0NUgxNSIgLz4KICAgIDxwYXRoIGQ9Ik01NTAgMTMwSDY1MFYxMDVINzcwIiAvPgogICAgPHBhdGggZD0iTTU1MCAxNjVINjUwVjI0NUg3NzAiIC8+CiAgPC9nPgo8L3N2Zz4K"
           alt="Immutable lifecycle"
         />
         <figcaption>Immutable lifecycle</figcaption>
@@ -1921,17 +2099,57 @@
       </p>
       <pre><code># On a network with TLS inspection, let Node trust the system store first (see LOCAL_SETUP troubleshooting).
 $env:NODE_USE_SYSTEM_CA = &quot;1&quot;
+# Download the database CA through the provider&#39;s SSL settings; this is a certificate, not a key.
+$env:PGSSLROOTCERT = &quot;C:\approved-certificates\prod-ca-2021.crt&quot;
 $env:LIVE_AUTH = &quot;1&quot;
 $env:DOC_SCREENSHOTS = &quot;1&quot;
 npx playwright test -c playwright.docs.config.ts
+# Or refresh only the new import/scheduling workflow and its affected existing images:
+npx playwright test -c playwright.docs.config.ts --grep &quot;bulk import and scheduled opening&quot;
+# Or refresh the Accounts table and its five bulk-review pictures:
+npx playwright test -c playwright.docs.config.ts --grep &quot;bulk account review&quot;
 node scripts\docs\render.mjs</code></pre>
       <p>
-        Before capturing, apply every migration to the fixture project (<code
-          >npx supabase db push --db-url $env:LIVE_DATABASE_URL</code
-        >, review the <code>--dry-run</code> first), run
-        <code>npm run test:live</code>, and make sure no other
-        <code>next dev</code> server is running in this folder: Playwright
-        starts its own on port 3100 and Next allows one per folder.
+        Before capturing, confirm the disposable target, review pending
+        migrations with <code>--dry-run</code>, and obtain authorization before
+        applying any. On CLIs supporting it, use <code>--skip-vault</code> to
+        limit the push to reviewed SQL rather than unrelated vault
+        configuration. Run the relevant live checks separately and make sure no
+        other <code>next dev</code> server is running in this folder: Playwright
+        starts its own on port 3100 and Next allows one per folder. Every
+        migration that uses <code>SET LOCAL ROLE cp_owner</code> must
+        <code>RESET ROLE</code> before returning, so the CLI can record its
+        history entry as the deployment role; the two follow-up migrations were
+        corrected before their first successful hosted application.
+      </p>
+      <p>
+        The shared browser-fixture SQL helper uses
+        <code>scripts/ops/database.ts</code>: verified TLS and hostname checks,
+        with <code>PGSSLROOTCERT</code> for the provider CA. The Windows system
+        store alone does not include the Supabase database CA. Use the
+        provider&#39;s
+        <a href="https://supabase.com/docs/guides/platform/ssl-enforcement"
+          >SSL guidance</a
+        >, not <code>rejectUnauthorized: false</code>. Other older test helpers
+        have their own outstanding TLS audit findings; this change does not
+        claim to fix them all.
+      </p>
+      <p>
+        The focused test adds nine images (<code>54-import-preview</code>
+        through <code>61-schedule-withdrawn</code>, plus
+        <code>62-import-mobile</code>) and refreshes only
+        <code>15-admin-home</code>, <code>25-ready-preview</code>,
+        <code>31-admin-votes</code> and <code>44-household-created</code>. It
+        uses real synthetic account provisioning, one-row import, exact-match
+        checking, scheduling and withdrawal. It confirms the imported account is
+        still suspended, the resident sees no voting controls before opening,
+        and the withdrawn vote is hidden again. The fixture profile is restored
+        and any remaining example schedule is withdrawn on cleanup; new accounts
+        remain synthetic test records. Email/code redaction remains enabled. The
+        new confirmation images are dialog crops; the other captures are
+        full-page, including a mobile import and resident view. This is not a
+        500-row capacity test, SMTP test, manual accessibility acceptance or
+        proof of actual scheduled Cron execution.
       </p>
       <p>
         Use only the approved disposable fixture project. Capturing creates

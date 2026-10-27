@@ -1,3 +1,4 @@
+// Account and household administration contracts, including the bounded review table.
 import { z } from "zod";
 import { listQuerySchema, queryBoolean } from "@/shared/contracts/pagination";
 import {
@@ -85,6 +86,34 @@ export interface HouseholdProjection {
     email: string | null;
     status: AccountStatus;
   };
+}
+
+export interface ReviewAccountProjection extends AccountProjection {
+  household: { id: string; identifier: string; isEligible: boolean } | null;
+}
+
+export type AccountReviewAction = "enable" | "eligible";
+
+export function canReviewAccount(
+  account: ReviewAccountProjection,
+  action: AccountReviewAction,
+): boolean {
+  if (account.status === "DELETED") return false;
+  return action === "enable"
+    ? account.status === "SUSPENDED" &&
+        account.email !== null &&
+        (account.isAdmin || account.household !== null)
+    : account.household !== null && !account.household.isEligible;
+}
+
+export function accountReviewTargets(
+  accounts: readonly ReviewAccountProjection[],
+  selected: ReadonlySet<string>,
+  action: AccountReviewAction,
+): ReviewAccountProjection[] {
+  return accounts.filter(
+    (account) => selected.has(account.id) && canReviewAccount(account, action),
+  );
 }
 
 export type CreateAccountInput = z.output<typeof createAccountSchema>;
