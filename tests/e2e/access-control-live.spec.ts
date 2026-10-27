@@ -1,5 +1,11 @@
 // Source-discovered protected API access checks against an explicitly enabled disposable project.
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import {
+  closeSync,
+  fstatSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+} from "node:fs";
 import { join, relative, sep } from "node:path";
 import {
   expect,
@@ -47,13 +53,23 @@ interface ApiRoute {
 function discoverRoutes(): ApiRoute[] {
   const root = join(process.cwd(), "src", "app", "api");
   const found: ApiRoute[] = [];
+  const readRouteSource = (path: string): string | null => {
+    const descriptor = openSync(path, "r");
+    try {
+      if (!fstatSync(descriptor).isFile()) return null;
+      return readFileSync(descriptor, "utf8");
+    } finally {
+      closeSync(descriptor);
+    }
+  };
   const walk = (dir: string) => {
-    for (const entry of readdirSync(dir)) {
-      const full = join(dir, entry);
-      if (statSync(full).isDirectory()) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
         walk(full);
-      } else if (entry === "route.ts") {
-        const source = readFileSync(full, "utf8");
+      } else if (entry.isFile() && entry.name === "route.ts") {
+        const source = readRouteSource(full);
+        if (source === null) continue;
         const methods = (
           ["GET", "POST", "PATCH", "PUT", "DELETE"] as const
         ).filter((m) => new RegExp(`^\\s{2}${m}:`, "mu").test(source));

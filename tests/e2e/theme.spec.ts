@@ -83,7 +83,11 @@ test("both modes reflow accessibly, use self-hosted fonts and print light", asyn
 }) => {
   const externalFonts: string[] = [];
   page.on("request", (request) => {
-    if (/fonts\.(googleapis|gstatic)\.com/u.test(request.url()))
+    const url = new URL(request.url());
+    if (
+      url.hostname === "fonts.googleapis.com" ||
+      url.hostname === "fonts.gstatic.com"
+    )
       externalFonts.push(request.url());
   });
   await page.goto("/sign-in");

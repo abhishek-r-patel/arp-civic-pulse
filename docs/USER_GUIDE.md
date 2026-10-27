@@ -1,4 +1,4 @@
-# Civic Pulse User Guide: Resident, RWA Admin and RWA ReadOnly
+# Civic Pulse - User Guide
 
 This guide is organized around what each signed-in persona can do. Choose your role below and go directly to that section. The screenshots are current captures of the themed application using synthetic accounts and voting data; email addresses and codes are masked. Production use remains subject to the open approvals and checks in the [launch audit](./LAUNCH_AUDIT.md) and [pilot readiness register](./PILOT_READINESS.md).
 

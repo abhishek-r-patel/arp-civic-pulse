@@ -37,7 +37,7 @@ test("footer opens the illustrated user guide with working contents and embedded
   await expect(page).toHaveURL(/\/user-guide\.html$/);
   await expect(page.locator("h1")).toHaveCount(1);
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "resident and administrator guide",
+    "Civic Pulse - User Guide",
   );
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
     "content",
@@ -56,12 +56,14 @@ test("footer opens the illustrated user guide with working contents and embedded
   const contents = page.getByRole("navigation", { name: "Contents" });
   await contents
     .getByRole("link", {
-      name: "3. Sign in and recover from a code error",
+      name: "Shared Sign-In and Appearance",
       exact: true,
     })
     .click();
-  await expect(page).toHaveURL(/#3-sign-in-and-recover-from-a-code-error$/);
-  const screenshot = page.getByRole("img", { name: /^01: Sign-in screen/ });
+  await expect(page).toHaveURL(/#shared-sign-in-and-appearance$/);
+  const screenshot = page.getByRole("img", {
+    name: /^Resident 01: registered email sign-in/,
+  });
   await screenshot.scrollIntoViewIfNeeded();
   await expect
     .poll(() =>
@@ -70,7 +72,7 @@ test("footer opens the illustrated user guide with working contents and embedded
       ),
     )
     .toBe(true);
-  await expect(screenshot).toHaveAttribute("alt", /Sign-in screen/);
+  await expect(screenshot).toHaveAttribute("alt", /registered email sign-in/);
   await expect(screenshot).toHaveAttribute("loading", "lazy");
   for (const width of [375, 1280]) {
     await page.setViewportSize({ width, height: 900 });
@@ -90,11 +92,15 @@ test("footer opens the illustrated user guide with working contents and embedded
     .analyze();
   expect(result.violations).toEqual([]);
   expect((await request.get("/user-guide.html")).status()).toBe(200);
-  for (const number of [
-    54, 55, 56, 57, 58, 59, 60, 61, 62, 68, 69, 70, 71, 72, 73, 74,
+  expect(await page.locator('img[src^="data:image/"]').count()).toBeGreaterThan(
+    100,
+  );
+  for (const name of [
+    "RWA Admin 54: validated CSV import preview",
+    "RWA ReadOnly 01: Votes home in Platinum with committee access",
   ]) {
     const updatedImage = page.getByRole("img", {
-      name: new RegExp(`^${number}:`),
+      name,
     });
     await expect(updatedImage).toHaveCount(1);
     await updatedImage.scrollIntoViewIfNeeded();
@@ -440,8 +446,12 @@ test("optional analytics excludes query strings and is disabled on private workf
       body: "/* Controlled provider script; no external collection. */",
     }),
   );
-  await page.route(/https:\/\/.*google-analytics\.com\//, (route) =>
-    route.abort(),
+  await page.route(
+    (url) =>
+      url.protocol === "https:" &&
+      (url.hostname === "google-analytics.com" ||
+        url.hostname.endsWith(".google-analytics.com")),
+    (route) => route.abort(),
   );
   await page.goto("/privacy?email=synthetic-private-value");
   const toggle = page.getByRole("checkbox", {

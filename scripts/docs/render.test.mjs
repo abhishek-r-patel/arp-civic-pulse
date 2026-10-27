@@ -15,6 +15,14 @@ test("web guide shares the app favicon without adding network dependencies to of
   assert.ok(!guideDocument(rendered).includes('href="/icon.svg"'));
 });
 
+test("guide editions omit the offline and print note while retaining the web return link", () => {
+  const rendered = renderMarkdown("# Guide\n", options);
+  for (const web of [false, true]) {
+    assert.ok(!guideDocument(rendered, web).includes("Offline / print edition."));
+  }
+  assert.ok(guideDocument(rendered, true).includes("Back to Civic Pulse"));
+});
+
 test("web guide links retain contents and HTTPS but do not expose repository documents", () => {
   assert.equal(guideLink("./USER_GUIDE.md#1-start", true), "/user-guide.html#1-start");
   assert.equal(guideLink("./USER_GUIDE.html", true), "/user-guide.html");

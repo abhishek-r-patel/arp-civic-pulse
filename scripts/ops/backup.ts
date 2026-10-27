@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import {
+  open,
   mkdtemp,
   lstat,
   readFile,
@@ -338,37 +339,72 @@ const manifestSchema = z.strictObject({
 });
 
 async function readManifest(path: string): Promise<Manifest> {
-  const info = await lstat(path);
-  if (!info.isFile() || info.size > 64 * 1024) {
-    throw new Error(
-      "Invalid backup manifest: expected a bounded regular file.",
-    );
-  }
-  let value: unknown;
+  const handle = await open(path, "r");
   try {
-    value = JSON.parse(await readFile(path, "utf8"));
-  } catch {
-    throw new Error("Invalid backup manifest JSON.");
+    const info = await handle.stat();
+    const pathInfo = await lstat(path);
+    if (
+      !info.isFile() ||
+      !pathInfo.isFile() ||
+      info.dev !== pathInfo.dev ||
+      info.ino !== pathInfo.ino ||
+      info.size > 64 * 1024
+    ) {
+      throw new Error(
+        "Invalid backup manifest: expected a bounded regular file.",
+      );
+    }
+    const buffer = Buffer.alloc(64 * 1024 + 1);
+    let length = 0;
+    try {
+      while (length < buffer.length) {
+        const { bytesRead } = await handle.read(
+          buffer,
+          length,
+          buffer.length - length,
+          length,
+        );
+        if (bytesRead === 0) break;
+        length += bytesRead;
+      }
+    } catch {
+      throw new Error("Invalid backup manifest JSON.");
+    }
+    if (length > 64 * 1024) {
+      throw new Error(
+        "Invalid backup manifest: expected a bounded regular file.",
+      );
+    }
+    let value: unknown;
+    try {
+      value = JSON.parse(buffer.toString("utf8", 0, length));
+    } catch {
+      throw new Error("Invalid backup manifest JSON.");
+    }
+    const parsed = manifestSchema.safeParse(value);
+    if (!parsed.success) {
+      throw new Error("Invalid backup manifest structure.");
+    }
+    const manifest = parsed.data;
+    const stamp = `cp-backup-${stampOf(new Date(manifest.createdAt))}`;
+    if (
+      basename(path) !== `${stamp}.manifest.json` ||
+      new Set(manifest.files.map((file) => file.role)).size !== 3 ||
+      manifest.files.some(
+        (file) => file.name !== `${stamp}.${file.role}.enc`,
+      ) ||
+      new Date(manifest.expiresAt).getTime() -
+        new Date(manifest.createdAt).getTime() !==
+        manifest.retentionDays * 86_400_000
+    ) {
+      throw new Error(
+        "Invalid backup manifest: filenames, roles or expiry do not match this set.",
+      );
+    }
+    return manifest;
+  } finally {
+    await handle.close();
   }
-  const parsed = manifestSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new Error("Invalid backup manifest structure.");
-  }
-  const manifest = parsed.data;
-  const stamp = `cp-backup-${stampOf(new Date(manifest.createdAt))}`;
-  if (
-    basename(path) !== `${stamp}.manifest.json` ||
-    new Set(manifest.files.map((file) => file.role)).size !== 3 ||
-    manifest.files.some((file) => file.name !== `${stamp}.${file.role}.enc`) ||
-    new Date(manifest.expiresAt).getTime() -
-      new Date(manifest.createdAt).getTime() !==
-      manifest.retentionDays * 86_400_000
-  ) {
-    throw new Error(
-      "Invalid backup manifest: filenames, roles or expiry do not match this set.",
-    );
-  }
-  return manifest;
 }
 
 async function withDecrypted<T>(

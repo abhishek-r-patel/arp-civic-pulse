@@ -185,7 +185,6 @@ figcaption { font-size: .85rem; line-height: 1.4; margin-top: 12px; color: #3e53
 table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: .92rem; }
 th, td { text-align: left; vertical-align: top; border: 1px solid #cbd8df; padding: 10px; }
 th { background: #edf4f5; }
-.notice { border-left: 4px solid #147c81; background: #edf6f6; padding: 12px 16px; }
 @media (max-width: 600px) {
   main { margin: 0; padding: 20px; }
   h1 { font-size: 1.7rem; } h2 { font-size: 1.35rem; }
@@ -208,7 +207,6 @@ th { background: #edf4f5; }
   tr, pre { break-inside: avoid; }
   a { color: inherit; }
   nav { break-after: page; }
-  .notice { font-size: 9pt; }
 }
 `;
 
@@ -238,7 +236,7 @@ export function guideDocument({ html, headings }, web = false) {
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light">${web ? '<meta name="robots" content="noindex, follow"><meta name="description" content="The illustrated Civic Pulse persona guide for Residents, RWA Admins and RWA ReadOnly committee members."><link rel="icon" href="/icon.svg" type="image/svg+xml" sizes="any">' : ""}<title>${escape(headings[0].title)}</title><style>${css}</style></head>
 <body><main>
-${web ? '<a href="/sign-in" style="display:inline-flex;align-items:center;min-height:48px">Back to Civic Pulse</a>' : '<p class="notice">Offline / print edition. Images are embedded; no internet or JavaScript is required. Use your browser\'s Print / Save as PDF. Source-code and supporting-document links require the original repository layout.</p>'}
+${web ? '<a href="/sign-in" style="display:inline-flex;align-items:center;min-height:48px">Back to Civic Pulse</a>' : ""}
 <nav aria-label="Contents"><strong>Contents</strong><ol>${toc}</ol></nav>
 ${html}
 </main></body></html>
@@ -267,8 +265,8 @@ export async function renderGuide(name) {
     );
     if (!contained(root, path))
       throw new Error(`Link escapes repository: ${target}`);
-    await stat(path);
     if (!isImage) {
+      await stat(path);
       localLinks.add(target);
       continue;
     }

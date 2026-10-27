@@ -254,6 +254,15 @@ describe("expiry", () => {
     }
   });
 
+  it("rejects manifests larger than 64 KiB", async () => {
+    const manifestPath = join(dir, "cp-backup-20260101T000000Z.manifest.json");
+    await writeFile(manifestPath, " ".repeat(64 * 1024 + 1));
+
+    await expect(
+      readCounts(manifestPath, parseKey(generateKeyHex())),
+    ).rejects.toThrow(/bounded regular file/iu);
+  });
+
   it.each([
     "duplicate role",
     "missing file",
