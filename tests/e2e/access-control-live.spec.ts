@@ -90,13 +90,14 @@ function discoverRoutes(): ApiRoute[] {
   return found;
 }
 
-// Public by design: session establishment, liveness and support have their own protection tests.
+// Public by design: session establishment, liveness, support and self-registration have their own protection tests.
 const PUBLIC = [
   "/api/auth/code",
   "/api/auth/verify",
   "/api/auth/sign-out",
   "/api/internal/health",
   "/api/contact",
+  "/api/register",
 ];
 const routes = discoverRoutes();
 const protectedRoutes = routes.filter((r) => !PUBLIC.includes(r.path));

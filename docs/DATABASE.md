@@ -72,7 +72,7 @@ Exactly one row, maintained through controlled setup and audited administrative 
 | `website` | `text` | Optional HTTP(S) URL; defaults to empty text. Shown in the signed-in footer when set. |
 | `accent_palette` | `text` | One of `TEAL` (default), `BLUE`, `FOREST`, `PLUM`, `SLATE`; maps to a contrast-checked accent in the design tokens. |
 | `welcome_message` | `text` | Optional plain-text message up to 300 characters, no markup; empty by default. |
-| `default_households` | `text[]` | Admin-managed identifier suggestions for new households; readable through the full settings projection by enabled RWA Admin/ReadOnly accounts, not exposed to Residents; up to 1000 single-line entries of 1-100 characters, unique after household key normalization; empty by default. |
+| `default_households` | `text[]` | Admin-managed household identifier list. When non-empty it is the only set of identifiers accepted when an administrator adds or moves an account's household (enforced by the application) and by resident self-registration (enforced by `self_register_resident`; served to the public `/register` page through the service-role-only `get_self_registration_households`); readable through the full settings projection by enabled RWA Admin/ReadOnly accounts, not exposed to Residents; up to 1000 single-line entries of 1-100 characters, unique after household key normalization; empty by default. |
 | `rwa_positions` | `text[]` | Admin-managed office-name suggestions for PRIVATE drafts; readable through the full settings projection by enabled RWA Admin/ReadOnly accounts, not exposed to Residents; up to 50 single-line entries of 1-200 characters, unique after normalization; defaults to President, Vice-President, Secretary, Joint-Secretary, Treasurer. |
 | `policy_approvals` | `jsonb` | Object keyed exactly by A1-A7; empty object allowed during setup. Structure below. |
 | `vote_retention_days` | `integer`, nullable | Positive approved period after completion/cancellation; null means unapproved, not unlimited. |
@@ -97,6 +97,7 @@ Supabase owns `auth.users` and its authentication schema. Its user UUID and regi
 | `status` | `text` | `ENABLED`, `SUSPENDED`, or `DELETED`; default `SUSPENDED` until provisioning is complete. |
 | `is_admin` | `boolean` | Default false; the `rwa-admin` write-management role; does not grant voting entitlement. |
 | `is_readonly` | `boolean` | Default false; mutually exclusive with `is_admin`. Grants authorized committee reads only, never management writes or voting entitlement. Requires an assigned household before enablement. |
+| `self_registered` | `boolean` | Default false; true only for profiles created by the public `/register` workflow. Provenance for administrator review, never a capability. |
 | `created_at` | `timestamptz` | Database creation time. |
 | `updated_at` | `timestamptz` | Database modification time. |
 | `deleted_at` | `timestamptz`, nullable | Present exactly when status is `DELETED`. |
@@ -110,6 +111,15 @@ false; there is no separate voter-role column. Personas are titled Resident
 Suspension/soft deletion blocks application access immediately through profile checks in RLS and guarded functions, including with an already-issued JWT. Use supported Auth administrative operations for session revocation, bans, email changes, and identity removal as applicable; do not promise instant invalidation of every issued JWT. Auth administrative calls and profile changes are not one transaction: surface partial failures and use retry-safe operations. Keep a profile blocked throughout an identity-change workflow until the Auth identity and register association are verified consistent.
 
 ### 3.3 `households`
+
+Migration `20261111100000_resident_directory.sql` retains a read-only
+`public.resident_directory` view joining profiles to their optional households.
+It was applied to the confirmed disposable project during the subsequently
+reverted Residents-tab experiment. The restored Accounts and Households screens
+do not use it. It remains immutable migration history: `security_invoker` applies
+the caller's underlying RLS policies, only `authenticated` has SELECT, and no
+writes or new voting permissions are granted. Do not drop it or repair migration
+history merely to roll back the application.
 
 | Column | Type | Keys / rules |
 |---|---|---|
@@ -315,6 +325,12 @@ approval. Public metadata and Google verification are configuration, not RWA
 settings records. The optional analytics preference is browser-local consent,
 not ballot state; it does not permit storing selections in browser storage.
 
+Resident self-registration uses the same routine with `register.self.email`
+(3 per normalized email per hour), `register.self.household` (5 per normalized
+household identifier per hour, a new `household` HMAC subject kind) and
+`register.self.global` (100 per hour, fixed HMAC subject). Thresholds are
+provisional pilot settings.
+
 ## 4. Relationships and ER diagram
 
 ```mermaid
@@ -328,6 +344,7 @@ erDiagram
         text status
         boolean is_admin
         boolean is_readonly
+        boolean self_registered
         timestamptz created_at
         timestamptz updated_at
         timestamptz deleted_at "nullable"
@@ -578,7 +595,7 @@ No runtime routine returns active PRIVATE candidate/NOTA counters; completed PRI
 - Routines read the caller from the verified JWT claims through `app_private.current_uid()` (the same source as `auth.uid()`) so `cp_owner` never needs access to the managed `auth` schema. The validation requirement is unchanged: non-null identity, current enabled profile, role, entitlement.
 - Submission, activation and deadline-change routines mark their transaction with the settings `cp.submission` / `cp.activation` / `cp.deadline_change`. Triggers reject participation, response and counter writes, and any change to an active vote's `closes_at`, without them. These are guards against ad hoc writes, not authorization.
 - Protected routines raise an exception whose message is a stable code (`VOTE_FROZEN`, `FORBIDDEN`, `ACTIVATION_BLOCKED`, ...; SQLSTATE `P0001`). `src/server/db/errors.ts` maps allowlisted codes to API errors and never forwards database text.
-- Server-only routines (`provision_profile`, `enable_profile`, `consume_rate_limit`) are executable by `service_role` alone and re-check the `service_role` claim. Deployment procedures live in `app_private` and are not exposed through the Data API (see `supabase/README.md`).
+- Server-only routines (`provision_profile`, `enable_profile`, `consume_rate_limit`, and later `self_register_resident`, `get_self_registration_households` and `provision_profile_with_household`) are executable by `service_role` alone and re-check the `service_role` claim. Deployment procedures live in `app_private` and are not exposed through the Data API (see `supabase/README.md`).
 
 **Draft routines (migration `20261024120000`).** `create_draft`, `get_admin_vote`, `update_draft`, `preview_draft` and `get_rwa_display` are `SECURITY DEFINER`, executable by `authenticated` only, and re-derive the caller from the JWT (current enabled administrator; `get_rwa_display` needs any enabled member).
 - `update_draft` locks the parent vote first, rejects non-drafts with `VOTE_FROZEN`, then checks the expected revision (`STALE_REVISION`). It validates every field itself (the database, not the web tier, is the authority), applies the change and its audit event in one transaction, and increments `draft_revision` exactly once. An empty change set is not an edit: no revision change, no audit event.
@@ -628,6 +645,10 @@ No runtime routine returns active PRIVATE candidate/NOTA counters; completed PRI
 **Suggestion lists (migration `20261104100000`).** `rwa_settings` gains `default_households` and `rwa_positions` (above), validated by `app_private.is_valid_settings_list(items, max_items, max_length)` check constraints. `get_rwa_profile()` returns `defaultHouseholds` and `rwaPositions`; `update_rwa_profile(settings)` requires both keys (arrays of strings, unique after `normalize_key`) and audits them by field name only. `get_rwa_branding()` and `get_public_rwa_identity()` deliberately do not expose them.
 
 **PUBLIC/PRIVATE voting types (migration `20261103100000`).** The voting types formerly stored as `OPEN` and `CLOSED` are renamed to `PUBLIC` and `PRIVATE`. The migration rewrites existing `votes.voting_type` values with user triggers briefly disabled, recreates the type check and the PRIVATE single-select check (`votes_private_single_select`), and replaces every routine that compared the old values. Internal column and routine names (`open_selection_mode`, `guard_open_response`, `guard_closed_tally`, `cast_open_vote_multiple`), error codes such as `VOTING_CLOSED`, and historical audit details are unchanged; the audit page displays old `OPEN`/`CLOSED` details as PUBLIC/PRIVATE.
+
+**Resident self-registration (migration `20261109100000`).** `profiles` gains `self_registered boolean not null default false`, and the audit action allowlist adds `PROFILE_SELF_REGISTERED`. `self_register_resident(auth_user_id, name, identifier)` is `SECURITY DEFINER`, executable by `service_role` alone and re-checks the claim before validating input with `clean_text`. It reports `REGISTER_CONFLICT` with DETAIL `DUPLICATE_EMAIL` when any profile (any status, including administrator-created or deleted) already uses the Auth identity. When `rwa_settings.default_households` is non-empty it then requires the identifier to match an entry under `normalize_key` (`VALIDATION_FAILED`, DETAIL `UNKNOWN_HOUSEHOLD`) and uses the configured spelling; separator variants such as `tower_b-303` are not equivalent to `Tower B 303`. It then reports `DUPLICATE_IDENTIFIER` when the normalized household identifier already exists. `get_self_registration_households()` (also service-role-only) returns the configured list, or an empty array, for the public picker. Otherwise, in one transaction, it inserts a `SUSPENDED`, non-admin, non-readonly profile with `self_registered = true`, an `is_eligible = false` household assigned to it, and one `PROFILE_SELF_REGISTERED` audit event (actor `SYSTEM`, details `householdId`, `isEligible`; `list_audit_events` shows only allowlisted keys, so the audit screen displays `isEligible` while `householdId` stays in the stored row). The existing primary/unique keys stay authoritative for concurrent requests and are mapped to the same DETAIL codes. The routine never enables a profile or makes a household eligible; administrators use the existing guarded `update_profile`/`update_household` workflows.
+
+**Account with household (migration `20261110100000`).** `provision_profile_with_household(auth_user_id, name, is_admin, is_readonly, identifier, is_eligible, actor_profile_id)` is `SECURITY DEFINER`, executable by `service_role` alone, re-checks the claim and requires the actor to be a current enabled administrator (`FORBIDDEN` otherwise, including a null actor). It rejects an Auth identity that already has a profile (`REGISTER_CONFLICT`/`DUPLICATE_EMAIL`), then inserts a `SUSPENDED` profile and its household in one transaction, mapping a taken normalized identifier to `DUPLICATE_IDENTIFIER`, and appends `PROFILE_PROVISIONED` and `HOUSEHOLD_CREATED` audits for the administrator. The Default Households restriction for administrators is enforced by the application before this call. Moving an account to another household uses the existing `update_household` identifier change; assigning one to an account without a household uses `create_household`.
 
 ### Application access
 
@@ -687,11 +708,11 @@ If existing real accounts/votes exist, explicitly map legacy identities to Auth-
 
 - Insert the singleton settings row with the approved RWA name/timezone. Leave unapproved policies/retention explicitly unset; do not seed fictional approvals.
 - Provision the first Auth identity and enabled administrator profile against an approved registered address through a controlled deployment operation, audit it, and require normal OTP authentication.
-- Import the approved household register through validated administrative operations, rejecting duplicate normalized households/emails and ambiguous assignments. No public registration or default credentials.
+- Import the approved household register through validated administrative operations, rejecting duplicate normalized households/emails and ambiguous assignments. No default credentials. Residents may also self-register through `/register`; those records stay suspended and ineligible until an administrator reviews them.
 - Record real approvals and configure matching provider retention before enabling activation.
 - Do not seed demo votes, synthetic participation, candidate counts, real OTPs, or active sessions into production.
 
-Use server-only privileged Auth credentials solely for provisioning/administrative Auth calls. Public signup remains disabled. Provisioning is retry-safe: create or identify the approved Auth user, then create/validate the profile and household assignment and append the application audit event in a database transaction. New profiles default to `SUSPENDED` during setup; enable them only after the intended assignment is valid (an administrator may intentionally have no household). An Auth user without a valid enabled profile has no application access. If a step fails, surface the partial state for controlled retry/cleanup; do not acknowledge completed provisioning or delete a pre-existing identity as a blind rollback.
+Use server-only privileged Auth credentials solely for provisioning/administrative Auth calls and the server-side resident self-registration workflow. Supabase Auth public signup remains disabled. Provisioning is retry-safe: create or identify the approved Auth user, then create/validate the profile and household assignment and append the application audit event in a database transaction. New profiles default to `SUSPENDED` during setup; enable them only after the intended assignment is valid (an administrator may intentionally have no household). An Auth user without a valid enabled profile has no application access. If a step fails, surface the partial state for controlled retry/cleanup; do not acknowledge completed provisioning or delete a pre-existing identity as a blind rollback.
 
 ### Local/test/staging fixtures
 

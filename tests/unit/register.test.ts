@@ -179,7 +179,13 @@ function world(
   });
   const admin = {
     auth: {
-      admin: { getUserById, updateUserById, listUsers, createUser: vi.fn() },
+      admin: {
+        getUserById,
+        updateUserById,
+        listUsers,
+        createUser: vi.fn(),
+        deleteUser: vi.fn(() => Promise.resolve({ data: {}, error: null })),
+      },
     },
     rpc: client.rpc,
   };
@@ -220,6 +226,7 @@ describe("register contracts", () => {
       email: "new@example.test",
       representativeName: "Alice Rao",
       isAdmin: false,
+      enable: false,
     });
   });
 
@@ -583,6 +590,7 @@ describe("createAccount", () => {
     email: "new@example.test",
     representativeName: "New Person",
     isAdmin: false,
+    enable: false,
   };
 
   it("re-checks the caller's current authority before touching Auth", async () => {
@@ -652,6 +660,156 @@ describe("createAccount", () => {
 
     expect(error.code).toBe("REGISTER_CONFLICT");
     expect(error.context).toEqual({ reason: "DUPLICATE_EMAIL" });
+  });
+});
+
+describe("createAccount with a household", () => {
+  const settings = (defaultHouseholds: string[]) => ({
+    fullName: "Lakeview Residents Welfare Association",
+    alias: "Lakeview RWA",
+    address: "",
+    email: "",
+    phone: "",
+    website: "",
+    accentPalette: "TEAL",
+    welcomeMessage: "",
+    householdLabel: "Flat",
+    identifierKind: "NUMBER",
+    defaultHouseholds,
+    rwaPositions: [],
+  });
+  const input = (identifier: string) => ({
+    email: "new@example.test",
+    representativeName: "New Person",
+    isAdmin: false,
+    enable: false,
+    household: { identifier, isEligible: true },
+  });
+  const adminAuth = (w: World) =>
+    w.deps.admin as unknown as {
+      auth: {
+        admin: {
+          createUser: ReturnType<typeof vi.fn>;
+          deleteUser: ReturnType<typeof vi.fn>;
+        };
+      };
+    };
+  const created = (w: World) =>
+    adminAuth(w).auth.admin.createUser.mockResolvedValue({
+      data: { user: { id: TARGET } },
+      error: null,
+    });
+
+  it("creates the account and its listed household in one routine, using the configured spelling", async () => {
+    const w = world({
+      tables: {
+        profiles: [
+          ok(adminRow),
+          ok(adminRow),
+          ok(profile(TARGET, { status: "SUSPENDED" })),
+        ],
+        households: [ok([])],
+      },
+      rpc: {
+        get_rwa_profile: ok(settings(["Tower B 303"])),
+        normalize_household_identifier: ok("tower b 303"),
+        provision_profile_with_household: ok({
+          id: TARGET,
+          householdId: HOUSEHOLD,
+        }),
+      },
+    });
+    created(w);
+    const account = await createAccount(w.deps, input(" tower  B 303 "));
+
+    expect(
+      w.rpcCalls.find(
+        (call) => call.name === "provision_profile_with_household",
+      )?.args,
+    ).toEqual({
+      p_auth_user_id: TARGET,
+      p_representative_name: "New Person",
+      p_is_admin: false,
+      p_is_readonly: false,
+      p_identifier: "Tower B 303",
+      p_is_eligible: true,
+      p_actor_profile_id: ACTOR,
+    });
+    expect(account).toMatchObject({ id: TARGET, status: "SUSPENDED" });
+    expect(adminAuth(w).auth.admin.deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unlisted household before creating any identity", async () => {
+    const w = world({
+      tables: { profiles: [ok(adminRow)] },
+      rpc: { get_rwa_profile: ok(settings(["A-101"])) },
+    });
+    const error = await failure(createAccount(w.deps, input("Z-9")));
+
+    expect(error.code).toBe("VALIDATION_FAILED");
+    expect(error.context).toEqual({ reason: "UNKNOWN_HOUSEHOLD" });
+    expect(error.fieldErrors?.[0]?.field).toBe("household.identifier");
+    expect(adminAuth(w).auth.admin.createUser).not.toHaveBeenCalled();
+  });
+
+  it("rejects a household that is already assigned before creating any identity", async () => {
+    const w = world({
+      tables: { profiles: [ok(adminRow)], households: [ok([{ id: OTHER }])] },
+      rpc: {
+        get_rwa_profile: ok(settings([])),
+        normalize_household_identifier: ok("a-101"),
+      },
+    });
+    const error = await failure(createAccount(w.deps, input("A-101")));
+
+    expect(error.code).toBe("REGISTER_CONFLICT");
+    expect(error.context).toEqual({ reason: "DUPLICATE_IDENTIFIER" });
+    expect(adminAuth(w).auth.admin.createUser).not.toHaveBeenCalled();
+  });
+
+  it("removes the identity it created when the database step fails", async () => {
+    const w = world({
+      tables: {
+        profiles: [ok(adminRow), ok(adminRow)],
+        households: [ok([])],
+      },
+      rpc: {
+        get_rwa_profile: ok(settings([])),
+        normalize_household_identifier: ok("a-101"),
+        provision_profile_with_household: {
+          data: null,
+          error: {
+            code: "P0001",
+            message: "REGISTER_CONFLICT",
+            details: "DUPLICATE_IDENTIFIER",
+          },
+          status: 400,
+        },
+      },
+    });
+    created(w);
+    const error = await failure(createAccount(w.deps, input("A-101")));
+
+    expect(error.context).toEqual({ reason: "DUPLICATE_IDENTIFIER" });
+    expect(adminAuth(w).auth.admin.deleteUser).toHaveBeenCalledWith(TARGET);
+  });
+
+  it("only lets administrators be enabled without a household", () => {
+    const base = {
+      email: "a@example.test",
+      representativeName: "A",
+      enable: true,
+    };
+    expect(createAccountSchema.safeParse(base).success).toBe(false);
+    expect(
+      createAccountSchema.safeParse({ ...base, isAdmin: true }).success,
+    ).toBe(true);
+    expect(
+      createAccountSchema.safeParse({
+        ...base,
+        household: { identifier: "A-1" },
+      }).success,
+    ).toBe(true);
   });
 });
 

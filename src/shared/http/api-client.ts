@@ -24,7 +24,7 @@ export interface ApiFailure {
 export type ApiResult<T> = { ok: true; status: number; data: T } | ApiFailure;
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "PATCH";
+  method?: "GET" | "POST" | "PUT" | "PATCH";
   body?: unknown;
   csrfToken?: string | undefined;
 }

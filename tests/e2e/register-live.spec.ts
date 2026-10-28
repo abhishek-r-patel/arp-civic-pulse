@@ -102,7 +102,8 @@ test.describe("sign-in screen", () => {
     await expect(
       nav.getByRole("link", { name: "Votes", exact: true }),
     ).toHaveAttribute("aria-current", "page");
-    await expect(nav.getByRole("link", { name: "Households" })).toBeVisible();
+    // The household link uses the RWA's configured wording, so find it by destination.
+    await expect(nav.locator('a[href="/admin/households"]')).toBeVisible();
     await expect(nav.getByRole("link", { name: "Accounts" })).toBeVisible();
 
     await page.getByRole("button", { name: "Sign Out" }).click();
@@ -122,10 +123,11 @@ test.describe("register screens", () => {
     const { email, code } = await provisionAdmin();
     await signInThroughUi(page, email, code);
 
-    await page.getByRole("link", { name: "Households" }).click();
-    await expect(
-      page.getByRole("heading", { level: 1, name: "Households" }),
-    ).toBeVisible();
+    await page
+      .getByRole("navigation", { name: "Main" })
+      .locator('a[href="/admin/households"]')
+      .click();
+    await expect(page).toHaveURL(/\/admin\/households$/u);
 
     // Create an account.
     await page.goto("/admin/accounts/new");
@@ -148,34 +150,22 @@ test.describe("register screens", () => {
       .getByRole("dialog")
       .getByRole("button", { name: "Enable Account" })
       .click();
-    await expect(
-      page.getByText("Household needed first", { exact: true }),
-    ).toBeVisible();
+    await expect(page.getByText(/^\S+ needed first$/u)).toBeVisible();
 
-    // Add the household for that account.
+    // Assign the household from the account page (free-text when no Default Households are configured).
     const identifier = `BR-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-    await page.goto("/admin/households/new");
-    await page.getByLabel(/Household identifier/).fill(identifier);
-    const representative = page.getByLabel(/Representative/);
-    const labels = await representative.locator("option").allTextContents();
-    const offered = labels.find((text) => text.includes(residentEmail));
-    expect(offered, "the new account should be offered").toBeTruthy();
-    await representative.selectOption({ label: offered ?? "" });
-    await page.getByLabel("Eligible to vote").check();
-    await page.getByRole("button", { name: "Add Household" }).click();
-
-    await expect(page.getByText("Household added.")).toBeVisible();
-    const row = page.getByRole("link", {
-      name: `Edit household ${identifier}`,
-    });
-    await expect(row).toBeVisible();
+    await page.locator("#identifier").fill(identifier);
+    await page.getByRole("button", { name: /^Assign / }).click();
+    await expect(page.getByText(`${identifier} assigned.`)).toBeVisible();
 
     // The exact-identifier filter finds it, and the account can now be enabled.
     await page.goto(
       `/admin/households?identifier=${encodeURIComponent(identifier.toLowerCase())}`,
     );
     await expect(
-      page.getByRole("link", { name: `Edit household ${identifier}` }),
+      page.getByRole("link", {
+        name: new RegExp(`^Edit .+ ${identifier}$`, "iu"),
+      }),
     ).toBeVisible();
 
     await page.goto(accountPath);
@@ -188,6 +178,18 @@ test.describe("register screens", () => {
     await expect(
       page.getByRole("button", { name: "Suspend Account" }),
     ).toBeVisible();
+
+    // One step: account, household, eligibility and access together.
+    const combined = `BC-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+    await page.goto("/admin/accounts/new");
+    await page.getByLabel(/Email address/).fill(plusEmail());
+    await page.getByLabel(/Representative name/).fill("Combined Resident");
+    await page.locator('[id="household.identifier"]').fill(combined);
+    await page.getByLabel("Eligible to vote").check();
+    await page.getByLabel("Enable account now").check();
+    await page.getByRole("button", { name: "Create Account" }).click();
+    await expect(page.getByText("Account created and enabled.")).toBeVisible();
+    await expect(page.getByText(combined, { exact: true })).toBeVisible();
   });
 
   test("a duplicate household identifier is explained at the field", async ({
@@ -203,38 +205,26 @@ test.describe("register screens", () => {
       await page
         .getByLabel(/Representative name/)
         .fill(`Dup Resident ${attempt}`);
-      await page.getByRole("button", { name: "Create Account" }).click();
-      await expect(page.getByRole("heading", { level: 1 })).toContainText(
-        "Dup Resident",
-      );
-
-      await page.goto("/admin/households/new");
       await page
-        .getByLabel(/Household identifier/)
+        .locator('[id="household.identifier"]')
         .fill(attempt === 1 ? identifier : ` ${identifier.toLowerCase()} `);
-      const representative = page.getByLabel(/Representative/);
-      const labels = await representative.locator("option").allTextContents();
-      const offered = labels.find((text) =>
-        text.startsWith(`Dup Resident ${attempt}`),
-      );
-      await representative.selectOption({ label: offered ?? "" });
-      await page.getByRole("button", { name: "Add Household" }).click();
+      await page.getByRole("button", { name: "Create Account" }).click();
       if (attempt === 1) {
         // Let the first creation finish; navigating away would abort the request.
-        await expect(page.getByText("Household added.")).toBeVisible();
+        await expect(page.getByRole("heading", { level: 1 })).toContainText(
+          "Dup Resident",
+        );
       }
     }
 
     await expect(
-      page
-        .getByText("A household with this identifier already exists.")
-        .first(),
+      page.getByText("This is already assigned to another account.").first(),
     ).toBeVisible();
     // Next.js adds its own route announcer with role="alert".
     await expect(
       page
         .getByRole("alert")
-        .filter({ hasText: "This could not be completed" }),
+        .filter({ hasText: "Please fix the highlighted fields" }),
     ).toBeFocused();
   });
 });
@@ -333,7 +323,6 @@ test.describe("responsive and accessible", () => {
     const paths = [
       "/",
       "/admin/households",
-      "/admin/households/new",
       "/admin/accounts",
       "/admin/accounts/new",
       accountPath,

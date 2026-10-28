@@ -169,6 +169,23 @@ Register import and scheduling implementation map:
 - `supabase/migrations/20261108100000_readonly_committee_role.sql`: exclusive `is_readonly` role, current-profile committee-read helper, narrowly broadened read routines/RLS, audited atomic role changes and readonly provisioning. `tests/integration/readonly-role.test.ts` exercises management read/write boundaries, household voting, privacy, household assignment and final-admin safeguards; `tests/e2e/readonly-role-live.spec.ts` is an opt-in synthetic disposable-project journey.
 - `scripts/docs/capture.spec.ts` also has a focused **bulk account review** test, refreshing `47-accounts-list` and adding `63-account-review` through `67-enable-admin-warning`. It uses stable-ID synthetic row lookup, independent eligibility/two-account enablement, an unselected account, explicit admin inclusion and a controlled failed request. Ordinary provider/mutation budgets remain in force.
 
+Account and household onboarding map:
+
+- `src/app/admin/accounts/new/page.tsx`, `src/components/admin/account-forms.tsx` (`AccountCreateForm`, shared `HouseholdPicker`): one form for the account, optional household (combobox of unassigned Default Households when configured, otherwise free text), eligibility and "Enable account now".
+- `src/app/admin/accounts/[id]/page.tsx`, `AccountHouseholdSection` and `src/app/api/admin/accounts/[id]/household/route.ts`: assign a household to an account without one or move it (rename, eligibility kept, confirmation dialog).
+- `src/server/register/accounts.ts` (`createAccount`): list and "already assigned" pre-checks, Auth identity, the service-role `provision_profile_with_household` routine, best-effort identity removal on failure, then the normal enable workflow when requested. `src/server/register/households.ts` adds `resolveHouseholdChoice`, `assertHouseholdFree`, `getAccountHousehold` and `setAccountHousehold`; `src/server/settings/rwa-profile.ts` `loadHouseholdChoices` supplies the picker options.
+- `src/components/admin/household-form.tsx`: eligibility-only household edit linking to the representative's account. The former `/admin/households/new` page was removed.
+- `supabase/migrations/20261110100000_account_with_household.sql`; `tests/unit/register.test.ts` (combined creation) and `tests/integration/account-with-household.test.ts`.
+- `supabase/migrations/20261111100000_resident_directory.sql` and `tests/integration/resident-directory.test.ts`: retained applied read-only view and RLS regression coverage after the Residents-tab rollback. Separate Accounts and Households screens use their original queries; the application no longer consumes this view.
+
+Resident self-registration implementation map:
+
+- `src/app/register/page.tsx`, `src/components/access/self-registration-form.tsx`: public, `noindex` page (not in the sitemap) with name, email and RWA-worded household identifier plus a hidden honeypot. When Default Households are configured the identifier is chosen with `src/components/ui/combobox-field.tsx` (ARIA combobox/listbox: type to filter, arrow keys, Enter, Escape; only list entries can be submitted; at most 100 matches rendered); otherwise it is free text. If the list cannot be read the page shows an unavailability notice. Linked from `/sign-in` and the footer; a signed-in account is redirected home.
+- `src/app/api/register/route.ts`, `src/server/register/self-registration.ts`: CSRF/Origin-protected `POST /api/register`; per-email, per-household and global budgets; configured-list check (`UNKNOWN_HOUSEHOLD`) before the Auth stage; Auth identity first (so a repeated email is reported before a taken household), then the service-role routine; best-effort removal of an identity created by a failed request. Specific `DUPLICATE_EMAIL` / `DUPLICATE_IDENTIFIER` conflicts are returned as field errors. `selfRegistrationSchema` lives in `src/shared/contracts/register.ts`.
+- `supabase/migrations/20261109100000_resident_self_registration.sql`: `profiles.self_registered`, `PROFILE_SELF_REGISTERED` audit action, the service-role-only `get_self_registration_households` read and the `self_register_resident` routine creating a suspended profile plus ineligible household atomically (restricted to configured Default Households when any exist).
+- `src/app/admin/accounts/page.tsx`, `src/components/admin/account-review-table.tsx`, `src/server/register/accounts.ts`: **Source** filter (`selfRegistered`) and a Self-registered marker; enabling and eligibility still use the existing review actions.
+- `tests/unit/self-registration.test.ts` (route, honeypot, budgets, conflicts, configured-list checks, cleanup) and `tests/integration/self-registration.test.ts` (routine, duplicates, normalization, configured list, grants).
+
 - `src/shared/contracts/register-import.ts`: bounded `csv-parse` parsing, strict row/request validation and outcome types; `tests/unit/register-import.test.ts` covers parsing and orchestration.
 - `src/server/register/import.ts`: current-admin checks, supported Auth lookup/provisioning and guarded row assignment. It never enables accounts or overwrites records.
 - `src/components/admin/register-import-form.tsx`, `src/app/admin/households/import/page.tsx`: memory-only CSV selection, preview, progress, confirmation and account-review links; `src/app/api/admin/households/import/route.ts` processes bounded per-row requests.
@@ -181,7 +198,8 @@ Register import and scheduling implementation map:
 
 The crawlable public surface is `/sign-in`, `/privacy` and `/contact`. These
 pages use server rendering through the session-aware shell, not a client-only
-SPA. Private routes inherit `noindex, nofollow`; robots and sitemap are not
+SPA. `/register` is public but deliberately `noindex` and outside the sitemap.
+Private routes inherit `noindex, nofollow`; robots and sitemap are not
 authorization. Do not include register, ballot or results URLs in discovery.
 
 | File | Responsibility |
@@ -198,8 +216,8 @@ authorization. Do not include register, ballot or results URLs in discovery.
 | `src/shared/contracts/contact.ts` | Strict, bounded support payload |
 | `src/app/api/contact/route.ts`, `src/server/contact.ts` | CSRF-protected, rate-limited Resend delivery; never an OTP or voting dependency |
 | `tests/unit/metadata.test.ts`, `tests/unit/contact.test.ts` | Discovery policy, contact protections and controlled transport tests |
-| `docs/USER_GUIDE.md` | Active Resident (`voter`), RWA Admin (`rwa-admin`) and RWA ReadOnly (`rwa-readonly`) procedures with persona-specific current screenshots |
-| `docs/images/user-guide/{voter,rwa-admin,rwa-readonly}` | Current synthetic captures grouped by effective application persona |
+| `docs/USER_GUIDE.md` | Active Resident (`voter`), RWA Admin (`rwa-admin`) and RWA ReadOnly (`rwa-readonly`) procedures; screenshot navigation differences after rollback are explicitly noted |
+| `docs/images/user-guide/{voter,rwa-admin,rwa-readonly}` | Retained synthetic captures grouped by persona; affected Residents-tab images await an authorized recapture |
 | `public/user-guide.html` | Generated, no-index public user help with embedded synthetic screenshots and no repository-only links; linked from the app footer |
 
 `scripts/docs/render.mjs` generates the web user guide alongside the existing
@@ -254,7 +272,8 @@ Use stable identifiers, foreign keys, nonnegative counter constraints, explicit 
 
 ## 06 Authentication, Register and Sessions
 - CSV onboarding creates households and representative accounts together after preview/confirmation, with no public signup or role column. Exact matches are skipped; mismatches are reported, never merged. At most 500 rows/256 KiB are accepted. Each row is a separately retryable cross-service workflow, not an all-file transaction; partial or uncertain failures stop further processing. New accounts stay suspended pending review and explicit enablement through existing account controls. CSV data stays in browser page memory and is never logged. A dedicated 1200-request/hour administrator budget covers check/import stages without relaxing ordinary mutation budgets.
-- Disable public sign-up. Use Supabase Auth email OTP with `shouldCreateUser: false` for login and a six-digit code template using `{{ .Token }}`.
+- Disable Supabase Auth public sign-up. Use Supabase Auth email OTP with `shouldCreateUser: false` for login and a six-digit code template using `{{ .Token }}`.
+- Resident self-registration (`/register`) is a server-side workflow using the privileged Auth client: it creates a suspended resident profile and an ineligible household only. It never enables access, assigns roles or makes a household eligible, and repeated emails or households are rejected.
 - Admin provisioning creates the Auth identity and associated profile/household assignment through controlled server-only code. Auth and application-record changes are not one cross-service transaction: use a retry-safe provisioning workflow, surface partial failure, and do not grant access until the application assignment is valid.
 - Bootstrap the first admin through a controlled deployment command against an approved address; no public bootstrap endpoint or default credentials.
 - Normalize emails using one documented policy without provider-specific rewriting. Reject duplicate household IDs and ambiguous representative assignments.
@@ -267,7 +286,7 @@ Use stable identifiers, foreign keys, nonnegative counter constraints, explicit 
 - Sign-out and administrative Auth actions do not necessarily invalidate every issued JWT immediately. Enforce application access independently and test existing-token scenarios.
 - Native time-boxed sessions, inactivity limits and single-session enforcement require Supabase Pro or higher. Do not promise those controls on Free; approve the persistent-session policy under A4.
 - Server-proxied Auth calls must follow Supabase's supported trusted-IP forwarding configuration where needed. Never trust arbitrary client forwarding headers or let all residents accidentally share an untested server-IP limit.
-- Privileged Auth credentials remain server-only and isolated to provisioning/administrative Auth operations. Never use them for ordinary ballots, results or exports.
+- Privileged Auth credentials remain server-only and isolated to provisioning/administrative Auth operations and resident self-registration. Never use them for ordinary ballots, results or exports.
 
 ## 07 Atomic Voting and PRIVATE Privacy
 Each `cast_vote` call performs one guarded PostgreSQL transaction:

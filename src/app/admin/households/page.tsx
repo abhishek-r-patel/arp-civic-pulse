@@ -140,11 +140,11 @@ export default async function HouseholdsPage({
               Import CSV
             </LinkButton>
             <LinkButton
-              href="/admin/households/new"
+              href="/admin/accounts/new"
               disabled={!deps.actor.isAdmin}
             >
               <Plus aria-hidden="true" className="size-5" />
-              Add {deps.terms.Household}
+              Add Account and {deps.terms.Household}
             </LinkButton>
           </div>
         }
@@ -219,17 +219,16 @@ export default async function HouseholdsPage({
             title={`The register has no ${deps.terms.households} yet`}
             action={
               <LinkButton
-                href="/admin/households/new"
+                href="/admin/accounts/new"
                 disabled={!deps.actor.isAdmin}
               >
-                Add the First {deps.terms.Household}
+                Add the First Account and {deps.terms.Household}
               </LinkButton>
             }
           >
             <p>
-              Add each {deps.terms.household} and the account that represents
-              it. Create the representative&apos;s account first if it does not
-              exist.
+              Each {deps.terms.household} is added together with the account
+              that represents it, from Add Account.
             </p>
           </EmptyState>
         )

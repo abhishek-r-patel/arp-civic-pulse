@@ -1,6 +1,11 @@
 # Civic Pulse - User Guide
 
-This guide is organized around what each signed-in persona can do. Choose your role below and go directly to that section. The screenshots are current captures of the themed application using synthetic accounts and voting data; email addresses and codes are masked. Production use remains subject to the open approvals and checks in the [launch audit](./LAUNCH_AUDIT.md) and [pilot readiness register](./PILOT_READINESS.md).
+This guide is organized around what each signed-in persona can do. Choose your role below and go directly to that section. The screenshots use synthetic accounts and voting data; email addresses and codes are masked. Production use remains subject to the open approvals and checks in the [launch audit](./LAUNCH_AUDIT.md) and [pilot readiness register](./PILOT_READINESS.md).
+
+**Navigation after rollback:** Accounts and Households (shown as Flats when configured)
+are separate tabs again. Some retained screenshots show the reverted Residents
+tab; follow the navigation in the written steps instead. Those images await a
+fresh capture on an explicitly authorized disposable environment.
 
 Open **User Guide** in the application footer to read the self-contained public edition without signing in. The repository copy is [USER_GUIDE.html](./USER_GUIDE.html).
 
@@ -18,7 +23,21 @@ Open **User Guide** in the application footer to read the self-contained public 
 
 ## Shared Sign-In and Appearance
 
-There is no public signup or application password. Use the email address already registered for your account and enter the newest six-digit code sent to that inbox. The generic request message does not confirm whether an address is registered. Never share a sign-in code.
+There is no application password. Use the email address already registered for your account and enter the newest six-digit code sent to that inbox. The generic request message does not confirm whether an address is registered. Never share a sign-in code.
+
+### Register yourself as a new resident
+
+If your RWA has not created an account for you, open **Register** from the sign-in page (**New resident? Register**) or the footer. Enter your full name, the email address you will sign in with, and your household identifier (for example your **Flat Number**). If your RWA has set up its list of flats, start typing or open the list with the arrow, then choose your flat; only entries from the list are accepted, and if yours is missing ask your administrator to add it. Otherwise type it exactly as your RWA uses it. Then select **Register**. **Registration received** means your details were stored: your account stays **suspended** and your household is **not yet eligible to vote** until an RWA administrator checks and enables them. You cannot sign in until then; ask your administrator if it takes too long.
+
+Each email address and each household can be registered only once. If you see **This email address is already registered**, you already have an account (it may still be waiting for review): sign in, or contact your administrator. If the household identifier is already registered to another resident, contact your administrator rather than registering a variation of it.
+
+![Resident 77: registration form with a typed Flat Number (no list configured)](./images/user-guide/voter/77-register.png)
+
+![Resident 80: choosing a flat from the RWA's list while typing](./images/user-guide/voter/80-register-flat-picker.png)
+
+![Resident 78: registration received; the account stays suspended until reviewed](./images/user-guide/voter/78-register-received.png)
+
+![Resident 79: an email address that is already registered is refused](./images/user-guide/voter/79-register-duplicate.png)
 
 ![Resident 01: registered email sign-in](./images/user-guide/voter/01-sign-in.png)
 
@@ -30,7 +49,7 @@ The header's **Appearance** control offers **Light** (Platinum), **Dark** (Obsid
 
 ![Resident 74: appearance menu with Light, Dark and System](./images/user-guide/voter/74-appearance-menu.png)
 
-Before or after sign-in, the footer links to **Sign In**, **User Guide**, **Privacy Policy** and **Contact**. Contact may be unavailable if the RWA has not configured support email. When enabled, enter a reply address and short message; **Message accepted** means the mail service accepted it, not that it reached the administrator. Do not include ballot choices, codes, passwords or identity documents. Optional Google Analytics is consent-gated on public information pages only and is off until allowed; consent can be withdrawn from the same privacy/contact control.
+Before or after sign-in, the footer links to **Sign In**, **Register**, **User Guide**, **Privacy Policy** and **Contact**. Contact may be unavailable if the RWA has not configured support email. When enabled, enter a reply address and short message; **Message accepted** means the mail service accepted it, not that it reached the administrator. Do not include ballot choices, codes, passwords or identity documents. Optional Google Analytics is consent-gated on public information pages only and is off until allowed; consent can be withdrawn from the same privacy/contact control.
 
 ![Shared 75: public Privacy Policy](./images/user-guide/voter/75-privacy-public.png)
 
@@ -157,29 +176,43 @@ The **Management role** selector assigns exactly one of Voter (`voter`), RWA Adm
 
 ### Register and accounts
 
-Create a suspended account, assign it to one unique household, verify the email/name and set future eligibility, then enable it. Residents cannot be enabled before assignment; administrators may intentionally have no household, but still receive no voting entitlement without one.
+Use **Accounts → Add Account** to create the account and its household in one step. Enter the email and name, choose the role, then choose the household: when Settings → Default Households is set, start typing or open the list and pick one of the households not yet assigned (anything else is refused, so add a missing one to Settings first); with no list, type the identifier. Tick **Eligible to vote** if the household may take part in new votes, and **Enable account now** if the person may sign in straight away (residents and RWA ReadOnly accounts need a household for this). If the household is already taken or anything fails, nothing is created. You may leave the household blank and assign it later.
+
+Each account page has a **Household** section. An account without a household can be given one there; an account with one can be **moved** to another unassigned household. Moving renames the account's household record: its eligibility stays the same, the old identifier becomes free for a new account, and past or active votes keep the household they were frozen with. Example: move Asha from A-101 to A-205, then add the new A-101 resident with Add Account. The **Households** page lists the register; its edit screen changes eligibility only. Residents cannot be enabled before assignment; administrators may intentionally have no household, but still receive no voting entitlement without one.
+
+![RWA Admin 81: Add Account with the flat picker showing unassigned Default Households](./images/user-guide/rwa-admin/81-add-account-flat-picker.png)
+
+![RWA Admin 82: account created with its flat, eligible and enabled in one step](./images/user-guide/rwa-admin/82-account-created-with-flat.png)
+
+![RWA Admin 83: confirming a move to another unassigned flat](./images/user-guide/rwa-admin/83-move-flat-dialog.png)
+
+The pictures below show the step-by-step path: an account created without a flat, refused enablement, then a flat assigned from the account page.
 
 ![RWA Admin: create a suspended account, assign its household and then enable it](./images/user-guide/register.svg)
 
-![RWA Admin 16: create resident account](./images/user-guide/rwa-admin/16-create-account.png)
+![RWA Admin 16: Add Account with optional flat, eligibility and Enable account now](./images/user-guide/rwa-admin/16-create-account.png)
 
 ![RWA Admin 42: created account starts suspended](./images/user-guide/rwa-admin/42-created-suspended.png)
 
 ![RWA Admin 43: resident enablement blocked before household assignment](./images/user-guide/rwa-admin/43-household-required.png)
 
-![RWA Admin 20: add household and choose representative](./images/user-guide/rwa-admin/20-add-household.png)
+![RWA Admin 20: choosing the flat on the Add Account form](./images/user-guide/rwa-admin/20-add-household.png)
 
-![RWA Admin 44: household and suspended representative in the register](./images/user-guide/rwa-admin/44-household-created.png)
+![RWA Admin 44: assigned flat in the register](./images/user-guide/rwa-admin/44-household-created.png)
 
 ![RWA Admin 45: enable-account confirmation](./images/user-guide/rwa-admin/45-enable-dialog.png)
 
 ![RWA Admin 46: enabled account after assignment](./images/user-guide/rwa-admin/46-enabled-account.png)
 
-![RWA Admin 17: account identity, role and access status](./images/user-guide/rwa-admin/17-account.png)
+![RWA Admin 17: account identity, role, access status and Flat section](./images/user-guide/rwa-admin/17-account.png)
 
 **Enable Selected** and **Make Eligible** are separate page-local operations. Selections cover the current page; they do not alter a frozen electorate. The default role filter is Voters (`voter`). Choose All Roles or RWA Admin (`rwa-admin`) explicitly before selecting an RWA Admin for enablement. Each account commits separately; after a failure, refresh and review before retrying.
 
-Use list filters and pagination to find records rather than creating duplicates. If the representative selector says its account list is incomplete, do not guess or choose a different person; follow the displayed support guidance. Changing a registered email uses both Auth and the application profile and is not one cross-service transaction. If a partial-failure warning appears, resolve that state before asking the resident to use the new address.
+Residents who registered themselves at `/register` appear as suspended Voters with their household already assigned and **not eligible**; their row is marked **Self-registered**. Set **Source** to **Self-registered** (and **Status** to Suspended) to review them. Check the name, email and household against your records, then use **Enable Selected** for access and **Make Eligible** for voting. A wrong or unknown registration can be left suspended or set to Deleted from **Manage**. Each one is recorded in Audit History as **Profile self registered** by **System**.
+
+![RWA Admin 84: Accounts filtered to suspended self-registered residents](./images/user-guide/rwa-admin/84-self-registered-accounts.png)
+
+Use list filters and pagination to find records rather than creating duplicates. Changing a registered email uses both Auth and the application profile and is not one cross-service transaction. If a partial-failure warning appears, resolve that state before asking the resident to use the new address.
 
 ![RWA Admin 47: Accounts review table and page-local selection controls](./images/user-guide/rwa-admin/47-accounts-list.png)
 
@@ -207,7 +240,7 @@ A CSV import accepts up to 500 records/256 KiB with `identifier,representative_n
 
 Use the household register to add/change identifiers, assignments and eligibility for future votes. Reassignment never transfers a scheduled/active vote entitlement. **Suspend Account** blocks access without deleting historical participation. **Delete Account** is irreversible in the application UI and retains referenced audit/vote history. The last enabled administrator cannot be removed.
 
-![RWA Admin 21: edit household and representative assignment](./images/user-guide/rwa-admin/21-household.png)
+![RWA Admin 21: household eligibility editor](./images/user-guide/rwa-admin/21-household.png)
 
 ![RWA Admin 18: suspension confirmation](./images/user-guide/rwa-admin/18-suspend-dialog.png)
 
@@ -217,7 +250,7 @@ Use the household register to add/change identifiers, assignments and eligibilit
 
 **RWA Settings** controls the full name, alias, address, email, phone, optional website, accent, welcome message, household label, Number/ID identifier wording and administrator-only suggestion lists. Required fields are marked; blank optional fields are hidden. Display wording changes do not rename stored household identifiers or alter matching. Changes apply immediately, including to older votes/results. Only `rwa-admin` can save settings.
 
-The alias appears in the compact header; the full name appears on vote/result pages and exports. Address and configured contacts appear only in their documented footer/privacy/PDF locations. The household-label suggestions are display values, not aliases for stored identifiers. **Default Households** offers up to 1000 unique identifiers (up to 100 characters each); **RWA Positions** offers up to 50 unique office names (up to 200 characters each). These are suggestions only and never create register entries or offices until an administrator selects the relevant action.
+The alias appears in the compact header; the full name appears on vote/result pages and exports. Address and configured contacts appear only in their documented footer/privacy/PDF locations. The household-label suggestions are display values, not aliases for stored identifiers. **Default Households** offers up to 1000 unique identifiers (up to 100 characters each); **RWA Positions** offers up to 50 unique office names (up to 200 characters each). These are suggestions only and never create register entries or offices until an administrator selects the relevant action. When **Default Households** is not empty it is also the list residents choose from on the public **Register** page and the list administrators choose from when adding or moving an account's household (anyone opening that page can see the identifiers, but not names or which are taken), and self-registration accepts only those entries; leave it blank to let residents type their identifier.
 
 More specifically, the alias appears below the compact Civic Pulse brand and in the sign-in identity; the full name appears on vote/results/home pages, exports and the footer. Address, email, phone and website are shown only in configured public/signed-in contact locations. Accent colour changes links/buttons/highlights. The welcome message appears on Votes, Households and Manage Votes. Empty optional values stay hidden. Changing these values applies to existing results as well as future screens; the vote's saved RWA name is internal history, not the current display name.
 
@@ -311,9 +344,9 @@ Management controls remain visible but disabled. Navigation, filters, read-only 
 
 ![RWA ReadOnly 06: household register and read-only row actions](./images/user-guide/rwa-readonly/06-household-register-read.png)
 
-![RWA ReadOnly 07: new-household form disabled](./images/user-guide/rwa-readonly/07-new-household-disabled.png)
+![RWA ReadOnly 07: account Flat section disabled](./images/user-guide/rwa-readonly/07-new-household-disabled.png)
 
-![RWA ReadOnly 08: household edits disabled](./images/user-guide/rwa-readonly/08-edit-household-disabled.png)
+![RWA ReadOnly 08: household eligibility editing disabled](./images/user-guide/rwa-readonly/08-edit-household-disabled.png)
 
 ![RWA ReadOnly 09: CSV import controls disabled](./images/user-guide/rwa-readonly/09-register-import-disabled.png)
 
@@ -369,7 +402,7 @@ An observer may read completed PUBLIC named responses and PRIVATE aggregate resu
 | --- | --- |
 | Sign-in code missing/expired | Check the entered address and newest message, wait for the cooldown, and ask an administrator to verify provisioning/SMTP. Do not share codes. |
 | Too many requests | Follow the displayed wait/retry guidance; repeated attempts do not improve delivery and may prolong disruption. |
-| Account suspended or incomplete | A fresh code cannot restore access. An administrator must resolve account status and any required household assignment. |
+| Account suspended or incomplete | A fresh code cannot restore access. An administrator must resolve account status and any required household assignment. A new self-registration always starts suspended. |
 | Email/profile change reported incomplete | Do not assume the new address works or create a replacement identity. Ask the administrator to finish/review the Auth and profile recovery steps. |
 | Expected vote missing | Clear filters. The current household assignment does not transfer a frozen entitlement. Ask an administrator to check that vote's frozen electorate. |
 | Required choice missing | Choose at least one PUBLIC option, or select a candidate/NOTA for every PRIVATE office, then review. |
@@ -388,6 +421,6 @@ When contacting support, include the vote title, action, approximate time, devic
 
 ## Limits and approvals
 
-These pictures use real application screens and synthetic data; some network failures are deliberately simulated. They do not prove SMTP delivery, production capacity, Cron operation, restore readiness, manual accessibility acceptance, or governance approval. The app does not provide public signup, delegated voting, reminders, ballot reopening, PRIVATE selection retrieval, cryptographic anonymity, or legal signatures. CSV import does not enable new accounts; schedule and register changes do not alter an already frozen electorate. See [pilot readiness](./PILOT_READINESS.md) and [launch audit](./LAUNCH_AUDIT.md) before real use.
+These pictures use real application screens and synthetic data; some network failures are deliberately simulated. They do not prove SMTP delivery, production capacity, Cron operation, restore readiness, manual accessibility acceptance, or governance approval. The app does not provide self-registration that grants access without administrator review, delegated voting, reminders, ballot reopening, PRIVATE selection retrieval, cryptographic anonymity, or legal signatures. CSV import does not enable new accounts; schedule and register changes do not alter an already frozen electorate. See [pilot readiness](./PILOT_READINESS.md) and [launch audit](./LAUNCH_AUDIT.md) before real use.
 
 Screenshots cover the core screens and actions available to each persona, not every possible data/state combination. Not individually pictured are a real SMTP outage/cooldown, every stale-draft conflict, deadline lock races, maintenance mode, every provider failure, final-enabled-admin refusal, every export failure, and every possible multi-office ballot layout. These safeguards and recovery rules remain covered in the written steps above and the technical/security test suite; captures are examples, not proof of those edge conditions.

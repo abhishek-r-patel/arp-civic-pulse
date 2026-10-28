@@ -38,14 +38,24 @@ at start-up, and never uses the migration credentials.
 | `20261106100000_register_import` | Current-admin import checks and retry-safe household assignment without overwriting records or enabling accounts |
 | `20261107100000_scheduled_opening` | Frozen scheduled state, database-clock opening, direct-read ballot privacy, pre-opening withdrawal and existing Cron integration |
 | `20261108100000_readonly_committee_role` | Exclusive `rwa-readonly` profile flag, admin-equivalent authorized reads, admin-only mutations/role assignment and household-voting compatibility |
+| `20261109100000_resident_self_registration` | `profiles.self_registered`, `PROFILE_SELF_REGISTERED` audit action, service-role-only `get_self_registration_households` and `self_register_resident` (suspended profile + ineligible household, duplicate email/household rejected, limited to configured Default Households when set) |
+| `20261110100000_account_with_household` | Service-role-only `provision_profile_with_household`: an administrator-created suspended profile and its household in one audited transaction |
+| `20261111100000_resident_directory` | Read-only security-invoker profile/household view; retained applied history after the Residents UI rollback, unused by the restored application |
 
-The last two migrations are deployment inputs, not automatically applied by the
-application. Apply only after independently verifying the target and reviewing
+The latest migrations are deployment inputs, not automatically applied by the
+application. `20261109100000` and `20261110100000` were applied on 27 October 2026
+only to the user-confirmed disposable project (dry run first, `--skip-vault`), not
+staging or production. Apply only after independently verifying the target and reviewing
 pending changes, outside voting windows. Local integration tests create/drop
 their own disposable databases; they do not migrate your configured hosted project.
 
-For the separately authorized 27 October screenshot capture, the last two
-migrations were applied to the confirmed disposable hosted project through the
+The Residents-tab experiment applied `20261111100000` to that disposable project.
+The application rollback restores separate Accounts and Households screens but
+preserves this additive view and its migration/test files. No database rollback,
+data deletion, history repair or hosted deployment is part of the rollback.
+
+For the separately authorized 27 October screenshot capture, the `20261106100000`
+and `20261107100000` migrations were applied to the confirmed disposable hosted project through the
 CLI, with a preceding dry run and `--skip-vault`; production was untouched.
 They end with `RESET ROLE` so the deployment role, not `cp_owner`, records the
 CLI history entry. The initial failed attempt rolled back fully, verified
@@ -53,8 +63,9 @@ read-only before correcting the then-unapplied files. Never manually repair
 history or rewrite an already-recorded migration to reproduce that fix.
 
 All objects are owned by `cp_owner` (non-login, no superuser, no BYPASSRLS, no access to the Supabase `auth`
-schema). `anon` and `authenticated` hold no write privileges; `service_role` can only execute the three
-server-only routines (`provision_profile`, `enable_profile`, `consume_rate_limit`, `reconcile_vote`). The
+schema). `anon` and `authenticated` hold no write privileges; `service_role` can only execute the
+server-only routines (`provision_profile`, `enable_profile`, `consume_rate_limit`, `reconcile_vote`,
+`self_register_resident`, `get_self_registration_households`, `provision_profile_with_household`, plus the read-only `get_public_rwa_identity`, `health_ping` and `operational_status`). The
 Cron job runs through the non-login `cp_scheduler` role, which can execute `public.complete_due_votes()` and nothing else.
 Scheduling needs the `pg_cron` extension (available on Supabase); where it is missing the migration skips scheduling
 and says so.

@@ -1,23 +1,31 @@
-// Client-side account provisioning and profile-management forms.
+// Client-side account provisioning (with an optional household) and profile-management forms.
 "use client";
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Save, UserPlus } from "lucide-react";
+import { Home, Save, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ComboboxField } from "@/components/ui/combobox-field";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { ErrorSummary } from "@/components/ui/error-summary";
-import { SelectField, TextField } from "@/components/ui/field";
-import { AccountStatusBadge, RoleBadge } from "@/components/ui/badges";
+import { CheckboxField, SelectField, TextField } from "@/components/ui/field";
+import {
+  AccountStatusBadge,
+  EligibilityBadge,
+  RoleBadge,
+} from "@/components/ui/badges";
 import { Notice } from "@/components/ui/notice";
 import { useHouseholdTerms } from "@/components/ui/household-terms";
 import { apiRequest, type ApiFailure } from "@/shared/http/api-client";
 import { fieldErrorFor } from "@/shared/http/messages";
 import type {
+  AccountHousehold,
   AccountProjection,
   AccountStatus,
+  HouseholdChoices,
 } from "@/shared/contracts/register";
+import { settingsListKey } from "@/shared/contracts/rwa-profile";
 
 const FIELD_LABELS = {
   email: "Email address",
@@ -31,29 +39,122 @@ function duplicateEmail(failure: ApiFailure | null): string | undefined {
     : undefined;
 }
 
+/*
+ * Household input shared by the create form and the account page. With Default
+ * Households configured only listed, unassigned entries can be chosen;
+ * otherwise the identifier is typed.
+ */
+function HouseholdPicker({
+  id,
+  choices,
+  value,
+  onChange,
+  onTextChange,
+  required = false,
+  hint,
+  error,
+}: Readonly<{
+  id: string;
+  choices: HouseholdChoices;
+  value: string;
+  onChange: (value: string) => void;
+  onTextChange: (text: string) => void;
+  required?: boolean;
+  hint: string;
+  error?: string | undefined;
+}>) {
+  const terms = useHouseholdTerms();
+  if (choices.listed && choices.options.length === 0) {
+    return (
+      <Notice tone="warning" heading={`No unassigned ${terms.households}`}>
+        Every {terms.household} in Settings → Default {terms.Households} is
+        already assigned. Add more there first.
+      </Notice>
+    );
+  }
+  return choices.listed ? (
+    <ComboboxField
+      id={id}
+      name={id}
+      label={terms.identifierLabel}
+      hint={`${hint} Start typing or open the list; only unassigned entries from Settings → Default ${terms.Households} can be chosen.`}
+      required={required}
+      options={choices.options}
+      value={value}
+      onChange={onChange}
+      onTextChange={onTextChange}
+      matchKey={settingsListKey}
+      error={error}
+    />
+  ) : (
+    <TextField
+      id={id}
+      name={id}
+      label={terms.identifierLabel}
+      hint={`${hint} Letter case and extra spaces do not make two identifiers different.`}
+      required={required}
+      maxLength={100}
+      autoComplete="off"
+      value={value}
+      onChange={(event) => {
+        onChange(event.target.value);
+        onTextChange(event.target.value);
+      }}
+      error={error}
+    />
+  );
+}
+
 export function AccountCreateForm({
   csrfToken,
-}: Readonly<{ csrfToken: string | undefined }>) {
+  choices,
+}: Readonly<{ csrfToken: string | undefined; choices: HouseholdChoices }>) {
   const router = useRouter();
   const terms = useHouseholdTerms();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [isReadonly, setIsReadonly] = useState(false);
+  const [household, setHousehold] = useState("");
+  const [householdText, setHouseholdText] = useState("");
+  const [eligible, setEligible] = useState(false);
+  const [enable, setEnable] = useState(false);
+  const [pickError, setPickError] = useState<string | null>(null);
   const [failure, setFailure] = useState<ApiFailure | null>(null);
   const [pending, setPending] = useState(false);
+
+  const identifier = household.trim();
+  const canEnable = isAdmin || identifier !== "";
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (pending) {
       return;
     }
+    // Typed text never turned into a list choice must not silently become "no household".
+    if (choices.listed && householdText.trim() !== "" && !identifier) {
+      setPickError(
+        `Choose a ${terms.identifierLabel} from the list, or clear the field to assign one later.`,
+      );
+      document.getElementById("household.identifier")?.focus();
+      return;
+    }
+    setPickError(null);
     setPending(true);
     setFailure(null);
 
     const result = await apiRequest<AccountProjection>("/api/admin/accounts", {
       method: "POST",
-      body: { email, representativeName: name, isAdmin, isReadonly },
+      body: {
+        email,
+        representativeName: name,
+        isAdmin,
+        isReadonly,
+        ...(identifier
+          ? { household: { identifier, isEligible: eligible } }
+          : {}),
+        enable: enable && canEnable,
+      },
       csrfToken,
     });
     setPending(false);
@@ -62,18 +163,33 @@ export function AccountCreateForm({
       setFailure(result);
       return;
     }
-    router.push(`/admin/accounts/${result.data.id}?notice=account-created`);
+    const notice =
+      enable && canEnable && result.data.status !== "ENABLED"
+        ? "account-created-not-enabled"
+        : result.data.status === "ENABLED"
+          ? "account-created-enabled"
+          : "account-created";
+    router.push(`/admin/accounts/${result.data.id}?notice=${notice}`);
     router.refresh();
   }
 
   return (
     <form onSubmit={submit} noValidate className="grid max-w-ballot gap-6">
-      <Notice tone="info" heading="The account starts suspended">
-        It cannot be used until a resident has an assigned {terms.household} and
-        you enable it. An administrator account can be enabled without one.
+      <Notice tone="info" heading="Add the account and its home together">
+        Choose the person&apos;s {terms.household} here, or leave it blank and
+        assign it later from the account page. The account stays suspended
+        unless you tick Enable account now; residents can only be enabled with
+        a {terms.household}.
       </Notice>
 
-      <ErrorSummary failure={failure} fieldLabels={FIELD_LABELS} />
+      <ErrorSummary
+        failure={failure}
+        fieldLabels={{
+          ...FIELD_LABELS,
+          "household.identifier": terms.identifierLabel,
+          enable: "Enable account now",
+        }}
+      />
 
       <TextField
         id="email"
@@ -117,6 +233,47 @@ export function AccountCreateForm({
         <option value="rwa-readonly">RWA ReadOnly (rwa-readonly)</option>
       </SelectField>
 
+      <fieldset className="grid gap-4">
+        <legend className="pb-2 text-section font-semibold">
+          {terms.Household}
+        </legend>
+        <HouseholdPicker
+          id="household.identifier"
+          choices={choices}
+          value={household}
+          onChange={(next) => {
+            setHousehold(next);
+            if (next) setPickError(null);
+          }}
+          onTextChange={setHouseholdText}
+          hint={`The ${terms.household} this person votes for. Leave blank to assign it later.`}
+          error={pickError ?? fieldErrorFor(failure, "household.identifier")}
+        />
+        <CheckboxField
+          id="isEligible"
+          name="isEligible"
+          label="Eligible to vote"
+          hint={`Only eligible ${terms.households} can be included in a new vote.`}
+          checked={eligible && identifier !== ""}
+          disabled={identifier === ""}
+          onChange={(event) => setEligible(event.target.checked)}
+        />
+      </fieldset>
+
+      <CheckboxField
+        id="enable"
+        name="enable"
+        label="Enable account now"
+        hint={
+          canEnable
+            ? "The person can sign in straight away. Leave unticked to review first."
+            : `Choose a ${terms.household} first; residents and RWA ReadOnly accounts cannot be enabled without one.`
+        }
+        checked={enable && canEnable}
+        disabled={!canEnable}
+        onChange={(event) => setEnable(event.target.checked)}
+      />
+
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button type="submit" loading={pending}>
           <UserPlus aria-hidden="true" className="size-5" />
@@ -130,6 +287,168 @@ export function AccountCreateForm({
         </Link>
       </div>
     </form>
+  );
+}
+
+/*
+ * Assigns a household to an account without one, or moves the account to another
+ * unassigned household. Moving renames the existing household record, keeping its
+ * eligibility and freeing the old identifier for another account.
+ */
+export function AccountHouseholdSection({
+  csrfToken,
+  accountId,
+  household,
+  choices,
+  disabled,
+}: Readonly<{
+  csrfToken: string | undefined;
+  accountId: string;
+  household: AccountHousehold | null;
+  choices: HouseholdChoices;
+  disabled: boolean;
+}>) {
+  const router = useRouter();
+  const terms = useHouseholdTerms();
+  const [value, setValue] = useState("");
+  const [text, setText] = useState("");
+  const [pickError, setPickError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<ApiFailure | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  // Choosing the current household again is not a change.
+  const options = household
+    ? {
+        ...choices,
+        options: choices.options.filter(
+          (item) =>
+            settingsListKey(item) !== settingsListKey(household.identifier),
+        ),
+      }
+    : choices;
+
+  async function save() {
+    setPending(true);
+    setFailure(null);
+    setSaved(null);
+    const result = await apiRequest<AccountHousehold>(
+      `/api/admin/accounts/${accountId}/household`,
+      { method: "PUT", body: { identifier: value.trim() }, csrfToken },
+    );
+    setPending(false);
+    setConfirming(false);
+    if (!result.ok) {
+      setFailure(result);
+      return;
+    }
+    setSaved(
+      household
+        ? `Moved to ${result.data.identifier}. ${household.identifier} is now free for another account.`
+        : `${terms.Household} ${result.data.identifier} assigned.`,
+    );
+    setValue("");
+    setText("");
+    router.refresh();
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (pending) return;
+    if (!value.trim()) {
+      setPickError(
+        choices.listed && text.trim()
+          ? `Choose a ${terms.identifierLabel} from the list.`
+          : `Enter a ${terms.identifierLabel}.`,
+      );
+      document.getElementById("identifier")?.focus();
+      return;
+    }
+    setPickError(null);
+    if (household) {
+      setConfirming(true);
+      return;
+    }
+    void save();
+  }
+
+  return (
+    <section
+      id="household"
+      aria-labelledby="household-heading"
+      className="grid max-w-ballot gap-4 border-t border-border pt-8"
+    >
+      <h2 id="household-heading" className="text-section font-semibold">
+        {terms.Household}
+      </h2>
+      {saved ? <Notice tone="success">{saved}</Notice> : null}
+      {household ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-body font-semibold">
+            {household.identifier}
+          </span>
+          <EligibilityBadge eligible={household.isEligible} />
+          <Link
+            href={`/admin/households/${household.id}`}
+            className="font-semibold text-accent underline underline-offset-2"
+          >
+            Change eligibility
+          </Link>
+        </div>
+      ) : (
+        <p className="text-body text-muted">
+          No {terms.household} is assigned yet.
+        </p>
+      )}
+      {disabled ? null : (
+        <form onSubmit={submit} noValidate className="grid gap-4">
+          <ErrorSummary
+            failure={failure}
+            fieldLabels={{ identifier: terms.identifierLabel }}
+          />
+          <HouseholdPicker
+            key={household?.identifier ?? "none"}
+            id="identifier"
+            choices={options}
+            value={value}
+            onChange={(next) => {
+              setValue(next);
+              if (next) setPickError(null);
+            }}
+            onTextChange={setText}
+            required
+            hint={
+              household
+                ? `Move this account to another ${terms.household}. Past and active votes keep the ${terms.household} they were frozen with; eligibility stays as it is.`
+                : `Assign the ${terms.household} this person votes for. It starts not eligible.`
+            }
+            error={pickError ?? fieldErrorFor(failure, "identifier")}
+          />
+          <Button type="submit" loading={pending} className="sm:w-fit">
+            <Home aria-hidden="true" className="size-5" />
+            {household
+              ? `Move ${terms.Household}`
+              : `Assign ${terms.Household}`}
+          </Button>
+        </form>
+      )}
+      <ConfirmDialog
+        open={confirming}
+        title={`Move to ${value.trim()}?`}
+        confirmLabel={`Move ${terms.Household}`}
+        destructive={false}
+        busy={pending}
+        onConfirm={() => void save()}
+        onCancel={() => setConfirming(false)}
+      >
+        <p>
+          {household?.identifier} will be renamed to {value.trim()} for this
+          account, keeping its voting eligibility. {household?.identifier} then
+          becomes free to assign to a new account. Active and past votes keep
+          the {terms.household} they started with.
+        </p>
+      </ConfirmDialog>
+    </section>
   );
 }
 
@@ -391,12 +710,12 @@ export function AccountEditor({
             <p>
               Residents can only be enabled once a {terms.household} is assigned
               to them.{" "}
-              <Link
-                href="/admin/households/new"
+              <a
+                href="#household"
                 className="font-semibold text-accent underline underline-offset-2"
               >
-                Add {terms.Household}
-              </Link>
+                Assign a {terms.Household}
+              </a>
               , then enable this account.
             </p>
           </Notice>

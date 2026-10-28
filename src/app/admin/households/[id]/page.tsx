@@ -1,4 +1,4 @@
-// Protected household maintenance preserving historical voting entitlements.
+// Protected household eligibility maintenance preserving historical voting entitlements.
 import { privateRecordMetadata } from "@/shared/metadata";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -7,10 +7,6 @@ import { HouseholdForm } from "@/components/admin/household-form";
 import { ManagementFields } from "@/components/admin/management-fields";
 import { PageHeader } from "@/components/ui/layout";
 import { ApiError } from "@/server/http/errors";
-import {
-  MAX_ASSIGNABLE,
-  listAssignableAccounts,
-} from "@/server/register/accounts";
 import { getHousehold } from "@/server/register/households";
 import { adminPageContext } from "@/server/register/page-context";
 import { loadHouseholdTerms } from "@/server/settings/rwa-profile";
@@ -45,10 +41,6 @@ export default async function EditHouseholdPage({
     }
     throw error;
   }
-  const accounts = await listAssignableAccounts(
-    deps,
-    household.representativeAccountId,
-  );
 
   return (
     <div className="grid gap-8">
@@ -61,16 +53,10 @@ export default async function EditHouseholdPage({
       </Link>
       <PageHeader
         title={`Edit ${deps.identifierLabel} ${household.identifier}`}
-        description={`Change the ${deps.identifierLabel.toLowerCase()}, the representative or eligibility.`}
+        description="Change voting eligibility for future votes."
       />
       <ManagementFields canManage={deps.actor.isAdmin}>
-        <HouseholdForm
-          csrfToken={deps.csrfToken}
-          identifierLabel={deps.identifierLabel}
-          accounts={accounts}
-          household={household}
-          limited={accounts.length >= MAX_ASSIGNABLE}
-        />
+        <HouseholdForm csrfToken={deps.csrfToken} household={household} />
       </ManagementFields>
     </div>
   );

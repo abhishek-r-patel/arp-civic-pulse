@@ -1,3 +1,4 @@
+// Allowlisted translation of database failures into public API errors.
 import {
   ApiError,
   isApiErrorCode,
@@ -30,6 +31,8 @@ const SAFE_REASONS = new Set([
   "DUPLICATE_IDENTIFIER",
   "REPRESENTATIVE_ASSIGNED",
   "REPRESENTATIVE_DELETED",
+  "DUPLICATE_EMAIL",
+  "UNKNOWN_HOUSEHOLD",
   "LAST_ADMIN",
   "DELETED_PROFILE",
   // Lifecycle: the vote's current state or why an action did not apply.

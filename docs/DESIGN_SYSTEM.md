@@ -178,7 +178,8 @@ Use Lucide React. Line icons only, 1.5px stroke. Always label icons with text un
 - Distinguish editable fields from frozen/read-only values. Section long forms rather than presenting an uninterrupted field list.
 
 ### Email and code verification
-- Explain registered-member access without offering public self-registration.
+- Explain registered-member access. Link new residents to `/register`, and say plainly that a new registration stays suspended until an RWA administrator enables it.
+- Choosing from a configured list uses the shared combobox: persistent label, visible chevron to open the full list, type-to-filter, arrow/Enter/Escape keys, a polite match-count announcement and a field error when nothing valid is chosen.
 - Use a single text input for the six-digit code with a numeric keyboard hint and one-time-code autocomplete. Support paste, leading zeros and accessible labelling; do not use a numeric-value input or six separate focus traps.
 - Provide explicit verification, invalid/expired-code guidance and a resend cooldown with readable timing. Do not repeatedly announce a countdown every second.
 - Use generic delivery wording such as "If this email is registered, a sign-in code will be sent." Do not promise delivery or confirm registration.
@@ -237,7 +238,7 @@ Use Lucide React. Line icons only, 1.5px stroke. Always label icons with text un
 | Results | Completion context, frozen eligible count, submitted count, turnout, counts/denominators, NOTA and tie/no-votes outcomes |
 | Admin vote list | Clear drafts/active/completed/cancelled grouping and next valid action, without live choices |
 | Draft editor | Sectioned setup, validation, electorate selection, preview and explicit activation; PRIVATE office names suggest the RWA Positions list, and **Add All Positions** adds them as offices |
-| Household register | Household, representative, email and eligibility; add/edit/suspend feedback and frozen-electorate explanation; the identifier field suggests unused Default Households |
+| Household register | Household, representative, email and eligibility; eligibility-only edit with a link to the representative's account; households are added and moved from the account pages, where the identifier picker offers only unassigned Default Households when configured |
 | Lifecycle confirmation | Action-specific consequences; required reasons for early completion/cancellation and deadline changes |
 | Change Deadline | Active votes only: current deadline, a new time in the RWA zone with a live "extended/brought forward by" preview, and a required audit-only reason; refuses times under 5 minutes ahead or equal to the current deadline |
 | Audit History | Readable actor/action/record/time/reason with pagination; no codes or PRIVATE selections |

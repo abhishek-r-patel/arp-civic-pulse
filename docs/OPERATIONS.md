@@ -130,7 +130,7 @@ npm run ops -- auth-orphans            # dry run: how many
 npm run ops -- auth-orphans --apply    # delete through supported Auth administration
 ```
 
-It never touches an identity younger than 24 hours (provisioning creates the Auth user before the profile). If an individual delete fails it is counted and reported; re-run later.
+It never touches an identity younger than 24 hours (provisioning creates the Auth user before the profile). If an individual delete fails it is counted and reported; re-run later. A failed resident self-registration deletes the identity it just created; if that best-effort cleanup itself fails (logged as `self_registration.identity_cleanup_failed`), the leftover identity has no profile and grants no access, and this command removes it. Self-registered profiles that an administrator leaves suspended are not deleted automatically; review them on **Accounts → Source: Self-registered** and set unwanted ones to Deleted.
 
 Deletion from the live database does **not** erase copies in existing backups; they leave when their own expiry passes (`backup_retention_days`).
 

@@ -335,4 +335,5 @@ export const accountListQuerySchema = listQuerySchema({
   status: z.enum(["ENABLED", "SUSPENDED", "DELETED"]).optional(),
   isAdmin: queryBoolean.optional(),
   isReadonly: queryBoolean.optional(),
+  selfRegistered: queryBoolean.optional(),
 });

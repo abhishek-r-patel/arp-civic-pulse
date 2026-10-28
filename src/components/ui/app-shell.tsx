@@ -162,6 +162,12 @@ export async function AppShell({
                 Sign In
               </a>
               <a
+                href="/register"
+                className="inline-flex min-h-12 items-center text-accent underline"
+              >
+                Register
+              </a>
+              <a
                 href="/user-guide.html"
                 className="inline-flex min-h-12 items-center text-accent underline"
               >

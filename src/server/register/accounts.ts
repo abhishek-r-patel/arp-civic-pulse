@@ -1,10 +1,16 @@
 // Retry-safe account administration and authorized review-table enrichment.
 import "server-only";
 import { z } from "zod";
+import { toApiError } from "@/server/db/errors";
 import { ApiError } from "@/server/http/errors";
 import { buildPage, decodeCursor } from "@/server/http/cursor";
 import { log } from "@/server/observability/logger";
 import {
+  assertHouseholdFree,
+  resolveHouseholdChoice,
+} from "@/server/register/households";
+import {
+  ensureAuthIdentity,
   findAuthUserIdByEmail,
   provisionAccount,
 } from "@/server/register/provisioning";
@@ -36,7 +42,7 @@ import { uuid } from "@/shared/validation/primitives";
  * the Auth side is verified consistent. A failure leaves the profile blocked.
  */
 const PROFILE_COLUMNS =
-  "id, representative_name, status, is_admin, is_readonly, updated_at";
+  "id, representative_name, status, is_admin, is_readonly, self_registered, updated_at";
 const ENDPOINT = "/api/admin/accounts";
 const BAN_DURATION = "876000h";
 const UNBAN_DURATION = "none";
@@ -47,6 +53,7 @@ interface ProfileRow {
   status: string;
   is_admin: boolean;
   is_readonly?: boolean;
+  self_registered?: boolean;
   updated_at: string;
 }
 
@@ -63,6 +70,7 @@ export function toAccountProjection(
     status: accountStatus(row.status),
     isAdmin: row.is_admin,
     ...(row.is_readonly ? { isReadonly: true } : {}),
+    ...(row.self_registered ? { selfRegistered: true } : {}),
     emailVerifiedAt: identity.emailVerifiedAt,
     updatedAt: new Date(row.updated_at).toISOString(),
   };
@@ -87,6 +95,7 @@ export async function listAccounts(
       status: query.status,
       isAdmin: query.isAdmin,
       isReadonly: query.isReadonly,
+      selfRegistered: query.selfRegistered,
     },
   };
 
@@ -103,6 +112,9 @@ export async function listAccounts(
   }
   if (query.isReadonly !== undefined) {
     request = request.eq("is_readonly", query.isReadonly);
+  }
+  if (query.selfRegistered !== undefined) {
+    request = request.eq("self_registered", query.selfRegistered);
   }
   if (query.cursor) {
     request = request.gt(
@@ -261,6 +273,27 @@ export async function createAccount(
 ): Promise<AccountProjection> {
   await assertCurrentAdmin(deps);
 
+  const accountId = input.household
+    ? await createWithHousehold(deps, input, input.household)
+    : await createWithoutHousehold(deps, input);
+
+  if (input.enable) {
+    // The account and household are already committed; a failed enable leaves them suspended.
+    try {
+      await updateAccount(deps, accountId, { status: "ENABLED" });
+    } catch (error) {
+      log("warn", "register.create_enable_failed", {
+        errorCode: error instanceof ApiError ? error.code : "unknown",
+      });
+    }
+  }
+  return getAccount(deps, accountId);
+}
+
+async function createWithoutHousehold(
+  deps: RegisterDeps,
+  input: CreateAccountInput,
+): Promise<string> {
   const result = await provisionAccount(deps.admin, {
     email: input.email,
     representativeName: input.representativeName,
@@ -275,7 +308,74 @@ export async function createAccount(
       context: { reason: "DUPLICATE_EMAIL" },
     });
   }
-  return getAccount(deps, result.accountId);
+  return result.accountId;
+}
+
+/*
+ * All-or-nothing: the household is validated before any Auth identity exists,
+ * the profile and household commit in one audited transaction, and an identity
+ * created by this request is removed best-effort if that transaction fails.
+ */
+async function createWithHousehold(
+  deps: RegisterDeps,
+  input: CreateAccountInput,
+  household: NonNullable<CreateAccountInput["household"]>,
+): Promise<string> {
+  const field = "household.identifier";
+  const identifier = await resolveHouseholdChoice(
+    deps,
+    household.identifier,
+    field,
+  );
+  await assertHouseholdFree(deps, identifier, field);
+
+  await assertCurrentAdmin(deps);
+  const identity = await ensureAuthIdentity(deps.admin, input.email);
+  const { error } = await deps.admin.rpc("provision_profile_with_household", {
+    p_auth_user_id: identity.id,
+    p_representative_name: input.representativeName,
+    p_is_admin: input.isAdmin,
+    p_is_readonly: input.isReadonly ?? false,
+    p_identifier: identifier,
+    p_is_eligible: household.isEligible,
+    p_actor_profile_id: deps.actor.id,
+  });
+  if (!error) {
+    return identity.id;
+  }
+
+  if (identity.state === "created") {
+    const removed = await deps.admin.auth.admin.deleteUser(identity.id);
+    if (removed.error) {
+      log("warn", "register.identity_cleanup_failed", {
+        status: (removed.error as { status?: number }).status ?? 0,
+      });
+    }
+  }
+  const mapped = toApiError(error);
+  if (mapped.context?.reason === "DUPLICATE_IDENTIFIER") {
+    throw new ApiError("REGISTER_CONFLICT", {
+      context: { reason: "DUPLICATE_IDENTIFIER" },
+      fieldErrors: [
+        {
+          field,
+          code: "ALREADY_ASSIGNED",
+          message: "This is already assigned to another account.",
+        },
+      ],
+    });
+  }
+  if (
+    mapped.code === "REGISTER_CONFLICT" ||
+    mapped.code === "FORBIDDEN" ||
+    mapped.code === "VALIDATION_FAILED"
+  ) {
+    throw mapped;
+  }
+  log("warn", "register.create_with_household_failed", {
+    errorCode: mapped.code,
+  });
+  throw new ApiError("DEPENDENCY_UNAVAILABLE");
 }
 
 async function setAuthBan(

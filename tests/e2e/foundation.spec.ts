@@ -132,7 +132,13 @@ for (const width of widths) {
     const footer = page.getByRole("contentinfo");
     await expect(
       footer.getByRole("navigation", { name: "Information" }).getByRole("link"),
-    ).toHaveText(["Sign In", "User Guide", "Privacy Policy", "Contact"]);
+    ).toHaveText([
+      "Sign In",
+      "Register",
+      "User Guide",
+      "Privacy Policy",
+      "Contact",
+    ]);
     const credit = footer.getByText("Civic Pulse By Abhishek Patel", {
       exact: true,
     });
@@ -181,7 +187,6 @@ test("protected admin pages redirect signed-out visitors without revealing anyth
 }) => {
   for (const path of [
     "/admin/households",
-    "/admin/households/new",
     "/admin/accounts",
     "/admin/accounts/new",
   ]) {
@@ -340,11 +345,11 @@ test("public Open Graph image is a real 1200 by 630 PNG", async ({
 });
 
 for (const width of [375, 1280]) {
-  test(`privacy and contact reflow and pass automated accessibility at ${width}px`, async ({
+  test(`privacy, contact and register reflow and pass automated accessibility at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    for (const path of ["/privacy", "/contact"]) {
+    for (const path of ["/privacy", "/contact", "/register"]) {
       await page.goto(path);
       expect(
         await page.evaluate(

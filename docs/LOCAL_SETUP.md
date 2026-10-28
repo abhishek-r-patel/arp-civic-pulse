@@ -69,7 +69,7 @@ Use the **session pooler** string, not the direct one: the direct connection is 
 
 In **Authentication** (names may vary slightly):
 
-1. **Sign In / Providers → Email:** keep Email enabled. **Turn off "Allow new users to sign up"** (Civic Pulse has no public sign-up; administrators create accounts).
+1. **Sign In / Providers → Email:** keep Email enabled. **Turn off "Allow new users to sign up"** (Supabase Auth sign-up stays off; administrators create accounts, and resident self-registration at `/register` creates identities through the server's privileged Auth client, which this setting does not block).
 2. **Email OTP length: 6.** The app asks for a six-digit code.
 3. **URL Configuration:** set **Site URL** to `http://localhost:3000`.
 4. Email delivery: see step 8. The built-in email service cannot carry a code, so read that step before you try to sign in.
@@ -116,6 +116,9 @@ Important details:
 ### 5.1 Optional public contact and Google integrations
 
 The public `/sign-in`, `/privacy` and `/contact` pages are server-rendered.
+`/register` (resident self-registration) is also public but `noindex` and not in
+the sitemap; it needs the `20261109100000` migration and creates only suspended,
+ineligible records.
 The footer's **User Guide** opens `/user-guide.html` without sign-in. The guide
 generator runs before `npm run dev` and `npm run build`, publishing a standalone
 HTML copy with embedded synthetic screenshots. Edit the Markdown guide rather
@@ -173,7 +176,7 @@ You should see the migrations listed (`20261024100000` through `20261026100000`)
 
 ## 7. Set up the RWA and the first administrator
 
-There is no public sign-up and no default password, so the first administrator is created by a short, audited setup procedure.
+There is no default password, and self-registration never creates administrators, so the first administrator is created by a short, audited setup procedure.
 
 ### 7.1 Create the administrator's sign-in identity
 
@@ -292,6 +295,9 @@ allows sign-in; **Make Eligible** separately changes assigned-flat eligibility
 for future votes. Select All Roles explicitly to include administrators, whose
 enable confirmation carries a management-access warning. Changing page/filters
 clears selection. Use the existing reviewed schema; this UI adds no migration.
+To review residents who registered themselves at `/register`, also set **Source**
+to **Self-registered**; their flats start ineligible, so use **Make Eligible** as
+well as **Enable Selected** once you have checked them.
 The focused screenshot/browser command is
 `npx playwright test -c playwright.docs.config.ts --grep "bulk account review"`,
 with the documented disposable-project opt-ins and verified CA configuration.
@@ -308,10 +314,9 @@ environment using section 6. Do not point fixtures or captures at production.
 
 Follow this to see every built feature:
 
-1. **Accounts → Add account.** Create a resident (name + email). New accounts start **Suspended**.
-2. **Households → Add household.** Give it an identifier (for example `A-101`), choose that resident as the representative, and tick **Eligible to vote**.
-3. **Accounts →** open the resident and choose **Enable Account** (confirm in the dialog). A resident can only be enabled once they represent a household; otherwise the app tells you why.
-4. Repeat steps 1-3 for a few residents.
+1. **Accounts → Add account.** Create a resident (name + email) and, in the same form, choose their household (for example `A-101`; when Settings → Default Households is set, pick it from the list) and tick **Eligible to vote**. Tick **Enable account now** to skip step 2. New accounts otherwise start **Suspended**.
+2. **Accounts →** open the resident and choose **Enable Account** (confirm in the dialog). A resident can only be enabled once they have a household; an account created without one can be given one from its own page (**Household** section).
+3. Repeat steps 1-2 for a few residents.
 5. **Manage Votes → New Vote.** Choose **PUBLIC** (a question with options) or **PRIVATE** (an election with offices and candidates) and **Create Draft**.
 6. In the editor fill in the five sections: voting type, details, ballot, electorate (search and tick households), and deadline (entered in your RWA's time zone; you see how residents will read it). **Save Draft.**
 7. Choose **Preview Ballot** to see exactly what residents will see: the privacy notice, the deadline with its time zone, and the unselected choices (PRIVATE votes show built-in **NOTA (None of the Above)** per office). The preview lists anything still blocking activation, with a link to fix each.

@@ -337,7 +337,7 @@ export function RwaProfileForm({
         name="defaultHouseholds"
         label={`Default ${preview.Households}`}
         showOptional={false}
-        hint={`Comma-separated ${preview.identifierLabelPlural}, such as H-101, H-102, H-103. Offered as suggestions when an administrator adds a ${preview.household}; ${preview.households} are never created automatically. Up to ${DEFAULT_HOUSEHOLDS_MAX_ITEMS} entries; repeats are removed. Leave blank for no suggestions.`}
+        hint={`Comma-separated ${preview.identifierLabelPlural}, such as H-101, H-102, H-103. When set, these are the only ${preview.identifierLabelPlural} administrators can choose when adding or moving an account's ${preview.household}, and the only choices on the public resident registration page; leave blank to allow typed identifiers. ${preview.Households} are never created automatically. Up to ${DEFAULT_HOUSEHOLDS_MAX_ITEMS} entries; repeats are removed. Leave blank for no suggestions.`}
         autoComplete="off"
         value={householdsText}
         onChange={(event) => setHouseholdsText(event.target.value)}

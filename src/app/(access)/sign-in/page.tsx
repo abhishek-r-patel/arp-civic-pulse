@@ -34,7 +34,7 @@ export default async function SignInPage() {
       <PublicStructuredData path="/sign-in" />
       <PageHeader
         title="Sign in"
-        description={`Civic Pulse is for registered members of ${organisation}. Residents need an assigned ${terms.household}; administrators may sign in without one. There is no public sign-up. If you cannot sign in, contact your RWA administrator.`}
+        description={`Civic Pulse is for registered members of ${organisation}. Residents need an assigned ${terms.household}; administrators may sign in without one. New residents can register; an RWA administrator must enable the account before it can sign in. If you cannot sign in, contact your RWA administrator.`}
       />
 
       {session.state === "blocked" ? (
@@ -53,6 +53,14 @@ export default async function SignInPage() {
       ) : (
         <SignInForm csrfToken={csrfToken} />
       )}
+
+      <p className="text-body text-muted">
+        New resident?{" "}
+        <a href="/register" className="text-accent underline">
+          Register
+        </a>
+        .
+      </p>
 
       {csrfToken === undefined ? (
         <Notice tone="error" heading="This page could not be prepared">

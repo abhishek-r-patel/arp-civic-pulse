@@ -12,6 +12,12 @@ disabled controls. Both management roles can also vote through their own enabled
 household entitlement. The management roles are exclusive, and an observer must
 have a household assignment before enablement.
 
+Administrators add a resident's account and household in one step on **Accounts
+→ Add Account** (household optional, eligibility and "Enable account now"
+optional); when Settings → Default Households is set, only unassigned listed
+households can be chosen. An account page can assign or move its household.
+This needs the reviewed `20261110100000_account_with_household` migration.
+
 Administrators can open **Import CSV** from the register: upload at most 500 rows
 (256 KiB), check conflicts, confirm import, then review and enable suspended
 accounts using individual controls or the Accounts table's separate **Enable Selected**
@@ -25,6 +31,16 @@ Apply the reviewed `20261106100000`, `20261107100000` and
 `20261108100000` migrations to a verified disposable/staging environment
 before exercising these flows; the app never migrates at startup. The latest
 migration adds the committee read-only role. See the [user guide](./docs/USER_GUIDE.md).
+
+Residents can also onboard themselves at `/register` (linked from sign-in and the
+footer) with their name, email and household identifier, chosen from the
+admin-configured Default Households when any are set (free text otherwise). Each registration is
+created **suspended** with an **ineligible** household; a repeated email or an
+already registered household is rejected with a specific error. Administrators
+find them on **Accounts** with the **Source: Self-registered** filter and use the
+same enable/eligibility actions. This needs the reviewed
+`20261109100000_resident_self_registration` migration; see
+[API.md](./docs/API.md#public-resident-self-registration-endpoint).
 
 ## Source of truth
 
@@ -130,7 +146,7 @@ New here? Follow the step-by-step [local setup guide](./docs/LOCAL_SETUP.md).
 Server configuration is validated when the server starts (`src/instrumentation.ts` → `src/server/config/environment.ts`); production fails clearly on missing or unsafe values. See [.env.example](./.env.example) for placeholder-only variables.
 
 - `NEXT_PUBLIC_*` values are visible in browsers and must never hold a secret.
-- `SUPABASE_SERVICE_ROLE_KEY` is server-only and reserved for controlled Auth provisioning, never ballots, results or exports.
+- `SUPABASE_SERVICE_ROLE_KEY` is server-only and reserved for controlled Auth provisioning and resident self-registration, never ballots, results or exports.
 - `SUPABASE_ACCESS_TOKEN` and `MIGRATION_DATABASE_URL` are deployment-only and not read by the running application.
 - SMTP, OTP settings and Cron are configured in Supabase/provider settings and reviewed migrations.
 
@@ -139,18 +155,19 @@ Server configuration is validated when the server starts (`src/instrumentation.t
 Public `/sign-in`, `/privacy` and `/contact` pages are server-rendered and have
 canonical metadata, social cards and structured data. `/robots.txt` and
 `/sitemap.xml` list only the public surface; resident and administrator screens
-default to `noindex, nofollow`. Contact email (Resend), opt-in public-page GA4 and
+default to `noindex, nofollow`. The public `/register` self-registration page is
+also `noindex` and outside the sitemap. Contact email (Resend), opt-in public-page GA4 and
 Search Console verification require the optional settings in `.env.example`.
 See the [launch checklist audit](./docs/LAUNCH_AUDIT.md#public-site-checklist-26-october-2026)
 and [activation steps](./docs/DEPLOYMENT.md#public-site-integrations).
 
 ```text
 src/app            Routes, route groups ((access), (member)), admin, api handlers
-				   privacy/contact pages; robots.ts, sitemap.ts, opengraph-image.tsx, icon.svg
+				   privacy/contact/register pages; robots.ts, sitemap.ts, opengraph-image.tsx, icon.svg
 src/components     ui (shared primitives), votes, admin
-				   access/contact-form.tsx; ui public metadata/analytics/navigation
+				   access/contact-form.tsx, access/self-registration-form.tsx; ui public metadata/analytics/navigation
 src/server         Server-only modules: config, auth, db, results, audit, ...
-				   contact.ts (support email only)
+				   contact.ts (support email only); register/self-registration.ts
 src/shared         Browser-safe contracts and validation
 				   metadata.ts (public page inventory); contracts/contact.ts
 src/styles         Tailwind theme and design tokens (globals.css)

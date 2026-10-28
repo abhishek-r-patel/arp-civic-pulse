@@ -121,6 +121,12 @@ browser font requests never contact Google.
 | [src/server/register/import.ts](../src/server/register/import.ts) | Retry-safe Auth orchestration and guarded import assignment; never enables accounts. |
 | [src/app/admin/households/import/page.tsx](../src/app/admin/households/import/page.tsx) | Protected import page reached from the register. |
 | [src/app/api/admin/households/import/route.ts](../src/app/api/admin/households/import/route.ts) | Per-row check/import endpoint with CSRF, current-admin checks and import budget. |
+| [src/app/register/page.tsx](../src/app/register/page.tsx), [src/components/access/self-registration-form.tsx](../src/components/access/self-registration-form.tsx) | Public, `noindex` resident self-registration page and form with a hidden honeypot; picks from configured Default Households when any exist. |
+| [src/components/ui/combobox-field.tsx](../src/components/ui/combobox-field.tsx) | Accessible type-to-filter combobox that only accepts one of its options. |
+| [src/components/admin/account-forms.tsx](../src/components/admin/account-forms.tsx) | Add Account with an optional household, eligibility and immediate enablement; account-page household assign/move section and profile editor. |
+| [src/app/api/admin/accounts/[id]/household/route.ts](../src/app/api/admin/accounts/[id]/household/route.ts) | Assign or move an account's household (renaming keeps eligibility). |
+| [src/components/admin/household-form.tsx](../src/components/admin/household-form.tsx) | Eligibility-only household editor linking to the representative's account. |
+| [src/app/api/register/route.ts](../src/app/api/register/route.ts), [src/server/register/self-registration.ts](../src/server/register/self-registration.ts) | CSRF-protected registration endpoint; budgets, Auth identity, service-role routine, cleanup and specific duplicate errors. |
 | [src/app/api/admin/votes/[id]/schedule/route.ts](../src/app/api/admin/votes/[id]/schedule/route.ts) | Schedule a previewed draft and freeze it immediately. |
 | [src/app/api/admin/votes/[id]/schedule/withdraw/route.ts](../src/app/api/admin/votes/[id]/schedule/withdraw/route.ts) | Confirmed, reasoned pre-opening return to draft. |
 | [src/components/admin/rwa-profile-form.tsx](../src/components/admin/rwa-profile-form.tsx) | Administrator form for RWA identity, contact, palette, welcome message and identifier wording. |
@@ -216,7 +222,7 @@ The definitive deadline check uses the **database clock after locking**, not the
 
 ### Sign-in flow
 
-1. A controlled administrator provisions the email identity/profile. Public signup is disabled.
+1. A controlled administrator provisions the email identity/profile, or the resident self-registers at `/register`. Supabase Auth public signup stays disabled: [self-registration](../src/server/register/self-registration.ts) uses the server's privileged Auth client, then the service-role routine `self_register_resident` creates a **suspended** profile (`self_registered = true`) and an **ineligible** household in one audited transaction. It checks the email first (any existing profile, `DUPLICATE_EMAIL`), then membership in the configured Default Households when any exist (`UNKNOWN_HOUSEHOLD`, also pre-checked before the Auth stage), then the normalized household (`DUPLICATE_IDENTIFIER`); budgets are per email, per household and global, with a honeypot field. An administrator must still enable the account and make the household eligible.
 2. The code-request route normalizes/validates the email and returns generic guidance. It must not reveal whether an address is registered.
 3. Supabase handles six-digit, expiring, single-use email codes. Production requires custom SMTP; test helpers can obtain codes through supported Auth administration without email.
 4. Verification requires both a valid Auth session and a current enabled application profile.
@@ -355,6 +361,9 @@ The privileged client bypasses RLS: use it only in the established provisioning/
 | `20261106100000_register_import` | Current-admin import checks and retry-safe household assignment without enabling accounts. |
 | `20261107100000_scheduled_opening` | Frozen scheduled state, database-clock opening, direct-read ballot privacy and pre-opening withdrawal. |
 | `20261108100000_readonly_committee_role` | Exclusive observer role, admin-equivalent reads, admin-only mutations/role changes and household-enabled voting. |
+| `20261109100000_resident_self_registration` | `profiles.self_registered`, `PROFILE_SELF_REGISTERED` audit action, service-role-only `get_self_registration_households` and `self_register_resident` (suspended profile + ineligible household, limited to configured Default Households when set). |
+| `20261110100000_account_with_household` | Service-role-only `provision_profile_with_household`: administrator-created suspended profile plus household in one audited transaction. |
+| `20261111100000_resident_directory` | Read-only security-invoker view, retained as applied migration history after reverting the Residents-tab UI; unused by the restored Accounts and Households screens. |
 
 Use the exact ordered filenames in [migrations](../supabase/migrations); do not rewrite an applied migration. New changes require a new versioned migration and fresh/upgrade tests. Never run migrations at application startup or use a reset on an existing real database.
 
@@ -517,6 +526,8 @@ npx playwright test -c playwright.docs.config.ts
 npx playwright test -c playwright.docs.config.ts --grep "bulk import and scheduled opening"
 # Or refresh the Accounts table and its five bulk-review pictures:
 npx playwright test -c playwright.docs.config.ts --grep "bulk account review"
+# Or refresh the self-registration and one-step onboarding pictures (77-84):
+npx playwright test -c playwright.docs.config.ts --grep "self-registration and one-step"
 node scripts\docs\render.mjs
 ```
 
@@ -529,10 +540,14 @@ system store alone does not include the Supabase database CA. Use the provider's
 `rejectUnauthorized: false`. Other older test helpers have their own outstanding
 TLS audit findings; this change does not claim to fix them all.
 
-The capture spec contains six synthetic flows for appearance, bulk review,
-import/scheduling, voting, role assignment and observer access. The active guide
-uses 111 persona PNGs: 31 Resident, 52 RWA Admin and 28 RWA ReadOnly captures,
-plus three workflow diagrams. Four mobile Admin/ReadOnly captures are excluded
+The capture spec contains seven synthetic flows for appearance, bulk review,
+import/scheduling, voting, role assignment, observer access and
+self-registration/one-step onboarding. The active guide
+uses 120 persona PNGs: 36 Resident, 56 RWA Admin and 28 RWA ReadOnly captures,
+plus three workflow diagrams. The onboarding flow temporarily sets a run-unique
+Default Households list to show the flat pickers and restores the previous RWA
+profile afterwards. Dialog-only captures apply redaction masks only inside the
+dialog. Four mobile Admin/ReadOnly captures are excluded
 because the guide targets laptop layouts for those personas. The corresponding role codes are
 `voter`, `rwa-admin` and `rwa-readonly`.
 The observer sequence covers

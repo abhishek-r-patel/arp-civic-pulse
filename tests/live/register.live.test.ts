@@ -57,6 +57,7 @@ describe.skipIf(!hasLive)("live: register administration", () => {
       email,
       representativeName: name,
       isAdmin: false,
+      enable: false,
     });
     return { email, account };
   }
@@ -96,6 +97,7 @@ describe.skipIf(!hasLive)("live: register administration", () => {
           email,
           representativeName: "Fresh Resident",
           isAdmin: false,
+          enable: false,
         }),
       );
       expect(duplicate.code).toBe("REGISTER_CONFLICT");

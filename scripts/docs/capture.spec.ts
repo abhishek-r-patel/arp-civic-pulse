@@ -41,14 +41,16 @@ async function capture(page: Page, name: string, dialogOnly = false, viewportOnl
     }
   });
   const target = dialogOnly ? page.getByRole("dialog") : page;
+  // Masks are drawn over the image, so a dialog-only capture must not inherit page masks behind it.
+  const scope = dialogOnly ? page.getByRole("dialog") : page.locator("body");
   await target.screenshot({
     path: join(personaImages, `${name}.png`),
     ...(dialogOnly ? {} : { fullPage: !viewportOnly }),
     animations: "disabled",
     style: "nextjs-portal { display: none !important; }",
     mask: [
-      page.getByText(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu),
-      page.locator("[data-doc-mask]"),
+      scope.getByText(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu),
+      scope.locator("[data-doc-mask]"),
     ],
     maskColor: "#CBD5E1",
   });
@@ -379,16 +381,16 @@ test("capture administrator assignment of exclusive management roles", async ({ 
     await expect(page.getByText(/Flat needed first/)).toBeVisible();
     await capture(page, "32-readonly-household-required");
 
-    await page.goto("/admin/households/new");
     const identifier = await unusedIdentifier();
-    await page.getByLabel(/^Flat Number/).fill(identifier);
-    const accountOption = (await page.getByLabel(/Representative/).locator("option").allTextContents())
-      .find((option) => option.includes(email));
-    if (!accountOption) throw new Error("Synthetic readonly account is missing from household assignment.");
-    await page.getByLabel(/Representative/).selectOption({ label: accountOption });
+    await page.locator("#identifier").fill(identifier);
+    // Leaving the field turns exact typed text into the list choice.
+    await page.keyboard.press("Tab");
+    await page.getByRole("button", { name: "Assign Flat" }).click();
+    await expect(page.getByText(`Flat ${identifier} assigned.`)).toBeVisible();
+    await page.getByRole("link", { name: "Change eligibility" }).click();
     await page.getByLabel("Eligible to vote").check();
-    await page.getByRole("button", { name: "Add Flat" }).click();
-    await expect(page.getByText("Flat added.")).toBeVisible();
+    await page.getByRole("button", { name: "Save Changes" }).click();
+    await expect(page.getByText("Flat updated.")).toBeVisible();
     await page.goto(accountPath);
     await page.getByRole("button", { name: "Enable Account" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Enable Account" }).click();
@@ -464,6 +466,8 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     admin.id,
     "public.get_rwa_profile()",
   );
+  // Picked before the profile update so the flat picker (list mode) can offer it.
+  const onboardingFlat = await unusedIdentifier("H-514");
   await asUser(admin.id, "public.update_rwa_profile($1::jsonb)", [
     JSON.stringify({
       fullName: "Lakeview Residents Welfare Association",
@@ -478,7 +482,9 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
         "Welcome to Lakeview RWA voting. Please vote before each displayed deadline.",
       householdLabel: "Flat",
       identifierKind: "NUMBER",
-      defaultHouseholds: ["H-513", "H-514", "H-515", "H-516"],
+      defaultHouseholds: [
+        ...new Set(["H-513", "H-514", "H-515", "H-516", onboardingFlat]),
+      ],
       rwaPositions: [
         "President",
         "Vice-President",
@@ -559,23 +565,16 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
       a.getByText("Flat needed first", { exact: true }),
     ).toBeVisible();
     await capture(a, "43-household-required");
-    await a.goto("/admin/households/new");
-    const newIdentifier = await unusedIdentifier("H-514");
-    // The identifier input offers Default Households suggestions, so its role may be combobox.
-    await a.getByLabel(/^Flat Number/).fill(newIdentifier);
-    const representative = a.getByLabel(/Representative/);
-    const offered = (
-      await representative.locator("option").allTextContents()
-    ).find((label) => label.includes(onboardingEmail));
-    if (!offered) {
-      throw new Error(
-        "The synthetic onboarding account was not offered as a representative.",
-      );
-    }
-    await representative.selectOption({ label: offered });
+    const newIdentifier = onboardingFlat;
+    await a.locator("#identifier").fill(newIdentifier);
+    // Leaving the field turns exact typed text into the list choice.
+    await a.keyboard.press("Tab");
+    await a.getByRole("button", { name: "Assign Flat" }).click();
+    await expect(a.getByText(`Flat ${newIdentifier} assigned.`)).toBeVisible();
+    await a.getByRole("link", { name: "Change eligibility" }).click();
     await a.getByLabel("Eligible to vote").check();
-    await a.getByRole("button", { name: "Add Flat" }).click();
-    await expect(a.getByText("Flat added.")).toBeVisible();
+    await a.getByRole("button", { name: "Save Changes" }).click();
+    await expect(a.getByText("Flat updated.")).toBeVisible();
     await a.goto(
       `/admin/households?identifier=${encodeURIComponent(newIdentifier)}`,
     );
@@ -601,7 +600,10 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     await a.getByRole("button", { name: "Delete Account" }).click();
     await capture(a, "19-delete-dialog");
     await a.keyboard.press("Escape");
-    await a.goto("/admin/households/new");
+    await a.goto("/admin/accounts/new");
+    await a.getByLabel(/Email address/).fill(plusEmail());
+    await a.getByLabel(/Representative name/).fill("Meera Iyer (example)");
+    await a.locator('[id="household.identifier"]').click();
     await capture(a, "20-add-household");
     await a.goto(`/admin/households/${resident.householdId}`);
     await capture(a, "21-household");
@@ -1028,16 +1030,15 @@ test("capture the RWA ReadOnly persona", async ({ browser }) => {
     await capture(page, "05-create-account-disabled");
 
     await page.goto("/admin/households");
-    await expect(page.getByRole("link", { name: /^Add Flat$/ })).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    await expect(
+      page.getByRole("link", { name: /^Add Account and Flat$/ }),
+    ).toHaveAttribute("aria-disabled", "true");
     await capture(page, "06-household-register-read");
-    await page.goto("/admin/households/new");
-    await expect(page.getByLabel(/^Flat Number/)).toBeDisabled();
+    await page.goto(`/admin/accounts/${other.id}`);
+    await expect(page.locator("#identifier")).toBeDisabled();
     await capture(page, "07-new-household-disabled");
     await page.goto(`/admin/households/${other.householdId}`);
-    await expect(page.getByLabel(/^Flat Number/)).toBeDisabled();
+    await expect(page.getByLabel("Eligible to vote")).toBeDisabled();
     await capture(page, "08-edit-household-disabled");
     await page.goto("/admin/households/import");
     await expect(page.getByLabel("Register CSV")).toBeDisabled();
@@ -1140,5 +1141,86 @@ test("capture the RWA ReadOnly persona", async ({ browser }) => {
       await asUser(operator.id, "public.update_rwa_profile($1::jsonb)", [
         JSON.stringify(previousProfile),
       ]);
+  }
+});
+
+test("capture self-registration and one-step account onboarding", async ({ browser }) => {
+  test.setTimeout(300_000);
+  const admin = await provisionAdmin("Onboarding Administrator (example)");
+  const previous = await asUser<Record<string, unknown>>(admin.id, "public.get_rwa_profile()");
+  const publicContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const adminContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const p = await publicContext.newPage();
+  const a = await adminContext.newPage();
+  screenshotPersona.set(p, "voter");
+  screenshotPersona.set(a, "rwa-admin");
+  const setDefaults = (defaultHouseholds: string[]) =>
+    asUser(admin.id, "public.update_rwa_profile($1::jsonb)", [JSON.stringify({ ...previous,
+      fullName: "Lakeview Residents Welfare Association", alias: "Lakeview RWA",
+      householdLabel: "Flat", identifierKind: "NUMBER", defaultHouseholds,
+    })]);
+  async function register(name: string, email: string, flat?: string) {
+    await p.goto("/register");
+    await p.getByLabel(/^Full name/).fill(name);
+    await p.getByLabel(/^Email address/).fill(email);
+    if (flat !== undefined) await p.getByLabel(/^Flat Number/).fill(flat);
+  }
+  try {
+    // Free-text mode: no Default Households configured.
+    await setDefaults([]);
+    const firstEmail = plusEmail();
+    await register("Kavya Menon (example)", firstEmail, await unusedIdentifier("G-104"));
+    await capture(p, "77-register");
+    await p.getByRole("button", { name: "Register" }).click();
+    await expect(p.getByText("Registration received")).toBeVisible();
+    await capture(p, "78-register-received");
+    await register("Kavya Menon (example)", firstEmail, await unusedIdentifier());
+    await p.getByRole("button", { name: "Register" }).click();
+    await expect(p.getByText(/This email address is already registered\./).first()).toBeVisible();
+    await capture(p, "79-register-duplicate");
+
+    // List mode: a synthetic, run-unique Default Households list (restored in finally).
+    const listed = [...new Set(await Promise.all(
+      ["C-101", "C-102", "C-103", "C-201", "C-202", "C-203", "D-101", "D-102"].map((item) => unusedIdentifier(item)),
+    ))];
+    await setDefaults(listed);
+    await register("Imran Qureshi (example)", plusEmail());
+    const picker = p.getByRole("combobox", { name: /Flat Number/ });
+    await picker.fill(listed[0]?.slice(0, 2) ?? "");
+    await expect(p.getByRole("listbox")).toBeVisible();
+    await capture(p, "80-register-flat-picker", false, true);
+
+    await signInThroughUi(a, admin.email, admin.code);
+    await a.goto("/admin/accounts/new");
+    await a.getByLabel(/Email address/).fill(plusEmail());
+    await a.getByLabel(/Representative name/).fill("Neha Joshi (example)");
+    const adminPicker = a.getByRole("combobox", { name: /Flat Number/ });
+    await adminPicker.click();
+    await expect(a.getByRole("listbox")).toBeVisible();
+    await capture(a, "81-add-account-flat-picker", false, true);
+    const chosen = listed[1] ?? "";
+    await a.getByRole("option", { name: chosen, exact: true }).click();
+    await a.getByLabel("Eligible to vote").check();
+    await a.getByLabel("Enable account now").check();
+    await a.getByRole("button", { name: "Create Account" }).click();
+    await expect(a.getByText("Account created and enabled.")).toBeVisible();
+    await expect(a.getByText(chosen, { exact: true })).toBeVisible();
+    await capture(a, "82-account-created-with-flat");
+
+    const moveTo = listed[2] ?? "";
+    await a.getByRole("combobox", { name: /Flat Number/ }).click();
+    await a.getByRole("option", { name: moveTo, exact: true }).click();
+    await a.getByRole("button", { name: "Move Flat" }).click();
+    await expect(a.getByRole("dialog")).toBeVisible();
+    await capture(a, "83-move-flat-dialog", true);
+    await a.getByRole("dialog").getByRole("button", { name: "Move Flat" }).click();
+    await expect(a.getByText(`Moved to ${moveTo}.`)).toBeVisible();
+
+    await a.goto("/admin/accounts?status=SUSPENDED&selfRegistered=true");
+    await expect(a.locator("[data-account-review]").getByText("Self-registered").first()).toBeVisible();
+    await capture(a, "84-self-registered-accounts", false, true);
+  } finally {
+    await publicContext.close(); await adminContext.close();
+    await asUser(admin.id, "public.update_rwa_profile($1::jsonb)", [JSON.stringify(previous)]);
   }
 });

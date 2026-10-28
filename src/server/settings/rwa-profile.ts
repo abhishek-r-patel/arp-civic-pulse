@@ -1,3 +1,4 @@
+// RWA profile, branding, household wording and household-choice reads/updates.
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cache } from "react";
@@ -10,6 +11,7 @@ import {
   callRoutine,
   type RegisterDeps,
 } from "@/server/register/shared";
+import type { HouseholdChoices } from "@/shared/contracts/register";
 import {
   DEFAULT_HOUSEHOLDS_MAX_ITEMS,
   publicRwaIdentitySchema,
@@ -112,15 +114,17 @@ export const loadHouseholdTerms = cache(async (): Promise<HouseholdTerms> => {
 });
 
 /*
- * Default household identifiers that are not yet in the register, for the
- * add-household type-ahead. Suggestions are a convenience only: if the register
- * read fails, every default is offered and the database still rejects repeats.
+ * Household choices for administrator forms: when Default Households are
+ * configured, only entries not yet in the register (plus `current`, the
+ * account's own household) are offered and accepted. If the register read fails,
+ * every default is offered and the database still rejects repeats.
  */
-export async function listUnusedDefaultHouseholds(
+export async function loadHouseholdChoices(
   deps: RegisterDeps,
-): Promise<string[]> {
+  current?: string,
+): Promise<HouseholdChoices> {
   const { defaultHouseholds } = await getRwaProfile(deps.client);
-  if (defaultHouseholds.length === 0) return [];
+  if (defaultHouseholds.length === 0) return { listed: false, options: [] };
   const { data, error } = await deps.client
     .from("households")
     .select("identifier")
@@ -128,10 +132,20 @@ export async function listUnusedDefaultHouseholds(
     .returns<{ identifier: string }[]>();
   if (error || !data) {
     log("warn", "settings.default_households_register_unavailable", {});
-    return defaultHouseholds;
+    return { listed: true, options: defaultHouseholds };
   }
-  const used = new Set(data.map((row) => settingsListKey(row.identifier)));
-  return defaultHouseholds.filter((item) => !used.has(settingsListKey(item)));
+  const currentKey = current === undefined ? null : settingsListKey(current);
+  const used = new Set(
+    data
+      .map((row) => settingsListKey(row.identifier))
+      .filter((key) => key !== currentKey),
+  );
+  return {
+    listed: true,
+    options: defaultHouseholds.filter(
+      (item) => !used.has(settingsListKey(item)),
+    ),
+  };
 }
 
 /** Position names offered when adding offices to a PRIVATE vote draft. */

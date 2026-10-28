@@ -22,6 +22,74 @@ applied there only. This is
 not production deployment, manual accessibility acceptance or governance
 approval. The user subsequently authorized a persona-first guide and refreshed captures; the earlier freeze described below is historical.
 
+### Resident self-registration
+
+The requested public `/register` page lets residents onboard themselves: each
+registration is a suspended `voter` profile (`self_registered`) with an
+ineligible household, created atomically and audited as
+`PROFILE_SELF_REGISTERED`. Repeated emails and already registered households
+are rejected with specific errors (a deliberate, user-chosen enumeration
+trade-off); budgets are per email, per household and global, plus a honeypot.
+Administrators review through the Accounts **Source** filter and the existing
+enable/eligibility actions. When the RWA has configured Default Households,
+residents pick their flat from that list (type-to-filter combobox) and the server
+and database reject anything else; with no list the field is free text.
+
+Earlier local evidence: 482 unit tests passed, including 18 route tests for CSRF,
+strict fields, honeypot, budgets, duplicate email/household errors,
+configured-list checks and identity cleanup. Verification on the disposable
+project is recorded below.
+
+### One-step account and household onboarding
+
+Add Account now creates the account together with an optional household
+(all-or-nothing, through `provision_profile_with_household`), eligibility and
+optional immediate enablement; account pages assign or move a household; the
+separate Add Household page is gone and Households edit changes eligibility
+only. Configured Default Households limit administrator choices to listed,
+unassigned identifiers.
+
+### 27 October 2026 verification of both changes
+
+The later Residents-tab experiment has been rolled back locally to the separate
+Accounts and Households screens, preserving self-registration and one-step
+account/household onboarding. Its additive `20261111100000` view and SQL regression
+test remain because the migration was already applied to the disposable project;
+the rollback does not change any database, repair history or deploy hosted code.
+Some retained guide screenshots came from the interrupted Residents capture;
+the missing readonly household-edit image was recovered from the committed
+baseline. A fresh synthetic capture is still needed before treating those images
+as evidence of the restored navigation. No hosted fixture writes or captures are
+authorized by this local rollback alone.
+
+- **Local real PostgreSQL 17.11** (throwaway localhost cluster): the five focused
+  integration files (self-registration, account with household, security
+  allowlist, provisioning, register) passed 76 tests; the full integration suite
+  passed 269 tests with 7 environment-gated skips.
+- **Disposable hosted project** (user-confirmed, never production): after a dry
+  run listing exactly `20261109100000` and `20261110100000`, both were applied
+  with `supabase db push --skip-vault`. `npm run test:live` then passed 64 of 67.
+  The 3 failures are outside these changes and remain open: two results tests
+  still expect two-decimal percentages (`"100.00"`, `"50.00"`) while the
+  committed shared percentage helper returns `"100"`/`"50"`, and the
+  per-profile submission-limit test did not observe `RATE_LIMITED`.
+- **Live Chromium** (`register-live`, `access-control-live`, `foundation`): all
+  checks of the new flows passed after making `register-live` independent of the
+  RWA's household wording and matching the field-error summary. One remaining
+  failure is pre-existing and outside these changes: the responsive check
+  reports touch targets below 48px on `/` (status links All/Active, the footer
+  Sign In link and three appearance inputs).
+- **Screenshots:** all seven capture flows passed, refreshing the affected
+  images (01, 16, 17, 20, 21, 42-47, 30-33, readonly 05-08) and adding 77-80
+  (Resident registration, list picker, received, duplicate email) and 81-84
+  (Add Account picker, created with flat, move dialog, self-registered filter).
+  The flow temporarily set a run-unique Default Households list and the original
+  (empty) list was confirmed restored. Representative images were visually
+  inspected; a dialog redaction overlap and a cramped account-page section found
+  this way were fixed before the final captures.
+- Not yet done: manual keyboard and screen-reader checks of the flat pickers and
+  move dialog, A4 approval, and staging/production application.
+
 ### Persona-First User Guide Refresh
 
 The guide is now organized by Resident (`voter`), RWA Admin (`rwa-admin`) and
@@ -257,6 +325,18 @@ These gates require external evidence or approval; some also require unresolved 
 
 Operational remote database connections now require verified TLS, and backup manifests are validated before use. The real provider CA/hostname and off-site backup/restore path still need deployment evidence; local integration tests do not establish that evidence.
 
+**27 October protected-staging evidence:** the committed GitHub app plus the
+deployment packaging fix (`8ac9d1c`) is Ready on Vercel Preview using the
+operator-confirmed disposable Supabase project. See the
+[staging deployment record](./DEPLOYMENT.md#protected-staging-27-october-2026).
+Hosted health, maintenance, signed-out access boundaries and wrong-Origin
+rejection passed; email/OTP, authenticated voting/export acceptance, full
+migration history, hosted capacity and recovery remain unverified. Read-only SQL
+verification failed certificate-chain validation without disabling TLS; no
+migrations or database writes were performed. Local uncommitted features were
+not deployed. This partial staging evidence does **not** close gates 4 or 9,
+approve production, or supersede any unresolved credential-hygiene gate.
+
 | #   | Gate                                                                                                                                                                                  | State |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
 | 1   | Real approvals **A1–A7**, provider and region, recorded by the real approving authority (today they exist only as **fixtures on the disposable project**)                               | ⬜     |
@@ -271,6 +351,8 @@ Operational remote database connections now require verified TLS, and backup man
 | 10  | Load test repeated on the real plan                                                                                                                                                   | ⬜     |
 | 11  | Key and credential hygiene: the database password that was shown in a chat earlier and the CLI access token must be rotated or deleted; the disposable project reset or deleted        | ⬜     |
 | 12 | Public launch: approve legal operator/contact details, exact privacy/retention/provider terms and canonical domain; configure contact sender/recipient/Resend and prove real inbox receipt. If enabling GA4/Search Console, approve the integrations, verify consent/isolation and disable Enhanced Measurement, complete property verification and submit the public sitemap. | ⬜ |
+| 13 | Resident self-registration: record A4 approval covering it (including its duplicate-email/household disclosure); apply `20261109100000` to staging/production through the release process; manual keyboard and screen-reader checks of the flat picker; the trusted-IP release blocker also applies to this endpoint. (Integration, hosted-project application and screenshots: done 27 October on the disposable project.) | ⬜ |
+| 14 | One-step account and household onboarding: apply `20261110100000` to staging/production through the release process; manual keyboard and screen-reader checks of the Add Account picker and account-page move dialog. (Integration, live browser flow and screenshots: done 27 October on the disposable project.) | ⬜ |
 
 ## 4. Pilot evaluation (after the gates above, with real residents)
 

@@ -67,7 +67,7 @@ export const VOTE_RATE_LIMITS = {
   },
 } as const satisfies Record<string, RateLimitPolicy>;
 
-export type SubjectKind = "email" | "ip" | "profile";
+export type SubjectKind = "email" | "ip" | "profile" | "household";
 
 let ephemeralKey: Buffer | undefined;
 

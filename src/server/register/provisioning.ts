@@ -78,7 +78,7 @@ export async function findAuthUserIdByEmail(
   throw new ApiError("DEPENDENCY_UNAVAILABLE");
 }
 
-async function ensureAuthIdentity(
+export async function ensureAuthIdentity(
   admin: SupabaseClient,
   email: string,
 ): Promise<{ id: string; state: "created" | "existing" }> {

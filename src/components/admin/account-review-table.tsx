@@ -181,6 +181,11 @@ export function AccountReviewTable({
             {account.email ?? "Email unavailable"}
             {account.email && !account.emailVerifiedAt ? " - not verified" : ""}
           </span>
+          {account.selfRegistered ? (
+            <span className="text-caption font-semibold text-muted">
+              Self-registered
+            </span>
+          ) : null}
         </span>
       ),
     },

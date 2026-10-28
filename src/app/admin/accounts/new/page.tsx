@@ -1,10 +1,11 @@
-// Protected workflow for provisioning a registered account.
+// Protected workflow for provisioning an account together with its optional household.
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { AccountCreateForm } from "@/components/admin/account-forms";
 import { ManagementFields } from "@/components/admin/management-fields";
 import { PageHeader } from "@/components/ui/layout";
 import { adminPageContext } from "@/server/register/page-context";
+import { loadHouseholdChoices } from "@/server/settings/rwa-profile";
 
 export const metadata = {
   title: "Add Account",
@@ -14,6 +15,7 @@ export const metadata = {
 
 export default async function NewAccountPage() {
   const deps = await adminPageContext();
+  const choices = await loadHouseholdChoices(deps);
 
   return (
     <div className="grid gap-8">
@@ -26,10 +28,10 @@ export default async function NewAccountPage() {
       </Link>
       <PageHeader
         title="Add Account"
-        description="Create a sign-in identity and profile for one person."
+        description={`Create a sign-in identity and profile for one person, and assign their ${deps.terms.household} in the same step.`}
       />
       <ManagementFields canManage={deps.actor.isAdmin}>
-        <AccountCreateForm csrfToken={deps.csrfToken} />
+        <AccountCreateForm csrfToken={deps.csrfToken} choices={choices} />
       </ManagementFields>
     </div>
   );

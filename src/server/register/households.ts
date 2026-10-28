@@ -1,3 +1,4 @@
+// Household register reads and guarded, audited household changes for administrators.
 import "server-only";
 import { z } from "zod";
 import { ApiError } from "@/server/http/errors";
@@ -11,12 +12,15 @@ import {
   postgrestQuote,
   type RegisterDeps,
 } from "@/server/register/shared";
+import { getRwaProfile } from "@/server/settings/rwa-profile";
 import type {
+  AccountHousehold,
   CreateHouseholdInput,
   HouseholdProjection,
   PatchHouseholdInput,
   householdListQuerySchema,
 } from "@/shared/contracts/register";
+import { settingsListKey } from "@/shared/contracts/rwa-profile";
 import type { PageInfo } from "@/shared/contracts/pagination";
 import { uuid } from "@/shared/validation/primitives";
 
@@ -183,4 +187,141 @@ export async function updateHousehold(
     p_changes: defined,
   });
   return getHousehold(deps, id);
+}
+
+function householdConflict(
+  field: string,
+  reason: "DUPLICATE_IDENTIFIER" | "UNKNOWN_HOUSEHOLD",
+): ApiError {
+  return new ApiError(
+    reason === "UNKNOWN_HOUSEHOLD" ? "VALIDATION_FAILED" : "REGISTER_CONFLICT",
+    {
+      context: { reason },
+      fieldErrors: [
+        {
+          field,
+          code:
+            reason === "UNKNOWN_HOUSEHOLD" ? "NOT_IN_LIST" : "ALREADY_ASSIGNED",
+          message:
+            reason === "UNKNOWN_HOUSEHOLD"
+              ? "Choose an entry from the list. Add it to Default Households in Settings first if it is missing."
+              : "This is already assigned to another account.",
+        },
+      ],
+    },
+  );
+}
+
+/** The configured spelling when Default Households exist; otherwise the identifier as given. */
+export async function resolveHouseholdChoice(
+  deps: RegisterDeps,
+  identifier: string,
+  field: string,
+): Promise<string> {
+  const { defaultHouseholds } = await getRwaProfile(deps.client);
+  if (defaultHouseholds.length === 0) return identifier;
+  const key = settingsListKey(identifier);
+  const match = defaultHouseholds.find((item) => settingsListKey(item) === key);
+  if (!match) throw householdConflict(field, "UNKNOWN_HOUSEHOLD");
+  return match;
+}
+
+// Advisory only: lets a taken household fail before any Auth identity is created.
+export async function assertHouseholdFree(
+  deps: RegisterDeps,
+  identifier: string,
+  field: string,
+): Promise<void> {
+  const normalized = await callRoutine<string>(
+    deps.client,
+    "normalize_household_identifier",
+    { p_identifier: identifier },
+  );
+  const { data, error, status } = await deps.client
+    .from("households")
+    .select("id")
+    .eq("identifier_normalized", normalized)
+    .limit(1)
+    .returns<{ id: string }[]>();
+  assertOk(error, status);
+  if ((data ?? []).length > 0) {
+    throw householdConflict(field, "DUPLICATE_IDENTIFIER");
+  }
+}
+
+export async function getAccountHousehold(
+  deps: RegisterDeps,
+  accountId: string,
+): Promise<AccountHousehold | null> {
+  const { data, error, status } = await deps.client
+    .from("households")
+    .select("id, identifier, is_eligible")
+    .eq("representative_profile_id", accountId)
+    .maybeSingle<{ id: string; identifier: string; is_eligible: boolean }>();
+  assertOk(error, status);
+  return data
+    ? { id: data.id, identifier: data.identifier, isEligible: data.is_eligible }
+    : null;
+}
+
+/*
+ * Assigns a household to an account that has none, or moves the account's
+ * household to another identifier. Moving renames the existing household record
+ * (eligibility is kept), which frees the old identifier for another account.
+ */
+export async function setAccountHousehold(
+  deps: RegisterDeps,
+  accountId: string,
+  requested: string,
+): Promise<AccountHousehold> {
+  await assertCurrentAdmin(deps);
+  const profile = await deps.client
+    .from("profiles")
+    .select("status")
+    .eq("id", accountId)
+    .maybeSingle<{ status: string }>();
+  assertOk(profile.error, profile.status);
+  if (!profile.data) throw new ApiError("NOT_FOUND");
+  if (profile.data.status === "DELETED") {
+    throw new ApiError("LIFECYCLE_CONFLICT", {
+      context: { reason: "DELETED_PROFILE" },
+    });
+  }
+  const identifier = await resolveHouseholdChoice(
+    deps,
+    requested,
+    "identifier",
+  );
+  const current = await getAccountHousehold(deps, accountId);
+  if (
+    current &&
+    settingsListKey(current.identifier) === settingsListKey(identifier)
+  ) {
+    return current;
+  }
+  try {
+    if (current) {
+      await callRoutine(deps.client, "update_household", {
+        p_household_id: current.id,
+        p_changes: { identifier },
+      });
+    } else {
+      await callRoutine(deps.client, "create_household", {
+        p_identifier: identifier,
+        p_representative_account_id: accountId,
+        p_is_eligible: false,
+      });
+    }
+  } catch (error) {
+    if (
+      error instanceof ApiError &&
+      error.context?.reason === "DUPLICATE_IDENTIFIER"
+    ) {
+      throw householdConflict("identifier", "DUPLICATE_IDENTIFIER");
+    }
+    throw error;
+  }
+  const updated = await getAccountHousehold(deps, accountId);
+  if (!updated) throw new ApiError("INTERNAL_ERROR");
+  return updated;
 }

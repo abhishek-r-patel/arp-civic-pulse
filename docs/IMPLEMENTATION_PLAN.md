@@ -81,12 +81,28 @@ a household before enablement; either role's ballot access still comes only from
 its own frozen household entitlement. Migration `20261108100000` is a reviewed
 deployment input, not a production-readiness claim.
 
+Resident self-registration, requested for larger RWAs, adds a public `/register`
+page and `POST /api/register`. Each registration creates a suspended resident and
+an ineligible household atomically; a repeated email or household is rejected
+with a specific error. Administrators review via the Accounts **Source** filter
+and the existing enable/eligibility actions. Migration `20261109100000` is a
+reviewed deployment input; it changes PRD assumption A4 (see PRD) and needs that
+approval refreshed before production use.
+
+Administrator onboarding then became one step: **Add Account** creates the
+account with an optional household (all-or-nothing), eligibility and optional
+immediate enablement; the account page assigns or moves its household (moving
+renames the household record and keeps eligibility); the separate Add Household
+page was removed and Households edit changes eligibility only. Configured Default
+Households restrict administrator choices to listed, unassigned identifiers.
+Migration `20261110100000` is a reviewed deployment input.
+
 - One single-RWA, mobile-first Next.js App Router application using TypeScript, React, Tailwind CSS, Lucide React, Zod, Supabase Auth/PostgreSQL/RLS/guarded SQL functions/Cron, Vitest, Playwright, and axe.
 - Normal server database calls carry the verified user's Supabase session. Separate privileged Auth administration from ordinary ballots, results, and exports.
 - Supabase PostgreSQL is authoritative. CSV is mandatory; PDFKit-based PDF is an optional derived printable export, not a launch dependency, backup, signature, or legal certification.
 - Prefer Vercel and the approved Supabase region, with Mumbai as the documented starting preference if available. Hosting eligibility, quotas, capacity, costs, and recovery require validation and approval.
 - Preserve the zero-monthly-cost feasibility objective, excluding an optional domain, without weakening correctness, availability decisions, privacy, or recovery. Approve paid capacity if necessary.
-- No multiple RWAs, native apps, public signup, messaging/reminders, multilingual UI, signatures, payments/spending authorization, advanced election rules, AI, Redis, queues, separate backend, external PDF renderer, or application report storage.
+- No multiple RWAs, native apps, Supabase Auth public signup (resident self-registration creates suspended records only), messaging/reminders, multilingual UI, signatures, payments/spending authorization, advanced election rules, AI, Redis, queues, separate backend, external PDF renderer, or application report storage.
 - Approved encrypted off-site backup storage is an operational requirement, not speculative application file storage.
 
 ### Execution discipline

@@ -15,7 +15,7 @@ import { cn } from "./cn";
  * label, hint and error associated programmatically, 48px targets, at least
  * 16px text, and non-colour error cues. Placeholders are never the label.
  */
-const controlClasses =
+export const controlClasses =
   "touch-target w-full rounded-control border bg-surface px-3.5 py-3 text-body text-primary transition-colors placeholder:text-muted focus:border-accent focus:bg-surface disabled:cursor-not-allowed disabled:bg-primary/5 disabled:text-muted";
 
 type FieldChrome = Readonly<{
@@ -27,7 +27,7 @@ type FieldChrome = Readonly<{
   showOptional?: boolean;
 }>;
 
-function Chrome({
+export function Chrome({
   id,
   label,
   hint,
@@ -71,7 +71,7 @@ function Chrome({
   );
 }
 
-function describedBy(id: string, hint?: string, error?: string) {
+export function describedBy(id: string, hint?: string, error?: string) {
   const ids = [hint ? `${id}-hint` : null, error ? `${id}-error` : null].filter(
     Boolean,
   );

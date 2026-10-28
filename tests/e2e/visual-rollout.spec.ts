@@ -145,7 +145,6 @@ test("all administrator and resident workflows share the approved visual languag
       "/admin/accounts/new",
       `/admin/accounts/${resident.id}`,
       "/admin/households",
-      "/admin/households/new",
       "/admin/households/import",
       `/admin/households/${resident.householdId}`,
       "/admin/settings",

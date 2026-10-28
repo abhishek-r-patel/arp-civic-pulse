@@ -10,7 +10,7 @@
 - Supabase PostgreSQL is authoritative. CSV export is required for version 1; PDF is an optional derived printable outcome and may be deferred without blocking pilot readiness. Neither export is a backup or signature-replacement workflow.
 - Server-rendered pages call application services directly, not the application's HTTP endpoints. Browser requests use the same services and authorization rules.
 - Voting types are `PUBLIC` and `PRIVATE`. Lifecycle states are independently `DRAFT`, `SCHEDULED`, `ACTIVE`, `COMPLETED`, and `CANCELLED`.
-- There is no public registration, public results API, GraphQL API, separate API version, or API for retrieving PRIVATE selections. Browser application journeys go through Next.js, but assume callers can access the Supabase API directly: RLS, grants, and RPC checks must independently enforce the same boundaries.
+- Public resident self-registration (`POST /api/register`, see [Public resident self-registration endpoint](#public-resident-self-registration-endpoint)) creates only a suspended, voting-ineligible account that an administrator must review and enable. There is no public results API, GraphQL API, separate API version, or API for retrieving PRIVATE selections. Browser application journeys go through Next.js, but assume callers can access the Supabase API directly: RLS, grants, and RPC checks must independently enforce the same boundaries.
 - No payments, resident messaging, reminders, attachments, signatures, external PDF rendering, or AI integration is required. The public launch additions provide support enquiries and optional opt-in public-page analytics only, never voting/authentication tracking.
 
 ## 2. Transport and common contracts
@@ -73,7 +73,7 @@ All list endpoints use keyset pagination:
 | Member votes | Active first by `closesAt ASC`; terminal votes by completion/cancellation time descending; `id ASC` breaks ties | `status`, `votingType` |
 | Administrator votes | `updatedAt DESC`, then `id DESC` | `status`, `votingType` |
 | Households | Normalized household identifier, then `id`, ascending | `isEligible`; optional exact normalized `identifier` |
-| Accounts | Profile `id ASC` | `status`, `isAdmin`, `isReadonly` |
+| Accounts | Profile `id ASC` | `status`, `isAdmin`, `isReadonly`, `selfRegistered` |
 | PUBLIC named responses | Frozen `householdId ASC` within the vote | None |
 | Management-reader participation | Frozen `householdId ASC` within the vote | `submitted` boolean |
 | Audit history | `occurredAt DESC`, then audit `id DESC` | `action`, `targetType`, `from`, `to` |
@@ -158,7 +158,7 @@ The acknowledgement means the request was processed, **not** that email was sent
 
 Verify the normalized email/code through Supabase Auth's supported email OTP verification. Return `422 CODE_INVALID_OR_EXPIRED` for invalid/expired/unusable codes without exposing account existence. Auth owns attempt accounting and replay prevention; endpoint/provider throttling maps to `429`. After verification, require a consistent enabled application profile before returning application success; an Auth session alone grants no application capability. If sign-out fails, clear local cookies where safe but surface the Auth failure rather than returning false success.
 
-There is no public bootstrap, self-registration, password reset, or role-assignment endpoint. Initial administrator provisioning is a controlled, audited deployment operation.
+There is no public bootstrap, password reset, or role-assignment endpoint, and Supabase Auth's own sign-up stays disabled. Resident self-registration is a separate server-side workflow ([below](#public-resident-self-registration-endpoint)) that never enables an account or grants a role. Initial administrator provisioning is a controlled, audited deployment operation.
 
 ### 4.2 Member votes, participation, results, and exports
 
@@ -230,7 +230,9 @@ After a timeout, lost response, or ambiguous infrastructure error, the client re
 The Accounts review screen defaults to Voters (`isAdmin=false,isReadonly=false`,
 the implicit `voter` role);
 **All Roles**, administrators and readonly observers are explicit page-filter
-choices. The API accepts optional boolean `isAdmin` and `isReadonly` filters.
+choices. The API accepts optional boolean `isAdmin`, `isReadonly` and
+`selfRegistered` filters; the page exposes the last as **Source** (Self-registered
+or Added by an administrator) and marks self-registered rows.
 `GET /api/admin/accounts` additionally returns `household: null` or
 `{id,identifier,isEligible}` per account, enriched only for the authorized page
 through the caller's RLS session. Individual account detail retains its existing
@@ -254,16 +256,38 @@ Read endpoints in this group require a current enabled administrator or readonly
 | Method and path | Purpose | Request / query | Successful response |
 |---|---|---|---|
 | `GET /api/admin/accounts` | List registered identities/profiles for register administration | Standard pagination and account filters | `200`: paginated account projections; admin or readonly observer |
-| `POST /api/admin/accounts` | Provision a managed Auth identity and profile | `email`, `representativeName`, exclusive `isAdmin` / `isReadonly` role flags | `201`: provisioned account projection; new accounts remain suspended pending review and required household assignment |
+| `POST /api/admin/accounts` | Provision a managed Auth identity and profile, optionally with its household and immediate enablement | `email`, `representativeName`, exclusive `isAdmin` / `isReadonly` role flags; optional `household: {identifier, isEligible}` (eligibility defaults false); optional `enable` (default false; residents and observers need `household`) | `201`: provisioned account projection; suspended unless `enable` succeeded |
 | `PATCH /api/admin/accounts/{id}` | Maintain managed identity or application profile capability/status | Changed fields among `email`, `representativeName`, `status`, `isAdmin`, `isReadonly` | `200`: updated projection only after required workflow steps succeed; admin only |
+| `PUT /api/admin/accounts/{id}/household` | Assign a household to an account without one, or move the account's household to another identifier | `identifier` | `200`: `{id, identifier, isEligible}`; admin only |
 | `PATCH /api/admin/settings` | Update the RWA profile, branding, household display wording and suggestion lists | Strict object containing `fullName`, `alias`, `address`, `email`, `phone`, `website`, `accentPalette`, `welcomeMessage`, `householdLabel`, `identifierKind`, `defaultHouseholds` and `rwaPositions` | `200`: updated settings; changed field names are audited, never values |
 | `GET /api/admin/households` | List the household register | Standard pagination and household filters | `200`: paginated register projections |
-| `POST /api/admin/households` | Create a household assigned to an existing account | `identifier`, `representativeAccountId`, `isEligible` | `201`: household projection |
+| `POST /api/admin/households` | Create a household assigned to an existing account (API only; the UI uses the account endpoints above) | `identifier`, `representativeAccountId`, `isEligible` | `201`: household projection |
 | `POST /api/admin/households/import` | Check or import one validated CSV row | `row: {identifier, representativeName, email, isEligible}`, `action: preview` or `import`; import requires `confirmed: true` | `200`: `{identifier,state,message,accountId?}`; state `READY`, `EXISTING`, `CONFLICT` or `IMPORTED` |
 | `GET /api/admin/households/{id}` | Load a household for editing | Household UUID | `200`: household projection |
-| `PATCH /api/admin/households/{id}` | Change current label, assignment, or eligibility | Changed fields among `identifier`, `representativeAccountId`, `isEligible` | `200`: updated household projection |
+| `PATCH /api/admin/households/{id}` | Change current label, assignment, or eligibility (the Households edit screen changes eligibility only) | Changed fields among `identifier`, `representativeAccountId`, `isEligible` | `200`: updated household projection |
 
-Account projections contain `id`, `email`, `representativeName`, `status`, `isAdmin`, optional `isReadonly`, `emailVerifiedAt`, and `updatedAt`. Email and verification state come from supported Auth interfaces and are not duplicated in profiles. Household projections contain `id`, `identifier`, `representativeAccountId` (mapped to `representative_profile_id`), `isEligible`, `updatedAt`, and the minimal representative name/email/status needed by authorized management readers. None are member directory endpoints. Privileged Auth enrichment is restricted to this administrative purpose; never use it for normal voting/results access.
+**Account and household together.** Households are created only together with
+an account in the UI: **Add Account** (`POST /api/admin/accounts` with
+`household`) or the account page's household section
+(`PUT /api/admin/accounts/{id}/household`). When Settings → Default Households
+is non-empty, both accept only a listed identifier (case/whitespace-insensitive;
+the configured spelling is stored) and otherwise return `422 VALIDATION_FAILED`
+with `context.reason` `UNKNOWN_HOUSEHOLD` and a field error; with an empty list
+any identifier is accepted. The forms offer only listed identifiers not yet in
+the register. Creation with a household is all-or-nothing: the list and
+"already assigned" checks run before any Auth identity is created, the service-role
+routine `provision_profile_with_household` (acting administrator re-checked)
+creates the suspended profile and household with `PROFILE_PROVISIONED` and
+`HOUSEHOLD_CREATED` audits in one transaction, and an identity created by the
+failed request is removed best-effort. A taken identifier returns
+`409 REGISTER_CONFLICT` (`DUPLICATE_IDENTIFIER`, field `household.identifier`).
+`enable: true` then runs the normal enable workflow; if that fails, the account
+and household remain, suspended, and the `201` projection shows it. Moving an
+account renames its existing household record: eligibility is kept, the old
+identifier becomes free for another account, and frozen electorates are
+unchanged. Deleted accounts cannot be assigned or moved.
+
+Account projections contain `id`, `email`, `representativeName`, `status`, `isAdmin`, optional `isReadonly`, optional `selfRegistered` (present only when `true`), `emailVerifiedAt`, and `updatedAt`. Email and verification state come from supported Auth interfaces and are not duplicated in profiles. Household projections contain `id`, `identifier`, `representativeAccountId` (mapped to `representative_profile_id`), `isEligible`, `updatedAt`, and the minimal representative name/email/status needed by authorized management readers. None are member directory endpoints. Privileged Auth enrichment is restricted to this administrative purpose; never use it for normal voting/results access.
 
 Require an existing consistently provisioned, non-deleted identity/profile for a representative assignment; a suspended newly provisioned profile may be assigned without granting access. Enabling an ordinary resident requires its valid household assignment and explicit administrative status change; activation additionally requires enabled selected representatives. Reject ambiguous assignments and normalized duplicate emails/household identifiers with `409 REGISTER_CONFLICT`. Never silently create or merge an account during household mutation. A retained suspended/deleted account's identity must not be replaced to bypass historical references.
 
@@ -521,6 +545,59 @@ disabled configuration, provider rejection, timeout and malformed acceptance;
 maintenance and method restrictions still apply. Missing all three contact
 settings disables the form; incomplete settings fail startup validation.
 
+### Public resident self-registration endpoint
+
+`POST /api/register` (page `/register`, not in the sitemap and `noindex`) does
+not require authentication. It requires the same exact Origin and CSRF
+protections as other browser mutations and the strict payload below:
+
+| Field | Contract |
+|---|---|
+| `representativeName` | Plain single-line text, 1-200 characters |
+| `email` | Valid email, at most 254 characters, trimmed and lowercased |
+| `identifier` | Household identifier, plain single-line text, 1-100 characters. When the RWA has configured **Default Households**, it must match one of them (case/whitespace-insensitive); otherwise any identifier is accepted |
+| `website` | Optional honeypot. A non-empty value returns the normal `202` without any Auth or database work |
+
+Unknown fields (including `isAdmin`, `isReadonly`, `status`, `isEligible`) are
+rejected with `422`. Budgets are 3 requests per normalized email, 5 per
+normalized household identifier and 100 globally per hour (provisional). There is
+no CAPTCHA and, like the other public endpoints, no trusted-IP budget yet.
+
+The `/register` page reads the configured Default Households server-side
+(service-role-only `get_self_registration_households`) and shows them as a
+type-to-filter picker that accepts only list entries; with no configured list it
+shows a free-text field. The full list (identifiers only, never names or which
+flats are taken) is therefore visible to anyone who opens the page. If the list
+cannot be read the page shows a temporary-unavailability notice instead of the
+form. The endpoint re-checks the list before creating any Auth identity: an
+unlisted identifier returns `422 VALIDATION_FAILED` with `context.reason`
+`UNKNOWN_HOUSEHOLD` and a field error on `identifier`, and the routine checks it
+again and stores the configured spelling.
+
+The server creates or finds the Auth identity (`email_confirm: true`, the same
+as administrator provisioning), then calls the service-role-only
+`self_register_resident` routine, which in one audited transaction creates a
+`SUSPENDED` resident profile flagged `self_registered` and an **ineligible**
+household assigned to it, recording `PROFILE_SELF_REGISTERED` with actor
+`SYSTEM`. If that routine fails, an identity created by the same request is
+deleted best-effort; `profiles` references Auth `ON DELETE RESTRICT`, so a
+committed registration can never lose its identity.
+
+`202 { message }` means the registration was stored and is awaiting review.
+An email already used by any profile (any status, including administrator-created
+or deleted) returns `409 REGISTER_CONFLICT` with `context.reason`
+`DUPLICATE_EMAIL` and a field error on `email`; a household identifier already in
+the register (normalized, any representative) returns `DUPLICATE_IDENTIFIER` with
+a field error on `identifier`. The email check runs first, then the list check, then the household check. Unlike code issuance,
+these specific messages intentionally reveal whether an email or household is
+already registered; the RWA chose this over a combined message, and the per-email,
+per-household and global budgets bound enumeration. Auth or database outages
+return `503 DEPENDENCY_UNAVAILABLE`; `429 RATE_LIMITED` carries `Retry-After`.
+
+Administrators review self-registrations on **Accounts** (Source filter) and
+use the existing enable and eligibility actions; nothing about this endpoint
+enables access or voting.
+
 ## 9. Rate limiting and resource protection
 
 Supabase Auth enforces its own OTP request/verification limits. Shared PostgreSQL `rate_limit_buckets` supplement those controls only where needed for application endpoint/export limits and additional request-abuse protection; they do not replace Auth. In-memory counters are not authoritative. Commit abuse accounting independently of rejected domain transactions and deny direct public API writes to buckets.
@@ -529,6 +606,7 @@ Supabase Auth enforces its own OTP request/verification limits. Shared PostgreSQ
 |---|---|
 | Code request/resend | Normalized-email HMAC, trusted-client-IP HMAC, resend cooldown; apply equally to unknown accounts |
 | Code verification | Configured Auth attempt/request limits, trusted IP, and additional application budget where needed |
+| Resident self-registration | Normalized-email HMAC, normalized-household HMAC and one global budget; honeypot; trusted IP pending the release blocker below |
 | Submission and sensitive mutations | Authenticated account, endpoint, and trusted IP as appropriate |
 | Results/named-response reads | Authenticated account and bounded page size |
 | PDF/CSV | Authenticated account request budget plus bounded global render concurrency and memory |

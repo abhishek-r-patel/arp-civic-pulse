@@ -177,10 +177,13 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
         "consume_rate_limit",
         "enable_profile",
         "get_public_rwa_identity",
+        "get_self_registration_households",
         "health_ping",
         "operational_status",
         "provision_profile",
+        "provision_profile_with_household",
         "reconcile_vote",
+        "self_register_resident",
       ]);
       // The Cron role reaches exactly its two entry points and nothing else.
       expect(

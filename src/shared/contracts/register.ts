@@ -31,11 +31,43 @@ export const createAccountSchema = z
     representativeName: nameText,
     isAdmin: z.boolean().default(false),
     isReadonly: z.boolean().optional(),
+    /** Optional household created with the account in one transaction. */
+    household: z
+      .strictObject({
+        identifier: householdIdentifier,
+        isEligible: z.boolean().default(false),
+      })
+      .optional(),
+    /** Enable sign-in straight after creation. */
+    enable: z.boolean().default(false),
   })
   .refine((value) => !(value.isAdmin && value.isReadonly), {
     message: "Choose either rwa-admin or rwa-readonly, never both.",
     path: ["isReadonly"],
+  })
+  .refine((value) => !value.enable || value.isAdmin || value.household, {
+    message:
+      "Residents and RWA ReadOnly accounts need a household before they can be enabled.",
+    path: ["enable"],
   });
+
+// Assigns a household to an account, or moves the account's household to a new identifier.
+export const accountHouseholdSchema = z.strictObject({
+  identifier: householdIdentifier,
+});
+export type AccountHouseholdInput = z.output<typeof accountHouseholdSchema>;
+
+export interface AccountHousehold {
+  id: string;
+  identifier: string;
+  isEligible: boolean;
+}
+
+/** Household choices for administrator forms; `listed` means only `options` are accepted. */
+export interface HouseholdChoices {
+  listed: boolean;
+  options: string[];
+}
 
 const atLeastOne = (value: Record<string, unknown>) =>
   Object.values(value).some((field) => field !== undefined);
@@ -61,6 +93,18 @@ export const createHouseholdSchema = z.strictObject({
   isEligible: z.boolean().default(false),
 });
 
+/*
+ * Public resident self-registration. `website` is a honeypot that people never
+ * see; a filled value is accepted but silently ignored by the route.
+ */
+export const selfRegistrationSchema = z.strictObject({
+  representativeName: nameText,
+  email: emailAddress,
+  identifier: householdIdentifier,
+  website: z.string().max(200).optional(),
+});
+export type SelfRegistrationInput = z.output<typeof selfRegistrationSchema>;
+
 export const patchHouseholdSchema = z
   .strictObject({
     identifier: householdIdentifier.optional(),
@@ -85,6 +129,8 @@ export interface AccountProjection {
   isAdmin: boolean;
   /** Omitted when false; mutually exclusive with isAdmin and separate from vote entitlement. */
   isReadonly?: boolean;
+  /** Omitted when false; the resident created this account through /register. */
+  selfRegistered?: boolean;
   emailVerifiedAt: string | null;
   updatedAt: string;
 }

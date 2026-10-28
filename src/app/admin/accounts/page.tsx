@@ -46,6 +46,7 @@ export default async function AccountsPage({
         : roleFilter === "readonly"
           ? "true"
           : "false",
+    selfRegistered: raw.selfRegistered,
   });
   const filtersInvalid = !parsed.success;
   const query = parsed.success
@@ -66,7 +67,8 @@ export default async function AccountsPage({
   const filtersActive =
     query.status !== undefined ||
     query.isAdmin !== false ||
-    query.isReadonly !== false;
+    query.isReadonly !== false ||
+    query.selfRegistered !== undefined;
 
   return (
     <div className="grid gap-8">
@@ -94,7 +96,7 @@ export default async function AccountsPage({
 
       <form
         method="get"
-        className="grid gap-4 border-y border-border py-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+        className="grid gap-4 border-y border-border py-5 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end"
       >
         <SelectField
           id="status"
@@ -117,6 +119,16 @@ export default async function AccountsPage({
           <option value="true">RWA Admin (rwa-admin)</option>
           <option value="readonly">RWA ReadOnly (rwa-readonly)</option>
           <option value="false">Voters (voter)</option>
+        </SelectField>
+        <SelectField
+          id="selfRegistered"
+          name="selfRegistered"
+          label="Source"
+          defaultValue={raw.selfRegistered ?? ""}
+        >
+          <option value="">Any source</option>
+          <option value="true">Self-registered</option>
+          <option value="false">Added by an administrator</option>
         </SelectField>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button type="submit">Apply Filters</Button>
@@ -143,7 +155,7 @@ export default async function AccountsPage({
               </LinkButton>
             }
           >
-            <p>Try a different status or role.</p>
+            <p>Try a different status, role or source.</p>
           </EmptyState>
         ) : (
           <EmptyState
@@ -164,14 +176,18 @@ export default async function AccountsPage({
         <>
           <ManagementFields canManage={deps.actor.isAdmin}>
             <AccountReviewTable
-              key={`${query.cursor ?? "first"}:${query.limit}:${query.status ?? "all"}:${roleFilter}`}
+              key={`${query.cursor ?? "first"}:${query.limit}:${query.status ?? "all"}:${roleFilter}:${raw.selfRegistered ?? "any"}`}
               accounts={result.data}
               csrfToken={deps.csrfToken}
             />
           </ManagementFields>
           <Pagination
             basePath="/admin/accounts"
-            params={{ status: raw.status, isAdmin: roleFilter }}
+            params={{
+              status: raw.status,
+              isAdmin: roleFilter,
+              selfRegistered: raw.selfRegistered,
+            }}
             page={result.page}
             hasCursor={Boolean(raw.cursor)}
           />

@@ -10,9 +10,10 @@ export function flashNotices(
   terms: HouseholdTerms = DEFAULT_HOUSEHOLD_TERMS,
 ): Readonly<Record<string, string>> {
   return {
-    "account-created": `Account created. It stays suspended until you assign a ${terms.household} (for residents) and enable it.`,
+    "account-created": `Account created. It stays suspended until you enable it; residents need a ${terms.household} first.`,
+    "account-created-enabled": "Account created and enabled.",
+    "account-created-not-enabled": `Account created, but it could not be enabled. It is suspended; try Enable Account below.`,
     "account-updated": "Account updated.",
-    "household-created": `${terms.Household} added.`,
     "household-updated": `${terms.Household} updated.`,
     "draft-created":
       "Draft created. Add the details, ballot, electorate and deadline, then preview it.",
