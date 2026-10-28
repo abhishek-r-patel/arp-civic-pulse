@@ -1,7 +1,22 @@
+// Bounded cursor API contracts and exact numbered metadata for server-rendered lists.
 import { z } from "zod";
 
 export const PAGE_LIMITS = { default: 25, min: 1, max: 100 } as const;
 export const CURSOR_MAX_LENGTH = 512;
+
+// Numbered navigation belongs to server-rendered screens; HTTP list APIs keep cursors.
+export const pageNumberSchema = z
+  .string()
+  .regex(/^[1-9]\d{0,6}$/u, "Expected a positive page number.")
+  .transform(Number)
+  .pipe(z.number().int().max(1_000_000))
+  .default(1);
+
+export interface NumberedPageInfo {
+  totalCount: string;
+  currentPage: number;
+  totalPages: number;
+}
 
 const limit = z
   .string()
@@ -29,4 +44,5 @@ export interface PageInfo {
   limit: number;
   nextCursor: string | null;
   hasMore: boolean;
+  numbered?: NumberedPageInfo;
 }

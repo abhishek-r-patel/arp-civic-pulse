@@ -7,6 +7,7 @@ import { EmptyState, PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { Pagination } from "@/components/ui/pagination";
 import { ApiError } from "@/server/http/errors";
+import { readPageNumber } from "@/server/http/numbered-page";
 import { adminPageContext } from "@/server/register/page-context";
 import { listAuditEvents } from "@/server/votes/monitoring";
 import { auditQuerySchema } from "@/shared/contracts/admin-votes";
@@ -174,7 +175,7 @@ export default async function AuditPage({
   let result: Awaited<ReturnType<typeof listAuditEvents>> | null = null;
   let loadError: ApiError | null = null;
   try {
-    result = await listAuditEvents(deps, query);
+    result = await listAuditEvents(deps, query, readPageNumber(raw.page));
   } catch (error) {
     if (!(error instanceof ApiError)) {
       throw error;
@@ -202,6 +203,7 @@ export default async function AuditPage({
         method="get"
         className="grid gap-4 border-y border-border py-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
       >
+        <input type="hidden" name="limit" value={query.limit} />
         <SelectField
           id="action"
           name="action"
@@ -269,9 +271,15 @@ export default async function AuditPage({
             basePath="/admin/audit"
             params={{ action: raw.action, targetType: raw.targetType }}
             page={result.page}
-            hasCursor={Boolean(raw.cursor)}
           />
         </>
+      ) : null}
+      {result && result.data.length === 0 ? (
+        <Pagination
+          basePath="/admin/audit"
+          params={{ action: raw.action, targetType: raw.targetType }}
+          page={result.page}
+        />
       ) : null}
     </div>
   );

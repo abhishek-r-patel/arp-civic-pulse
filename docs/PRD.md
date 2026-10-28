@@ -236,6 +236,16 @@ An authenticated account remains subject to suspension and session checks; membe
 - **Administration:** Register, RWA settings, vote list, draft editor with explicit voting type, preview, lifecycle confirmations, participation monitoring and audit history. Administrators personalize the RWA's full name, alias, household label (for example Flat or Villa, replacing “household” across the app) and identifier label (Number or ID) (required) and an optional address, email, phone, website, accent palette (contrast-checked presets) and welcome message. Residents never open the settings page; they see the values where useful: alias in the “Civic Pulse for {alias}” header, full name on the Votes, vote and results pages, a contact block in the signed-in footer, the welcome message on the Votes page, and the palette. Blank optional values are hidden. The public sign-in page shows the name and alias and the privacy page the name and address. Changes apply immediately everywhere, including existing votes and results. All workflows work on phones and laptops.
 
 ### Loading, empty and error states
+- Paginated Votes, Residents, Manage Votes, Audit History, participation and
+  completed PUBLIC named-response lists show filtered result totals,
+  **Page X of Y**, **First / Previous / Next / Last**, and **Per page** choices
+  of 10/25/50/100 that apply immediately on selection. Navigation controls
+  are icons with accessible names and hover titles; a compact
+  **Page X of Y · N results** replaces the separate record-range line.
+  Filters persist through
+  navigation; changing size resets to page one. Empty lists show 0 results
+  and Page 1 of 1, with navigation disabled. These controls do not expose
+  PRIVATE/active individual responses or change complete-result downloads.
 - Use stable loading placeholders, visible submission progress and disabled repeat-submit controls. Never show success before acknowledgement or provisional/optimistic results; active PUBLIC totals must come from the authorized database projection.
 - Show export-generation progress and prevent duplicate in-progress export requests.
 - Distinguish no eligible votes, no current votes, empty register, incomplete draft, zero turnout and no named responses. Incomplete drafts cannot activate.

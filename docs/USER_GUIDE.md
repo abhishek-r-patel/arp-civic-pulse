@@ -70,6 +70,29 @@ Dropdown menus and flat-picker suggestions stay beside their fields.
 
 ![RWA Admin 86: centred confirmation popup on a phone in Dark mode](./images/user-guide/rwa-admin/86-centred-dialog-phone-dark.png)
 
+Long lists use the same controls on **Votes**, **Residents**, **Manage Votes**,
+**Audit History**, **Participation** and the **Who chose what** section of
+completed PUBLIC results:
+
+- **Page 2 of 6 · 143 results** shows your position and exact matching record
+  total, not every record in the association. The separate record-range line
+  is omitted.
+- Icon-only **First**, **Previous**, **Next** and **Last** controls let you move
+  through the list. Hover or assistive technology identifies each direction.
+  Unavailable directions are disabled.
+- Choose **10**, **25**, **50** or **100** under **Per page** to apply the size
+  immediately, return to page 1 and keep your filters. No apply button is needed.
+- Applying filters also returns to page 1. Empty lists show
+  **Page 1 of 1 · 0 results**. If the last page shrinks, a stale page number opens the
+  new last page instead.
+- Totals can change as records change; refresh when reviewing concurrent edits.
+  Resident selection is only for the current page and clears when you change
+  pages or page size. Downloads still include the complete authorized result.
+
+![RWA Admin 87: full numbered list controls on desktop](./images/user-guide/rwa-admin/87-numbered-pagination-desktop.png)
+
+![RWA Admin 88: wrapped numbered list controls on a phone](./images/user-guide/rwa-admin/88-numbered-pagination-phone.png)
+
 ## Resident Persona
 
 ### Find your votes

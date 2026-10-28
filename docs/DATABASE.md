@@ -23,6 +23,25 @@ There are no tenant, campaign, nomination, signature, attachment, notification, 
 
 ## 2. Conventions
 
+Migration `20261114100000_numbered_pagination` adds only
+`public.get_list_page(text, integer, integer, jsonb, uuid)`, owned by `cp_owner`,
+with fixed empty `search_path`, no public/anon/service-role execution grant and
+authenticated execution. Current enabled-member/committee checks precede any
+count; participation and responses additionally call the existing guarded
+parent routine before exposing metadata. Member vote counts explicitly restrict
+the electorate to the caller, even for committee roles. PUBLIC named response
+counts group by respondent household through existence, not selection count.
+No PRIVATE/active named-response metadata is available.
+
+The six UI datasets use exact filtered counts and sort-key anchor lookup to
+support numbered pages while existing HTTP cursor routines stay unchanged.
+Count/anchor use one materialized filtered-key statement snapshot; only one
+anchor is returned, never all account/ballot projections. UI totals remain
+live across requests. This adds no table, policy, index, tally store, write
+workflow or migration-at-startup behavior. Apply before deploying the numbered
+UI; review performance at approved scale rather than claiming count costs
+are constant. See [API pagination](./API.md#22-pagination-and-filtering).
+
 The Votes concept overview reads exact counts from frozen `electorate` joined to
 vote status and, for responses, its `participation` row. Every query uses the
 verified user's client and explicitly filters the representative profile ID, even

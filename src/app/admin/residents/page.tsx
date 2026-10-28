@@ -10,6 +10,7 @@ import { Notice } from "@/components/ui/notice";
 import { Pagination } from "@/components/ui/pagination";
 import { WelcomeMessage } from "@/components/ui/rwa-branding";
 import { ApiError } from "@/server/http/errors";
+import { readPageNumber } from "@/server/http/numbered-page";
 import { listResidents } from "@/server/register/accounts";
 import { adminPageContext } from "@/server/register/page-context";
 import { residentListQuerySchema } from "@/shared/contracts/admin-votes";
@@ -60,7 +61,7 @@ export default async function ResidentsPage({
   let result: Awaited<ReturnType<typeof listResidents>> | null = null;
   let loadError: ApiError | null = null;
   try {
-    result = await listResidents(deps, query);
+    result = await listResidents(deps, query, readPageNumber(raw.page));
   } catch (error) {
     if (!(error instanceof ApiError)) {
       throw error;
@@ -119,6 +120,7 @@ export default async function ResidentsPage({
         method="get"
         className="grid gap-4 border-y border-border py-5 sm:grid-cols-2 sm:items-end lg:grid-cols-3"
       >
+        <input type="hidden" name="limit" value={query.limit} />
         <SelectField
           id="status"
           name="status"
@@ -226,7 +228,7 @@ export default async function ResidentsPage({
         <>
           <ManagementFields canManage={deps.actor.isAdmin}>
             <AccountReviewTable
-              key={`${query.cursor ?? "first"}:${query.limit}:${query.status ?? "all"}:${roleFilter}:${raw.selfRegistered ?? "any"}:${query.identifier ?? ""}:${raw.isEligible ?? "any"}`}
+              key={`${result.page.numbered?.currentPage}:${query.limit}:${query.status ?? "all"}:${roleFilter}:${raw.selfRegistered ?? "any"}:${query.identifier ?? ""}:${raw.isEligible ?? "any"}`}
               accounts={result.data}
               csrfToken={deps.csrfToken}
             />
@@ -242,9 +244,21 @@ export default async function ResidentsPage({
               isEligible: raw.isEligible,
             }}
             page={result.page}
-            hasCursor={Boolean(raw.cursor)}
           />
         </>
+      ) : null}
+      {result && result.data.length === 0 ? (
+        <Pagination
+          basePath="/admin/residents"
+          params={{
+            status: raw.status,
+            isAdmin: roleFilter,
+            selfRegistered: raw.selfRegistered,
+            identifier: raw.identifier,
+            isEligible: raw.isEligible,
+          }}
+          page={result.page}
+        />
       ) : null}
     </div>
   );

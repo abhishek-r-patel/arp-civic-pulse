@@ -4,6 +4,7 @@ import { z } from "zod";
 import { toApiError } from "@/server/db/errors";
 import { ApiError } from "@/server/http/errors";
 import { buildPage, decodeCursor } from "@/server/http/cursor";
+import { numberedPage } from "@/server/http/numbered-page";
 import { log } from "@/server/observability/logger";
 import {
   assertHouseholdFree,
@@ -142,6 +143,7 @@ export async function listAccounts(
 export async function listResidents(
   deps: RegisterDeps,
   query: z.output<typeof residentListQuerySchema>,
+  requestedPage?: number,
 ): Promise<{ data: ReviewAccountProjection[]; page: PageInfo }> {
   const identifier =
     query.identifier === undefined
@@ -165,6 +167,17 @@ export async function listResidents(
       hasHousehold: query.hasHousehold,
     },
   };
+  const window =
+    requestedPage === undefined
+      ? undefined
+      : await numberedPage(
+          deps,
+          "residents",
+          requestedPage,
+          query.limit,
+          binding,
+        );
+  if (window) query = { ...query, cursor: window.cursor };
   let request = deps.client
     .from("resident_directory")
     .select("id, sort_key")
@@ -216,6 +229,7 @@ export async function listResidents(
   const { rows, page } = buildPage(data ?? [], query.limit, binding, (row) => ({
     id: row.id,
   }));
+  if (window) page.numbered = window.numbered;
   if (!rows.length) return { data: [], page };
   // Read current profile columns separately: the historical view predates App Support.
   const profiles = await deps.client

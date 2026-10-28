@@ -496,6 +496,35 @@ describe("listResidents", () => {
   const query = (over: Record<string, unknown> = {}) =>
     residentListQuerySchema.parse(over);
 
+  it("uses the numbered anchor and only enriches that page, leaving API-style calls unchanged", async () => {
+    const w = world({
+      rpc: {
+        get_list_page: ok({
+          totalCount: "2",
+          currentPage: 2,
+          totalPages: 2,
+          position: { id: TARGET },
+        }),
+      },
+      tables: {
+        resident_directory: [
+          ok([{ id: OTHER, sort_key: "1\u001fobserver" }]),
+          ok({ sort_key: "0a-101\u001falice" }),
+        ],
+        profiles: [ok([profile(OTHER)])],
+      },
+    });
+    const result = await listResidents(w.deps, query({ limit: "1" }), 2);
+    expect(result.page.numbered).toEqual({
+      totalCount: "2",
+      currentPage: 2,
+      totalPages: 2,
+    });
+    expect(w.admin.getUserById).toHaveBeenCalledWith(OTHER);
+    expect(w.admin.getUserById).not.toHaveBeenCalledWith(TARGET);
+    expect(w.rpcCalls[0]?.args.p_page).toBe(2);
+  });
+
   it("uses flat/name ordering and preserves App Support and page-scoped enrichment", async () => {
     const key = `0${"房".repeat(100)}\u001f${"名".repeat(200)}`;
     const w = world({

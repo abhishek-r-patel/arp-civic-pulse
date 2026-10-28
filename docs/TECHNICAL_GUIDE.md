@@ -113,6 +113,9 @@ browser font requests never contact Google.
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | [src/app](../src/app)                               | Pages, layouts, loading/error boundaries and HTTP route handlers. Route-group parentheses do not appear in URLs.        |
 | [src/components/ui](../src/components/ui)           | Buttons, fields, notices, dialogs, tables, pagination, badges and common layout.                                        |
+| [src/server/http/numbered-page.ts](../src/server/http/numbered-page.ts) | Validates exact UI page metadata and binds authorized anchors to existing list cursors; HTTP list APIs remain unchanged. |
+| [supabase/migrations/20261114100000_numbered_pagination.sql](../supabase/migrations/20261114100000_numbered_pagination.sql) | Guarded filtered counts and bounded anchor lookup for all six paginated UI datasets. |
+| [tests/integration/numbered-pagination.test.ts](../tests/integration/numbered-pagination.test.ts), [unit tests](../tests/unit/numbered-pagination.test.ts), [browser test](../tests/e2e/pagination-live.spec.ts) | Real SQL access/count/anchor checks, metadata/control validation and six-screen navigation/reflow coverage. |
 | [src/components/admin](../src/components/admin)     | Account/household forms, draft editing, preview and lifecycle interaction.                                              |
 | [src/components/admin/management-fields.tsx](../src/components/admin/management-fields.tsx) | Readonly committee presentation; management controls remain visible but disabled. |
 | [src/components/admin/account-review-table.tsx](../src/components/admin/account-review-table.tsx) | Current-page multi-selection and separate account enablement/flat eligibility confirmations, administrator warning and per-record outcomes. |
@@ -483,6 +486,23 @@ All confirmation popups use [ConfirmDialog](../src/components/ui/dialog.tsx):
 fixed viewport centring on mobile and desktop, bounded width, phone gutters and
 internal scrolling above 90dvh. Keep native modal focus/Escape behavior. This
 does not centre dropdowns or autocomplete lists, which remain by their controls.
+
+The shared [Pagination](../src/components/ui/pagination.tsx) renders filtered
+`Page X of Y · N results`, accessible icon-only First/Previous/Next/Last,
+and a native GET page-size form (10/25/50/100). The shared client component
+submits the form immediately on selection, preserving filters and omitting
+the previous page; there is no apply button or separate record-range line.
+Votes, Residents, Manage Votes, Audit History, participation
+and completed PUBLIC named responses request validated numbered metadata through
+`get_list_page`; counts and anchors remain caller-authorized, and the original
+bounded cursor services provide rows. HTTP cursor envelopes and export semantics
+are unchanged. UI `page` values beyond the end clamp to the last page; empty
+sets show page 1 of 1. Filters/size changes restart at page 1; Residents remounts
+its page-scoped selection state on page/size changes. Missing count metadata
+fails explicitly, never produces a guessed total. Table regions are labelled
+and keyboard-focusable to contain overflow when larger pages include wider data.
+See [pagination contracts](./API.md#22-pagination-and-filtering) for concurrency
+and access details.
 
 Current export controls are ordinary download links: generation progress, in-progress deduplication and inline recoverable errors remain an acknowledged UX gap. Do not document those missing behaviors as implemented.
 

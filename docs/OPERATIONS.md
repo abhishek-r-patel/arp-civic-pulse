@@ -36,6 +36,15 @@ disposable database into the real register.
 
 ## 2. Monitoring
 
+All six paginated UI lists now request exact authorized filtered totals and a
+bounded page anchor through `get_list_page`, then read the existing bounded
+projection. Apply migration `20261114100000` before deploying this revision.
+Monitor list latency and database load with this additional count/anchor work;
+old list timings do not establish its production capacity. Metadata failures
+remain explicit errors, never a zero-result fallback. Counts are live
+observations: concurrent edits can change rows between navigation requests.
+Cursor HTTP API envelopes and complete-result downloads remain unchanged.
+
 The all-screen visual rollout changes shared UI surfaces, not operational
 endpoints, rates, retention, permissions or counting. Native ballot submission,
 unknown-outcome recovery and export routes are unchanged. The User Guide now

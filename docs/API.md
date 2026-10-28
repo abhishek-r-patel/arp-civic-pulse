@@ -68,6 +68,38 @@ All list endpoints use keyset pagination:
 - Invalid cursors, unknown filters, and invalid enum values return `422`.
 - No arbitrary SQL sort expressions, fuzzy search, offset pagination, or unbounded list requests.
 
+**Numbered server-rendered screens:** Votes, Residents, Manage Votes, Audit
+History, participation and completed PUBLIC named responses accept a separate
+UI `page` (1–1,000,000, default 1) and the existing bounded `limit`.
+These screens show `Page X of Y · N results` and icon-only
+First/Previous/Next/Last controls, with 10/25/50/100 page-size choices.
+Counts include the same filters and authorized population as the rows.
+Changing filters or selecting a page size restarts at page 1; the size applies
+immediately without a submit button. Navigation preserves filters/size.
+Empty lists show page 1 of 1 and 0 results, with navigation disabled. A page beyond the current
+end is clamped to the last page, for example after records are removed.
+
+Migration `20261114100000_numbered_pagination` adds authenticated
+`get_list_page(dataset, page, limit, filters, voteId)`: it checks current
+member/committee and parent-vote access before reading counts or anchors.
+It returns `{totalCount, currentPage, totalPages, position}`; `totalCount` is
+a decimal string. Supported datasets are residents, admin-votes, member-votes,
+participation, audit and responses. The server validates this projection and
+attaches `{numbered: {totalCount, currentPage, totalPages}}` to its **UI-only**
+`PageInfo`. Count and anchor use one database statement snapshot; a bounded
+offset over authorized sort keys finds the existing keyset anchor, then the
+unchanged list service reads only the selected page. No full register is
+downloaded to count or paginate it. The HTTP endpoints above do not accept
+`page` or return numbered metadata and retain their existing keyset contract.
+
+Totals are current observations, not frozen list snapshots: concurrent
+register/participation/audit changes can move rows or alter page counts between
+requests. Refresh/restart when reconciling changes. Count failures are explicit
+load errors, never fabricated totals. PUBLIC named totals count households
+once, including multi-select polls; active/PRIVATE results never gain a named
+list or its metadata. Member vote totals still cover only the caller's frozen
+entitlements, even for an administrator. Exports remain complete and unpaged.
+
 | Dataset | Fixed ordering | Supported filters |
 |---|---|---|
 | Member votes | Active first by `closesAt ASC`; terminal votes by completion/cancellation time descending; `id ASC` breaks ties | `status`, `votingType` |

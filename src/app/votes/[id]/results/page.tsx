@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { ResultsView } from "@/components/votes/results-view";
 import { ApiError } from "@/server/http/errors";
+import { readPageNumber } from "@/server/http/numbered-page";
 import { memberPageContext } from "@/server/register/page-context";
 import { availableExportFormats } from "@/server/exports/formats";
 import { getResults } from "@/server/votes/member";
@@ -45,6 +46,7 @@ export default async function ResultsPage({
       deps,
       id,
       query.success ? query.data : querySchema.parse({}),
+      readPageNumber(raw.page),
     );
   } catch (error) {
     if (!(error instanceof ApiError)) {
@@ -115,7 +117,6 @@ export default async function ResultsPage({
       <ResultsView
         results={data}
         page={page}
-        hasCursor={Boolean(raw.cursor)}
         basePath={`/votes/${id}/results`}
         formats={
           data.vote.status === "COMPLETED" ? availableExportFormats() : []

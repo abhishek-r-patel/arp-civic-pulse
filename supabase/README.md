@@ -41,6 +41,9 @@ at start-up, and never uses the migration credentials.
 | `20261109100000_resident_self_registration` | `profiles.self_registered`, `PROFILE_SELF_REGISTERED` audit action, service-role-only `get_self_registration_households` and `self_register_resident` (suspended profile + ineligible household, duplicate email/household rejected, limited to configured Default Households when set) |
 | `20261110100000_account_with_household` | Service-role-only `provision_profile_with_household`: an administrator-created suspended profile and its household in one audited transaction |
 | `20261111100000_resident_directory` | Existing security-invoker profile/household view now used for the unified Residents directory's filtered flat/name-ordered IDs |
+| `20261112100000_app_support_access` | RWA-controlled, household-free read-only App Support Access |
+| `20261113100000_readonly_household_optional` | Household-free management-role enablement without voting entitlement |
+| `20261114100000_numbered_pagination` | Authenticated, guarded filtered totals and bounded page-anchor lookup for numbered UI navigation; existing list/result routines and cursor APIs are unchanged |
 
 The latest migrations are deployment inputs, not automatically applied by the
 application. `20261109100000` and `20261110100000` were applied on 27 October 2026
@@ -48,6 +51,14 @@ only to the user-confirmed disposable project (dry run first, `--skip-vault`), n
 staging or production. Apply only after independently verifying the target and reviewing
 pending changes, outside voting windows. Local integration tests create/drop
 their own disposable databases; they do not migrate your configured hosted project.
+
+The separately authorized numbered-pagination follow-up applied
+`20261114100000` to the same disposable project, now also used by the
+Production-target-only staging host. A CLI dry run listed only this migration
+before application. Local PostgreSQL tests exercise counts, ordering, filters,
+page anchors and permissions; synthetic browser checks use the local app against
+that disposable database. The pagination application revision has not been
+deployed by this task, and no real-production project was migrated.
 
 The Residents-tab experiment applied `20261111100000` to that disposable project.
 The earlier application rollback preserved this additive view and its

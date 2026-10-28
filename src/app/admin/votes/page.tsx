@@ -16,6 +16,7 @@ import { WelcomeMessage } from "@/components/ui/rwa-branding";
 import { Pagination } from "@/components/ui/pagination";
 import { DeadlineCountdown } from "@/components/votes/deadline-countdown";
 import { ApiError } from "@/server/http/errors";
+import { readPageNumber } from "@/server/http/numbered-page";
 import { adminPageContext } from "@/server/register/page-context";
 import { listVotes } from "@/server/votes/drafts";
 import { voteListQuerySchema } from "@/shared/contracts/admin-votes";
@@ -116,7 +117,7 @@ export default async function VotesPage({
   let result: Awaited<ReturnType<typeof listVotes>> | null = null;
   let loadError: ApiError | null = null;
   try {
-    result = await listVotes(deps, query);
+    result = await listVotes(deps, query, readPageNumber(raw.page));
   } catch (error) {
     if (!(error instanceof ApiError)) {
       throw error;
@@ -156,6 +157,7 @@ export default async function VotesPage({
         method="get"
         className="grid gap-4 border-y border-border py-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
       >
+        <input type="hidden" name="limit" value={query.limit} />
         <SelectField
           id="status"
           name="status"
@@ -239,9 +241,15 @@ export default async function VotesPage({
             basePath="/admin/votes"
             params={{ status: raw.status, votingType: raw.votingType }}
             page={result.page}
-            hasCursor={Boolean(raw.cursor)}
           />
         </>
+      ) : null}
+      {result && result.data.length === 0 ? (
+        <Pagination
+          basePath="/admin/votes"
+          params={{ status: raw.status, votingType: raw.votingType }}
+          page={result.page}
+        />
       ) : null}
     </div>
   );

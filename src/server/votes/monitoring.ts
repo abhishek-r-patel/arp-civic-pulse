@@ -2,6 +2,7 @@
 import "server-only";
 import { z } from "zod";
 import { buildKnownPage, decodeCursor } from "@/server/http/cursor";
+import { numberedPage } from "@/server/http/numbered-page";
 import { ApiError } from "@/server/http/errors";
 import { callRoutine, type RegisterDeps } from "@/server/register/shared";
 import { enforceReadLimit } from "@/server/votes/member";
@@ -52,6 +53,7 @@ export async function getParticipationReport(
   deps: RegisterDeps,
   voteId: string,
   query: z.output<typeof participationQuerySchema>,
+  requestedPage?: number,
 ): Promise<{ data: ParticipationReport; page: PageInfo }> {
   await enforceReadLimit(deps);
   const binding = {
@@ -59,6 +61,17 @@ export async function getParticipationReport(
     parentId: voteId,
     filters: { submitted: query.submitted },
   };
+  const window =
+    requestedPage === undefined
+      ? undefined
+      : await numberedPage(
+          deps,
+          "participation",
+          requestedPage,
+          query.limit,
+          binding,
+        );
+  if (window) query = { ...query, cursor: window.cursor };
   const after = query.cursor
     ? decodeCursor(query.cursor, binding, participationPosition)
     : null;
@@ -81,6 +94,7 @@ export async function getParticipationReport(
     binding,
     (row) => ({ key: row.cursor.key, id: row.cursor.householdId }),
   );
+  if (window) page.numbered = window.numbered;
   return {
     data: {
       voteId: report.voteId,
@@ -102,6 +116,7 @@ const auditPosition = z.object({ id: z.string().regex(/^\d{1,19}$/u) });
 export async function listAuditEvents(
   deps: RegisterDeps,
   query: z.output<typeof auditQuerySchema>,
+  requestedPage?: number,
 ): Promise<{ data: AuditEvent[]; page: PageInfo }> {
   await enforceReadLimit(deps);
   const binding = {
@@ -113,6 +128,11 @@ export async function listAuditEvents(
       to: query.to,
     },
   };
+  const window =
+    requestedPage === undefined
+      ? undefined
+      : await numberedPage(deps, "audit", requestedPage, query.limit, binding);
+  if (window) query = { ...query, cursor: window.cursor };
   const after = query.cursor
     ? decodeCursor(query.cursor, binding, auditPosition)
     : null;
@@ -136,5 +156,6 @@ export async function listAuditEvents(
     binding,
     (row) => ({ id: row.id }),
   );
+  if (window) page.numbered = window.numbered;
   return { data: rows, page };
 }

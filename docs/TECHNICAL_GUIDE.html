@@ -676,6 +676,44 @@
             </tr>
             <tr>
               <td>
+                <a href="../src/server/http/numbered-page.ts"
+                  >src/server/http/numbered-page.ts</a
+                >
+              </td>
+              <td>
+                Validates exact UI page metadata and binds authorized anchors to
+                existing list cursors; HTTP list APIs remain unchanged.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a
+                  href="../supabase/migrations/20261114100000_numbered_pagination.sql"
+                  >supabase/migrations/20261114100000_numbered_pagination.sql</a
+                >
+              </td>
+              <td>
+                Guarded filtered counts and bounded anchor lookup for all six
+                paginated UI datasets.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../tests/integration/numbered-pagination.test.ts"
+                  >tests/integration/numbered-pagination.test.ts</a
+                >,
+                <a href="../tests/unit/numbered-pagination.test.ts"
+                  >unit tests</a
+                >,
+                <a href="../tests/e2e/pagination-live.spec.ts">browser test</a>
+              </td>
+              <td>
+                Real SQL access/count/anchor checks, metadata/control validation
+                and six-screen navigation/reflow coverage.
+              </td>
+            </tr>
+            <tr>
+              <td>
                 <a href="../src/components/admin">src/components/admin</a>
               </td>
               <td>
@@ -2188,6 +2226,28 @@
         and internal scrolling above 90dvh. Keep native modal focus/Escape
         behavior. This does not centre dropdowns or autocomplete lists, which
         remain by their controls.
+      </p>
+      <p>
+        The shared
+        <a href="../src/components/ui/pagination.tsx">Pagination</a> renders
+        filtered <code>Page X of Y · N results</code>, accessible icon-only
+        First/Previous/Next/Last, and a native GET page-size form
+        (10/25/50/100). The shared client component submits the form immediately
+        on selection, preserving filters and omitting the previous page; there
+        is no apply button or separate record-range line. Votes, Residents,
+        Manage Votes, Audit History, participation and completed PUBLIC named
+        responses request validated numbered metadata through
+        <code>get_list_page</code>; counts and anchors remain caller-authorized,
+        and the original bounded cursor services provide rows. HTTP cursor
+        envelopes and export semantics are unchanged. UI
+        <code>page</code> values beyond the end clamp to the last page; empty
+        sets show page 1 of 1. Filters/size changes restart at page 1; Residents
+        remounts its page-scoped selection state on page/size changes. Missing
+        count metadata fails explicitly, never produces a guessed total. Table
+        regions are labelled and keyboard-focusable to contain overflow when
+        larger pages include wider data. See
+        <a href="./API.md#22-pagination-and-filtering">pagination contracts</a>
+        for concurrency and access details.
       </p>
       <p>
         Current export controls are ordinary download links: generation

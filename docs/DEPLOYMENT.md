@@ -10,6 +10,13 @@ Do not promote a deployment or admit real residents until the open gates in [PIL
 
 As of 28 October 2026, the operator approved this permanent staging setup:
 
+**Numbered-pagination follow-up:** with explicit authorization, migration
+`20261114100000_numbered_pagination.sql` was applied to the same disposable
+Supabase project after a CLI dry run listed only that pending migration.
+This adds guarded count/page-anchor metadata, not new voting permissions.
+The pagination application changes have not been deployed by this task; database
+application and local browser verification are not hosted application verification.
+
 - Canonical URL and Production `APP_ORIGIN`:
   <https://arp-civic-pulse-staging.vercel.app>, without a trailing slash in the
   environment value. Use this origin for sign-in and all browser mutations.
@@ -268,7 +275,7 @@ rendered guide output; use direct Next commands when intentionally avoiding the
 hooks. The capture suite uses only synthetic data on the approved disposable
 project and never on production.
 
-Apply the complete ordered migration set from `20261024100000_core_schema.sql` through `20261113100000_readonly_household_optional.sql`. Migrations `20261109100000` and `20261110100000` add resident self-registration (`profiles.self_registered` and the service-role-only `self_register_resident` routine) and administrator account creation together with a household (`provision_profile_with_household`). Migration `20261111100000` supplies the existing security-invoker directory view now used by the unified Residents screen. The consolidation adds no migration, but the view must exist before deploying this revision; do not drop it or rewrite applied history. Migrations `20261112100000` and `20261113100000` preserve App Support Access and household-free management-role enablement. Earlier disposable/staging application evidence is recorded above, not production approval. Deploy reviewed migrations before the corresponding application revision, outside voting windows. The Residents list depends on the directory view and current profile columns; Add Resident and `/register` depend on their provisioning routines. See [supabase/README.md](../supabase/README.md) and [DATABASE.md](./DATABASE.md). The app never migrates at startup or during the Vercel build.
+Apply the complete ordered migration set from `20261024100000_core_schema.sql` through `20261114100000_numbered_pagination.sql`. Migrations `20261109100000` and `20261110100000` add resident self-registration (`profiles.self_registered` and the service-role-only `self_register_resident` routine) and administrator account creation together with a household (`provision_profile_with_household`). Migration `20261111100000` supplies the existing security-invoker directory view now used by the unified Residents screen. The consolidation adds no migration, but the view must exist before deploying this revision; do not drop it or rewrite applied history. Migrations `20261112100000` and `20261113100000` preserve App Support Access and household-free management-role enablement. Earlier disposable/staging application evidence is recorded above, not production approval. Deploy reviewed migrations before the corresponding application revision, outside voting windows. The Residents list depends on the directory view and current profile columns; Add Resident and `/register` depend on their provisioning routines. See [supabase/README.md](../supabase/README.md) and [DATABASE.md](./DATABASE.md). The app never migrates at startup or during the Vercel build.
 
 Before rollout, verify a 500-row synthetic import's Auth-provider quota behavior,
 partial-failure/retry handling and suspended-account review. Verify scheduled

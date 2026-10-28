@@ -12,6 +12,7 @@ import { EmptyState, PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { Pagination } from "@/components/ui/pagination";
 import { ApiError } from "@/server/http/errors";
+import { readPageNumber } from "@/server/http/numbered-page";
 import { adminPageContext } from "@/server/register/page-context";
 import { loadHouseholdTerms } from "@/server/settings/rwa-profile";
 import {
@@ -80,7 +81,12 @@ export default async function ParticipationPage({
   let result: Awaited<ReturnType<typeof getParticipationReport>> | null = null;
   let failure: ApiError | null = null;
   try {
-    result = await getParticipationReport(deps, id, query);
+    result = await getParticipationReport(
+      deps,
+      id,
+      query,
+      readPageNumber(raw.page),
+    );
   } catch (error) {
     if (!(error instanceof ApiError)) {
       throw error;
@@ -155,6 +161,7 @@ export default async function ParticipationPage({
             method="get"
             className="grid gap-4 border-y border-border py-5 sm:grid-cols-[1fr_auto] sm:items-end"
           >
+            <input type="hidden" name="limit" value={query.limit} />
             <SelectField
               id="submitted"
               name="submitted"
@@ -194,7 +201,6 @@ export default async function ParticipationPage({
             basePath={`/admin/votes/${id}/participation`}
             params={{ submitted: raw.submitted }}
             page={result.page}
-            hasCursor={Boolean(raw.cursor)}
           />
         </>
       ) : null}

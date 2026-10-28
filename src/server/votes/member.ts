@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 import { VOTE_RATE_LIMITS, enforceRateLimit } from "@/server/auth/rate-limit";
 import { buildKnownPage, decodeCursor } from "@/server/http/cursor";
+import { numberedPage } from "@/server/http/numbered-page";
 import { ApiError } from "@/server/http/errors";
 import {
   callRoutine,
@@ -77,13 +78,25 @@ const isOverdue = (vote: { status: string; closesAt: string }) =>
 export async function listMemberVotes(
   deps: RegisterDeps,
   query: z.output<typeof memberVoteListQuerySchema>,
+  requestedPage?: number,
 ): Promise<{ data: MemberVoteSummary[]; page: PageInfo }> {
   await enforceReadLimit(deps);
   const binding = {
     endpoint: ENDPOINT,
     filters: { status: query.status, votingType: query.votingType },
   };
-  const after = query.cursor
+  let window =
+    requestedPage === undefined
+      ? undefined
+      : await numberedPage(
+          deps,
+          "member-votes",
+          requestedPage,
+          query.limit,
+          binding,
+        );
+  if (window) query = { ...query, cursor: window.cursor };
+  let after = query.cursor
     ? decodeCursor(query.cursor, binding, positionSchema)
     : null;
 
@@ -107,6 +120,18 @@ export async function listMemberVotes(
       reconcileOverdue(deps, row.id),
     );
     if (results.some(Boolean)) {
+      if (requestedPage !== undefined) {
+        window = await numberedPage(
+          deps,
+          "member-votes",
+          requestedPage,
+          query.limit,
+          binding,
+        );
+        after = window.cursor
+          ? decodeCursor(window.cursor, binding, positionSchema)
+          : null;
+      }
       list = await fetch();
     }
   }
@@ -122,6 +147,7 @@ export async function listMemberVotes(
       id: row.cursor.id,
     }),
   );
+  if (window) page.numbered = window.numbered;
   return {
     data: rows.map((row) => memberVoteSummarySchema.parse(row)),
     page,
@@ -268,9 +294,34 @@ export async function getResults(
   deps: RegisterDeps,
   id: string,
   query: { limit: number; cursor?: string | undefined },
+  requestedPage?: number,
 ): Promise<{ data: VoteResults; page: PageInfo | null }> {
   await enforceReadLimit(deps);
   const binding = { endpoint: `${ENDPOINT}/results`, parentId: id };
+  // Authorize through the existing guarded projection before requesting named-list metadata.
+  const initial =
+    requestedPage === undefined
+      ? undefined
+      : await fetchResultsReconciling(deps, id, { limit: query.limit });
+  if (initial && (!initial.namedPage || !initial.namedResponses)) {
+    return {
+      data: projectResults(
+        withCurrentName(initial, await currentRwaName(deps)),
+      ),
+      page: null,
+    };
+  }
+  const window =
+    requestedPage === undefined
+      ? undefined
+      : await numberedPage(
+          deps,
+          "responses",
+          requestedPage,
+          query.limit,
+          binding,
+        );
+  if (window) query = { ...query, cursor: window.cursor };
   const after = query.cursor
     ? decodeCursor(query.cursor, binding, namedPositionSchema)
     : undefined;
@@ -290,6 +341,7 @@ export async function getResults(
     binding,
     (row) => ({ key: row.cursor.key, id: row.cursor.householdId }),
   );
+  if (window) page.numbered = window.numbered;
   return { data, page };
 }
 

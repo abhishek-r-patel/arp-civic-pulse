@@ -69,14 +69,12 @@ function Outcome({
 function OpenSection({
   results,
   page,
-  hasCursor,
   basePath,
   identifierLabel,
   terms,
 }: Readonly<{
   results: OpenResults;
   page: PageInfo | null;
-  hasCursor: boolean;
   basePath: string;
   identifierLabel: string;
   terms: ReturnType<typeof useHouseholdTerms>;
@@ -164,12 +162,7 @@ function OpenSection({
             />
           )}
           {page ? (
-            <Pagination
-              basePath={basePath}
-              params={{}}
-              page={page}
-              hasCursor={hasCursor}
-            />
+            <Pagination basePath={basePath} params={{}} page={page} />
           ) : null}
         </section>
       ) : null}
@@ -306,14 +299,12 @@ function ActiveClosedSection({
 export function ResultsView({
   results,
   page,
-  hasCursor,
   basePath,
   formats,
   identifierLabel,
 }: Readonly<{
   results: VoteResults;
   page: PageInfo | null;
-  hasCursor: boolean;
   basePath: string;
   formats: readonly ("csv" | "pdf")[];
   identifierLabel: string;
@@ -399,7 +390,6 @@ export function ResultsView({
           results={results}
           terms={terms}
           page={page}
-          hasCursor={hasCursor}
           basePath={basePath}
           identifierLabel={identifierLabel}
         />

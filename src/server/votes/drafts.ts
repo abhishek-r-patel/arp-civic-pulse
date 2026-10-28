@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 import { ApiError } from "@/server/http/errors";
 import { buildPage, decodeCursor } from "@/server/http/cursor";
+import { numberedPage } from "@/server/http/numbered-page";
 import {
   assertCurrentAdmin,
   assertOk,
@@ -77,11 +78,23 @@ export async function getRwaDisplay(deps: RegisterDeps): Promise<RwaDisplay> {
 export async function listVotes(
   deps: RegisterDeps,
   query: z.output<typeof voteListQuerySchema>,
+  requestedPage?: number,
 ): Promise<{ data: AdminVoteSummary[]; page: PageInfo }> {
   const binding = {
     endpoint: ENDPOINT,
     filters: { status: query.status, votingType: query.votingType },
   };
+  const window =
+    requestedPage === undefined
+      ? undefined
+      : await numberedPage(
+          deps,
+          "admin-votes",
+          requestedPage,
+          query.limit,
+          binding,
+        );
+  if (window) query = { ...query, cursor: window.cursor };
 
   let request = deps.client
     .from("votes")
@@ -109,6 +122,7 @@ export async function listVotes(
     key: row.updated_at,
     id: row.id,
   }));
+  if (window) page.numbered = window.numbered;
   const current = rows.some((row) => row.timezone_snapshot === null)
     ? await getRwaDisplay(deps)
     : { name: null, timezone: null };

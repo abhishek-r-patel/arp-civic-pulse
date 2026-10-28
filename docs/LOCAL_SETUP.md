@@ -185,7 +185,13 @@ npx supabase db push --db-url $env:LIVE_DATABASE_URL --dry-run
 npx supabase db push --db-url $env:LIVE_DATABASE_URL --yes
 ```
 
-You should see the migrations listed (`20261024100000` through `20261026100000`) and `Finished supabase db push.` The lifecycle migration also schedules a Supabase Cron job (`civic-pulse-complete-due-votes`, once a minute) when `pg_cron` is available, which it is on Supabase.
+You should see pending migrations listed (the complete repository sequence runs
+from `20261024100000` through `20261114100000`) and `Finished supabase db push.`
+Numbered list pages require `20261114100000_numbered_pagination.sql`; apply it
+before running this app revision. Existing cursor API contracts are unchanged.
+The lifecycle migration also schedules a Supabase Cron job
+(`civic-pulse-complete-due-votes`, once a minute) when `pg_cron` is available,
+which it is on Supabase.
 
 > `supabase link` needs a management token with extra permissions and is not required. `db push --db-url` is enough.
 

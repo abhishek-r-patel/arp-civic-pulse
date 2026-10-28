@@ -1,68 +1,149 @@
+// Compact list navigation with filtered totals and automatic page-size submission.
+"use client";
+
 import Link from "next/link";
-import { ArrowRight, RotateCcw } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
+import { controlClasses } from "@/components/ui/field";
 import type { PageInfo } from "@/shared/contracts/pagination";
 
-/*
- * Keyset pagination only moves forward (docs/API.md section 2.2): there is no
- * offset or page count. Filters are preserved in the link; "First page" resets.
- */
 type PaginationProps = Readonly<{
   basePath: string;
-  // Active filters, excluding the cursor.
   params: Readonly<Record<string, string | undefined>>;
   page: PageInfo;
-  hasCursor: boolean;
 }>;
 
-function href(
-  basePath: string,
-  params: Readonly<Record<string, string | undefined>>,
-  cursor?: string,
-): string {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value) {
-      search.set(key, value);
-    }
-  }
-  if (cursor) {
-    search.set("cursor", cursor);
-  }
-  const query = search.toString();
-  return query ? `${basePath}?${query}` : basePath;
-}
-
 const linkClasses =
-  "inline-flex touch-target items-center gap-2 rounded-control border border-control-border bg-surface px-4 py-3 font-semibold text-primary hover:bg-primary/5";
+  "inline-flex touch-target items-center justify-center gap-2 rounded-control border border-control-border bg-surface px-3 py-3 font-semibold text-primary hover:bg-primary/5";
 
-export function Pagination({
-  basePath,
-  params,
-  page,
-  hasCursor,
-}: PaginationProps) {
-  if (!page.hasMore && !hasCursor) {
-    return null;
+export function Pagination({ basePath, params, page }: PaginationProps) {
+  const { numbered, limit } = page;
+  if (!numbered) throw new Error("Numbered pagination metadata is required.");
+  const { currentPage, totalPages, totalCount } = numbered;
+  const filters = Object.entries(params).filter(
+    ([key, value]) =>
+      !["cursor", "page", "limit", "notice"].includes(key) &&
+      value !== undefined,
+  );
+  function href(target: number) {
+    const search = new URLSearchParams();
+    for (const [key, value] of filters) {
+      if (value !== undefined) search.set(key, value);
+    }
+    search.set("limit", String(limit));
+    search.set("page", String(target));
+    return `${basePath}?${search}`;
   }
-
+  const controls = [
+    {
+      label: "First",
+      target: 1,
+      disabled: currentPage === 1,
+      Icon: ChevronsLeft,
+    },
+    {
+      label: "Previous",
+      target: currentPage - 1,
+      disabled: currentPage === 1,
+      Icon: ArrowLeft,
+    },
+    {
+      label: "Next",
+      target: currentPage + 1,
+      disabled: currentPage === totalPages,
+      Icon: ArrowRight,
+    },
+    {
+      label: "Last",
+      target: totalPages,
+      disabled: currentPage === totalPages,
+      Icon: ChevronsRight,
+    },
+  ];
   return (
-    <nav aria-label="Pagination" className="flex flex-wrap gap-3">
-      {hasCursor ? (
-        <Link href={href(basePath, params)} className={linkClasses}>
-          <RotateCcw aria-hidden="true" className="size-4" />
-          First page
-        </Link>
-      ) : null}
-      {page.hasMore && page.nextCursor ? (
-        <Link
-          href={href(basePath, params, page.nextCursor)}
-          className={linkClasses}
-          rel="next"
+    <nav
+      aria-label="Pagination"
+      className="grid gap-4 border-t border-border pt-5"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <form
+          action={basePath}
+          method="get"
+          className="flex items-center gap-3"
         >
-          Next page
-          <ArrowRight aria-hidden="true" className="size-4" />
-        </Link>
-      ) : null}
+          {filters.map(([key, value]) => (
+            <input key={key} type="hidden" name={key} value={value} />
+          ))}
+          <label
+            htmlFor="pagination-limit"
+            className="text-body font-semibold whitespace-nowrap text-primary"
+          >
+            Per page
+          </label>
+          <select
+            id="pagination-limit"
+            name="limit"
+            defaultValue={String(limit)}
+            onChange={(event) => event.currentTarget.form?.requestSubmit()}
+            className={`${controlClasses} w-auto border-control-border`}
+          >
+            {[...new Set([10, 25, 50, 100, limit])]
+              .sort((a, b) => a - b)
+              .map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+          </select>
+        </form>
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
+          {controls.map(({ label, target, disabled, Icon }, index) => (
+            <div key={label} className="contents">
+              {index === 2 ? (
+                <p
+                  className="order-first w-full py-2 text-center text-caption tabular-nums sm:order-none sm:w-auto sm:px-2"
+                  aria-current="page"
+                  aria-live="polite"
+                >
+                  Page {currentPage} of {totalPages} · {totalCount} results
+                </p>
+              ) : null}
+              {disabled ? (
+                <button
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  aria-label={`${label} page`}
+                  title={`${label} page`}
+                  className={`${linkClasses} opacity-50`}
+                >
+                  <Icon aria-hidden="true" className="size-4" />
+                </button>
+              ) : (
+                <Link
+                  href={href(target)}
+                  aria-label={`${label} page`}
+                  title={`${label} page`}
+                  rel={
+                    label === "Next"
+                      ? "next"
+                      : label === "Previous"
+                        ? "prev"
+                        : undefined
+                  }
+                  className={linkClasses}
+                >
+                  <Icon aria-hidden="true" className="size-4" />
+                </Link>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </nav>
   );
 }

@@ -68,6 +68,44 @@ disposable-PostgreSQL integration tests pass; migration `20261112100000` is a
 reviewed deployment input, and end-to-end verification against a live Supabase
 project (including real OTP sign-in by the support identity) is still outstanding.
 
+### Full numbered-pagination follow-up
+
+The six paginated screens now show exact filtered totals, First/Previous,
+Page X of Y, Next/Last and a page-size selector: member Votes, Residents,
+Manage Votes, Audit History, participation and completed PUBLIC named responses.
+The compact follow-up uses icon-only directions with accessible names/titles
+and native disabled buttons, a single **Page X of Y · N results** summary,
+and immediately applies page-size selections without an apply button.
+Navigation retains filters; page-size changes return to page one. Empty and
+beyond-end pages have defined totals/clamping. Existing cursor HTTP API
+contracts, full-result exports and PRIVATE/active-response privacy remain unchanged.
+
+- Current local validation: **522 unit tests in 32 files**, **58 focused real
+  PostgreSQL integration tests in 3 files**, production build including
+  TypeScript, ESLint, guide regeneration/link validation and **10 renderer
+  tests** pass. SQL coverage includes counts/anchors for all six datasets,
+  filters, multi-select response deduplication, invalid inputs, current-role
+  checks, result privacy and the existing result projections.
+- Two focused Chromium tests pass: full First/Previous/Next/Last and size/filter
+  behavior across all six screens, and the existing Residents no-flat/filter
+  workflow. Empty/clamped pages and selection reset are covered. Light/Dark
+  checks cover 320/375/768/1280px reflow and pagination axe checks. Larger pages
+  exposed table overflow at tablet width; the shared table now stays inside a
+  labelled, keyboard-focusable horizontal scroller.
+- One synthetic disposable-project capture flow passed, refreshing six
+  representative list/result screenshots and adding desktop/phone pagination
+  illustrations. Administrator and resident sessions use separate browser
+  contexts; existing screenshot redaction remains in place.
+- The user explicitly authorized applying
+  `20261114100000_numbered_pagination.sql` to the same disposable Supabase
+  project. A dry run listed only that migration before application. This is not
+  a real-production migration or application deployment: the pagination app
+  changes remain local, and this task did not commit, push or deploy them.
+- Live counts and a subsequent bounded row read are not a frozen multi-request
+  snapshot. Concurrent updates can move rows/totals. Hosted latency/capacity,
+  real-device/manual-accessibility acceptance and all unresolved launch gates
+  still require separate evidence.
+
 ### Residents consolidation verification (28 October 2026)
 
 **Current follow-up:** the user approved consolidating Accounts and Flats into

@@ -1136,6 +1136,53 @@ test("capture the RWA ReadOnly persona", async ({ browser }) => {
   }
 });
 
+test("capture full numbered pagination", async ({ browser }) => {
+  test.setTimeout(240_000);
+  const admin = await provisionAdmin("Pagination Administrator (example)");
+  const resident = await seedHousehold();
+  const neighbour = await seedHousehold();
+  const vote = await activateVoteFor(admin.id, [resident.householdId, neighbour.householdId]);
+  await activateVoteFor(admin.id, [resident.householdId]);
+  for (const person of [resident, neighbour]) {
+    await asUser(person.id, "public.cast_vote($1, $2::jsonb)", [
+      vote.id, JSON.stringify({ confirmed: true, optionId: vote.options[0]?.id }),
+    ]);
+  }
+  await asUser(admin.id, "public.complete_vote_early($1, true, 'Synthetic pagination documentation')", [vote.id]);
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const memberContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  let page = await context.newPage();
+  screenshotPersona.set(page, "rwa-admin");
+  try {
+    await signInThroughUi(page, admin.email, admin.code);
+    for (const [route, name] of [
+      ["/admin/residents?isAdmin=all&limit=1&page=2", "47-accounts-list"],
+      ["/admin/audit?action=VOTE_ACTIVATED&limit=1", "39-audit"],
+      [`/admin/votes/${vote.id}/participation?limit=1`, "28-participation"],
+      [`/votes/${vote.id}/results?limit=1`, "14-desktop-results"],
+    ] as const) {
+      await page.goto(route);
+      await expect(page.getByRole("navigation", { name: "Pagination" })).toContainText(/Page \d+ of \d+/u);
+      await capture(page, name);
+    }
+    await page.goto("/admin/residents?isAdmin=all&limit=1&page=2");
+    await page.getByRole("navigation", { name: "Pagination" }).scrollIntoViewIfNeeded();
+    await capture(page, "87-numbered-pagination-desktop", false, true);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByRole("navigation", { name: "Pagination" }).scrollIntoViewIfNeeded();
+    await capture(page, "88-numbered-pagination-phone", false, true);
+    page = await memberContext.newPage();
+    screenshotPersona.set(page, "voter");
+    await signInThroughUi(page, resident.email, await freshCode(resident.email));
+    await capture(page, "05-vote-list");
+    await page.goto(`/votes/${vote.id}/results?limit=1`);
+    await capture(page, "13-open-results");
+  } finally {
+    await context.close();
+    await memberContext.close();
+  }
+});
+
 test("capture centred confirmation dialogs", async ({ browser }) => {
   test.setTimeout(180_000);
   const admin = await provisionAdmin("Dialog Administrator (example)");

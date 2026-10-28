@@ -106,6 +106,18 @@ Browser and screenshot workflows use Residents directly. Account APIs,
 optional-household API provisioning and voting guards remain compatible. This
 UI/service consolidation needs no new migration and does not close launch gates.
 
+The subsequent numbered-pagination implementation adds migration
+`20261114100000`, a guarded exact filtered count/page-anchor routine, and shared
+First/Previous/Page X of Y/Next/Last and page-size controls across all six list
+screens. UI services reuse the existing bounded keyset projections; HTTP cursor
+contracts and full-result downloads remain unchanged. The migration is applied
+only to the authorized disposable database. Local validation and synthetic
+screenshots are tracked in [pilot readiness](./PILOT_READINESS.md); hosted
+application rollout, capacity and manual-accessibility acceptance remain separate.
+The compact-control follow-up replaces text navigation with labelled/titled
+icons, combines page position and exact result count in one summary, and
+automatically applies page-size selections without a separate button.
+
 App Support Access, requested so the developer can review configuration and usage
 from inside the app during onboarding, replaces any hidden login or standing
 default administrator with a consented, RWA-controlled toggle in RWA Settings.

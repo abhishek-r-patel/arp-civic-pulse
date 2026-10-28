@@ -7,7 +7,7 @@ import { cn } from "./cn";
  * breakpoint; on phones each row becomes a stacked label/value card. Explicit
  * ARIA roles keep table semantics even where CSS changes the display type, so
  * reading order and header associations survive on every width. Nothing is
- * truncated: long text wraps.
+ * truncated: long text wraps, and wider tables scroll within their region.
  */
 export interface Column<Row> {
   key: string;
@@ -33,7 +33,10 @@ export function DataTable<Row>({
   return (
     <div
       data-data-table
-      className="rounded-card border border-border bg-surface shadow-panel"
+      role="region"
+      aria-label={`${caption} table`}
+      tabIndex={0}
+      className="min-w-0 overflow-x-auto rounded-card border border-border bg-surface shadow-panel"
     >
       <table
         role="table"

@@ -211,6 +211,7 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
         "create_draft",
         "create_household",
         "get_admin_vote",
+        "get_list_page",
         "get_member_vote",
         "get_my_participation",
         "get_rwa_branding",

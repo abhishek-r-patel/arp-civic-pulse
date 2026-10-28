@@ -8,6 +8,7 @@ import { WelcomeMessage } from "@/components/ui/rwa-branding";
 import { Pagination } from "@/components/ui/pagination";
 import { VoteListCard } from "@/components/votes/vote-list-card";
 import { ApiError } from "@/server/http/errors";
+import { readPageNumber } from "@/server/http/numbered-page";
 import { memberPageContext } from "@/server/register/page-context";
 import { loadHouseholdTerms } from "@/server/settings/rwa-profile";
 import {
@@ -66,7 +67,7 @@ export default async function HomePage({
   let result: Awaited<ReturnType<typeof listMemberVotes>> | null = null;
   let loadError: ApiError | null = null;
   try {
-    result = await listMemberVotes(deps, query);
+    result = await listMemberVotes(deps, query, readPageNumber(raw.page));
   } catch (error) {
     if (!(error instanceof ApiError)) {
       throw error;
@@ -313,9 +314,15 @@ export default async function HomePage({
             basePath="/"
             params={{ status: raw.status, votingType: raw.votingType }}
             page={result.page}
-            hasCursor={Boolean(raw.cursor)}
           />
         </>
+      ) : null}
+      {result && result.data.length === 0 ? (
+        <Pagination
+          basePath="/"
+          params={{ status: raw.status, votingType: raw.votingType }}
+          page={result.page}
+        />
       ) : null}
     </div>
   );

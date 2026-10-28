@@ -199,6 +199,25 @@ Register import and scheduling implementation map:
 
 Account and household onboarding map:
 
+Shared numbered navigation is implemented in `src/components/ui/pagination.tsx`
+and `src/server/http/numbered-page.ts`, using the guarded
+`supabase/migrations/20261114100000_numbered_pagination.sql` count/anchor RPC.
+It covers member/admin vote lists, Residents, audit, participation and completed
+PUBLIC named responses without changing the existing HTTP cursor APIs.
+The pagination UI is a client component so its native GET page-size form
+submits immediately on selection. The page-size label is inline with its
+dropdown, keeping size, position and navigation on one desktop row. Icon-only links retain accessible names and
+titles; disabled directions use native disabled buttons. A single
+`Page X of Y · N results` summary retains the filtered total without a second
+record-range line.
+`tests/unit/numbered-pagination.test.ts`,
+`tests/integration/numbered-pagination.test.ts` and
+`tests/e2e/pagination-live.spec.ts` cover metadata, authorization and navigation.
+Each page remains bounded (100 maximum); exact authorized counts and a bounded
+sort-key offset locate the existing cursor rather than reading all projections.
+Count/anchor share a snapshot, but changing data between page requests can still
+move rows. Full exports and PRIVATE/active-result privacy boundaries are unchanged.
+
 `src/components/ui/dialog.tsx` is the shared native confirmation modal for account,
 assignment, bulk review/import, ballot editing and vote lifecycle actions. It is
 fixed and centred in both viewport axes at every breakpoint, with phone gutters

@@ -137,7 +137,10 @@ test.describe("register screens", () => {
       .locator("[data-account-review] tbody a")
       .getAttribute("href");
     await page.getByRole("link", { name: "Next page" }).click();
-    await expect(page).toHaveURL(/cursor=/u);
+    await expect(page).toHaveURL(/page=2/u);
+    await expect(
+      page.getByRole("navigation", { name: "Pagination" }),
+    ).toContainText(/Page 2 of \d+/u);
     await expect(
       page.locator("[data-account-review] tbody a"),
     ).not.toHaveAttribute("href", first ?? "");
@@ -146,6 +149,20 @@ test.describe("register screens", () => {
       "href",
       first ?? "",
     );
+    const pagination = page.getByRole("navigation", { name: "Pagination" });
+    await pagination.getByRole("link", { name: "Last page" }).click();
+    await expect(
+      pagination.getByLabel("Next page", { exact: true }),
+    ).toHaveAttribute("aria-disabled", "true");
+    await pagination.getByRole("link", { name: "Previous page" }).click();
+    await expect(
+      pagination.getByRole("link", { name: "Next page" }),
+    ).toBeVisible();
+    await pagination.getByLabel("Per page").selectOption("10");
+    await expect(page).toHaveURL(/[?&]limit=10(?:&|$)/u);
+    await expect(page).toHaveURL(/limit=10/u);
+    await expect(page).not.toHaveURL(/page=/u);
+    await expect(pagination).toContainText(/Page 1 of \d+/u);
 
     for (const route of ["/admin/residents", "/admin/residents/new"]) {
       await page.goto(route);

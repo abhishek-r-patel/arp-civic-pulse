@@ -31,6 +31,14 @@ account and household APIs remain unchanged. Residents
 sorts by flat/name with unassigned people last and offers a no-assignment filter.
 This needs the reviewed `20261110100000_account_with_household` migration.
 
+All paginated screens (Votes, Residents, Manage Votes, Audit History,
+participation and completed PUBLIC named responses) show filtered result totals,
+icon-only **First / Previous / Next / Last**, **Page X of Y · N results**,
+and **Per page** options 10/25/50/100. Selecting a page size applies it
+immediately and restarts at page 1 while retaining filters.
+This needs `20261114100000_numbered_pagination`; cursor-based HTTP list APIs and
+full-result downloads remain unchanged.
+
 Administrators can open **Import CSV** from the register: upload at most 500 rows
 (256 KiB), check conflicts, confirm import, then review and enable suspended
 accounts using individual controls or the Residents table's separate **Enable Selected**
