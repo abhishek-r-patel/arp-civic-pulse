@@ -184,6 +184,7 @@ describe.skipIf(!hasDatabase)("database security posture", () => {
         "provision_profile_with_household",
         "reconcile_vote",
         "self_register_resident",
+        "set_app_support_access",
       ]);
       // The Cron role reaches exactly its two entry points and nothing else.
       expect(
