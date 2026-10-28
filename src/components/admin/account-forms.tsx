@@ -78,7 +78,7 @@ function HouseholdPicker({
       id={id}
       name={id}
       label={terms.identifierLabel}
-      hint={`${hint} Start typing or open the list; only unassigned entries from Settings → Default ${terms.Households} can be chosen.`}
+      hint={`${hint} Choose an unassigned value from Settings → Default ${terms.Households}.`}
       required={required}
       options={choices.options}
       value={value}
@@ -92,7 +92,7 @@ function HouseholdPicker({
       id={id}
       name={id}
       label={terms.identifierLabel}
-      hint={`${hint} Letter case and extra spaces do not make two identifiers different.`}
+      hint={`${hint} Case and extra spaces do not distinguish identifiers.`}
       required={required}
       maxLength={100}
       autoComplete="off"
@@ -194,6 +194,7 @@ export function AccountCreateForm({
         failure={failure}
         fieldLabels={{
           ...FIELD_LABELS,
+          representativeName: "Resident name",
           "household.identifier": terms.identifierLabel,
           enable: "Enable account now",
         }}
@@ -204,7 +205,7 @@ export function AccountCreateForm({
         name="email"
         type="email"
         label="Email address"
-        hint="The address the resident will sign in with. It is not stored in the register; it is kept by the sign-in service."
+        hint="Sign-in address; stored by the sign-in service, not the register."
         required
         autoComplete="off"
         inputMode="email"
@@ -217,8 +218,8 @@ export function AccountCreateForm({
       <TextField
         id="representativeName"
         name="representativeName"
-        label="Representative name"
-        hint="Shown in completed PUBLIC vote results."
+        label="Resident name"
+        hint="Shown in completed PUBLIC results."
         required
         maxLength={200}
         autoComplete="off"
@@ -229,11 +230,11 @@ export function AccountCreateForm({
       <SelectField
         id="managementRole"
         label="Management role"
-        hint={`Roles never confer voting. Anyone who should vote, including an RWA Admin or RWA ReadOnly, needs their own eligible ${terms.household}; residents need one before enablement.`}
+        hint={`Roles do not grant voting rights. Voters need their own eligible ${terms.household}; residents need one before enablement.`}
         value={isAdmin ? "rwa-admin" : isReadonly ? "rwa-readonly" : "voter"}
-        onChange={(event) => {
-          setIsAdmin(event.target.value === "rwa-admin");
-          setIsReadonly(event.target.value === "rwa-readonly");
+        onChange={(value) => {
+          setIsAdmin(value === "rwa-admin");
+          setIsReadonly(value === "rwa-readonly");
         }}
       >
         <option value="voter">Voter (voter)</option>
@@ -242,9 +243,7 @@ export function AccountCreateForm({
       </SelectField>
 
       <fieldset className="grid gap-4">
-        <legend className="pb-2 text-section font-semibold">
-          {terms.Household}
-        </legend>
+        <legend className="sr-only">{terms.Household} assignment</legend>
         <HouseholdPicker
           id="household.identifier"
           choices={choices}
@@ -255,14 +254,14 @@ export function AccountCreateForm({
           }}
           onTextChange={setHouseholdText}
           required={!isAdmin && !isReadonly}
-          hint={`The ${terms.household} this person votes for. Required for voters; optional for management roles.`}
+          hint={`Voters: required. Management roles: optional. This is the ${terms.household} they vote for.`}
           error={pickError ?? fieldErrorFor(failure, "household.identifier")}
         />
         <CheckboxField
           id="isEligible"
           name="isEligible"
           label="Eligible to vote"
-          hint={`Only eligible ${terms.households} can be included in a new vote.`}
+          hint={`Only eligible ${terms.households} can join new votes.`}
           checked={eligible && identifier !== ""}
           disabled={identifier === ""}
           onChange={(event) => setEligible(event.target.checked)}
@@ -275,8 +274,8 @@ export function AccountCreateForm({
         label="Enable account now"
         hint={
           canEnable
-            ? "The person can sign in straight away. Leave unticked to review first."
-            : `Choose a ${terms.household} first; residents cannot be enabled without one.`
+            ? "Enable now for sign-in; leave unticked to review first."
+            : `Select a ${terms.household} first to enable this resident.`
         }
         checked={enable && canEnable}
         disabled={!canEnable}
@@ -428,8 +427,8 @@ export function AccountHouseholdSection({
             required
             hint={
               household
-                ? `Move this account to another ${terms.household}. Past and active votes keep the ${terms.household} they were frozen with; eligibility stays as it is.`
-                : `Assign the ${terms.household} this person votes for. It starts not eligible.`
+                ? `Move to another ${terms.household}. Vote entitlements stay frozen; eligibility is unchanged.`
+                : `Assign the ${terms.household} this person votes for. Starts ineligible.`
             }
             error={pickError ?? fieldErrorFor(failure, "identifier")}
           />
@@ -759,11 +758,7 @@ export function AccountEditor({
           name="email"
           type="email"
           label="Email address"
-          hint={
-            account.emailVerifiedAt
-              ? "Verified by the sign-in service."
-              : "Not yet verified by the sign-in service."
-          }
+          hint={account.emailVerifiedAt ? "Verified." : "Not verified yet."}
           required
           autoComplete="off"
           inputMode="email"
@@ -777,12 +772,12 @@ export function AccountEditor({
         <SelectField
           id="managementRole"
           label="Management role"
-          hint={`Roles never confer voting. Anyone who should vote, including an RWA Admin or RWA ReadOnly, needs their own eligible ${terms.household}; residents need one before enablement.`}
+          hint={`Roles do not grant voting rights. Voters need their own eligible ${terms.household}; residents need one before enablement.`}
           disabled={deleted}
           value={isAdmin ? "rwa-admin" : isReadonly ? "rwa-readonly" : "voter"}
-          onChange={(event) => {
-            setIsAdmin(event.target.value === "rwa-admin");
-            setIsReadonly(event.target.value === "rwa-readonly");
+          onChange={(value) => {
+            setIsAdmin(value === "rwa-admin");
+            setIsReadonly(value === "rwa-readonly");
           }}
         >
           <option value="voter">Voter (voter)</option>

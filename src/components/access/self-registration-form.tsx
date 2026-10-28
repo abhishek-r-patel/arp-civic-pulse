@@ -97,7 +97,7 @@ export function SelfRegistrationForm({
         id="email"
         name="email"
         label="Email address"
-        hint="Sign-in codes are sent here once your account is enabled."
+        hint="Sign-in codes go here after your account is enabled."
         type="email"
         autoComplete="email"
         required
@@ -109,7 +109,7 @@ export function SelfRegistrationForm({
           id="identifier"
           name="identifier"
           label={terms.identifierLabel}
-          hint={`Start typing or open the list, then choose your ${terms.identifierLabel}.`}
+          hint={`Choose your ${terms.identifierLabel} from the list.`}
           required
           options={households}
           value={household}
@@ -125,7 +125,7 @@ export function SelfRegistrationForm({
           id="identifier"
           name="identifier"
           label={terms.identifierLabel}
-          hint={`Enter your ${terms.identifierLabel} exactly as your RWA uses it.`}
+          hint={`Enter your ${terms.identifierLabel} exactly as registered.`}
           required
           maxLength={100}
           error={fieldErrorFor(failure, "identifier")}

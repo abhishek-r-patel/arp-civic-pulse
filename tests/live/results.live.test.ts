@@ -228,7 +228,7 @@ describe.skipIf(!hasLive || !hasSql)("live: results and monitoring", () => {
     const open = data as OpenResults;
     expect(open.eligibleCount).toBe("2");
     expect(open.submittedCount).toBe("2");
-    expect(open.turnout.percent).toBe("100.00");
+    expect(open.turnout.percent).toBe("100");
     expect(open.options.map((o) => [o.label, o.count])).toEqual([
       ["Yes", "2"],
       ["No", "0"],
@@ -311,7 +311,8 @@ describe.skipIf(!hasLive || !hasSql)("live: results and monitoring", () => {
     ]);
     expect(closed.offices[0]?.nota).toEqual({
       count: "1",
-      percent: "50.00",
+      percent: "50",
+      eligiblePercent: "50",
     });
     expect(closed.offices[0]?.outcome).toBe("LEADER");
     expect(JSON.stringify(closed)).not.toMatch(/representativeName|L-/u);

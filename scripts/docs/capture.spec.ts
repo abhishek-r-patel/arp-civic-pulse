@@ -16,6 +16,7 @@ import {
   signInThroughUi,
   stubCodeRequest,
 } from "../../tests/e2e/support/live";
+import { chooseDropdownOption } from "../../tests/e2e/support/dropdown";
 
 test.skip(
   process.env.DOC_SCREENSHOTS !== "1" || process.env.LIVE_AUTH !== "1",
@@ -144,7 +145,7 @@ test("capture Platinum and Obsidian first-slice documentation", async ({ browser
     await accessible(r); await capture(r, "72-obsidian-votes-mobile");
     await r.getByRole("navigation", { name: "Vote status" }).getByRole("link", { name: "Active", exact: true }).click();
     await r.locator("summary[aria-label='Voting type filter']").click();
-    await r.getByLabel("Voting type", { exact: true }).selectOption("PRIVATE");
+    await chooseDropdownOption(r, "Voting type", "PRIVATE voting");
     await r.getByRole("button", { name: "Apply Filters", exact: true }).click();
     await expect(r.getByRole("heading", { name: "Should we repaint the clubhouse?", exact: true })).toHaveCount(0);
     await expect(r.getByRole("heading", { name: "Elect your next committee", exact: true })).toBeVisible();
@@ -369,8 +370,12 @@ test("capture administrator assignment of exclusive management roles", async ({ 
     await signInThroughUi(page, operator.email, operator.code);
     await page.goto("/admin/residents/new");
     await page.getByLabel("Email address").fill(email);
-    await page.getByLabel("Representative name").fill(name);
-    await page.getByLabel("Management role").selectOption("rwa-readonly");
+    await page.getByLabel("Resident name").fill(name);
+    await chooseDropdownOption(
+      page,
+      "Management role",
+      "RWA ReadOnly (rwa-readonly)",
+    );
     await capture(page, "30-create-readonly-role");
     await page.getByRole("button", { name: "Create Resident" }).click();
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
@@ -398,7 +403,7 @@ test("capture administrator assignment of exclusive management roles", async ({ 
     await expect(page.getByRole("button", { name: "Suspend Account" })).toBeVisible();
     await capture(page, "33-readonly-account-enabled");
 
-    await page.getByLabel("Management role").selectOption("rwa-admin");
+    await chooseDropdownOption(page, "Management role", "RWA Admin (rwa-admin)");
     await capture(page, "34-switch-to-admin-role");
     await page.getByRole("button", { name: "Save Changes" }).click();
     await expect(page.getByText("RWA Admin", { exact: true })).toBeVisible();
@@ -545,12 +550,128 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     await expect(
       a.getByRole("heading", { level: 1, name: "RWA Settings" }),
     ).toBeVisible();
+    const valueGuide = a
+      .locator("details")
+      .filter({ has: a.getByText("Where Each Value Appears", { exact: true }) });
+    await expect(valueGuide).not.toHaveAttribute("open");
+    await expect(a.getByText("Wording Only", { exact: true })).toHaveCount(0);
+    await valueGuide.locator("summary").click();
+    await expect(
+      valueGuide.getByText(/Alias: the “Civic Pulse for/),
+    ).toBeVisible();
+    await valueGuide.locator("summary").click();
+    const fullNameHelp = a.locator("#fullName-hint");
+    await expect(
+      fullNameHelp.getByText(/Your RWA’s official name, shown on vote pages/),
+    ).toBeHidden();
+    await a.getByLabel("Information about RWA Full Name").click();
+    await expect(
+      fullNameHelp.getByText(/Your RWA’s official name, shown on vote pages/),
+    ).toBeVisible();
+    await a.getByLabel("Information about RWA Full Name").click();
+    await expect(a.locator('input[name="accentPalette"]')).toHaveCount(6);
+    await expect(a.getByLabel("Information about Accent Colour")).toBeVisible();
+    await expect(a.getByLabel("Information about Identifier Label")).toBeVisible();
+    const helpIconAlignment = await Promise.all(
+      ['label[for="fullName"]', "#accentPalette-label", "#identifierKind-label"].map(
+        async (selector) =>
+          a.locator(selector).evaluate((label) => {
+            const summary = label.parentElement?.querySelector("details summary");
+            if (!summary) return false;
+            const labelBounds = label.getBoundingClientRect();
+            const iconBounds = summary.getBoundingClientRect();
+            return (
+              Math.abs(
+                labelBounds.top +
+                  labelBounds.height / 2 -
+                  (iconBounds.top + iconBounds.height / 2),
+              ) < 1
+            );
+          }),
+      ),
+    );
+    expect(helpIconAlignment).toEqual([true, true, true]);
+    const accentColumns = await a
+      .getByRole("radiogroup", { name: "Accent Colour" })
+      .evaluate((element) => getComputedStyle(element).gridTemplateColumns);
+    expect(accentColumns.trim().split(/\s+/u)).toHaveLength(3);
     await capture(a, "48-rwa-settings");
+    const aliasHelp = a.getByLabel("Information about RWA Alias");
+    const aliasField = a.locator("#alias");
+    const aliasDetails = a
+      .locator("details")
+      .filter({ has: aliasHelp });
+    await expect(aliasDetails).not.toHaveAttribute("open");
+    await expect(aliasDetails.locator("#alias-hint")).toBeHidden();
+    await aliasHelp.click();
+    await expect(aliasDetails.locator("#alias-hint")).toBeVisible();
+    await aliasHelp.click();
+    const addressHelp = a.getByLabel("Information about RWA Address");
+    const addressDetails = a
+      .locator("details")
+      .filter({ has: addressHelp });
+    await expect(addressDetails.locator("#address-hint")).toBeHidden();
+    await addressHelp.click();
+    await expect(addressDetails.locator("#address-hint")).toBeVisible();
+    await addressHelp.click();
+    const labelBounds = await a.locator('label[for="alias"]').boundingBox();
+    const inputBounds = await aliasField.boundingBox();
+    expect(labelBounds).not.toBeNull();
+    expect(inputBounds).not.toBeNull();
+    expect(
+      Math.abs(
+        (labelBounds?.y ?? 0) +
+          (labelBounds?.height ?? 0) / 2 -
+          ((inputBounds?.y ?? 0) + (inputBounds?.height ?? 0) / 2),
+      ),
+    ).toBeLessThan(3);
+    await a.setViewportSize({ width: 390, height: 844 });
+    const mobileBounds = await a.evaluate(() => {
+      const label = document.querySelector('label[for="alias"]');
+      const input = document.querySelector("#alias");
+      if (!label || !(input instanceof HTMLInputElement)) {
+        throw new Error("Alias field did not render for the mobile layout check.");
+      }
+      return {
+        label: label.getBoundingClientRect(),
+        input: input.getBoundingClientRect(),
+        pageWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      };
+    });
+    expect(mobileBounds.label.x).toBe(mobileBounds.input.x);
+    expect(mobileBounds.input.y).toBeGreaterThan(mobileBounds.label.y);
+    expect(mobileBounds.pageWidth).toBeLessThanOrEqual(
+      mobileBounds.viewportWidth,
+    );
+    await a.setViewportSize({ width: 1280, height: 900 });
     await a.goto("/admin/residents/new");
+    await expect(a.getByLabel("Resident name")).toBeVisible();
+    await expect(
+      a.locator("form").getByText("Flat assignment", { exact: true }),
+    ).toBeHidden();
+    const checkboxHelpAlignment = await Promise.all(
+      ["isEligible", "enable"].map(async (id) =>
+        a.locator(`label[for="${id}"]`).evaluate((label) => {
+          const summary = label.parentElement?.querySelector("details summary");
+          if (!summary) return false;
+          const labelBounds = label.getBoundingClientRect();
+          const iconBounds = summary.getBoundingClientRect();
+          return (
+            Math.abs(
+              labelBounds.top +
+                labelBounds.height / 2 -
+                (iconBounds.top + iconBounds.height / 2),
+            ) < 1
+          );
+        }),
+      ),
+    );
+    expect(checkboxHelpAlignment).toEqual([true, true]);
     await capture(a, "16-create-account");
     const onboardingEmail = plusEmail();
     await a.getByLabel(/Email address/).fill(onboardingEmail);
-    await a.getByLabel(/Representative name/).fill("Arun Shah (example)");
+    await a.getByLabel(/Resident name/).fill("Arun Shah (example)");
     await a.getByRole("button", { name: "Create Resident" }).click();
     await expect(a.getByText(/before creating a resident/)).toBeVisible();
     await capture(a, "43-household-required");
@@ -594,7 +715,7 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     await a.keyboard.press("Escape");
     await a.goto("/admin/residents/new");
     await a.getByLabel(/Email address/).fill(plusEmail());
-    await a.getByLabel(/Representative name/).fill("Meera Iyer (example)");
+    await a.getByLabel(/Resident name/).fill("Meera Iyer (example)");
     await a.locator('[id="household.identifier"]').click();
     await capture(a, "20-add-household");
     await a.goto(`/admin/residents/households/${resident.householdId}`);
@@ -1309,7 +1430,7 @@ test("capture self-registration and one-step account onboarding", async ({ brows
     await signInThroughUi(a, admin.email, admin.code);
     await a.goto("/admin/residents/new");
     await a.getByLabel(/Email address/).fill(plusEmail());
-    await a.getByLabel(/Representative name/).fill("Neha Joshi (example)");
+    await a.getByLabel(/Resident name/).fill("Neha Joshi (example)");
     const adminPicker = a.getByRole("combobox", { name: /Flat Number/ });
     await adminPicker.click();
     await expect(a.getByRole("listbox")).toBeVisible();

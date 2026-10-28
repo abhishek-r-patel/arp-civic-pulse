@@ -676,6 +676,54 @@
             </tr>
             <tr>
               <td>
+                <a href="../src/components/ui/field.tsx"
+                  >src/components/ui/field.tsx</a
+                >
+              </td>
+              <td>
+                Responsive inline form labels with adjacent click-to-open help
+                and explicit errors.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/components/ui/select-menu.tsx"
+                  >src/components/ui/select-menu.tsx</a
+                >,
+                <a href="../src/components/ui/field-classes.ts"
+                  >src/components/ui/field-classes.ts</a
+                >
+              </td>
+              <td>
+                Shared keyboard-accessible dropdown with a menu constrained to
+                its trigger width and common control sizing.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../src/components/admin/rwa-profile-form.tsx"
+                  >src/components/admin/rwa-profile-form.tsx</a
+                >
+              </td>
+              <td>
+                Administrator RWA profile editor with six accent choices and
+                responsive identity/identifier controls.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a
+                  href="../supabase/migrations/20261105100000_add_amber_accent_palette.sql"
+                  >supabase/migrations/20261105100000_add_amber_accent_palette.sql</a
+                >
+              </td>
+              <td>
+                Adds the Amber accent to the RWA settings constraint and guarded
+                update validation.
+              </td>
+            </tr>
+            <tr>
+              <td>
                 <a href="../src/server/http/numbered-page.ts"
                   >src/server/http/numbered-page.ts</a
                 >
@@ -2231,12 +2279,12 @@
         The shared
         <a href="../src/components/ui/pagination.tsx">Pagination</a> renders
         filtered <code>Page X of Y · N results</code>, accessible icon-only
-        First/Previous/Next/Last, and a native GET page-size form
-        (10/25/50/100). The shared client component submits the form immediately
-        on selection, preserving filters and omitting the previous page; there
-        is no apply button or separate record-range line. Votes, Residents,
-        Manage Votes, Audit History, participation and completed PUBLIC named
-        responses request validated numbered metadata through
+        First/Previous/Next/Last, and a GET page-size form (10/25/50/100) with a
+        custom width-constrained dropdown. The shared client component navigates
+        immediately on selection, preserving filters and omitting the previous
+        page; there is no apply button or separate record-range line. Votes,
+        Residents, Manage Votes, Audit History, participation and completed
+        PUBLIC named responses request validated numbered metadata through
         <code>get_list_page</code>; counts and anchors remain caller-authorized,
         and the original bounded cursor services provide rows. HTTP cursor
         envelopes and export semantics are unchanged. UI

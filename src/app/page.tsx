@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { History, ListFilter } from "lucide-react";
 import { Button, LinkButton } from "@/components/ui/button";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { EmptyState } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { WelcomeMessage } from "@/components/ui/rwa-branding";
@@ -241,19 +242,20 @@ export default async function HomePage({
             <label htmlFor="votingType" className="text-caption font-semibold">
               Voting type
             </label>
-            <select
+            <SelectMenu
               id="votingType"
               name="votingType"
+              label="Voting type"
               defaultValue={query.votingType ?? ""}
-              className="touch-target max-w-full rounded-control border border-control-border bg-surface px-3 text-body text-primary"
-            >
-              <option value="">Any type</option>
-              {VOTING_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {VOTING_TYPE_LABELS[type]}
-                </option>
-              ))}
-            </select>
+              className="max-w-full"
+              options={[
+                { value: "", label: "Any type" },
+                ...VOTING_TYPES.map((type) => ({
+                  value: type,
+                  label: VOTING_TYPE_LABELS[type],
+                })),
+              ]}
+            />
             <Button type="submit">Apply Filters</Button>
             <Link
               href={filterHref("CANCELLED")}

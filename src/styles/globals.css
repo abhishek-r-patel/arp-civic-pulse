@@ -93,6 +93,12 @@
   --color-accent-strong: color-mix(in oklab, var(--color-accent) 80%, black);
 }
 
+[data-palette="AMBER"] {
+  --color-accent: #92400e;
+  --color-print-accent: #92400e;
+  --color-accent-strong: color-mix(in oklab, var(--color-accent) 80%, black);
+}
+
 :root[data-theme="dark"] {
   --color-primary: #edf2ef;
   --color-accent: #8be4c8;
@@ -126,6 +132,9 @@
 }
 :root[data-theme="dark"] [data-palette="SLATE"] {
   --color-accent: #cbd5e1;
+}
+:root[data-theme="dark"] [data-palette="AMBER"] {
+  --color-accent: #fcd34d;
 }
 :root[data-theme="dark"] [data-palette] {
   --color-accent-strong: color-mix(in oklab, var(--color-accent) 85%, white);

@@ -24,6 +24,7 @@ export const RWA_ACCENT_PALETTES = [
   "FOREST",
   "PLUM",
   "SLATE",
+  "AMBER",
 ] as const;
 export type RwaAccentPalette = (typeof RWA_ACCENT_PALETTES)[number];
 
@@ -33,6 +34,7 @@ export const RWA_ACCENT_PALETTE_LABELS: Record<RwaAccentPalette, string> = {
   FOREST: "Forest green",
   PLUM: "Plum",
   SLATE: "Slate",
+  AMBER: "Amber",
 };
 
 export const DEFAULT_RWA_ACCENT_PALETTE: RwaAccentPalette = "TEAL";

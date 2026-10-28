@@ -2,13 +2,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
-import { controlClasses } from "@/components/ui/field";
+import { SelectMenu } from "@/components/ui/select-menu";
 import type { PageInfo } from "@/shared/contracts/pagination";
 
 type PaginationProps = Readonly<{
@@ -21,6 +22,7 @@ const linkClasses =
   "inline-flex touch-target items-center justify-center gap-2 rounded-control border border-control-border bg-surface px-3 py-3 font-semibold text-primary hover:bg-primary/5";
 
 export function Pagination({ basePath, params, page }: PaginationProps) {
+  const router = useRouter();
   const { numbered, limit } = page;
   if (!numbered) throw new Error("Numbered pagination metadata is required.");
   const { currentPage, totalPages, totalCount } = numbered;
@@ -70,36 +72,32 @@ export function Pagination({ basePath, params, page }: PaginationProps) {
       className="grid gap-4 border-t border-border pt-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <form
-          action={basePath}
-          method="get"
-          className="flex items-center gap-3"
-        >
-          {filters.map(([key, value]) => (
-            <input key={key} type="hidden" name={key} value={value} />
-          ))}
+        <div className="flex items-center gap-3">
           <label
             htmlFor="pagination-limit"
             className="text-body font-semibold whitespace-nowrap text-primary"
           >
             Per page
           </label>
-          <select
+          <SelectMenu
             id="pagination-limit"
             name="limit"
+            label="Per page"
             defaultValue={String(limit)}
-            onChange={(event) => event.currentTarget.form?.requestSubmit()}
-            className={`${controlClasses} w-auto border-control-border`}
-          >
-            {[...new Set([10, 25, 50, 100, limit])]
+            className="w-24"
+            options={[...new Set([10, 25, 50, 100, limit])]
               .sort((a, b) => a - b)
-              .map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-          </select>
-        </form>
+              .map((size) => ({ value: String(size), label: String(size) }))}
+            onChange={(value) => {
+              const search = new URLSearchParams();
+              filters.forEach(([key, filterValue]) => {
+                if (filterValue !== undefined) search.set(key, filterValue);
+              });
+              search.set("limit", value);
+              router.push(`${basePath}?${search.toString()}`);
+            }}
+          />
+        </div>
         <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
           {controls.map(({ label, target, disabled, Icon }, index) => (
             <div key={label} className="contents">

@@ -3,8 +3,9 @@
 
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { ChevronDown } from "lucide-react";
-import { Chrome, controlClasses, describedBy } from "./field";
+import { Chrome, describedBy } from "./field";
 import { cn } from "./cn";
+import { controlClasses } from "./field-classes";
 
 // Long lists render only the first matches; typing narrows the rest.
 const MAX_SHOWN = 100;
@@ -102,7 +103,14 @@ export function ComboboxField({
         : `${matches.length} ${matches.length === 1 ? "match" : "matches"}.`;
 
   return (
-    <Chrome id={id} label={label} hint={hint} error={error} required={required}>
+    <Chrome
+      id={id}
+      label={label}
+      inline
+      hint={hint}
+      error={error}
+      required={required}
+    >
       <div className="relative">
         <input type="hidden" name={name} value={value} />
         <input

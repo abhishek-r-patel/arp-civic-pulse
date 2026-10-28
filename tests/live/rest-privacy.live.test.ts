@@ -321,6 +321,7 @@ describe.skipIf(!hasLive || !hasSql)(
         "provision_profile_with_household",
         "reconcile_vote",
         "self_register_resident",
+        "set_app_support_access",
       ]);
       expect(rows.scheduler).toEqual(["complete_due_votes", "run_maintenance"]);
       // No write-class privilege on any application table for the API roles.

@@ -59,6 +59,10 @@ describe("RWA accent palettes", () => {
   const token = (name: string) =>
     new RegExp(`--color-${name}:\\s*(#[0-9a-f]{6})`, "iu").exec(css)?.[1] ?? "";
 
+  it("offers six accent palettes", () => {
+    expect(RWA_ACCENT_PALETTES).toHaveLength(6);
+  });
+
   it.each(RWA_ACCENT_PALETTES)(
     "%s defines an accent with AA contrast on surface and background",
     (palette) => {
@@ -86,6 +90,13 @@ describe("RWA accent palettes", () => {
 });
 
 describe("RWA profile contract", () => {
+  it("accepts the Amber accent palette", () => {
+    expect(
+      updateRwaProfileSchema.parse({ ...profile, accentPalette: "AMBER" })
+        .accentPalette,
+    ).toBe("AMBER");
+  });
+
   it("accepts the configured defaults and normalizes email", () => {
     expect(rwaProfileSchema.parse(profile)).toEqual(profile);
     expect(

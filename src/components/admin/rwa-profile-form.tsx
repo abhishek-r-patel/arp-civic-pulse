@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ErrorSummary } from "@/components/ui/error-summary";
-import { TextAreaField, TextField } from "@/components/ui/field";
+import { FieldInfo, TextAreaField, TextField } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
 import type { RwaProfile } from "@/shared/contracts/rwa-profile";
 import {
@@ -138,7 +138,8 @@ export function RwaProfileForm({
         id="fullName"
         name="fullName"
         label="RWA Full Name"
-        hint="The official name shown on vote pages, results, exports, the Votes page and the footer. Changing it updates all of them, including existing votes."
+        inline
+        hint="Your RWA’s official name, shown on vote pages, results, exports, Votes, footer, sign-in and privacy pages. Changes update existing votes and results."
         required
         maxLength={200}
         autoComplete="organization"
@@ -150,7 +151,8 @@ export function RwaProfileForm({
         id="alias"
         name="alias"
         label="RWA Alias"
-        hint="A short name shown beneath Civic Pulse in the compact header, and with the full name on the sign-in page."
+        inline
+        hint="Header: “Civic Pulse for …” on every page; full name on sign-in."
         required
         maxLength={80}
         autoComplete="off"
@@ -162,7 +164,7 @@ export function RwaProfileForm({
         id="address"
         name="address"
         label="RWA Address"
-        hint="Shown to signed-in members in the footer, on the public privacy page and on PDF results. Leave blank to hide it."
+        hint="Appears in footer, privacy page and PDF results. Blank hides it."
         showOptional={false}
         maxLength={500}
         autoComplete="street-address"
@@ -175,7 +177,8 @@ export function RwaProfileForm({
         name="email"
         type="email"
         label="RWA Email"
-        hint="Shown to signed-in members in the footer and on PDF results. Leave blank to hide it."
+        inline
+        hint="Appears in signed-in footer and PDF results. Blank hides it."
         showOptional={false}
         maxLength={254}
         autoComplete="email"
@@ -188,7 +191,8 @@ export function RwaProfileForm({
         name="phone"
         type="tel"
         label="RWA Phone"
-        hint="Shown to signed-in members in the footer and on PDF results. Leave blank to hide it."
+        inline
+        hint="Appears in signed-in footer and PDF results. Blank hides it."
         showOptional={false}
         maxLength={40}
         autoComplete="tel"
@@ -201,7 +205,8 @@ export function RwaProfileForm({
         name="website"
         type="url"
         label="RWA Website"
-        hint="Enter a complete http:// or https:// address. Shown in the signed-in footer when set; leave blank to hide it."
+        inline
+        hint="Full http:// or https:// address. Appears in signed-in footer; blank hides it."
         showOptional={false}
         maxLength={200}
         autoComplete="url"
@@ -209,55 +214,65 @@ export function RwaProfileForm({
         onChange={(event) => update("website", event.target.value)}
         error={fieldErrorFor(failure, "website")}
       />
-      <fieldset className="grid gap-2">
-        <legend className="text-body font-semibold">Accent Colour</legend>
-        <p id="accentPalette-hint" className="text-caption text-muted">
-          Used for links, buttons and highlights across the app. Every option
-          meets accessible contrast requirements.
-        </p>
+      <div
+        role="group"
+        aria-labelledby="accentPalette-label"
+        className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,0.42fr)_minmax(0,1fr)] sm:items-center sm:gap-4"
+      >
+        <div className="flex min-h-12 items-center justify-start gap-0.5 text-body font-semibold">
+          <span id="accentPalette-label">Accent Colour</span>
+          <FieldInfo label="Accent Colour" id="accentPalette-hint">
+            <p>
+              Sets link, button and highlight colours. Every option meets
+              accessible contrast requirements.
+            </p>
+          </FieldInfo>
+        </div>
         <div
           role="radiogroup"
-          aria-describedby="accentPalette-hint"
-          className="grid gap-2 sm:grid-cols-2"
+          aria-labelledby="accentPalette-label"
+          className="grid grid-cols-3 gap-2"
         >
           {RWA_ACCENT_PALETTES.map((palette) => (
             <label
               key={palette}
               htmlFor={`accentPalette-${palette}`}
-              className="flex touch-target cursor-pointer items-center gap-3 rounded-card border border-control-border bg-surface px-3 py-2 has-[:checked]:border-accent has-[:checked]:bg-accent/5"
+              className="flex touch-target min-w-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-card border border-control-border bg-surface px-1.5 py-2 text-center has-[:checked]:border-accent has-[:checked]:bg-accent/5"
             >
-              <input
-                id={`accentPalette-${palette}`}
-                type="radio"
-                name="accentPalette"
-                value={palette}
-                checked={profile.accentPalette === palette}
-                onChange={() => update("accentPalette", palette)}
-                className="size-5 shrink-0 accent-accent"
-              />
-              <span
-                data-palette={palette}
-                aria-hidden="true"
-                className="size-6 shrink-0 rounded-full bg-accent"
-              />
-              <span className="text-body">
+              <span className="flex items-center gap-1.5">
+                <input
+                  id={`accentPalette-${palette}`}
+                  type="radio"
+                  name="accentPalette"
+                  value={palette}
+                  checked={profile.accentPalette === palette}
+                  onChange={() => update("accentPalette", palette)}
+                  className="size-4 shrink-0 accent-accent"
+                />
+                <span
+                  data-palette={palette}
+                  aria-hidden="true"
+                  className="size-5 shrink-0 rounded-full bg-accent"
+                />
+              </span>
+              <span className="min-w-0 text-caption leading-tight">
                 {RWA_ACCENT_PALETTE_LABELS[palette]}
               </span>
             </label>
           ))}
         </div>
         {fieldErrorFor(failure, "accentPalette") ? (
-          <p className="text-caption text-error">
+          <p className="text-caption text-error sm:col-span-2">
             {fieldErrorFor(failure, "accentPalette")}
           </p>
         ) : null}
-      </fieldset>
+      </div>
       <TextAreaField
         id="welcomeMessage"
         name="welcomeMessage"
         label="Welcome Message"
         showOptional={false}
-        hint={`Plain text, up to ${WELCOME_MESSAGE_MAX_LENGTH} characters. Shown on the Votes page and the administrator ${preview.Households} and Manage Votes pages. Leave blank to show nothing.`}
+        hint={`Plain text (max ${WELCOME_MESSAGE_MAX_LENGTH} characters). Appears on Votes, ${preview.Households} and Manage Votes; blank hides it.`}
         maxLength={WELCOME_MESSAGE_MAX_LENGTH}
         value={profile.welcomeMessage}
         onChange={(event) => update("welcomeMessage", event.target.value)}
@@ -267,7 +282,8 @@ export function RwaProfileForm({
         id="householdLabel"
         name="householdLabel"
         label="Household Label"
-        hint="What one home is called, in the singular, such as Flat, Apartment or Villa. It replaces the word “household” across the app; the plural is worked out automatically."
+        inline
+        hint="Singular home label (e.g. Flat, Apartment or Villa); plural is automatic."
         required
         maxLength={HOUSEHOLD_LABEL_MAX_LENGTH}
         autoComplete="off"
@@ -281,23 +297,28 @@ export function RwaProfileForm({
           <option key={suggestion} value={suggestion} />
         ))}
       </datalist>
-      <fieldset className="grid gap-2">
-        <legend className="text-body font-semibold">
-          Identifier Label
+      <div
+        role="group"
+        aria-labelledby="identifierKind-label"
+        className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,0.42fr)_minmax(0,1fr)] sm:items-center sm:gap-4"
+      >
+        <div className="flex min-h-12 items-center justify-start gap-0.5 text-body font-semibold">
+          <span id="identifierKind-label">Identifier Label</span>
           <span aria-hidden="true" className="text-error">
             {" "}
             *
           </span>
           <span className="sr-only"> (required)</span>
-        </legend>
-        <p id="identifierKind-hint" className="text-caption text-muted">
-          How each {preview.household}’s identifier is named. This changes
-          display wording only; saved identifiers and their matching rules stay
-          the same.
-        </p>
+          <FieldInfo label="Identifier Label" id="identifierKind-hint">
+            <p>
+              Names each {preview.household}’s identifier. Changes affect
+              display wording, not saved values or matching.
+            </p>
+          </FieldInfo>
+        </div>
         <div
           role="radiogroup"
-          aria-describedby="identifierKind-hint"
+          aria-labelledby="identifierKind-label"
           className="grid gap-2 sm:grid-cols-2"
         >
           {IDENTIFIER_KINDS.map((kind) => (
@@ -320,11 +341,11 @@ export function RwaProfileForm({
           ))}
         </div>
         {fieldErrorFor(failure, "identifierKind") ? (
-          <p className="text-caption text-error">
+          <p className="text-caption text-error sm:col-span-2">
             {fieldErrorFor(failure, "identifierKind")}
           </p>
         ) : null}
-      </fieldset>
+      </div>
       <p className="text-caption text-muted" aria-live="polite">
         Wording preview:{" "}
         <span className="font-semibold">
@@ -337,7 +358,7 @@ export function RwaProfileForm({
         name="defaultHouseholds"
         label={`Default ${preview.Households}`}
         showOptional={false}
-        hint={`Comma-separated ${preview.identifierLabelPlural}, such as H-101, H-102, H-103. When set, these are the only ${preview.identifierLabelPlural} administrators can choose when adding or moving an account's ${preview.household}, and the only choices on the public resident registration page; leave blank to allow typed identifiers. ${preview.Households} are never created automatically. Up to ${DEFAULT_HOUSEHOLDS_MAX_ITEMS} entries; repeats are removed. Leave blank for no suggestions.`}
+        hint={`Comma-separated identifiers (e.g. H-101, H-102). Restricts admin ${preview.household} assignments and public registration. Max ${DEFAULT_HOUSEHOLDS_MAX_ITEMS} unique; blank allows typed values.`}
         autoComplete="off"
         value={householdsText}
         onChange={(event) => setHouseholdsText(event.target.value)}
@@ -348,7 +369,7 @@ export function RwaProfileForm({
         name="rwaPositions"
         label="RWA Positions"
         showOptional={false}
-        hint={`Comma-separated office names, such as ${formatSettingsList(DEFAULT_RWA_POSITIONS)}. Offered as office-name suggestions in PRIVATE votes, where Add All Positions adds every one as an office. Up to ${RWA_POSITIONS_MAX_ITEMS} positions; repeats are removed. Leave blank for no suggestions.`}
+        hint={`Comma-separated office suggestions (e.g. ${formatSettingsList(DEFAULT_RWA_POSITIONS)}). Offered in PRIVATE votes; Add All Positions adds all. Max ${RWA_POSITIONS_MAX_ITEMS} unique; blank disables suggestions.`}
         autoComplete="off"
         value={positionsText}
         onChange={(event) => setPositionsText(event.target.value)}

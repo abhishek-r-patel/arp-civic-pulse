@@ -11,6 +11,7 @@ import {
   seedHousehold,
   signInThroughUi,
 } from "./support/live";
+import { chooseDropdownOption } from "./support/dropdown";
 
 /*
  * Resident voting, results, monitoring and download in a real browser against
@@ -905,7 +906,7 @@ test.describe("administrator monitoring", () => {
       table.getByRole("row", { name: new RegExp(b.identifier) }),
     ).toContainText("Not voted");
 
-    await page.getByLabel("Show").selectOption("false");
+    await chooseDropdownOption(page, "Show", "Not submitted");
     await page.getByRole("button", { name: "Apply Filter" }).click();
     await expect(page.getByText(b.identifier, { exact: true })).toBeVisible();
     await expect(page.getByText(a.identifier, { exact: true })).toHaveCount(0);
@@ -924,7 +925,7 @@ test.describe("administrator monitoring", () => {
     ).toBeVisible();
     const events = page.getByRole("table", { name: "Audit events" });
     await expect(events.getByText("Vote activated").first()).toBeVisible();
-    await page.getByLabel("Action").selectOption("VOTE_ACTIVATED");
+    await chooseDropdownOption(page, "Action", "Vote activated");
     await page.getByRole("button", { name: "Apply Filters" }).click();
     await expect(events.getByText("Vote activated").first()).toBeVisible();
     const auditText = await page.locator("#main-content").innerText();

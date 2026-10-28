@@ -96,7 +96,7 @@ export function ScheduleVote({
         id="scheduled-opening"
         label="Voting opens at"
         type="datetime-local"
-        hint={`RWA time zone: ${timezone}. Voting closes ${formatInZone(closesAt, timezone)}.`}
+        hint={`RWA time zone (${timezone}); closes ${formatInZone(closesAt, timezone)}.`}
         value={local}
         onChange={(event) => {
           setLocal(event.target.value);
@@ -463,7 +463,7 @@ export function ChangeDeadline({
           type="datetime-local"
           label="New deadline"
           required
-          hint={`Enter the time in the RWA's time zone (${timezone}).`}
+          hint={`Enter time in the RWA time zone (${timezone}).`}
           value={local}
           onChange={(event) => {
             setLocal(event.target.value);

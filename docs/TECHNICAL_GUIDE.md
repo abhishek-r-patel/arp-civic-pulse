@@ -113,6 +113,10 @@ browser font requests never contact Google.
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | [src/app](../src/app)                               | Pages, layouts, loading/error boundaries and HTTP route handlers. Route-group parentheses do not appear in URLs.        |
 | [src/components/ui](../src/components/ui)           | Buttons, fields, notices, dialogs, tables, pagination, badges and common layout.                                        |
+| [src/components/ui/field.tsx](../src/components/ui/field.tsx) | Responsive inline form labels with adjacent click-to-open help and explicit errors. |
+| [src/components/ui/select-menu.tsx](../src/components/ui/select-menu.tsx), [src/components/ui/field-classes.ts](../src/components/ui/field-classes.ts) | Shared keyboard-accessible dropdown with a menu constrained to its trigger width and common control sizing. |
+| [src/components/admin/rwa-profile-form.tsx](../src/components/admin/rwa-profile-form.tsx) | Administrator RWA profile editor with six accent choices and responsive identity/identifier controls. |
+| [supabase/migrations/20261105100000_add_amber_accent_palette.sql](../supabase/migrations/20261105100000_add_amber_accent_palette.sql) | Adds the Amber accent to the RWA settings constraint and guarded update validation. |
 | [src/server/http/numbered-page.ts](../src/server/http/numbered-page.ts) | Validates exact UI page metadata and binds authorized anchors to existing list cursors; HTTP list APIs remain unchanged. |
 | [supabase/migrations/20261114100000_numbered_pagination.sql](../supabase/migrations/20261114100000_numbered_pagination.sql) | Guarded filtered counts and bounded anchor lookup for all six paginated UI datasets. |
 | [tests/integration/numbered-pagination.test.ts](../tests/integration/numbered-pagination.test.ts), [unit tests](../tests/unit/numbered-pagination.test.ts), [browser test](../tests/e2e/pagination-live.spec.ts) | Real SQL access/count/anchor checks, metadata/control validation and six-screen navigation/reflow coverage. |
@@ -489,9 +493,10 @@ does not centre dropdowns or autocomplete lists, which remain by their controls.
 
 The shared [Pagination](../src/components/ui/pagination.tsx) renders filtered
 `Page X of Y · N results`, accessible icon-only First/Previous/Next/Last,
-and a native GET page-size form (10/25/50/100). The shared client component
-submits the form immediately on selection, preserving filters and omitting
-the previous page; there is no apply button or separate record-range line.
+and a GET page-size form (10/25/50/100) with a custom width-constrained
+dropdown. The shared client component navigates immediately on selection,
+preserving filters and omitting the previous page; there is no apply button or
+separate record-range line.
 Votes, Residents, Manage Votes, Audit History, participation
 and completed PUBLIC named responses request validated numbered metadata through
 `get_list_page`; counts and anchors remain caller-authorized, and the original

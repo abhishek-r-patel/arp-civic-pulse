@@ -86,7 +86,7 @@ export function HouseholdForm({
         id="isEligible"
         name="isEligible"
         label="Eligible to vote"
-        hint={`Only eligible ${terms.households} can be included in a new vote.`}
+        hint={`Only eligible ${terms.households} can join new votes.`}
         checked={eligible}
         onChange={(event) => setEligible(event.target.checked)}
       />

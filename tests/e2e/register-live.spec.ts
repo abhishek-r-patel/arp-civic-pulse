@@ -8,6 +8,7 @@ import {
   signInThroughUi,
   stubCodeRequest,
 } from "./support/live";
+import { chooseDropdownOption } from "./support/dropdown";
 
 /*
  * Real browser journeys against the dev server and YOUR disposable hosted
@@ -158,7 +159,7 @@ test.describe("register screens", () => {
     await expect(
       pagination.getByRole("link", { name: "Next page" }),
     ).toBeVisible();
-    await pagination.getByLabel("Per page").selectOption("10");
+    await chooseDropdownOption(page, "Per page", "10");
     await expect(page).toHaveURL(/[?&]limit=10(?:&|$)/u);
     await expect(page).toHaveURL(/limit=10/u);
     await expect(page).not.toHaveURL(/page=/u);
@@ -206,7 +207,7 @@ test.describe("register screens", () => {
     await page.goto("/admin/residents/new");
     const residentEmail = plusEmail();
     await page.getByLabel(/Email address/).fill(residentEmail);
-    await page.getByLabel(/Representative name/).fill("Browser Resident");
+    await page.getByLabel(/Resident name/).fill("Browser Resident");
     await page.getByRole("button", { name: "Create Resident" }).click();
     await expect(page.getByText(/before creating a resident/)).toBeVisible();
     await expect(page).toHaveURL(/\/admin\/residents\/new$/u);
@@ -254,7 +255,7 @@ test.describe("register screens", () => {
     const combined = `BC-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
     await page.goto("/admin/residents/new");
     await page.getByLabel(/Email address/).fill(plusEmail());
-    await page.getByLabel(/Representative name/).fill("Combined Resident");
+    await page.getByLabel(/Resident name/).fill("Combined Resident");
     await page.locator('[id="household.identifier"]').fill(combined);
     await page.getByLabel("Eligible to vote").check();
     await page.getByLabel("Enable account now").check();
@@ -273,9 +274,7 @@ test.describe("register screens", () => {
     for (const attempt of [1, 2]) {
       await page.goto("/admin/residents/new");
       await page.getByLabel(/Email address/).fill(plusEmail());
-      await page
-        .getByLabel(/Representative name/)
-        .fill(`Dup Resident ${attempt}`);
+      await page.getByLabel(/Resident name/).fill(`Dup Resident ${attempt}`);
       await page
         .locator('[id="household.identifier"]')
         .fill(attempt === 1 ? identifier : ` ${identifier.toLowerCase()} `);
@@ -310,8 +309,12 @@ test.describe("confirmation dialog", () => {
     // Manage a second account: suspend is a destructive confirmation.
     await page.goto("/admin/residents/new");
     await page.getByLabel(/Email address/).fill(plusEmail());
-    await page.getByLabel(/Representative name/).fill("Dialog Subject");
-    await page.getByLabel("Management role").selectOption("rwa-admin");
+    await page.getByLabel(/Resident name/).fill("Dialog Subject");
+    await chooseDropdownOption(
+      page,
+      "Management role",
+      "RWA Admin (rwa-admin)",
+    );
     await page.getByRole("button", { name: "Create Resident" }).click();
     await expect(
       page.getByRole("heading", { level: 1, name: "Dialog Subject" }),
@@ -403,8 +406,12 @@ test.describe("confirmation dialog", () => {
     await signInThroughUi(page, email, code);
     await page.goto("/admin/residents/new");
     await page.getByLabel(/Email address/).fill(plusEmail());
-    await page.getByLabel(/Representative name/).fill("Focus Subject");
-    await page.getByLabel("Management role").selectOption("rwa-readonly");
+    await page.getByLabel(/Resident name/).fill("Focus Subject");
+    await chooseDropdownOption(
+      page,
+      "Management role",
+      "RWA ReadOnly (rwa-readonly)",
+    );
     await page.getByLabel("Enable account now").check();
     await page.getByRole("button", { name: "Create Resident" }).click();
     await expect(page.getByText("Account created and enabled.")).toBeVisible();
@@ -443,9 +450,13 @@ test.describe("responsive and accessible", () => {
     await page.goto("/admin/residents/new");
     await page.getByLabel(/Email address/).fill(plusEmail());
     await page
-      .getByLabel(/Representative name/)
+      .getByLabel(/Resident name/)
       .fill("Layout Subject With A Rather Long Name That Must Wrap Not Clip");
-    await page.getByLabel("Management role").selectOption("rwa-readonly");
+    await chooseDropdownOption(
+      page,
+      "Management role",
+      "RWA ReadOnly (rwa-readonly)",
+    );
     await page.getByRole("button", { name: "Create Resident" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
       "Layout Subject",

@@ -8,6 +8,7 @@ import {
   seedHousehold,
   signInThroughUi,
 } from "./support/live";
+import { chooseDropdownOption } from "./support/dropdown";
 
 /*
  * Draft setup and preview in a real browser against the dev server and YOUR
@@ -158,7 +159,7 @@ test.describe("setting up a PUBLIC vote", () => {
     const row = page.getByRole("link", { name: /Listed question/ }).first();
     await expect(row).toBeVisible();
 
-    await page.getByLabel("Voting type").selectOption("PRIVATE");
+    await chooseDropdownOption(page, "Voting type", "PRIVATE voting");
     await page.getByRole("button", { name: "Apply Filters" }).click();
     await expect(
       page.getByRole("link", { name: /Listed question/ }),

@@ -647,8 +647,8 @@ export function DraftEditor({
             label={state.votingType === "PUBLIC" ? "Question" : "Title"}
             hint={
               state.votingType === "PUBLIC"
-                ? "The question residents will answer."
-                : "For example: Managing committee election 2026."
+                ? "Question residents will answer."
+                : "Example: Managing committee election 2026."
             }
             required
             maxLength={300}
@@ -667,8 +667,8 @@ export function DraftEditor({
             }
             hint={
               state.votingType === "PUBLIC"
-                ? "Optional context residents should read before choosing."
-                : "Required before activation. Plain text only."
+                ? "Optional context for residents."
+                : "Required before activation; plain text."
             }
             required={state.votingType === "PRIVATE"}
             maxLength={10000}
@@ -729,7 +729,7 @@ export function DraftEditor({
                     <CheckboxField
                       id="open-selection-unlimited"
                       label="Allow any number of options"
-                      hint="Voters must still select at least one."
+                      hint="Voters must select at least one."
                       checked={state.openSelectionLimit === null}
                       onChange={(event) =>
                         patch({
@@ -741,11 +741,11 @@ export function DraftEditor({
                       <SelectField
                         id="open-selection-limit"
                         label={`Maximum options per ${terms.household}`}
-                        hint="Choose a limit from 2 to 100."
+                        hint="Maximum selections: 2–100."
                         value={String(state.openSelectionLimit)}
-                        onChange={(event) =>
+                        onChange={(value) =>
                           patch({
-                            openSelectionLimit: Number(event.target.value),
+                            openSelectionLimit: Number(value),
                           })
                         }
                       >
@@ -821,7 +821,7 @@ export function DraftEditor({
               <TextField
                 id="household-filter"
                 label={`Find a ${terms.household}`}
-                hint={`Search by ${identifierLabel.toLowerCase()} or representative name.`}
+                hint={`Search by ${identifierLabel.toLowerCase()} or representative.`}
                 autoComplete="off"
                 type="search"
                 value={filter}
@@ -897,7 +897,7 @@ export function DraftEditor({
                 name="closesLocal"
                 type="datetime-local"
                 label="Voting closes"
-                hint={`Enter the time in the RWA's time zone (${timezone}). Voting stops accepting submissions at exactly this time.`}
+                hint={`RWA time zone (${timezone}); submissions stop at this time.`}
                 value={state.closesLocal}
                 onChange={(event) => {
                   setDeadlineIssue(null);

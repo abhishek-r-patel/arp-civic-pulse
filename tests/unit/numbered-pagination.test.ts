@@ -10,6 +10,9 @@ import { callRoutine, type RegisterDeps } from "@/server/register/shared";
 import { z } from "zod";
 
 vi.mock("@/server/register/shared", () => ({ callRoutine: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
 const client = createClient(
   "https://synthetic.supabase.co",
   "synthetic-public-key",

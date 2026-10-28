@@ -86,7 +86,7 @@ export function ContactForm({
         id="message"
         name="message"
         label="Message"
-        hint="Do not include ballot selections, sign-in codes, passwords or identity documents."
+        hint="Do not include ballots, sign-in codes, passwords or identity documents."
         required
         minLength={10}
         maxLength={5000}

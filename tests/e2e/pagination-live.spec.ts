@@ -9,6 +9,7 @@ import {
   seedHousehold,
   signInThroughUi,
 } from "./support/live";
+import { chooseDropdownOption } from "./support/dropdown";
 
 test.skip(
   process.env.LIVE_AUTH !== "1",
@@ -73,7 +74,7 @@ test("full pagination works across all six list screens", async ({
         nav.getByLabel("Next page", { exact: true }),
       ).toHaveAttribute("aria-disabled", "true");
       await nav.getByRole("link", { name: "First page" }).click();
-      await nav.getByLabel("Per page").selectOption("10");
+      await chooseDropdownOption(page, "Per page", "10");
       await expect(page).toHaveURL(/[?&]limit=10(?:&|$)/u);
       await expect(nav).toContainText("Page 1 of");
       expect(new URL(page.url()).searchParams.get("limit")).toBe("10");

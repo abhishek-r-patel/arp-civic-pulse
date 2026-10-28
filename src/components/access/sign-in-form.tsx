@@ -130,7 +130,7 @@ export function SignInForm({
           name="email"
           type="email"
           label="Registered email address"
-          hint="Use the email address your RWA has on record. We will send a six-digit code to it."
+          hint="Registered email address; a six-digit sign-in code is sent here."
           autoComplete="email"
           inputMode="email"
           autoCapitalize="none"
@@ -169,7 +169,7 @@ export function SignInForm({
           name="code"
           type="text"
           label="Six-digit code"
-          hint={`Sent to ${email}. You can paste the code.`}
+          hint={`Sent to ${email}; pasting is supported.`}
           inputMode="numeric"
           autoComplete="one-time-code"
           pattern="[0-9]*"

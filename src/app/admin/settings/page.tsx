@@ -3,10 +3,10 @@
 import { AppSupportAccessControl } from "@/components/admin/app-support-access";
 import { RwaProfileForm } from "@/components/admin/rwa-profile-form";
 import { ManagementFields } from "@/components/admin/management-fields";
-import { Notice } from "@/components/ui/notice";
 import { PageHeader } from "@/components/ui/layout";
 import { adminRwaSettingsPageContext } from "@/server/register/page-context";
 import { getAppSupportStatus } from "@/server/settings/app-support";
+import { ChevronDown } from "lucide-react";
 
 export const metadata = {
   title: "RWA Settings",
@@ -24,24 +24,53 @@ export default async function RwaSettingsPage() {
         title="RWA Settings"
         description="Personalize how your RWA appears in Civic Pulse. Administrators can edit; committee observers have read-only access. Fields marked * are required; leave any other field blank to hide it everywhere."
       />
-      <Notice tone="info" heading="Where Each Value Appears">
-        Alias: the “Civic Pulse for …” header on every page and the sign-in
-        page. Full name: vote pages, results, exports, the Votes page, footer
-        and sign-in and privacy pages. Address: footer, privacy page and PDF
-        results. Email, phone and website: signed-in footer (email and phone
-        also on PDF results). Blank optional values are not shown anywhere.
-        Changes apply everywhere immediately, including existing votes and
-        results. Household label: replaces the word “household” on every page,
-        in exports and in the menu. Identifier label: names each household’s
-        identifier, such as “Flat Number” or “Villa ID”. Default households and
-        RWA positions: suggestions for administrators only, when adding a
-        household or an office in a PRIVATE vote.
-      </Notice>
-      <Notice tone="info" heading="Wording Only">
-        Changing the household or identifier label changes display wording only.
-        It does not rename saved identifiers, change saved values, or alter
-        matching rules.
-      </Notice>
+      <details className="group rounded-control border border-accent/30 bg-accent/5">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-control px-4 py-3 text-body font-semibold text-primary hover:bg-accent/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
+          <span>Where Each Value Appears</span>
+          <ChevronDown
+            aria-hidden="true"
+            className="size-5 shrink-0 text-accent transition-transform group-open:rotate-180"
+          />
+        </summary>
+        <div className="grid gap-2 px-4 pb-4 text-body text-primary">
+          <p>
+            <span className="font-semibold">Alias:</span> the “Civic Pulse for
+            …” header on every page and the sign-in page.
+          </p>
+          <p>
+            <span className="font-semibold">Full name:</span> vote pages,
+            results, exports, the Votes page, footer, sign-in page and privacy
+            page.
+          </p>
+          <p>
+            <span className="font-semibold">Address:</span> footer, privacy page
+            and PDF results.
+          </p>
+          <p>
+            <span className="font-semibold">Email, phone and website:</span>{" "}
+            signed-in footer; email and phone also appear on PDF results.
+          </p>
+          <p>
+            Blank optional values are not shown anywhere. Changes apply
+            everywhere immediately, including existing votes and results.
+          </p>
+          <p>
+            <span className="font-semibold">Household label:</span> replaces the
+            word “household” on every page, in exports and in the menu.
+          </p>
+          <p>
+            <span className="font-semibold">Identifier label:</span> names each
+            household’s identifier, such as “Flat Number” or “Villa ID”.
+          </p>
+          <p>
+            <span className="font-semibold">
+              Default households and RWA positions:
+            </span>{" "}
+            suggestions for administrators only, when adding a household or an
+            office in a PRIVATE vote.
+          </p>
+        </div>
+      </details>
       <ManagementFields canManage={deps.actor.isAdmin}>
         <RwaProfileForm
           csrfToken={deps.csrfToken}
