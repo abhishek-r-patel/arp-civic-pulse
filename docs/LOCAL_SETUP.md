@@ -390,6 +390,21 @@ Download the database CA from the Supabase dashboard SSL settings, as explained
 in the [provider guidance](https://supabase.com/docs/guides/platform/ssl-enforcement),
 and set `PGSSLROOTCERT` to its PEM/CRT path in the test shell. The Windows system
 trust store alone may not include this CA; do not disable certificate checks.
+
+The local `.certs` folder at the repository root is excluded from Git and Vercel
+deployment uploads. Place the dashboard-provided database CA there as
+`supabase-db-ca.crt` (not a server certificate or private key). From the repository
+root, configure the current PowerShell session before database scripts/tests:
+
+```powershell
+$env:PGSSLROOTCERT = Join-Path (Get-Location).Path ".certs\supabase-db-ca.crt"
+```
+
+The folder is local-only and is not included in clones; recreate it with
+`New-Item -ItemType Directory -Force .certs` if needed. No certificate is supplied
+by the repository. This setting does not configure ordinary Supabase HTTPS calls;
+continue using Windows/Node system trust for those.
+
 For focused documentation capture, also set `DOC_SCREENSHOTS=1` and run
 `npx playwright test -c playwright.docs.config.ts --grep "bulk import and scheduled opening"`.
 Stop another dev server in the same checkout first. Use only a confirmed

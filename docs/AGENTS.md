@@ -73,6 +73,10 @@ Distinguish proposed, implemented, tested and approved behavior. Never fabricate
 ## 07 Verification and Commands
 Inspect the actual dependency manifest, lockfiles and tool configuration before running commands. Install/restore dependencies only when needed; do not upgrade unrelated packages. Use locked installs in CI.
 
+For this project on Windows, automatically set `$env:NODE_USE_SYSTEM_CA = "1"` in the same PowerShell invocation before running Node/npm/npx commands, including development, builds, tests and tooling. Do this without waiting for a certificate error or another user reminder; fresh shell invocations do not preserve the setting. Use the Windows-managed CA store alongside Node's bundled public roots; never disable TLS or hostname verification. Keep this scoped to project commands, not global user/machine settings or deployment configuration. Direct PostgreSQL connections may still need the approved Supabase database CA via `PGSSLROOTCERT`; system trust does not replace an explicitly configured database CA. See [local setup](./LOCAL_SETUP.md) for certificate troubleshooting.
+
+For direct hosted PostgreSQL commands/tests in this checkout, automatically set `$env:PGSSLROOTCERT = Join-Path (Get-Location).Path ".certs\supabase-db-ca.crt"` from the repository root in the same PowerShell invocation. The user supplies this local-only CA file; it is excluded from Git and Vercel uploads. If it is missing, expired or fails verification, report the issue rather than disabling verification or substituting an unverified certificate. Check any explicit URL `sslrootcert` setting, which takes precedence, and do not silently override an intentional target-specific CA. This does not authorize connections, migrations or tests against an unverified/non-disposable target.
+
 The repository's `package.json` defines the following scripts. Inspect it for the current commands and use the exact environment and dependency requirements documented in README and the setup/deployment guides:
 
 ```text
@@ -105,6 +109,7 @@ npx supabase migration new <name>
 ## 08 Authorization, Escalation and Handoff
 - Follow approved integrity requirements without asking about every routine implementation. Ask before changing their meaning, weakening a guarantee or choosing an unresolved governance rule.
 - Obtain authorization for destructive operations, production data changes, commits/pushes and history rewrites. Preserve existing user changes and never stage secrets, dumps or generated resident reports.
+- Before any user-requested commit or push, require successful `npm run format:check` (Prettier) and `npm run test` (the full default Vitest suite) on the final changes, including documentation-only changes. Focused tests or historical results do not satisfy this gate. If either check fails or cannot run, report the blocker and do not commit or push; do not bypass checks or silently reformat unrelated files. Rerun both checks after any subsequent file changes. A combined commit-and-push may reuse the same passing results if no files change between the checks, commit and push.
 - Do not change submission/counting semantics during active voting without an approved maintenance plan. Use reviewed, versioned migrations; do not rewrite applied migrations or run them on every app startup.
 - Never restore an old database merely to undo a deployment after votes have been accepted. Prefer schema-compatible application rollback or a reviewed forward fix.
 - Handoff states what changed, actual verification commands/outcomes, checks not run and unresolved risks/approval blockers. Documentation or partial migration must not be described as production-ready.

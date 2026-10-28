@@ -14,6 +14,9 @@ next-env.d.ts
 .env.*
 !.env.example
 
+# Local certificate authorities; never commit certificate-folder contents
+/.certs/
+
 # Supabase local stack state and temporary files
 supabase/.branches/
 supabase/.temp/

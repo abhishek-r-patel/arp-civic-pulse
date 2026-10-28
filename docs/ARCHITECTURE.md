@@ -72,6 +72,11 @@ Pin supported dependency versions in a lockfile and review licenses/advisories. 
 
 ## 04 Target Project Structure
 
+`.certs/` is an optional local-only folder for approved CA certificates, including
+`supabase-db-ca.crt` for direct PostgreSQL tooling. Its contents are excluded from
+Git and Vercel deployment uploads; it is not an application/public asset directory.
+See [local setup](./LOCAL_SETUP.md) for `PGSSLROOTCERT` configuration.
+
 `scripts/ops/configuration.ts` owns the operator-only configuration snapshot and
 versioned aggregate report, exposed by `npm run ops -- config-check`.
 `tests/unit/ops-configuration.test.ts` covers report decisions/redaction and

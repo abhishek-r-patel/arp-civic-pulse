@@ -1,5 +1,6 @@
 .git
 .vercel
+.certs
 .env
 .env.*
 !.env.example
