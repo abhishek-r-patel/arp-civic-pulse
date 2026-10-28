@@ -44,6 +44,43 @@ voting/export acceptance, load and recovery remain open. No application rebuild
 or production deployment was needed for these Supabase-only settings. See
 [local SMTP setup](./LOCAL_SETUP.md#8-make-sign-in-codes-arrive).
 
+### Staging promoted to the Production target: 28 October 2026
+
+The operator chose to treat this staging host as Vercel's **Production**
+environment so that `main`-branch builds carry application variables, superseding
+only the earlier "Preview only" / "Production has no app variables" notes above.
+The host remains protected staging; this is not production approval.
+
+- Database migrations were applied to the disposable staging Supabase project over
+  its IPv4 session pooler (`aws-0-ap-south-1.pooler.supabase.com:5432`,
+  `sslmode=require`) with `supabase db push --db-url`, because the management API
+  and the IPv6 direct host were unreachable on this network. Remote history was at
+  `20261111100000_resident_directory`; the two unapplied migrations
+  `20261112100000_app_support_access` and `20261113100000_readonly_household_optional`
+  were pushed and recorded. Verified afterwards: `set_app_support_access` exists and
+  the `HOUSEHOLD_REQUIRED` guard is present. TLS verification was not weakened and no
+  ad-hoc data writes were made; migrations ran before the new code deployed.
+- Nine variables were set on the **Production** scope: the four required app
+  credentials, `APP_ORIGIN` (the canonical git-main origin), `LOG_LEVEL=info`,
+  `MAINTENANCE_MODE=0`, `PDF_EXPORT_ENABLED=0`, and the new
+  `APP_SUPPORT_EMAIL` for App Support Access. The eight Preview variables are
+  unchanged. No database URL, password, management token or live-test email was
+  uploaded; privileged values were piped without being echoed.
+- The latest `main` production build, which had errored only with
+  `deploy:check` "is required in production" for the missing variables, was
+  redeployed. Deployment `dpl_6VB2hgPz11qwV6MFDJiJ7Z4H3zLv`
+  (`arp-civic-pulse-staging-k3go9kc8f-arp-e93d.vercel.app`) from commit
+  `5f2dd96128374a9f2fd33eddff6113a7d4b7b6c2` is Ready, and the canonical
+  `-git-main-` alias resolves to it.
+- Vercel Authentication still covers production: unauthenticated HTTPS requests to
+  both the canonical git-main origin and the deployment URL were redirected to
+  Vercel SSO (302). No public custom domain was added.
+- Still open: authenticated voting/export acceptance and the App Support Access
+  toggle remain unverified on this host; email/OTP, load and recovery are
+  unchanged; real production must be a separate Vercel project and a non-disposable
+  Supabase project. The [PILOT_READINESS.md](./PILOT_READINESS.md) gates stay open;
+  never admit real residents on this host.
+
 ## 2. Hosting configuration
 
 - Confirm Vercel plan eligibility, cost, region and runtime/memory/export limits. Do not assume Hobby permits the RWA's use.

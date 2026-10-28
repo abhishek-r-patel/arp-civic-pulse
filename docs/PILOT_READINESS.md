@@ -370,6 +370,18 @@ See the [SMTP verification record](./DEPLOYMENT.md#staging-otp-verification-28-o
 This is not approval of the personal Gmail sender for production, the unchanged
 one-hour OTP expiry, sending capacity, or any production release gate.
 
+**28 October Production-target switch:** the staging host now uses Vercel's
+Production environment so `main` builds carry application variables. The two
+pending migrations (`20261112100000_app_support_access`,
+`20261113100000_readonly_household_optional`) were applied to the disposable
+staging Supabase over its session pooler without weakening TLS, `APP_SUPPORT_EMAIL`
+and the other Production variables were set, and the `-git-main-` deployment is
+Ready behind Vercel SSO. See the
+[Production-target record](./DEPLOYMENT.md#staging-promoted-to-the-production-target-28-october-2026).
+This does **not** close gates 4 or 9: authenticated voting/export and App Support
+Access acceptance, load and recovery stay unverified, and real production still
+requires a separate Vercel project and non-disposable Supabase project.
+
 | #   | Gate                                                                                                                                                                                  | State |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
 | 1   | Real approvals **A1–A7**, provider and region, recorded by the real approving authority (today they exist only as **fixtures on the disposable project**)                               | ⬜     |
