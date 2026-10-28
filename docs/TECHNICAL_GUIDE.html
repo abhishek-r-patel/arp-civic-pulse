@@ -277,6 +277,16 @@
             >
             <ol>
               <li>
+                <a href="#inspect-configuration-without-an-app-login"
+                  >Inspect configuration without an app login</a
+                >
+              </li>
+              <li>
+                <a href="#app-support-access-rwa-controlled-read-only-help"
+                  >App Support Access (RWA-controlled read-only help)</a
+                >
+              </li>
+              <li>
                 <a href="#rebuild-these-illustrated-documents"
                   >Rebuild these illustrated documents</a
                 >
@@ -1017,6 +1027,32 @@
               </td>
             </tr>
             <tr>
+              <td>
+                <a href="../scripts/ops/configuration.ts"
+                  >scripts/ops/configuration.ts</a
+                >
+              </td>
+              <td>
+                Local operator-only, read-only RWA configuration and aggregate
+                account/vote report. No public login bypass or resident/choice
+                output.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="../tests/unit/ops-configuration.test.ts"
+                  >tests/unit/ops-configuration.test.ts</a
+                >,
+                <a href="../tests/integration/ops-configuration.test.ts"
+                  >tests/integration/ops-configuration.test.ts</a
+                >
+              </td>
+              <td>
+                Report decisions, credential-safe errors, real PostgreSQL
+                privacy/permissions/rollback and actual CLI exit behavior.
+              </td>
+            </tr>
+            <tr>
               <td><a href="../tests">tests</a></td>
               <td>
                 Unit, integration, live-service, browser and capacity suites.
@@ -1382,9 +1418,11 @@
       </div>
       <p>
         The role flags are exclusive, only an administrator changes roles, and a
-        readonly observer must have an assigned household before enablement.
-        Neither management role grants another household&#39;s ballot
-        entitlement.
+        household is optional for both management roles — an enabled
+        <code>rwa-admin</code> or <code>rwa-readonly</code> without one reads
+        its authorized scope but has no ballot, while an ordinary resident needs
+        a household before enablement. Neither management role grants another
+        household&#39;s ballot entitlement.
       </p>
       <p>
         Suspended/deleted/unprovisioned identities do not gain access merely by
@@ -2132,6 +2170,13 @@
               </td>
             </tr>
             <tr>
+              <td>Optional developer/support contact for App Support Access</td>
+              <td>
+                Server-only <code>APP_SUPPORT_EMAIL</code>; grants nothing until
+                an RWA Admin turns access on.
+              </td>
+            </tr>
+            <tr>
               <td>Optional public analytics and Google verification</td>
               <td>
                 <code>GOOGLE_ANALYTICS_ID</code>,
@@ -2289,6 +2334,59 @@
         instead of treating earlier counts as a current certification. Future
         changes must follow the documentation-sync checklist in
         <a href="../AGENTS.md#keep-documentation-in-sync">root instructions</a>.
+      </p>
+      <h3 id="inspect-configuration-without-an-app-login">
+        Inspect configuration without an app login
+      </h3>
+      <p>
+        Run <code>npm run ops -- config-check</code> on an approved operator
+        workstation with <code>CONFIG_DATABASE_URL</code> supplied through the
+        secret store or ignored local environment. This needs unfiltered
+        database-owner/operator reads and existing helper/status execution
+        permissions, not an RWA Admin JWT. The Node command uses
+        <code>--conditions=react-server</code> to reuse the existing server
+        environment validator. It performs only a bounded
+        repeatable-read/read-only transaction and rolls back; it never invokes
+        lifecycle reconciliation or creates a web entry.
+      </p>
+      <p>
+        The JSON report summarizes RWA display settings, optional contact
+        presence, list counts, retention/approval completeness, aggregate
+        accounts/register readiness, vote/draft blocker counts and count-only
+        operational health. It omits resident details, identifier lists, vote
+        IDs/titles, choices and credentials. Blank optional contacts and
+        unfinished drafts do not automatically fail setup. Exit
+        <code>0</code> means no automated failure, not production readiness;
+        warnings and external approval/delivery/hosting/Cron/backup/recovery
+        gates still need review. The injected environment may differ from the
+        actual deployment, and account counts do not establish active usage. See
+        the
+        <a href="./OPERATIONS.md#read-only-rwa-configuration-inspection"
+          >complete operator procedure</a
+        >. No app roles, RLS/grants, provider settings, screenshots or end-user
+        workflows change.
+      </p>
+      <h3 id="app-support-access-rwa-controlled-read-only-help">
+        App Support Access (RWA-controlled read-only help)
+      </h3>
+      <p>
+        For live in-app help, an enabled RWA Admin can turn
+        <strong>App Support Access</strong> on or off from RWA Settings. Setting
+        the server-only <code>APP_SUPPORT_EMAIL</code> only makes the toggle
+        available; it grants nothing by itself. When on, the guarded
+        <code>set_app_support_access</code> routine creates (or re-enables) a
+        single household-free, read-only <code>rwa-readonly</code> profile
+        (<code>profiles.is_app_support</code>) for that address, so the
+        developer signs in through the normal email OTP flow and sees the
+        committee read scope but has no electorate row and cannot vote. A check
+        constraint keeps the profile read-only, triggers block ordinary edits
+        (<code>APP_SUPPORT_MANAGED</code>) and any household assignment
+        (<code>APP_SUPPORT_ACCOUNT</code>), and both toggles are audited
+        (<code>APP_SUPPORT_ACCESS_ENABLED</code>/<code>APP_SUPPORT_ACCESS_DISABLED</code>).
+        The service layer (<code>src/server/settings/app-support.ts</code>)
+        orders Auth and database steps fail-safe (unban before enable, suspend
+        before ban). This is consented, revocable support access, never a hidden
+        login or standing default administrator.
       </p>
       <h3 id="rebuild-these-illustrated-documents">
         Rebuild these illustrated documents

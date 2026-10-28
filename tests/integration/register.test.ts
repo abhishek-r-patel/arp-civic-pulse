@@ -535,6 +535,10 @@ describe.skipIf(!hasDatabase)("register administration routines", () => {
               "insert into public.profiles (id, representative_name, status, is_admin) values ($1, $2, 'ENABLED', true)",
               [id, name],
             );
+            await c.query(
+              "insert into public.households (identifier, identifier_normalized, representative_profile_id, is_eligible) values ($1, app_private.normalize_key($1), $2, false)",
+              [`H-${name.replace(/\s+/g, "")}`, id],
+            );
           }
         });
         const demote = (actor: string, target: string) =>

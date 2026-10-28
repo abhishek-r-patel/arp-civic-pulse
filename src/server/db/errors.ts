@@ -35,6 +35,12 @@ const SAFE_REASONS = new Set([
   "UNKNOWN_HOUSEHOLD",
   "LAST_ADMIN",
   "DELETED_PROFILE",
+  // Enabling (or demoting to) a resident without an assigned household.
+  "HOUSEHOLD_REQUIRED",
+  // App Support Access: the support account is managed only by its toggle.
+  "APP_SUPPORT_MANAGED",
+  "APP_SUPPORT_ACCOUNT",
+  "APP_SUPPORT_EMAIL_IN_USE",
   // Lifecycle: the vote's current state or why an action did not apply.
   "DEADLINE_PASSED",
   "DRAFT",

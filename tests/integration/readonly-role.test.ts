@@ -100,7 +100,7 @@ describe.skipIf(!hasDatabase)("readonly committee role", () => {
       ).message,
     ).toBe("FORBIDDEN");
   });
-  it("requires household assignment before enabling a readonly account", async () => {
+  it("enables a readonly observer without a household, who reads but has no ballot; becoming a resident needs one", async () => {
     const id = await db.asSuperuser((client) =>
       newAuthUser(client, "observer@example.test"),
     );
@@ -110,22 +110,44 @@ describe.skipIf(!hasDatabase)("readonly committee role", () => {
         [id],
       ),
     );
-    const enable = () =>
-      db.asRole(
-        "service_role",
-        { role: "service_role" },
-        (client) => client.query("select public.enable_profile($1,null)", [id]),
-        { commit: true },
-      );
-    expect((await dbError(enable())).message).toBe("PROVISIONING_INCOMPLETE");
+    const enable = await db.asRole(
+      "service_role",
+      { role: "service_role" },
+      (client) => client.query("select public.enable_profile($1,null)", [id]),
+      { commit: true },
+    );
+    expect(enable.rows[0]).toMatchObject({
+      enable_profile: { status: "ENABLED" },
+    });
+    expect(
+      (await as(id, "select * from public.households")).rowCount,
+    ).toBeGreaterThan(0);
+    // Ballots come only from a household's electorate row; an observer with no
+    // household can therefore never be included in a vote.
+    expect(
+      (
+        await db.asOwner((client) =>
+          client.query(
+            "select 1 from public.households where representative_profile_id = $1",
+            [id],
+          ),
+        )
+      ).rowCount,
+    ).toBe(0);
+
+    const demotion = await dbError(change(id, { isReadonly: false }));
+    expect(demotion).toMatchObject({
+      message: "PROVISIONING_INCOMPLETE",
+      detail: "HOUSEHOLD_REQUIRED",
+    });
     await db.asOwner((client) =>
       client.query(
         "insert into public.households(identifier,identifier_normalized,representative_profile_id,is_eligible) values('R-901',app_private.normalize_key('R-901'),$1,false)",
         [id],
       ),
     );
-    expect((await enable()).rows[0]).toMatchObject({
-      enable_profile: { status: "ENABLED" },
+    expect((await change(id, { isReadonly: false })).rows[0]).toMatchObject({
+      result: { isReadonly: false, status: "ENABLED" },
     });
   });
   it("rejects dual roles and protects the final enabled admin", async () => {
@@ -137,11 +159,20 @@ describe.skipIf(!hasDatabase)("readonly committee role", () => {
       (await dbError(change(world.admin.id, { isAdmin: false }))).message,
     ).toBe("LIFECYCLE_CONFLICT");
   });
-  it("requires a household when an enabled administrator switches to readonly", async () => {
+  it("lets an enabled administrator without a household switch to readonly, but not to resident", async () => {
     await change(world.bob.id, { isAdmin: true });
     expect(
-      (await dbError(change(world.admin.id, { isReadonly: true }))).message,
-    ).toBe("PROVISIONING_INCOMPLETE");
+      await dbError(
+        change(world.admin.id, { isAdmin: false, isReadonly: false }),
+      ),
+    ).toMatchObject({
+      message: "PROVISIONING_INCOMPLETE",
+      detail: "HOUSEHOLD_REQUIRED",
+    });
+    expect(
+      (await change(world.admin.id, { isReadonly: true })).rows[0],
+    ).toMatchObject({ result: { isReadonly: true, isAdmin: false } });
+    await change(world.admin.id, { isAdmin: true }, world.bob.id);
     await change(world.bob.id, { isAdmin: false });
   });
   it("preserves own PUBLIC and PRIVATE voting, result privacy and admin-equivalent completed result reads", async () => {

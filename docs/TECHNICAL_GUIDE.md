@@ -150,6 +150,8 @@ browser font requests never contact Google.
 | [next.config.ts](../next.config.ts)                 | Security/cache headers, PDF dependencies and bundled-font tracing.                                                      |
 | [supabase/migrations](../supabase/migrations)       | Ordered, immutable schema/guard/RLS/function migrations.                                                                |
 | [scripts/ops](../scripts/ops)                       | Encrypted backup/restore, status, recovery-record and cleanup commands.                                                 |
+| [scripts/ops/configuration.ts](../scripts/ops/configuration.ts) | Local operator-only, read-only RWA configuration and aggregate account/vote report. No public login bypass or resident/choice output. |
+| [tests/unit/ops-configuration.test.ts](../tests/unit/ops-configuration.test.ts), [tests/integration/ops-configuration.test.ts](../tests/integration/ops-configuration.test.ts) | Report decisions, credential-safe errors, real PostgreSQL privacy/permissions/rollback and actual CLI exit behavior. |
 | [tests](../tests)                                   | Unit, integration, live-service, browser and capacity suites.                                                           |
 | [.github](../.github)                               | Validation, CodeQL and Dependabot configuration.                                                                        |
 | [USER_GUIDE.md](./USER_GUIDE.md) | Active Resident (`voter`), RWA Admin (`rwa-admin`) and RWA ReadOnly (`rwa-readonly`) procedures; current captures are grouped by lowercase role code. |
@@ -243,8 +245,10 @@ CSRF context is a separate HttpOnly cookie; production uses a host-only Secure c
 | Individual PRIVATE selections  | No         | No                          | No                     | No                  |
 
 The role flags are exclusive, only an administrator changes roles, and a
-readonly observer must have an assigned household before enablement. Neither
-management role grants another household's ballot entitlement.
+household is optional for both management roles — an enabled `rwa-admin` or
+`rwa-readonly` without one reads its authorized scope but has no ballot, while an
+ordinary resident needs a household before enablement. Neither management role
+grants another household's ballot entitlement.
 
 Suspended/deleted/unprovisioned identities do not gain access merely by holding a valid token. Management pages use a plain not-found for accounts without administrative read capability; mutation APIs require the current RWA Admin role. Inaccessible vote IDs are indistinguishable from nonexistent ones.
 
@@ -469,6 +473,7 @@ Read [environment validation](../src/server/config/environment.ts), [.env.exampl
 | Canonical origin, public Supabase URL/key, server Auth credential, HMAC key | Hosting environment/secret manager; isolated per environment. |
 | SMTP credentials, code template/expiry/limits, Auth URLs                    | Supabase/provider configuration.                              |
 | Contact-only Resend key, sender and recipient | Server-only hosting settings: `RESEND_API_KEY`, `CONTACT_EMAIL_FROM`, `CONTACT_EMAIL_TO`; all required together when enabled. |
+| Optional developer/support contact for App Support Access | Server-only `APP_SUPPORT_EMAIL`; grants nothing until an RWA Admin turns access on. |
 | Optional public analytics and Google verification | `GOOGLE_ANALYTICS_ID`, `GOOGLE_SITE_VERIFICATION`; public identifiers configured at build/runtime. GA4 requires consent and disabled Enhanced Measurement. |
 | RWA timezone, policy approvals, retention                                   | Controlled database settings/procedures.                      |
 | Migration credentials                                                       | Deployment runner only, not ordinary app runtime.             |
@@ -509,6 +514,44 @@ not rerun. Provider traffic was synthetic/intercepted, not real delivery or Goog
 verification. See the [dated audit](./LAUNCH_AUDIT.md#public-site-checklist-26-october-2026)
 instead of treating earlier counts as a current certification. Future changes
 must follow the documentation-sync checklist in [root instructions](../AGENTS.md#keep-documentation-in-sync).
+
+### Inspect configuration without an app login
+
+Run `npm run ops -- config-check` on an approved operator workstation with
+`CONFIG_DATABASE_URL` supplied through the secret store or ignored local
+environment. This needs unfiltered database-owner/operator reads and existing
+helper/status execution permissions, not an RWA Admin JWT. The Node command uses
+`--conditions=react-server` to reuse the existing server environment validator.
+It performs only a bounded repeatable-read/read-only transaction and rolls back;
+it never invokes lifecycle reconciliation or creates a web entry.
+
+The JSON report summarizes RWA display settings, optional contact presence,
+list counts, retention/approval completeness, aggregate accounts/register
+readiness, vote/draft blocker counts and count-only operational health. It omits
+resident details, identifier lists, vote IDs/titles, choices and credentials.
+Blank optional contacts and unfinished drafts do not automatically fail setup.
+Exit `0` means no automated failure, not production readiness; warnings and
+external approval/delivery/hosting/Cron/backup/recovery gates still need review.
+The injected environment may differ from the actual deployment, and account
+counts do not establish active usage. See the [complete operator procedure](./OPERATIONS.md#read-only-rwa-configuration-inspection).
+No app roles, RLS/grants, provider settings, screenshots or end-user workflows
+change.
+
+### App Support Access (RWA-controlled read-only help)
+
+For live in-app help, an enabled RWA Admin can turn **App Support Access** on or
+off from RWA Settings. Setting the server-only `APP_SUPPORT_EMAIL` only makes the
+toggle available; it grants nothing by itself. When on, the guarded
+`set_app_support_access` routine creates (or re-enables) a single household-free,
+read-only `rwa-readonly` profile (`profiles.is_app_support`) for that address, so
+the developer signs in through the normal email OTP flow and sees the committee
+read scope but has no electorate row and cannot vote. A check constraint keeps the
+profile read-only, triggers block ordinary edits (`APP_SUPPORT_MANAGED`) and any
+household assignment (`APP_SUPPORT_ACCOUNT`), and both toggles are audited
+(`APP_SUPPORT_ACCESS_ENABLED`/`APP_SUPPORT_ACCESS_DISABLED`). The service layer
+(`src/server/settings/app-support.ts`) orders Auth and database steps fail-safe
+(unban before enable, suspend before ban). This is consented, revocable support
+access, never a hidden login or standing default administrator.
 
 ### Rebuild these illustrated documents
 

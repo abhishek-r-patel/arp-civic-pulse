@@ -76,9 +76,10 @@ the owning contracts and readiness for remaining external gates.
 
 The subsequent committee-role addition makes `rwa-readonly` exclusive with
 `rwa-admin`: observers share authorized management reads/downloads, but only
-admins assign roles or mutate management data. The observer must be assigned to
-a household before enablement; either role's ballot access still comes only from
-its own frozen household entitlement. Migration `20261108100000` is a reviewed
+admins assign roles or mutate management data. A household is optional for the
+observer, matching the administrator: without one it reads its authorized scope
+but has no ballot; either role's ballot access still comes only from its own
+frozen household entitlement. Migration `20261108100000` is a reviewed
 deployment input, not a production-readiness claim.
 
 Resident self-registration, requested for larger RWAs, adds a public `/register`
@@ -96,6 +97,17 @@ renames the household record and keeps eligibility); the separate Add Household
 page was removed and Households edit changes eligibility only. Configured Default
 Households restrict administrator choices to listed, unassigned identifiers.
 Migration `20261110100000` is a reviewed deployment input.
+
+App Support Access, requested so the developer can review configuration and usage
+from inside the app during onboarding, replaces any hidden login or standing
+default administrator with a consented, RWA-controlled toggle in RWA Settings.
+The server-only `APP_SUPPORT_EMAIL` only enables the toggle; turning access on
+creates a single household-free, read-only `rwa-readonly` support profile
+(`profiles.is_app_support`) that signs in through the normal email OTP flow and
+cannot vote, and an RWA Admin can turn it off at any time. Both toggles are
+audited and the support profile is managed only from this control. Migration
+`20261112100000` is a reviewed deployment input, not a production-readiness claim;
+end-to-end verification against a live Supabase project remains outstanding.
 
 - One single-RWA, mobile-first Next.js App Router application using TypeScript, React, Tailwind CSS, Lucide React, Zod, Supabase Auth/PostgreSQL/RLS/guarded SQL functions/Cron, Vitest, Playwright, and axe.
 - Normal server database calls carry the verified user's Supabase session. Separate privileged Auth administration from ordinary ballots, results, and exports.
@@ -454,7 +466,7 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 2. Expire audit/rate-bucket records independently without resetting live abuse windows. Remove inactive profiles only when retention/references permit; coordinate later Auth removal through supported administration with explicit partial-failure recovery.
 3. Configure automated encrypted off-site backup scheduling/storage and expiry with isolated credentials and approved recovery objectives. On Free, validate external scheduled exports: database Cron and PDFs are not backups.
 4. Back up required application data/schema, Auth identities, RLS/grants/functions, settings, migration history, and necessary external Auth/SMTP/Cron configuration through a supported tested process. Verify actual dump coverage and manage secret/key recovery separately.
-5. Add safe availability/capacity/submission/invariant/Cron/email/export monitoring and the minimal health route. Health checks must not expose details or serve as a free-tier keep-alive workaround.
+5. Add safe availability/capacity/submission/invariant/Cron/email/export monitoring and the minimal health route. Health checks must not expose details or serve as a free-tier keep-alive workaround. The implemented local `npm run ops -- config-check` provides operator-authenticated, read-only RWA setup and aggregate account/vote inspection with no public endpoint or app-login bypass; it does not establish hosted configuration, delivery, approval authenticity or recovery readiness.
 6. Rehearse isolated maintenance-only restore: validate Auth/profile mapping, policies/grants/invariants, accepted-data completeness, later suspension/deletion/revocation replay, supported Auth recovery, live-token restrictions, and elapsed deadlines.
 7. Document incident responsibility and cancellation/replacement procedures. If acknowledged-data completeness is uncertain, remain in maintenance mode; never silently discard votes, extend deadlines, or reopen terminal votes.
 

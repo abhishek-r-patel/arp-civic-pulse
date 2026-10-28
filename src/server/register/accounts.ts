@@ -42,7 +42,7 @@ import { uuid } from "@/shared/validation/primitives";
  * the Auth side is verified consistent. A failure leaves the profile blocked.
  */
 const PROFILE_COLUMNS =
-  "id, representative_name, status, is_admin, is_readonly, self_registered, updated_at";
+  "id, representative_name, status, is_admin, is_readonly, self_registered, is_app_support, updated_at";
 const ENDPOINT = "/api/admin/accounts";
 const BAN_DURATION = "876000h";
 const UNBAN_DURATION = "none";
@@ -54,6 +54,7 @@ interface ProfileRow {
   is_admin: boolean;
   is_readonly?: boolean;
   self_registered?: boolean;
+  is_app_support?: boolean;
   updated_at: string;
 }
 
@@ -71,6 +72,7 @@ export function toAccountProjection(
     isAdmin: row.is_admin,
     ...(row.is_readonly ? { isReadonly: true } : {}),
     ...(row.self_registered ? { selfRegistered: true } : {}),
+    ...(row.is_app_support ? { isAppSupport: true } : {}),
     emailVerifiedAt: identity.emailVerifiedAt,
     updatedAt: new Date(row.updated_at).toISOString(),
   };
@@ -223,6 +225,8 @@ export async function listAssignableAccounts(
       .from("profiles")
       .select("id, representative_name, status")
       .neq("status", "DELETED")
+      // The App Support account can never represent a household.
+      .eq("is_app_support", false)
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .limit(2000)
@@ -378,7 +382,7 @@ async function createWithHousehold(
   throw new ApiError("DEPENDENCY_UNAVAILABLE");
 }
 
-async function setAuthBan(
+export async function setAuthBan(
   deps: RegisterDeps,
   id: string,
   banned: boolean,
@@ -451,6 +455,12 @@ export async function updateAccount(
   await assertCurrentAdmin(deps);
 
   const current = await getAccount(deps, id);
+  // Checked before any Auth stage: an email change must not reach this identity.
+  if (current.isAppSupport) {
+    throw new ApiError("LIFECYCLE_CONFLICT", {
+      context: { reason: "APP_SUPPORT_MANAGED" },
+    });
+  }
   if (current.status === "DELETED") {
     // A repeated deletion may still need its Auth stage; it never restores or edits the profile.
     if (

@@ -45,11 +45,17 @@ export const createAccountSchema = z
     message: "Choose either rwa-admin or rwa-readonly, never both.",
     path: ["isReadonly"],
   })
-  .refine((value) => !value.enable || value.isAdmin || value.household, {
-    message:
-      "Residents and RWA ReadOnly accounts need a household before they can be enabled.",
-    path: ["enable"],
-  });
+  .refine(
+    (value) =>
+      !value.enable ||
+      value.isAdmin ||
+      value.isReadonly === true ||
+      value.household,
+    {
+      message: "Residents need a household before they can be enabled.",
+      path: ["enable"],
+    },
+  );
 
 // Assigns a household to an account, or moves the account's household to a new identifier.
 export const accountHouseholdSchema = z.strictObject({
@@ -131,6 +137,8 @@ export interface AccountProjection {
   isReadonly?: boolean;
   /** Omitted when false; the resident created this account through /register. */
   selfRegistered?: boolean;
+  /** Omitted when false; the RWA-controlled App Support observer (always rwa-readonly). */
+  isAppSupport?: boolean;
   emailVerifiedAt: string | null;
   updatedAt: string;
 }
@@ -166,11 +174,13 @@ export function canReviewAccount(
   account: ReviewAccountProjection,
   action: AccountReviewAction,
 ): boolean {
-  if (account.status === "DELETED") return false;
+  if (account.status === "DELETED" || account.isAppSupport) return false;
   return action === "enable"
     ? account.status === "SUSPENDED" &&
         account.email !== null &&
-        (account.isAdmin || account.household !== null)
+        (account.isAdmin ||
+          account.isReadonly === true ||
+          account.household !== null)
     : account.household !== null && !account.household.isEligible;
 }
 

@@ -9,7 +9,9 @@ import {
 } from "@/components/admin/account-forms";
 import { ManagementFields } from "@/components/admin/management-fields";
 import { flashNotices, firstValues } from "@/components/admin/format";
+import { AccountStatusBadge, RoleBadge } from "@/components/ui/badges";
 import { PageHeader } from "@/components/ui/layout";
+import { Notice } from "@/components/ui/notice";
 import { ApiError } from "@/server/http/errors";
 import { getAccount } from "@/server/register/accounts";
 import { getAccountHousehold } from "@/server/register/households";
@@ -63,23 +65,46 @@ export default async function AccountPage({
         title={account.representativeName}
         description={`Change this person's details, role, ${deps.terms.household} or access.`}
       />
-      <ManagementFields canManage={deps.actor.isAdmin}>
-        <div className="grid gap-10">
-          <AccountEditor
-            key={account.id}
-            csrfToken={deps.csrfToken}
-            account={account}
-            flash={raw.notice ? notices[raw.notice] : undefined}
-          />
-          <AccountHouseholdSection
-            csrfToken={deps.csrfToken}
-            accountId={account.id}
-            household={household}
-            choices={choices}
-            disabled={account.status === "DELETED"}
-          />
+      {account.isAppSupport ? (
+        <div className="grid max-w-ballot gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <AccountStatusBadge status={account.status} />
+            <RoleBadge isAdmin={false} isReadonly isAppSupport />
+          </div>
+          <p className="text-body break-all">
+            {account.email ?? "Email unavailable"}
+          </p>
+          <Notice tone="info" heading="Managed From RWA Settings">
+            This is the App Support account. It is always read-only, has no{" "}
+            {deps.terms.household} and cannot vote. Turn it on or off from{" "}
+            <Link
+              href="/admin/settings#app-support"
+              className="font-semibold underline underline-offset-2"
+            >
+              RWA Settings, App Support Access
+            </Link>
+            .
+          </Notice>
         </div>
-      </ManagementFields>
+      ) : (
+        <ManagementFields canManage={deps.actor.isAdmin}>
+          <div className="grid gap-10">
+            <AccountEditor
+              key={account.id}
+              csrfToken={deps.csrfToken}
+              account={account}
+              flash={raw.notice ? notices[raw.notice] : undefined}
+            />
+            <AccountHouseholdSection
+              csrfToken={deps.csrfToken}
+              accountId={account.id}
+              household={household}
+              choices={choices}
+              disabled={account.status === "DELETED"}
+            />
+          </div>
+        </ManagementFields>
+      )}
     </div>
   );
 }

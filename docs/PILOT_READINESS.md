@@ -10,8 +10,11 @@ Legend: ✅ proven here by an automated check you can re-run · 🟡 partly prov
 
 The new `rwa-readonly` role is mutually exclusive with `rwa-admin`; it receives
 the authorized administrative read scope while database mutations and role
-assignment remain admin-only. Enablement requires a household assignment, and
-the account's own frozen household voting entitlement remains independent.
+assignment remain admin-only. A household is optional for both management roles
+(migration `20261113100000`): an enabled observer or administrator without one
+reads its authorized scope but has no ballot, and only an ordinary resident
+needs a household before enablement. The account's own frozen household voting
+entitlement remains independent.
 Seven focused PostgreSQL integration tests exercise register/read scope, denied
 mutations, atomic role switching, final-admin protection, role revocation,
 household-required enablement and own PUBLIC/PRIVATE voting/privacy. The opt-in
@@ -48,6 +51,21 @@ optional immediate enablement; account pages assign or move a household; the
 separate Add Household page is gone and Households edit changes eligibility
 only. Configured Default Households limit administrator choices to listed,
 unassigned identifiers.
+
+### App Support Access (RWA-controlled developer help)
+
+In place of a hidden login or standing default administrator, an enabled RWA
+Admin can turn App Support Access on or off from RWA Settings. The server-only
+`APP_SUPPORT_EMAIL` only enables the toggle; turning it on creates a single
+household-free, read-only `rwa-readonly` support profile (`profiles.is_app_support`,
+guarded by a check constraint and triggers) that signs in through the normal
+email OTP flow and cannot vote, and the RWA Admin can revoke it at any time. Both
+toggles are audited (`APP_SUPPORT_ACCESS_ENABLED`/`APP_SUPPORT_ACCESS_DISABLED`),
+`config-check` surfaces an active grant as a non-failing `APP_SUPPORT_ACCESS`
+warning, and the support profile is managed only from this control. Local unit and
+disposable-PostgreSQL integration tests pass; migration `20261112100000` is a
+reviewed deployment input, and end-to-end verification against a live Supabase
+project (including real OTP sign-in by the support identity) is still outstanding.
 
 ### 27 October 2026 verification of both changes
 
@@ -321,6 +339,14 @@ What this does **not** show: behaviour on the real hosting plan, from phones on 
 
 These gates require external evidence or approval; some also require unresolved code changes. Record the evidence (date, who, result) next to each. A documentation update does not close a gate.
 
+The local operator `npm run ops -- config-check` report can inspect RWA setup,
+approval/retention completeness and aggregate account/vote health without an
+app login. It requires separately protected database access and makes no
+changes. A passing report is not production evidence: its environment checks
+apply only to injected runner values, approval presence is not authenticity,
+and provider/SMTP/ingress/Cron/backup/recovery gates remain open. See
+[Operations](./OPERATIONS.md#read-only-rwa-configuration-inspection).
+
 **Security release blocker:** production ingress is undecided and trusted-client-IP rate limiting is not implemented. The email-only budgets can be bypassed by rotating addresses. Do not release until the selected proxy's client-IP guarantees, direct-origin restrictions, limiter implementation and spoofing/burst tests are complete. Merely setting `TRUSTED_PROXY_CONFIG` does not enable this control.
 
 Operational remote database connections now require verified TLS, and backup manifests are validated before use. The real provider CA/hostname and off-site backup/restore path still need deployment evidence; local integration tests do not establish that evidence.
@@ -330,12 +356,19 @@ deployment packaging fix (`8ac9d1c`) is Ready on Vercel Preview using the
 operator-confirmed disposable Supabase project. See the
 [staging deployment record](./DEPLOYMENT.md#protected-staging-27-october-2026).
 Hosted health, maintenance, signed-out access boundaries and wrong-Origin
-rejection passed; email/OTP, authenticated voting/export acceptance, full
+rejection passed; authenticated voting/export acceptance, full
 migration history, hosted capacity and recovery remain unverified. Read-only SQL
 verification failed certificate-chain validation without disabling TLS; no
 migrations or database writes were performed. Local uncommitted features were
 not deployed. This partial staging evidence does **not** close gates 4 or 9,
 approve production, or supersede any unresolved credential-hygiene gate.
+
+**28 October staging email evidence:** Brevo-backed six-digit OTP inbox receipt
+and successful sign-in were confirmed by the operator after explicitly
+authorizing a staging administrator. The browser showed RWA Admin navigation.
+See the [SMTP verification record](./DEPLOYMENT.md#staging-otp-verification-28-october-2026).
+This is not approval of the personal Gmail sender for production, the unchanged
+one-hour OTP expiry, sending capacity, or any production release gate.
 
 | #   | Gate                                                                                                                                                                                  | State |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |

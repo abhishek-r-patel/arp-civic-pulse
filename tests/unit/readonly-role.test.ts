@@ -33,7 +33,7 @@ describe("rwa-readonly contract", () => {
     expect(canViewAdministration({ isAdmin: true })).toBe(true);
     expect(canViewAdministration({ isAdmin: false })).toBe(false);
   });
-  it("requires a household before enabling readonly but does not make the household eligible", () => {
+  it("enables readonly like an administrator, with or without a household, while residents still need one", () => {
     const account: ReviewAccountProjection = {
       id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       email: "committee@example.test",
@@ -45,7 +45,11 @@ describe("rwa-readonly contract", () => {
       updatedAt: "2030-01-01T00:00:00Z",
       household: null,
     };
-    expect(canReviewAccount(account, "enable")).toBe(false);
+    expect(canReviewAccount(account, "enable")).toBe(true);
+    expect(canReviewAccount(account, "eligible")).toBe(false);
+    expect(canReviewAccount({ ...account, isReadonly: false }, "enable")).toBe(
+      false,
+    );
     expect(
       canReviewAccount(
         {
@@ -55,5 +59,15 @@ describe("rwa-readonly contract", () => {
         "enable",
       ),
     ).toBe(true);
+
+    const create = {
+      email: "committee@example.test",
+      representativeName: "Example",
+      enable: true,
+    };
+    expect(
+      createAccountSchema.safeParse({ ...create, isReadonly: true }).success,
+    ).toBe(true);
+    expect(createAccountSchema.safeParse(create).success).toBe(false);
   });
 });

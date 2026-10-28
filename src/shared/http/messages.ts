@@ -16,6 +16,16 @@ const CONFLICT_REASONS: Record<string, string> = {
     "At least one enabled administrator must remain. Make someone else an administrator first.",
   DELETED_PROFILE:
     "This account has been deleted and can no longer be changed.",
+  HOUSEHOLD_REQUIRED:
+    "Residents need an assigned household. Assign one first, or keep the RWA Admin or RWA ReadOnly role.",
+  APP_SUPPORT_MANAGED:
+    "This is the App Support account. Turn it on or off from RWA Settings, under App Support Access.",
+  APP_SUPPORT_ACCOUNT:
+    "The App Support account cannot represent a household or vote. Choose a different account.",
+  APP_SUPPORT_EMAIL_IN_USE:
+    "The configured app support email already belongs to an RWA account, so App Support Access cannot use it. Ask the app developer to use a different support email.",
+  APP_SUPPORT_NOT_CONFIGURED:
+    "App Support Access is not configured for this deployment.",
   DEADLINE_PASSED:
     "The deadline had already passed, so the vote was completed at its deadline and your action was not applied.",
   DRAFT: "This vote has not been activated yet.",

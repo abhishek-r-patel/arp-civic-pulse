@@ -15,7 +15,7 @@ import { generateKeyHex, parseKey } from "./crypto.ts";
 
 /*
  * Operations commands (docs/OPERATIONS.md). Run from the project root:
- *   node --env-file-if-exists=.env.local scripts/ops/cli.ts <command> [options]
+ *   npm run ops -- <command> [options]
  * Nothing here prints secrets, ballots or personal data. Exit status is
  * non-zero whenever a check fails, so a scheduler or monitor can alert on it.
  */
@@ -38,6 +38,27 @@ async function main(): Promise<number> {
   const command = process.argv[2];
 
   switch (command) {
+    case "config-check": {
+      const { inspectConfiguration } = await import("./configuration.ts");
+      try {
+        const report = await inspectConfiguration(process.env);
+        console.log(JSON.stringify(report, null, 2));
+        return report.ok ? 0 : 1;
+      } catch (error) {
+        console.error(
+          JSON.stringify({
+            ok: false,
+            status: "unavailable",
+            error:
+              error instanceof Error
+                ? error.message
+                : "Configuration inspection failed.",
+          }),
+        );
+        return 1;
+      }
+    }
+
     case "generate-key": {
       // Print once; store it in the approved secret manager, never beside the backups.
       console.log(generateKeyHex());
@@ -239,7 +260,7 @@ async function main(): Promise<number> {
 
     default:
       console.error(
-        "Commands: generate-key | backup | verify --manifest | restore --manifest | prune | recovery-record --since --out | status | auth-orphans [--apply] | counts --manifest",
+        "Commands: config-check | generate-key | backup | verify --manifest | restore --manifest | prune | recovery-record --since --out | status | auth-orphans [--apply] | counts --manifest",
       );
       return 2;
   }

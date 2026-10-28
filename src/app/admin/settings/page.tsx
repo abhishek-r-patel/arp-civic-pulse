@@ -1,10 +1,12 @@
-// Administrator-controlled RWA identity, contact, display wording and
-// administrator-only suggestion lists.
+// Administrator-controlled RWA identity, contact, display wording,
+// administrator-only suggestion lists and read-only App Support Access.
+import { AppSupportAccessControl } from "@/components/admin/app-support-access";
 import { RwaProfileForm } from "@/components/admin/rwa-profile-form";
 import { ManagementFields } from "@/components/admin/management-fields";
 import { Notice } from "@/components/ui/notice";
 import { PageHeader } from "@/components/ui/layout";
 import { adminRwaSettingsPageContext } from "@/server/register/page-context";
+import { getAppSupportStatus } from "@/server/settings/app-support";
 
 export const metadata = {
   title: "RWA Settings",
@@ -14,6 +16,7 @@ export const metadata = {
 
 export default async function RwaSettingsPage() {
   const deps = await adminRwaSettingsPageContext();
+  const appSupport = await getAppSupportStatus(deps);
 
   return (
     <div className="grid gap-8">
@@ -56,6 +59,10 @@ export default async function RwaSettingsPage() {
             defaultHouseholds: deps.defaultHouseholds,
             rwaPositions: deps.rwaPositions,
           }}
+        />
+        <AppSupportAccessControl
+          csrfToken={deps.csrfToken}
+          initialStatus={appSupport}
         />
       </ManagementFields>
     </div>

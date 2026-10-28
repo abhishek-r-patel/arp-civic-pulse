@@ -17,7 +17,7 @@ Open **User Guide** in the application footer to read the self-contained public 
 | RWA Admin | `rwa-admin` | Manage accounts, households, settings, drafts, schedules, voting lifecycle, audit history, participation, authorized results and downloads. | Vote for another household, change a frozen electorate, edit an accepted PRIVATE ballot, or retrieve PRIVATE individual choices. |
 | RWA ReadOnly | `rwa-readonly` | Read the authorized management register, emails, settings, drafts, participation, audit history, results and downloads; vote for its own household if entitled. | Change management data, assign roles, or gain another household's voting entitlement. Management controls are visible but disabled. |
 
-`voter`, `rwa-admin` and `rwa-readonly` are the lowercase role codes; **Resident**, **RWA Admin** and **RWA ReadOnly** are the corresponding persona names. The `voter` role is the normal member role; only the two mutually exclusive management roles change administrative access. Only an enabled `rwa-admin` may assign roles. An `rwa-readonly` account must have a household assignment before it can be enabled. No role itself grants a vote: an enabled account votes only through its own frozen household entitlement.
+`voter`, `rwa-admin` and `rwa-readonly` are the lowercase role codes; **Resident**, **RWA Admin** and **RWA ReadOnly** are the corresponding persona names. The `voter` role is the normal member role; only the two mutually exclusive management roles change administrative access. Only an enabled `rwa-admin` may assign roles. A household is optional for an `rwa-readonly` account, just as for `rwa-admin`: without one it reads its authorized scope but has no ballot. No role itself grants a vote: an enabled account votes only through its own frozen household entitlement.
 
 ![Shared: vote lifecycle states and permitted scheduled return-to-draft path](./images/user-guide/lifecycle.svg)
 
@@ -160,15 +160,15 @@ The administrator navigation includes Households, RWA Settings, Accounts, Manage
 
 ![RWA Admin 15: home screen and management navigation](./images/user-guide/rwa-admin/15-admin-home.png)
 
-The **Management role** selector assigns exactly one of Voter (`voter`), RWA Admin (`rwa-admin`) or RWA ReadOnly (`rwa-readonly`). Only an enabled RWA Admin can change roles. An RWA ReadOnly account needs a household assignment before enablement. Account role is separate from household eligibility and frozen vote entitlement. The database protects the final enabled RWA Admin from removal.
+The **Management role** selector assigns exactly one of Voter (`voter`), RWA Admin (`rwa-admin`) or RWA ReadOnly (`rwa-readonly`). Only an enabled RWA Admin can change roles. A household is optional for an RWA ReadOnly account, just as for an RWA Admin: it can be enabled without one, in which case it reads the authorized management scope but has no ballot. Account role is separate from household eligibility and frozen vote entitlement. The database protects the final enabled RWA Admin from removal.
 
 ![RWA Admin 30: create account with RWA ReadOnly selected](./images/user-guide/rwa-admin/30-create-readonly-role.png)
 
 ![RWA Admin 31: newly created readonly account remains suspended](./images/user-guide/rwa-admin/31-readonly-account-suspended.png)
 
-![RWA Admin 32: refusal to enable readonly account before household assignment](./images/user-guide/rwa-admin/32-readonly-household-required.png)
+![RWA Admin 32: readonly account enabled without a household](./images/user-guide/rwa-admin/32-readonly-enabled-no-household.png)
 
-![RWA Admin 33: readonly account after household assignment and enablement](./images/user-guide/rwa-admin/33-readonly-account-enabled.png)
+![RWA Admin 33: readonly account after an optional household assignment for its own vote](./images/user-guide/rwa-admin/33-readonly-account-enabled.png)
 
 ![RWA Admin 34: atomic role switch from readonly to administrator](./images/user-guide/rwa-admin/34-switch-to-admin-role.png)
 
@@ -176,9 +176,9 @@ The **Management role** selector assigns exactly one of Voter (`voter`), RWA Adm
 
 ### Register and accounts
 
-Use **Accounts → Add Account** to create the account and its household in one step. Enter the email and name, choose the role, then choose the household: when Settings → Default Households is set, start typing or open the list and pick one of the households not yet assigned (anything else is refused, so add a missing one to Settings first); with no list, type the identifier. Tick **Eligible to vote** if the household may take part in new votes, and **Enable account now** if the person may sign in straight away (residents and RWA ReadOnly accounts need a household for this). If the household is already taken or anything fails, nothing is created. You may leave the household blank and assign it later.
+Use **Accounts → Add Account** to create the account and its household in one step. Enter the email and name, choose the role, then choose the household: when Settings → Default Households is set, start typing or open the list and pick one of the households not yet assigned (anything else is refused, so add a missing one to Settings first); with no list, type the identifier. Tick **Eligible to vote** if the household may take part in new votes, and **Enable account now** if the person may sign in straight away (only residents need a household for this). If the household is already taken or anything fails, nothing is created. You may leave the household blank and assign it later.
 
-Each account page has a **Household** section. An account without a household can be given one there; an account with one can be **moved** to another unassigned household. Moving renames the account's household record: its eligibility stays the same, the old identifier becomes free for a new account, and past or active votes keep the household they were frozen with. Example: move Asha from A-101 to A-205, then add the new A-101 resident with Add Account. The **Households** page lists the register; its edit screen changes eligibility only. Residents cannot be enabled before assignment; administrators may intentionally have no household, but still receive no voting entitlement without one.
+Each account page has a **Household** section. An account without a household can be given one there; an account with one can be **moved** to another unassigned household. Moving renames the account's household record: its eligibility stays the same, the old identifier becomes free for a new account, and past or active votes keep the household they were frozen with. Example: move Asha from A-101 to A-205, then add the new A-101 resident with Add Account. The **Households** page lists the register; its edit screen changes eligibility only. Residents cannot be enabled before assignment; an RWA Admin or RWA ReadOnly account may intentionally have no household, but still receives no voting entitlement without one.
 
 ![RWA Admin 81: Add Account with the flat picker showing unassigned Default Households](./images/user-guide/rwa-admin/81-add-account-flat-picker.png)
 
@@ -255,6 +255,22 @@ The alias appears in the compact header; the full name appears on vote/result pa
 More specifically, the alias appears below the compact Civic Pulse brand and in the sign-in identity; the full name appears on vote/results/home pages, exports and the footer. Address, email, phone and website are shown only in configured public/signed-in contact locations. Accent colour changes links/buttons/highlights. The welcome message appears on Votes, Households and Manage Votes. Empty optional values stay hidden. Changing these values applies to existing results as well as future screens; the vote's saved RWA name is internal history, not the current display name.
 
 ![RWA Admin 48: RWA profile, appearance, wording and suggestion settings](./images/user-guide/rwa-admin/48-rwa-settings.png)
+
+### Turn App Support Access on or off
+
+RWA Settings also has an **App Support Access** control. When your deployment is
+set up with a developer/support contact (`APP_SUPPORT_EMAIL`), you can turn this
+on if you would like the developer to look at your configuration from inside the
+app while you get started, and turn it off again whenever you no longer need the
+help. While it is on, the support contact signs in with their own email code and
+gets the same read-only view as an RWA ReadOnly observer: they can look at
+settings, accounts, households, participation and audit history, but they have no
+household, so they can never vote, change data or assign themselves anything. The
+control shows whether access is on, the configured support email, and a single
+On/Off button; both turning it on and off are recorded in Audit History. If no
+support contact is configured, the control explains that and no access is granted.
+Accounts lists the support identity with an **App Support (ReadOnly)** badge and
+shows that it is managed from this control rather than the account editor.
 
 ### Prepare, preview and open a vote
 
@@ -372,7 +388,7 @@ Management controls remain visible but disabled. Navigation, filters, read-only 
 
 ### Your own household vote still works
 
-Management read access does not make a vote for you or grant another household's entitlement. If your enabled account represents a selected household, its frozen ballot remains available. PUBLIC replacement remains allowed only while that poll is open; PRIVATE submission remains final.
+Management read access does not make a vote for you or grant another household's entitlement. A household is optional for an observer: if you were enabled without one, you read the committee scope but have no ballot. If your enabled account does represent a selected household, its frozen ballot remains available. PUBLIC replacement remains allowed only while that poll is open; PRIVATE submission remains final.
 
 ![RWA ReadOnly 20: own PUBLIC ballot](./images/user-guide/rwa-readonly/20-own-public-ballot.png)
 

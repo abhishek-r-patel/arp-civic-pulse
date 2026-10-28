@@ -87,6 +87,8 @@ wide counts by role. Unavailable data is labelled, never replaced with sample to
 
 - [Junior-developer technical guide](./docs/TECHNICAL_GUIDE.md) — architecture, source map, authentication, database invariants, feature walkthroughs, tests and deployment boundaries. [Printable/offline HTML](./docs/TECHNICAL_GUIDE.html).
 - [Illustrated persona guide](./docs/USER_GUIDE.md) — separate Voter, `rwa-admin` and `rwa-readonly` capabilities, restrictions and current synthetic screenshots. [Printable/offline HTML](./docs/USER_GUIDE.html).
+- Developers/operators can run `npm run ops -- config-check` to inspect RWA configuration without an app login. This is a local, read-only database report, **not an unauthenticated web entry**. It requires the separately protected `CONFIG_DATABASE_URL`; see [operator setup and report limits](./docs/OPERATIONS.md#read-only-rwa-configuration-inspection).
+- For live, in-app developer help, an RWA Admin can turn **App Support Access** on or off from RWA Settings. When on, the server-only `APP_SUPPORT_EMAIL` identity gets household-free, read-only (`rwa-readonly`) access through the normal email OTP flow; it cannot vote, is RWA-controlled and audited, and is **not** a hidden login or default administrator. See [App Support Access](./docs/OPERATIONS.md#app-support-access-developer-help-rwa-controlled).
 - HTML copies embed their images, require no CDN/JavaScript, and support browser Print / Save as PDF. Supporting source/document links require the repository layout.
 - The application footer opens `/user-guide.html`, a self-contained public copy generated at `public/user-guide.html`. It embeds the same synthetic screenshots, disables repository-only links and includes a return-to-app link. `npm run dev` and `npm run build` regenerate guides first; footer-only changes do not require new screenshots.
 - Regenerate HTML with `node scripts\docs\render.mjs`; test the small renderer with `node --test scripts\docs\render.test.mjs`.
@@ -147,6 +149,7 @@ Server configuration is validated when the server starts (`src/instrumentation.t
 
 - `NEXT_PUBLIC_*` values are visible in browsers and must never hold a secret.
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only and reserved for controlled Auth provisioning and resident self-registration, never ballots, results or exports.
+- `APP_SUPPORT_EMAIL` is an optional server-only developer/support contact; it only becomes usable when an RWA Admin turns App Support Access on, and never appears in a browser.
 - `SUPABASE_ACCESS_TOKEN` and `MIGRATION_DATABASE_URL` are deployment-only and not read by the running application.
 - SMTP, OTP settings and Cron are configured in Supabase/provider settings and reviewed migrations.
 

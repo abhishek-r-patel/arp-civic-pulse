@@ -14,6 +14,8 @@ export interface Account {
   representativeName: string;
   isAdmin: boolean;
   isReadonly?: boolean;
+  /** The RWA-controlled App Support observer: read-only, never a household or vote. */
+  isAppSupport?: boolean;
 }
 
 interface ProfileRow {
@@ -21,6 +23,7 @@ interface ProfileRow {
   representative_name: string;
   is_admin: boolean;
   is_readonly?: boolean;
+  is_app_support?: boolean;
 }
 
 /*
@@ -61,7 +64,7 @@ export async function loadEnabledAccount(
 ): Promise<Account | null> {
   const { data, error } = await client
     .from("profiles")
-    .select("id, representative_name, is_admin, is_readonly")
+    .select("id, representative_name, is_admin, is_readonly, is_app_support")
     .eq("id", userId)
     .maybeSingle<ProfileRow>();
 
@@ -79,6 +82,7 @@ export async function loadEnabledAccount(
     representativeName: data.representative_name,
     isAdmin: data.is_admin,
     ...(data.is_readonly ? { isReadonly: true } : {}),
+    ...(data.is_app_support ? { isAppSupport: true } : {}),
   };
 }
 

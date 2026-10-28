@@ -379,7 +379,10 @@ test("capture administrator assignment of exclusive management roles", async ({ 
     await page.getByRole("button", { name: "Enable Account" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Enable Account" }).click();
     await expect(page.getByText(/Flat needed first/)).toBeVisible();
-    await capture(page, "32-readonly-household-required");
+    await page.getByRole("button", { name: "Enable Account" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Enable Account" }).click();
+    await expect(page.getByRole("button", { name: "Suspend Account" })).toBeVisible();
+    await capture(page, "32-readonly-enabled-no-household");
 
     const identifier = await unusedIdentifier();
     await page.locator("#identifier").fill(identifier);
@@ -392,8 +395,6 @@ test("capture administrator assignment of exclusive management roles", async ({ 
     await page.getByRole("button", { name: "Save Changes" }).click();
     await expect(page.getByText("Flat updated.")).toBeVisible();
     await page.goto(accountPath);
-    await page.getByRole("button", { name: "Enable Account" }).click();
-    await page.getByRole("dialog").getByRole("button", { name: "Enable Account" }).click();
     await expect(page.getByRole("button", { name: "Suspend Account" })).toBeVisible();
     await capture(page, "33-readonly-account-enabled");
 

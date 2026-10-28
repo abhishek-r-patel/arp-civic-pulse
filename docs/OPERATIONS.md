@@ -5,7 +5,7 @@ Who does what when the service is running, being maintained, or has to be recove
 Commands run from the project root with Node on `PATH`:
 
 ```powershell
-npm run ops -- <command> [options]      # = node --env-file-if-exists=.env.local scripts/ops/cli.ts
+npm run ops -- <command> [options]      # Node uses --conditions=react-server and loads .env.local if present
 ```
 
 ## 1. Settings that belong to operations
@@ -13,6 +13,7 @@ npm run ops -- <command> [options]      # = node --env-file-if-exists=.env.local
 | Variable                                | Used by                | Meaning                                                                                                                                                                                  |
 | --------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `BACKUP_DATABASE_URL`                   | `backup`, `auth-orphans`, `recovery-record` | A **direct** (not transaction-pooled) connection for a dedicated backup login. See 3.1.                                                                          |
+| `CONFIG_DATABASE_URL`                   | `config-check` | Operator-only direct/session PostgreSQL connection for read-only inspection. Requires unfiltered application reads and existing private-helper/status execution privileges; normally use the approved database-owner operator credential. Never put it in the application host or browser. |
 | `BACKUP_ENCRYPTION_KEY`                 | all backup commands    | 64 hex characters (`npm run ops -- generate-key`). Keep it in the approved secret store, **never beside the backups or in the database**. Lose it and every backup is unreadable.          |
 | `BACKUP_DIR`                            | `backup`, `prune`, `status` | The destination folder. The operator makes it off-site (a synced/mounted folder, an object-store mount, a removable drive that leaves the building). **Which one is not decided.** |
 | `BACKUP_MAX_AGE_HOURS`                  | `status`               | Alert if the newest backup is older than this.                                                                                                                                           |
@@ -21,6 +22,7 @@ npm run ops -- <command> [options]      # = node --env-file-if-exists=.env.local
 | `PDF_EXPORT_ENABLED=0`                  | the app                | Switches the PDF download off (the control disappears; the endpoint answers `EXPORT_FORMAT_UNAVAILABLE`). On by default.                                                                  |
 | `PG_BIN_DIR`                            | backup tools           | Folder holding `pg_dump`/`pg_restore` (PostgreSQL 17 client tools, matching Supabase). Optional if they are on `PATH`.                                                                     |
 | `RESEND_API_KEY`, `CONTACT_EMAIL_FROM`, `CONTACT_EMAIL_TO` | contact route | Optional server-only support-mail settings; set all three together. Separate from Supabase OTP SMTP. Restore from the secret/configuration store, not a database backup. |
+| `APP_SUPPORT_EMAIL`                     | the app, `config-check` | Optional server-only developer/support contact eligible for RWA-controlled App Support Access. Setting it does **not** grant access; an enabled RWA Admin must turn it on from Settings and can turn it off at any time. When on, the identity signs in through normal email OTP with household-free, read-only (`rwa-readonly`) access. Never browser-visible. |
 | `GOOGLE_ANALYTICS_ID`, `GOOGLE_SITE_VERIFICATION` | public pages | Optional public identifiers. GA4 is consent-gated on privacy/contact only; verification is not proof of Google property ownership. Set at build/runtime and rebuild after changes. |
 
 ## 2. Monitoring
@@ -86,6 +88,91 @@ records and frozen scheduled/active electorates are never overwritten by import.
 The probe aborts its outstanding database HTTP request after three seconds and clears its timer when the check finishes. Failures are reported through allowlisted operational logging without provider messages or credentials; the public response remains only a status and support ID.
 
 Run `status` and the health check from a scheduler you control (Windows Task Scheduler, cron, or a monitoring service) and alert on a non-zero exit. **Manual: no scheduler is configured by this repository.**
+
+### Read-only RWA configuration inspection
+
+Use this when an authorized developer needs to review RWA Admin setup without
+signing into the application:
+
+```powershell
+# Store CONFIG_DATABASE_URL in an approved secret store or ignored .env.local.
+# Never paste its value into chat, command arguments, screenshots or commits.
+npm run ops -- config-check
+```
+
+`CONFIG_DATABASE_URL` is deliberately separate from app/API and backup
+credentials. Independently confirm the database hostname/project and the intended
+deployment before running. Use an approved operator database-owner connection
+with current migrations, either direct or session-pooled, **not transaction
+pooling**. The report needs unfiltered reads of application configuration/register
+and vote-setup tables and execution of existing `app_private` validation/blocker
+helpers and `public.operational_status()`. A normal resident/admin JWT or
+SELECT-only backup login is not sufficient. The command creates no login, role,
+grant, migration, HTTP endpoint or login bypass. Database access remains the
+authentication boundary; guard the operator credential accordingly.
+
+The command opens one repeatable-read, **read-only** transaction, sets
+`row_security=off` so insufficient privileges fail instead of returning filtered
+zeroes, and rolls it back on both success and failure. A transaction-local
+service-role claim authorizes only the existing count-only status call; it does
+not create an app session. Existing preview blockers and invariant checks are
+reused. No vote is opened/completed, no setting is changed, and no resident,
+participation or audit record is written. Connection, statement and lock waits
+are bounded. Remote TLS verification follows the connection-security rules below.
+
+The version-1 JSON report contains:
+
+- RWA name/alias, timezone, configured household wording and palette; optional
+  contact/welcome **presence flags**, known migration-placeholder field names,
+  suggestion-list counts/validation, retention periods and missing A1-A7 keys.
+  Blank optional contacts and empty suggestion lists are valid; placeholder
+  warnings need review, not automatic replacement.
+- Exact aggregate account/status/role and register counts, missing enabled
+  representatives, exclusive management-role checks and enabled-admin presence.
+  These reflect setup, not successful logins or actual active-user counts.
+  Observer counts exclude any App Support identity, which is reported separately
+  as `enabledAppSupport`; an enabled App Support grant raises a non-failing
+  `APP_SUPPORT_ACCESS` warning so an operator can confirm the RWA still wants it.
+- Vote totals by type/status, ready/incomplete draft counts and blocker-code
+  frequencies, scheduled openings delayed by more than five minutes, and existing
+  operational overdue-completion, invariant and retention-backlog counts.
+- Production **shape validation of the injected application environment**, local
+  maintenance/PDF flags and an explicit list of external checks still unverified.
+  `npm run ops` optionally loads `.env.local`; to inspect only injected values,
+  use `node --conditions=react-server scripts\ops\cli.ts config-check` instead.
+
+Exit `0` means no automated **fail** check; warnings (including unfinished drafts
+and no votes yet) do not change that exit status. Exit `1` means a failed check or
+an unavailable report. Failures never fabricate zero counts or expose raw
+database/provider errors. `ok: true` is **not launch approval**:
+`productionReady` is always `false`. Approval presence is checked separately
+because the existing status routine's `policyReady` field checks retention only.
+Review approval authority/applicability, deployment/project matching, provider
+and Auth/SMTP settings, real delivery, ingress/IP enforcement, Cron execution,
+capacity, backup age/automation and recovery evidence separately. A database
+report cannot prove hosted environment values or third-party configuration.
+
+The report deliberately does not reproduce every RWA Admin screen: no resident
+details, identifier lists, vote titles/IDs, candidate/NOTA totals, ballot choices,
+credentials or last-seen data are printed. It adds no visitor tracking. Keep the
+organizational settings/count report private. Existing app roles, RLS/grants and
+authenticated management access are unchanged.
+
+### App Support Access (developer help, RWA-controlled)
+
+When a deploying RWA wants the developer to inspect configuration from inside the
+app during onboarding, set the server-only `APP_SUPPORT_EMAIL` to the developer's
+address and apply migration `20261112100000`. Setting the variable grants nothing
+on its own. An enabled RWA Admin turns **App Support Access** on from
+RWA Settings (`/admin/settings#app-support`); only then is a household-free,
+read-only (`rwa-readonly`) support profile created for that address, which signs
+in through the normal email OTP flow. The support identity has no household, so it
+cannot vote, and ordinary account tools cannot edit or assign it a household. The
+RWA Admin can turn access off at any time without the developer; doing so suspends
+the support profile immediately. Both actions are audited as
+`APP_SUPPORT_ACCESS_ENABLED`/`APP_SUPPORT_ACCESS_DISABLED`, and `config-check`
+surfaces an active grant as the `APP_SUPPORT_ACCESS` warning. This is consented
+support access, not a hidden login or standing default administrator.
 
 ### Public contact and discovery checks (manual)
 
@@ -153,7 +240,7 @@ Deletion from the live database does **not** erase copies in existing backups; t
 
 ### Operational connection security
 
-All operational PostgreSQL connections (backup, recovery record, restore/reconciliation and orphan cleanup) and native dump/restore tools require **certificate and hostname verification** for remote hosts. Use a PostgreSQL URL with `?sslmode=verify-full`; omitted TLS mode also selects `verify-full` remotely. Insecure or weaker explicit modes are rejected, not silently upgraded or retried without TLS. Plaintext is permitted only for the literal loopback hosts `localhost`, `127.0.0.1` and `::1`, for local development.
+All operational PostgreSQL connections (configuration inspection, backup, recovery record, restore/reconciliation and orphan cleanup) and native dump/restore tools require **certificate and hostname verification** for remote hosts. Use a PostgreSQL URL with `?sslmode=verify-full`; omitted TLS mode also selects `verify-full` remotely. Insecure or weaker explicit modes are rejected, not silently upgraded or retried without TLS. Plaintext is permitted only for the literal loopback hosts `localhost`, `127.0.0.1` and `::1`, for local development.
 
 For a provider-specific CA, use `sslrootcert=<URL-encoded path to the approved CA file>` or set `PGSSLROOTCERT` to that file. Otherwise system certificate roots are used. `NODE_EXTRA_CA_CERTS` can extend Node's system roots, but does not configure libpq; set the approved `PGSSLROOTCERT` when the native tools need a custom CA. Optional client certificates use `sslcert`/`sslkey` (or `PGSSLCERT`/`PGSSLKEY`). These four TLS parameters are the only supported connection-URL query options; duplicates and host/SSL override parameters are rejected. Do not disable certificate validation to work around a connection failure.
 

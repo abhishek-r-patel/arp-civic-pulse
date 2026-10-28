@@ -72,6 +72,13 @@ Pin supported dependency versions in a lockfile and review licenses/advisories. 
 
 ## 04 Target Project Structure
 
+`scripts/ops/configuration.ts` owns the operator-only configuration snapshot and
+versioned aggregate report, exposed by `npm run ops -- config-check`.
+`tests/unit/ops-configuration.test.ts` covers report decisions/redaction and
+`tests/integration/ops-configuration.test.ts` covers real PostgreSQL reads,
+permissions, rollback, privacy and CLI exit behavior. No web route or schema
+migration is added.
+
 Concept-fidelity correction: `src/components/votes/vote-list-card.tsx` owns the
 server-rendered rich card and compact upcoming row; `src/app/page.tsx` owns status
 links, compact type/history controls and the three-column overview. Existing
@@ -166,7 +173,15 @@ Register import and scheduling implementation map:
 
 - `src/components/admin/account-review-table.tsx`: page-scoped account selection, independent enable/eligibility confirmations, administrator warnings and per-row outcomes. Existing `src/app/admin/accounts/page.tsx` defaults to the implicit `voter` role and explicitly supports All Roles. Existing `src/server/register/accounts.ts` adds RLS-bound assignment enrichment for only the returned page; shared register contracts define the review projection and action-target helpers. Existing protected PATCH services remain the sole mutation paths, with no new migration or bulk permission bypass.
 - `src/components/admin/management-fields.tsx` and `src/app/admin/layout.tsx`: visible, disabled management controls and observer notice. `src/server/authorization/account.ts` separates committee read capability from strict admin mutation checks; `src/server/register/shared.ts` provides explicit committee-read dependencies for read handlers only.
-- `supabase/migrations/20261108100000_readonly_committee_role.sql`: exclusive `is_readonly` role, current-profile committee-read helper, narrowly broadened read routines/RLS, audited atomic role changes and readonly provisioning. `tests/integration/readonly-role.test.ts` exercises management read/write boundaries, household voting, privacy, household assignment and final-admin safeguards; `tests/e2e/readonly-role-live.spec.ts` is an opt-in synthetic disposable-project journey.
+- `supabase/migrations/20261108100000_readonly_committee_role.sql`: exclusive `is_readonly` role, current-profile committee-read helper, narrowly broadened read routines/RLS, audited atomic role changes and readonly provisioning. `tests/integration/readonly-role.test.ts` exercises management read/write boundaries, optional-household observers, privacy and final-admin safeguards; `tests/e2e/readonly-role-live.spec.ts` is an opt-in synthetic disposable-project journey.
+- `supabase/migrations/20261113100000_readonly_household_optional.sql`: patches `enable_profile`/`update_profile` so a household is optional for `rwa-readonly` observers (matching `rwa-admin`) — only ordinary residents require one to be enabled or to receive an enabled management account's demotion — with the DETAIL `HOUSEHOLD_REQUIRED`, and keeps the `LAST_ADMIN` guard ahead of the household check.
+- App Support Access (RWA-controlled, read-only developer/support grant):
+  - `supabase/migrations/20261112100000_app_support_access.sql`: `profiles.is_app_support` with the read-only check constraint, two new audit actions, profile/household guard triggers, patched `update_profile`/`enable_profile`, and the service-role-only `set_app_support_access` routine.
+  - `src/shared/contracts/app-support.ts`: `appSupportAccessSchema` (`{enabled}`) and the `AppSupportStatus` projection.
+  - `src/server/settings/app-support.ts`: `getAppSupportStatus`/`loadAppSupportActive` reads and `setAppSupportAccess` with fail-safe Auth/database ordering (unban before enable, suspend before ban) around the service-role routine; reads `APP_SUPPORT_EMAIL`.
+  - `src/app/api/admin/settings/app-support/route.ts`, `src/components/admin/app-support-access.tsx`: admin-only CSRF-protected `PUT` endpoint and the On/Off settings control under `#app-support`.
+  - `src/app/admin/layout.tsx`, `src/app/admin/settings/page.tsx`, `src/app/admin/accounts/[id]/page.tsx`, `src/components/ui/badges.tsx`, `src/components/admin/account-review-table.tsx`, `src/components/admin/account-forms.tsx`, `src/server/authorization/account.ts`, `src/server/register/accounts.ts`, `src/shared/contracts/register.ts`: support-account badges/notices, the "App Support Access Is On" admin warning, the `is_app_support` projection, non-reviewability, and the `updateAccount` refusal of support profiles.
+  - `tests/unit/app-support.test.ts` (service ordering and refusals) and `tests/integration/app-support.test.ts` (routine, committee reads without writes/voting, household refusal, disable, identity change, actor/service-role checks).
 - `scripts/docs/capture.spec.ts` also has a focused **bulk account review** test, refreshing `47-accounts-list` and adding `63-account-review` through `67-enable-admin-warning`. It uses stable-ID synthetic row lookup, independent eligibility/two-account enablement, an unselected account, explicit admin inclusion and a controlled failed request. Ordinary provider/mutation budgets remain in force.
 
 Account and household onboarding map:
@@ -416,6 +431,7 @@ Sources: [Supabase pricing](https://supabase.com/pricing), [SMTP](https://supaba
 
 ## 12 Configuration, Operations and Recovery
 - Validate required configuration at startup; fail explicitly for unsafe/missing production settings.
+- Authorized operators may inspect RWA setup without an app session using `npm run ops -- config-check` and a separately protected `CONFIG_DATABASE_URL`. This local command requires operator database privileges, uses one bounded repeatable-read/read-only transaction, refuses filtered RLS reads, reuses preview blockers and count-only invariant monitoring, and always rolls back. Its local service-role claim is only for the existing status routine, never a browser login. It emits configuration summaries and aggregate role/vote counts, not residents or PRIVATE choices, and never reconciles lifecycle. It creates no grants, app roles or HTTP backdoor. Production environment shape checks concern injected values only; external verification and approvals remain open. See [Operations](./OPERATIONS.md#read-only-rwa-configuration-inspection).
 - Keep canonical application origin, Supabase URL/public client key, server-only privileged credentials and SMTP settings in appropriate environment/provider configuration. The Supabase URL and public key are not secrets; privileged credentials must never use a browser-visible prefix.
 - Store RWA timezone, policy approvals and retention settings in controlled database records. Block real activation until required approvals are recorded.
 - Configure the RWA profile (required full name, alias, household label and identifier kind; optional address, email, phone, website and welcome message, hidden when blank; accent palette) in RWA Settings. RWA Admins can read and update it; RWA ReadOnly observers can read but not change it. The household and identifier labels are display-only. Updates audit changed field names, not values. Changes apply to all screens and exports immediately, including existing votes.

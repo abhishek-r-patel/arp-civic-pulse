@@ -54,7 +54,7 @@ Distinguish proposed, implemented, tested and approved behavior. Never fabricate
 - Keep maintenance functions restricted to the scheduling role. Cron does not replace transactional deadlines or guarantee availability while a database is paused.
 - Use Supabase Auth rather than adding custom OTP/session storage. Disable public sign-up; provision registered members through controlled workflows.
 - Verify identity server-side with supported Auth methods, not an unverified session object. Existing JWTs must not bypass current application suspension/role checks.
-- Keep `rwa-admin` and `rwa-readonly` mutually exclusive. Committee-read authorization must never satisfy mutation guards; only admins assign roles, and observers need a household assignment before enablement. Neither role broadens frozen voting entitlement.
+- Keep `rwa-admin` and `rwa-readonly` mutually exclusive. Committee-read authorization must never satisfy mutation guards; only admins assign roles. A household is optional for both management roles — an observer or administrator without one can read but never vote, and the RWA-controlled App Support Access profile (`is_app_support`) is household-free by design. Only an enabled resident requires a household. Neither role broadens frozen voting entitlement.
 - Preserve the design system through Tailwind token classes, not raw hex values or a competing palette. Keep 48px touch targets and at least 16px input text.
 - Meet WCAG 2.2 AA with semantic controls, labels, keyboard/focus support and non-colour cues. Test member and admin journeys on phones.
 - Keep unsent selections in page memory only, never URLs, browser storage, offline caches or persistent drafts.

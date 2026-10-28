@@ -3,6 +3,16 @@ import "server-only";
 import { z } from "zod";
 
 /*
+ * Email validation is inlined (not imported from "@/shared/...") so the
+ * operator CLI can load this module by relative path under plain Node TS
+ * stripping, which does not resolve the "@/" alias.
+ */
+const emailAddress = z
+  .string()
+  .transform((value) => value.trim().toLowerCase())
+  .pipe(z.email("Enter a valid email address."));
+
+/*
  * Runtime configuration for the Next.js server (docs/API.md section 10).
  *
  * Deployment-only credentials (SUPABASE_ACCESS_TOKEN, MIGRATION_DATABASE_URL)
@@ -48,6 +58,8 @@ const environmentSchema = z
         .optional(),
     ),
     GOOGLE_SITE_VERIFICATION: optionalText,
+    // The only identity App Support Access may enable; RWA admins cannot change it.
+    APP_SUPPORT_EMAIL: z.preprocess(blankToUndefined, emailAddress.optional()),
   })
   .superRefine((environment, context) => {
     const fail = (path: string, message: string) =>
@@ -186,6 +198,7 @@ const environmentKeys = [
   "CONTACT_EMAIL_TO",
   "GOOGLE_ANALYTICS_ID",
   "GOOGLE_SITE_VERIFICATION",
+  "APP_SUPPORT_EMAIL",
 ] as const;
 
 // Reports variable names and rule messages only, never submitted values.

@@ -124,7 +124,7 @@ export function AccountCreateForm({
   const [pending, setPending] = useState(false);
 
   const identifier = household.trim();
-  const canEnable = isAdmin || identifier !== "";
+  const canEnable = isAdmin || isReadonly || identifier !== "";
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -178,8 +178,8 @@ export function AccountCreateForm({
       <Notice tone="info" heading="Add the account and its home together">
         Choose the person&apos;s {terms.household} here, or leave it blank and
         assign it later from the account page. The account stays suspended
-        unless you tick Enable account now; residents can only be enabled with
-        a {terms.household}.
+        unless you tick Enable account now; residents can only be enabled with a{" "}
+        {terms.household}.
       </Notice>
 
       <ErrorSummary
@@ -221,7 +221,7 @@ export function AccountCreateForm({
       <SelectField
         id="managementRole"
         label="Management role"
-        hint={`Roles do not confer voting eligibility. RWA ReadOnly requires an assigned ${terms.household} before enablement.`}
+        hint={`Roles never confer voting. Anyone who should vote, including an RWA Admin or RWA ReadOnly, needs their own eligible ${terms.household}; residents need one before enablement.`}
         value={isAdmin ? "rwa-admin" : isReadonly ? "rwa-readonly" : "voter"}
         onChange={(event) => {
           setIsAdmin(event.target.value === "rwa-admin");
@@ -267,7 +267,7 @@ export function AccountCreateForm({
         hint={
           canEnable
             ? "The person can sign in straight away. Leave unticked to review first."
-            : `Choose a ${terms.household} first; residents and RWA ReadOnly accounts cannot be enabled without one.`
+            : `Choose a ${terms.household} first; residents cannot be enabled without one.`
         }
         checked={enable && canEnable}
         disabled={!canEnable}
@@ -646,6 +646,7 @@ export function AccountEditor({
   const dialog = dialogContent();
   const residentWithoutHousehold =
     !account.isAdmin &&
+    account.isReadonly !== true &&
     account.status === "SUSPENDED" &&
     failure?.code === "PROVISIONING_INCOMPLETE";
 
@@ -653,7 +654,9 @@ export function AccountEditor({
     <div className="grid max-w-ballot gap-8">
       {saved ? (
         <Notice tone="success" heading={saved}>
-          {account.status === "SUSPENDED" && !account.isAdmin
+          {account.status === "SUSPENDED" &&
+          !account.isAdmin &&
+          account.isReadonly !== true
             ? `Assign a ${terms.household}, then enable the account so this resident can sign in.`
             : "Your change was saved."}
         </Notice>
@@ -668,6 +671,7 @@ export function AccountEditor({
           <RoleBadge
             isAdmin={account.isAdmin}
             isReadonly={account.isReadonly}
+            isAppSupport={account.isAppSupport}
           />
         </div>
         {deleted ? (
@@ -764,7 +768,7 @@ export function AccountEditor({
         <SelectField
           id="managementRole"
           label="Management role"
-          hint={`Roles do not confer voting eligibility. RWA ReadOnly requires an assigned ${terms.household} before enablement.`}
+          hint={`Roles never confer voting. Anyone who should vote, including an RWA Admin or RWA ReadOnly, needs their own eligible ${terms.household}; residents need one before enablement.`}
           disabled={deleted}
           value={isAdmin ? "rwa-admin" : isReadonly ? "rwa-readonly" : "voter"}
           onChange={(event) => {

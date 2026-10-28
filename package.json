@@ -25,7 +25,7 @@
     "test:load": "vitest run --config vitest.load.config.ts",
     "test:live": "vitest run --config vitest.live.config.ts",
     "test:e2e": "playwright test",
-    "ops": "node --env-file-if-exists=.env.local scripts/ops/cli.ts"
+    "ops": "node --conditions=react-server --env-file-if-exists=.env.local scripts/ops/cli.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

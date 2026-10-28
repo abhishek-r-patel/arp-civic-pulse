@@ -18,6 +18,32 @@ Do not promote a deployment or admit real residents until the open gates in [PIL
 - Still unverified here: email/OTP delivery and authenticated voting/export journeys on this host, full schema/migration history, load and recovery. The read-only SQL verification failed certificate-chain verification; TLS was not weakened and no migrations or database writes were performed. Hosted health proves the narrow `health_ping` RPC, not full schema compatibility. PDF stays disabled pending hosted acceptance.
 - The API deployment target used here is `staging`, which consumes Preview variables. Verify the returned target before rollout: the first `preview` request was classified as Production and was cancelled. Git integration still identifies `main` as its Production branch; pushes can create automatic Production builds independently of Preview. The automatic Production build from the fix push was also cancelled, and Production has no app variables. Configure approvals before any future production work; never promote this staging build.
 
+### Staging OTP verification: 28 October 2026
+
+Brevo SMTP was configured in the disposable project's Supabase Auth settings:
+host `smtp-relay.brevo.com`, TLS port `465`, a verified operator-controlled Gmail
+sender and display name `Civic Pulse`. Credentials remain in the provider
+configuration, not app environment variables. The saved template uses
+`{{ .Token }}` with subject `Your Civic Pulse sign-in code`; saved OTP length is
+six, expiry remains 3,600 seconds, and the sending limit remains 30 emails/hour.
+No expiry/rate policy was relaxed.
+
+The initial Gmail and Outlook requests did not establish an SMTP failure:
+neither address existed in the project's Auth users, and the app does not create
+users when requesting a code. After explicit operator approval, one confirmed
+Outlook Auth identity was created and an enabled staging administrator was
+provisioned through `provision_profile` and `enable_profile`, with deployment
+audit attribution. One normal OTP email request was accepted. The operator
+confirmed inbox receipt and successful sign-in; the hosted browser independently
+showed the Votes page and RWA Admin navigation. No OTP or SMTP key was recorded.
+
+This supersedes only the earlier unverified email/OTP sign-in item. Brevo delivery
+event/message IDs were not captured. Freemail sender limitations, production
+provider/domain/policy/capacity approval, schema verification, authenticated
+voting/export acceptance, load and recovery remain open. No application rebuild
+or production deployment was needed for these Supabase-only settings. See
+[local SMTP setup](./LOCAL_SETUP.md#8-make-sign-in-codes-arrive).
+
 ## 2. Hosting configuration
 
 - Confirm Vercel plan eligibility, cost, region and runtime/memory/export limits. Do not assume Hobby permits the RWA's use.
@@ -43,6 +69,7 @@ Configure these in the hosting environment manager, scoped separately to Product
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Same project's publishable key or legacy **anon** key. Public/build-time value, never a secret/service-role/user token. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Same project's server-only privileged credential, accessible only to the application runtime/build environment that requires it. Never prefix it with `NEXT_PUBLIC_`. |
 | `RATE_LIMIT_HMAC_KEY` | Independent random production secret, at least 32 characters. Store in the approved secret manager; generate separately for each environment. |
+| `APP_SUPPORT_EMAIL` | Optional server-only developer/support contact for RWA-controlled App Support Access. Leave unset unless the RWA wants in-app developer help; setting it grants nothing until an RWA Admin turns access on. Never prefix with `NEXT_PUBLIC_`. |
 | `LOG_LEVEL` | Normally `info`; logs remain allowlisted and must not capture bodies, selections, OTPs, tokens or cookies. |
 | `MAINTENANCE_MODE` | `1` for initial restricted deployment/recovery; `0` only for an authorized validation or release window. |
 | `PDF_EXPORT_ENABLED` | `0` to defer optional PDF; `1` only after hosted font/render/runtime checks. |
@@ -56,10 +83,18 @@ The following belong **only** to an approved deployment/operations runner, not V
 - `MIGRATION_DATABASE_URL`: approved production direct or supported session-pooler migration connection, with `sslmode=verify-full` and the provider CA; never transaction pooling. Restrict database access to the migration operator/runner. Never use a backup login to migrate.
 - Backup runner: `BACKUP_DATABASE_URL`, `BACKUP_ENCRYPTION_KEY`, `BACKUP_DIR`, `BACKUP_MAX_AGE_HOURS`, optionally `PG_BIN_DIR` and approved CA configuration. Follow [OPERATIONS.md](./OPERATIONS.md).
 - Recovery rehearsal runner: `RESTORE_DATABASE_URL`, pointing to an isolated, already-migrated recovery environment, never production.
+- Configuration inspection workstation/runner: `CONFIG_DATABASE_URL` for `npm run ops -- config-check`, using approved operator database access over verified TLS. No app login is required, but database authentication is; never expose this credential through Vercel, a public route or browser. See [read-only inspection](./OPERATIONS.md#read-only-rwa-configuration-inspection).
 
 SMTP credentials belong in Supabase's provider settings, not application/public variables.
 
 `npm run deploy:check` reads **only injected environment variables**, does not auto-load `.env.local`, and forces production validation. It exits nonzero on unsafe/missing configuration and reports names/rules without printing values. It does not authenticate keys, prove project isolation, validate approvals or enable IP limiting. Startup independently rechecks configuration through instrumentation. Never use CI's synthetic placeholders for a real deployment.
+
+`config-check` additionally reads RWA configuration and aggregate setup health
+from the independently confirmed target database. Its production environment
+validation concerns the runner's injected values (or optional `.env.local`), not
+the hosted configuration. A passing report does not verify Auth/SMTP, real
+delivery, ingress, actual Cron execution, backups/restores or genuine approvals.
+It makes no remote configuration or database changes.
 
 `NEXT_PUBLIC_*` values and the CSP origin are bound when building. Rebuild for the final environment/domain; do not promote a staging build with staging public values or only edit runtime variables after building.
 

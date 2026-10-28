@@ -113,6 +113,23 @@ Important details:
 - `NEXT_PUBLIC_*` values are visible to browsers. Only the publishable key belongs there. The secret key and `LIVE_DATABASE_URL` are server-side only.
 - If your database password contains special characters, URL-encode them in the connection string.
 
+For an authorized developer's **read-only setup review without an app login**,
+set the separate `CONFIG_DATABASE_URL` in the ignored environment/secret store
+and run `npm run ops -- config-check`. It requires approved operator database
+access and verified remote TLS, never just a public Supabase key. It reports
+RWA configuration and aggregate setup counts without changing records or
+exposing resident details. Its environment check enforces production shape, so
+local HTTP origins intentionally fail that check; this does not mean local
+development is broken. See [Operations](./OPERATIONS.md#read-only-rwa-configuration-inspection)
+for permissions, output/exit semantics and checks that remain manual.
+
+To try **App Support Access** locally, add an optional `APP_SUPPORT_EMAIL=<a
+synthetic address>` to `.env.local` and apply the `20261112100000` migration. The
+variable alone grants nothing; sign in as a local RWA Admin, open RWA Settings and
+turn App Support Access on to create the household-free, read-only support
+profile, then turn it off to suspend it. See
+[Operations](./OPERATIONS.md#app-support-access-developer-help-rwa-controlled).
+
 ### 5.1 Optional public contact and Google integrations
 
 The public `/sign-in`, `/privacy` and `/contact` pages are server-rendered.
@@ -197,9 +214,10 @@ select app_private.deployment_bootstrap_admin('<auth user UID>', 'Asha Admin');
 Each procedure writes an audit event. `deployment_initialize_settings` can only be run once.
 
 Additional committee accounts use the Accounts page's exclusive management-role
-selector. Assign `rwa-readonly` only to a representative with a household; the
-account must still be explicitly enabled. Role assignment is admin-only and does
-not create or transfer voting entitlement.
+selector. A household is optional for `rwa-readonly`; assign one only if that
+observer should also vote through it. The account must still be explicitly
+enabled. Role assignment is admin-only and does not create or transfer voting
+entitlement.
 
 > If the SQL Editor reports that it cannot run `app_private` functions, run the same two statements with any PostgreSQL client connected through `LIVE_DATABASE_URL` (for example the `psql` that ships with the portable PostgreSQL).
 
@@ -220,15 +238,18 @@ select app_private.deployment_set_retention(365, 365, 365, 30, 90);
 
 ## 8. Make sign-in codes arrive
 
-The app signs people in with a **six-digit code**. Supabase's built-in email service sends a magic **link** and its template cannot be changed, so no code is included. You have two options.
+The app signs people in with a **six-digit code**. Supabase's built-in email service is restricted to authorized project-team recipients and has low sending limits; use custom SMTP for staging delivery to app users. Configure the OTP template explicitly rather than relying on a default magic-link email. You have two options.
 
 ### Option A: custom SMTP (needed for real emailed codes)
 
-1. In Gmail, turn on 2-Step Verification, then create an **App password** (Google Account → Security → App passwords). Use that 16-character password, not your normal one.
-2. In Supabase: **Authentication → Emails → SMTP Settings → Enable custom SMTP**:
-   - Host `smtp.gmail.com`, port `465` (or `587`), username = the Gmail address, password = the app password, sender = the same address.
-3. **Authentication → Emails → Templates → Magic Link.** Replace the body with the project's template so the email shows the code. The template is `supabase/templates/magic_link.html`; its essential content is `{{ .Token }}`.
-4. Gmail limits sending volume; this is fine for development, not for production.
+1. In Brevo, verify a sender you control. Prefer an authenticated domain you own. A verified personal Gmail sender was accepted for this disposable staging setup, but Brevo warns against freemail domains; it is not production sender-domain approval.
+2. In Brevo **Settings → SMTP & API → SMTP**, obtain the SMTP Login and generate a dedicated Standard SMTP key. Complete provider identity verification yourself. The SMTP Login may differ from the account email. The password is the **SMTP key**, not a Brevo API key, account password or Gmail app password.
+3. In Supabase **Authentication → Emails → SMTP Settings**, enable custom SMTP and set host `smtp-relay.brevo.com`, port `465` (TLS), username = Brevo SMTP Login, password = SMTP key, sender email = the verified sender, and sender name = `Civic Pulse`. Save and reload to confirm persistence. Enter credentials directly into the provider dashboard, never chat, Git, Vercel or application environment files.
+4. In **Emails → Templates → Magic link or OTP**, set subject `Your Civic Pulse sign-in code` and use [the repository OTP template](../supabase/templates/magic_link.html), whose essential variable is `{{ .Token }}` rather than `{{ .ConfirmationURL }}`. Verify the saved template, not just its preview.
+5. Test using an existing project **Authentication → Users** identity with an enabled application profile. A Supabase dashboard login and a Brevo sender are not app accounts. Code requests use `shouldCreateUser=false`; unknown addresses receive the same generic app acknowledgement but no sign-in code. Provision normal residents through the app and use the audited setup/provisioning routines for authorized administrators, never grant admin merely to enable email.
+6. Confirm actual inbox receipt, enter the newest code in the app, and verify sign-in. Provider acceptance alone is not delivery evidence. The 28 October staging test passed with six-digit OTPs, the existing one-hour expiry and 30 emails/hour; these unchanged provider settings are not production policy/capacity approval. Check Brevo account/key limits and rotate the SMTP key before its expiry or inactivity revocation.
+
+Direct Gmail SMTP is a separate development-only alternative: host `smtp.gmail.com`, port `465`, Gmail username and a Google app password after enabling 2-Step Verification. Do not mix those credentials with Brevo's SMTP host.
 
 ### Option B: skip email for development
 

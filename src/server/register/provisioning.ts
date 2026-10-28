@@ -152,7 +152,7 @@ export async function provisionAccount(
   };
 }
 
-/** Enables a consistent profile (residents need a household assignment first). */
+/** Enables a consistent profile (residents need a household assignment first; management roles may have none). */
 export async function enableAccount(
   admin: SupabaseClient,
   accountId: string,

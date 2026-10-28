@@ -194,9 +194,11 @@ export function AccountReviewTable({
       header: terms.identifierLabel,
       cell: (account) =>
         account.household?.identifier ??
-        (account.isAdmin
-          ? "Not assigned"
-          : "Assignment required before enabling"),
+        (account.isAppSupport
+          ? "Not applicable (App Support)"
+          : account.isAdmin
+            ? "Not assigned"
+            : "Assignment required before enabling"),
     },
     {
       key: "eligibility",
@@ -212,7 +214,11 @@ export function AccountReviewTable({
       key: "role",
       header: "Role",
       cell: (account) => (
-        <RoleBadge isAdmin={account.isAdmin} isReadonly={account.isReadonly} />
+        <RoleBadge
+          isAdmin={account.isAdmin}
+          isReadonly={account.isReadonly}
+          isAppSupport={account.isAppSupport}
+        />
       ),
     },
     {
