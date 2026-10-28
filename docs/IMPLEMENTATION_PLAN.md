@@ -85,18 +85,26 @@ deployment input, not a production-readiness claim.
 Resident self-registration, requested for larger RWAs, adds a public `/register`
 page and `POST /api/register`. Each registration creates a suspended resident and
 an ineligible household atomically; a repeated email or household is rejected
-with a specific error. Administrators review via the Accounts **Source** filter
+with a specific error. Administrators review via the Residents **Source** filter
 and the existing enable/eligibility actions. Migration `20261109100000` is a
 reviewed deployment input; it changes PRD assumption A4 (see PRD) and needs that
 approval refreshed before production use.
 
-Administrator onboarding then became one step: **Add Account** creates the
-account with an optional household (all-or-nothing), eligibility and optional
+Administrator onboarding uses **Residents → Add Resident** to create the
+account with its household (required for voters in this form; optional for management roles), eligibility and optional
 immediate enablement; the account page assigns or moves its household (moving
 renames the household record and keeps eligibility); the separate Add Household
-page was removed and Households edit changes eligibility only. Configured Default
+page was removed and the Residents household editor changes eligibility only. Configured Default
 Households restrict administrator choices to listed, unassigned identifiers.
 Migration `20261110100000` is a reviewed deployment input.
+
+Residents now combines the former Accounts and Households tabs, including CSV
+import, role/status/source filters, exact identifier/eligibility filters and
+existing review actions. Canonical routes live under `/admin/residents`;
+former Accounts/Households UI URLs return 404 with no compatibility redirects.
+Browser and screenshot workflows use Residents directly. Account APIs,
+optional-household API provisioning and voting guards remain compatible. This
+UI/service consolidation needs no new migration and does not close launch gates.
 
 App Support Access, requested so the developer can review configuration and usage
 from inside the app during onboarding, replaces any hidden login or standing
@@ -293,7 +301,7 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 1. Adapt global tokens/components to the approved Platinum/Obsidian semantic Tailwind themes in `src\styles\globals.css`, preserving independent RWA accent selection. Use token classes, not component hex values or a competing palette.
 2. Configure self-hosted Sora headings/Manrope body text via `next/font`, prescribed spacing, Lucide icons, distinct type/status/participation badges and approved privacy copy. PDF fonts remain independent Inter/Noto.
 3. Migrate reusable buttons, fields/native radio cards, notices, feedback, tables, pagination, and shell/navigation. Replace CSS Modules incrementally and remove each only after migrated callers pass checks.
-4. Add mobile-bottom-sheet/desktop-modal confirmations with focus containment/return, explicit cancel actions, safe-area/mobile-keyboard handling, loading/empty/error states, and reduced motion.
+4. Use viewport-centred modal confirmations on mobile and desktop, with bounded width, internal scrolling for tall content, focus containment/return, explicit cancel actions, safe-area/mobile-keyboard handling, loading/empty/error states, and reduced motion.
 5. Implement registered-email access, one six-digit text input with paste/autocomplete/leading-zero support, cooldown/recovery, access denial, and sign-out using Phase 6.
 
 **Likely files/modules:** Existing app layout/page and UI shell/status components, `src\styles`, `src\components\ui`, `src\app\(access)`, Tailwind/PostCSS configuration, foundation browser tests.

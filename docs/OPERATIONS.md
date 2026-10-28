@@ -10,6 +10,15 @@ npm run ops -- <command> [options]      # Node uses --conditions=react-server an
 
 ## 1. Settings that belong to operations
 
+The staging host uses only Vercel's Production target at
+<https://arp-civic-pulse-staging.vercel.app>, backed by the disposable Supabase
+project. Preview deployments and Preview-only app variables are disabled/removed.
+Keep Production `APP_ORIGIN` and Supabase Auth Site URL aligned with this exact
+origin and redeploy after origin changes; protection settings do not rewrite it.
+See the [current deployment record](./DEPLOYMENT.md#current-staging-configuration-production-target-only).
+Real production requires separate projects and credentials; never turn this
+disposable database into the real register.
+
 | Variable                                | Used by                | Meaning                                                                                                                                                                                  |
 | --------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `BACKUP_DATABASE_URL`                   | `backup`, `auth-orphans`, `recovery-record` | A **direct** (not transaction-pooled) connection for a dedicated backup login. See 3.1.                                                                          |
@@ -63,7 +72,7 @@ Bulk import uses a separate provisional 1200-request/hour budget per admin and
 independent provider quotas. On a partial/unknown outcome, stop and recheck rows;
 do not delete Auth identities as rollback or enable a partially assigned profile.
 New import entries remain suspended until reviewed and explicitly enabled, either
-individually or through the Accounts table's page-local Enable Selected action.
+individually or through the Residents table's page-local Enable Selected action.
 Make Eligible is separate and never enables sign-in. Residents are the default
 role filter; administrators require explicit inclusion and an access warning.
 The same per-record audit, current-admin checks and 60-mutation/minute budget
@@ -217,7 +226,7 @@ npm run ops -- auth-orphans            # dry run: how many
 npm run ops -- auth-orphans --apply    # delete through supported Auth administration
 ```
 
-It never touches an identity younger than 24 hours (provisioning creates the Auth user before the profile). If an individual delete fails it is counted and reported; re-run later. A failed resident self-registration deletes the identity it just created; if that best-effort cleanup itself fails (logged as `self_registration.identity_cleanup_failed`), the leftover identity has no profile and grants no access, and this command removes it. Self-registered profiles that an administrator leaves suspended are not deleted automatically; review them on **Accounts → Source: Self-registered** and set unwanted ones to Deleted.
+It never touches an identity younger than 24 hours (provisioning creates the Auth user before the profile). If an individual delete fails it is counted and reported; re-run later. A failed resident self-registration deletes the identity it just created; if that best-effort cleanup itself fails (logged as `self_registration.identity_cleanup_failed`), the leftover identity has no profile and grants no access, and this command removes it. Self-registered profiles that an administrator leaves suspended are not deleted automatically; review them on **Residents → Source: Self-registered** and set unwanted ones to Deleted.
 
 Deletion from the live database does **not** erase copies in existing backups; they leave when their own expiry passes (`backup_retention_days`).
 
@@ -302,7 +311,7 @@ A restore is always into an **isolated** database first.
 | Suspected leak of a backup file or key                   | The technical contact + committee  | Rotate `BACKUP_ENCRYPTION_KEY`, take a new backup, delete the old sets, and treat the contents (names, household identifiers, PUBLIC choices) as disclosed.                                              |
 | Database or hosting outage                               | The technical contact              | Set `MAINTENANCE_MODE=1` if the app is misbehaving; otherwise leave it. Deadlines keep passing and are **never extended automatically**; the database clock decides who got in. If the committee agrees, an admin can move the deadline of a still-Active vote with **Change Deadline**. Tell residents what happened. |
 | Lost or wrong ballots after a restore                    | The committee                      | Section 5 step 3: cancel and replace. Never discard votes silently, extend a deadline, or reopen a finished vote.                                                                                     |
-| Member loses access mid-vote                             | An administrator                   | Suspend/enable the account in **Accounts**; it takes effect on the next request even with a valid session.                                                                                            |
+| Member loses access mid-vote | An administrator | Suspend/enable the account in **Residents**; it takes effect on the next request even with a valid session. |
 
 The technical contact, the committee decision-maker and the escalation route are people, not code. **Not decided: record them here before the pilot.**
 

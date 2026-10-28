@@ -4,6 +4,7 @@ import {
   freshCode,
   plusEmail,
   provisionAdmin,
+  seedHousehold,
   signInThroughUi,
   stubCodeRequest,
 } from "./support/live";
@@ -102,22 +103,77 @@ test.describe("sign-in screen", () => {
     await expect(
       nav.getByRole("link", { name: "Votes", exact: true }),
     ).toHaveAttribute("aria-current", "page");
-    // The household link uses the RWA's configured wording, so find it by destination.
-    await expect(nav.locator('a[href="/admin/households"]')).toBeVisible();
-    await expect(nav.getByRole("link", { name: "Accounts" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Residents" })).toBeVisible();
+    await expect(
+      nav.getByRole("link", { name: "Accounts", exact: true }),
+    ).toHaveCount(0);
 
     await page.getByRole("button", { name: "Sign Out" }).click();
     await expect(page).toHaveURL(/\/sign-in$/u);
     await expect(page.getByRole("navigation", { name: "Main" })).toHaveCount(0);
 
     // The session is really gone: protected pages bounce back to sign-in.
-    await page.goto("/admin/accounts");
+    await page.goto("/admin/residents");
     await expect(page).toHaveURL(/\/sign-in$/u);
   });
 });
 
 test.describe("register screens", () => {
-  test("an administrator manages accounts and households end to end", async ({
+  test("Residents supports no-flat filtering, pagination and responsive accessible layouts", async ({
+    page,
+  }) => {
+    const admin = await provisionAdmin();
+    await seedHousehold();
+    await signInThroughUi(page, admin.email, admin.code);
+    await page.goto("/admin/residents?isAdmin=all&isEligible=unassigned");
+    await expect(
+      page.getByText("Not assigned", { exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Residents could not be loaded" }),
+    ).toHaveCount(0);
+    await page.goto("/admin/residents?isAdmin=all&limit=1");
+    const first = await page
+      .locator("[data-account-review] tbody a")
+      .getAttribute("href");
+    await page.getByRole("link", { name: "Next page" }).click();
+    await expect(page).toHaveURL(/cursor=/u);
+    await expect(
+      page.locator("[data-account-review] tbody a"),
+    ).not.toHaveAttribute("href", first ?? "");
+    await page.getByRole("link", { name: "First page" }).click();
+    await expect(page.locator("[data-account-review] tbody a")).toHaveAttribute(
+      "href",
+      first ?? "",
+    );
+
+    for (const route of ["/admin/residents", "/admin/residents/new"]) {
+      await page.goto(route);
+      for (const mode of ["Light", "Dark"] as const) {
+        const theme = page.locator("details[data-theme-control]");
+        if ((await theme.getAttribute("open")) === null)
+          await theme.locator("summary").click();
+        await theme.getByRole("radio", { name: mode, exact: true }).check();
+        await page.keyboard.press("Escape");
+        for (const width of [320, 375, 768, 1280]) {
+          await page.setViewportSize({ width, height: 900 });
+          expect(
+            await page.evaluate(
+              () => document.documentElement.scrollWidth > innerWidth,
+            ),
+            `${route}, ${mode}, ${width}px`,
+          ).toBe(false);
+        }
+        await page.setViewportSize({ width: 375, height: 900 });
+        const audit = await new AxeBuilder({ page })
+          .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+          .analyze();
+        expect(audit.violations, `${route}, ${mode}`).toEqual([]);
+      }
+    }
+  });
+
+  test("an administrator creates and manages a resident and flat together", async ({
     page,
   }) => {
     const { email, code } = await provisionAdmin();
@@ -125,16 +181,21 @@ test.describe("register screens", () => {
 
     await page
       .getByRole("navigation", { name: "Main" })
-      .locator('a[href="/admin/households"]')
+      .getByRole("link", { name: "Residents" })
       .click();
-    await expect(page).toHaveURL(/\/admin\/households$/u);
+    await expect(page).toHaveURL(/\/admin\/residents$/u);
 
     // Create an account.
-    await page.goto("/admin/accounts/new");
+    await page.goto("/admin/residents/new");
     const residentEmail = plusEmail();
     await page.getByLabel(/Email address/).fill(residentEmail);
     await page.getByLabel(/Representative name/).fill("Browser Resident");
-    await page.getByRole("button", { name: "Create Account" }).click();
+    await page.getByRole("button", { name: "Create Resident" }).click();
+    await expect(page.getByText(/before creating a resident/)).toBeVisible();
+    await expect(page).toHaveURL(/\/admin\/residents\/new$/u);
+    const identifier = `BR-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+    await page.locator('[id="household.identifier"]').fill(identifier);
+    await page.getByRole("button", { name: "Create Resident" }).click();
 
     await expect(
       page.getByRole("heading", { level: 1, name: "Browser Resident" }),
@@ -144,30 +205,23 @@ test.describe("register screens", () => {
     ).toBeVisible();
     // Earlier runs leave similar accounts behind, so return by URL, not by list position.
     const accountPath = new URL(page.url()).pathname;
-    // A resident cannot be enabled without a household: explained, not just refused.
-    await page.getByRole("button", { name: "Enable Account" }).click();
-    await page
-      .getByRole("dialog")
-      .getByRole("button", { name: "Enable Account" })
-      .click();
-    await expect(page.getByText(/^\S+ needed first$/u)).toBeVisible();
-
-    // Assign the household from the account page (free-text when no Default Households are configured).
-    const identifier = `BR-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-    await page.locator("#identifier").fill(identifier);
-    await page.getByRole("button", { name: /^Assign / }).click();
-    await expect(page.getByText(`${identifier} assigned.`)).toBeVisible();
-
-    // The exact-identifier filter finds it, and the account can now be enabled.
+    // Find the resident and flat together using the directory filters.
     await page.goto(
-      `/admin/households?identifier=${encodeURIComponent(identifier.toLowerCase())}`,
+      `/admin/residents?identifier=${encodeURIComponent(identifier.toLowerCase())}&isEligible=false`,
     );
+    await expect(page).toHaveURL(/\/admin\/residents\?/u);
     await expect(
-      page.getByRole("link", {
-        name: new RegExp(`^Edit .+ ${identifier}$`, "iu"),
-      }),
+      page.getByRole("link", { name: "Manage Browser Resident" }),
     ).toBeVisible();
+    await expect(page.getByText(identifier, { exact: true })).toBeVisible();
 
+    await page.goto(accountPath);
+    await page.getByRole("link", { name: "Change eligibility" }).click();
+    await page.getByLabel("Eligible to vote").check();
+    await page.getByRole("button", { name: "Save Changes" }).click();
+    await expect(page).toHaveURL(
+      /\/admin\/residents\?notice=household-updated/u,
+    );
     await page.goto(accountPath);
     await page.getByRole("button", { name: "Enable Account" }).click();
     await page
@@ -181,13 +235,13 @@ test.describe("register screens", () => {
 
     // One step: account, household, eligibility and access together.
     const combined = `BC-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-    await page.goto("/admin/accounts/new");
+    await page.goto("/admin/residents/new");
     await page.getByLabel(/Email address/).fill(plusEmail());
     await page.getByLabel(/Representative name/).fill("Combined Resident");
     await page.locator('[id="household.identifier"]').fill(combined);
     await page.getByLabel("Eligible to vote").check();
     await page.getByLabel("Enable account now").check();
-    await page.getByRole("button", { name: "Create Account" }).click();
+    await page.getByRole("button", { name: "Create Resident" }).click();
     await expect(page.getByText("Account created and enabled.")).toBeVisible();
     await expect(page.getByText(combined, { exact: true })).toBeVisible();
   });
@@ -200,7 +254,7 @@ test.describe("register screens", () => {
     const identifier = `DUP-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 
     for (const attempt of [1, 2]) {
-      await page.goto("/admin/accounts/new");
+      await page.goto("/admin/residents/new");
       await page.getByLabel(/Email address/).fill(plusEmail());
       await page
         .getByLabel(/Representative name/)
@@ -208,7 +262,7 @@ test.describe("register screens", () => {
       await page
         .locator('[id="household.identifier"]')
         .fill(attempt === 1 ? identifier : ` ${identifier.toLowerCase()} `);
-      await page.getByRole("button", { name: "Create Account" }).click();
+      await page.getByRole("button", { name: "Create Resident" }).click();
       if (attempt === 1) {
         // Let the first creation finish; navigating away would abort the request.
         await expect(page.getByRole("heading", { level: 1 })).toContainText(
@@ -237,11 +291,11 @@ test.describe("confirmation dialog", () => {
     await signInThroughUi(page, email, code);
 
     // Manage a second account: suspend is a destructive confirmation.
-    await page.goto("/admin/accounts/new");
+    await page.goto("/admin/residents/new");
     await page.getByLabel(/Email address/).fill(plusEmail());
     await page.getByLabel(/Representative name/).fill("Dialog Subject");
     await page.getByLabel("Management role").selectOption("rwa-admin");
-    await page.getByRole("button", { name: "Create Account" }).click();
+    await page.getByRole("button", { name: "Create Resident" }).click();
     await expect(
       page.getByRole("heading", { level: 1, name: "Dialog Subject" }),
     ).toBeVisible();
@@ -254,6 +308,63 @@ test.describe("confirmation dialog", () => {
     // Cancel takes initial focus; a destructive action is never auto-focused.
     await expect(dialog.getByRole("button", { name: "Cancel" })).toBeFocused();
     await expect(dialog.getByText(/cannot be undone/)).toBeVisible();
+
+    for (const [width, height] of [
+      [320, 640],
+      [375, 812],
+      [768, 1024],
+      [1280, 900],
+      [844, 390],
+    ] as const) {
+      await page.setViewportSize({ width, height });
+      await expect
+        .poll(
+          async () =>
+            dialog.evaluate((element) => {
+              const box = element.getBoundingClientRect();
+              return Math.max(
+                Math.abs(box.left + box.width / 2 - innerWidth / 2),
+                Math.abs(box.top + box.height / 2 - innerHeight / 2),
+              );
+            }),
+          { message: `Dialog centered at ${width}x${height}` },
+        )
+        .toBeLessThanOrEqual(1);
+      const bounds = await dialog.boundingBox();
+      expect(bounds).not.toBeNull();
+      if (!bounds) throw new Error("Visible dialog has no bounds.");
+      expect(bounds.x).toBeGreaterThanOrEqual(16);
+      expect(bounds.y).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width - 16);
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(height);
+    }
+
+    // Synthetic DOM content exercises scrolling without changing application data.
+    await dialog.evaluate((element) => {
+      const content = document.createElement("p");
+      content.textContent = "Synthetic long confirmation content. ".repeat(100);
+      element.querySelector("h2")?.after(content);
+    });
+    await page.setViewportSize({ width: 375, height: 480 });
+    expect(
+      await dialog.evaluate(
+        (element) => element.scrollHeight > element.clientHeight,
+      ),
+    ).toBe(true);
+    await expect
+      .poll(async () =>
+        dialog.evaluate((element) => {
+          const box = element.getBoundingClientRect();
+          return Math.abs(box.top + box.height / 2 - innerHeight / 2);
+        }),
+      )
+      .toBeLessThanOrEqual(1);
+    await dialog
+      .getByRole("button", { name: "Cancel" })
+      .scrollIntoViewIfNeeded();
+    await expect(
+      dialog.getByRole("button", { name: "Cancel" }),
+    ).toBeInViewport();
 
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
@@ -273,10 +384,13 @@ test.describe("confirmation dialog", () => {
   test("focus stays inside the open dialog", async ({ page }) => {
     const { email, code } = await provisionAdmin();
     await signInThroughUi(page, email, code);
-    await page.goto("/admin/accounts/new");
+    await page.goto("/admin/residents/new");
     await page.getByLabel(/Email address/).fill(plusEmail());
     await page.getByLabel(/Representative name/).fill("Focus Subject");
-    await page.getByRole("button", { name: "Create Account" }).click();
+    await page.getByLabel("Management role").selectOption("rwa-readonly");
+    await page.getByLabel("Enable account now").check();
+    await page.getByRole("button", { name: "Create Resident" }).click();
+    await expect(page.getByText("Account created and enabled.")).toBeVisible();
     await page.getByRole("button", { name: "Delete Account" }).click();
 
     const dialog = page.getByRole("dialog");
@@ -309,12 +423,13 @@ test.describe("responsive and accessible", () => {
     const { email, code } = await provisionAdmin();
     await signInThroughUi(page, email, code);
 
-    await page.goto("/admin/accounts/new");
+    await page.goto("/admin/residents/new");
     await page.getByLabel(/Email address/).fill(plusEmail());
     await page
       .getByLabel(/Representative name/)
       .fill("Layout Subject With A Rather Long Name That Must Wrap Not Clip");
-    await page.getByRole("button", { name: "Create Account" }).click();
+    await page.getByLabel("Management role").selectOption("rwa-readonly");
+    await page.getByRole("button", { name: "Create Resident" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
       "Layout Subject",
     );
@@ -322,9 +437,8 @@ test.describe("responsive and accessible", () => {
 
     const paths = [
       "/",
-      "/admin/households",
-      "/admin/accounts",
-      "/admin/accounts/new",
+      "/admin/residents",
+      "/admin/residents/new",
       accountPath,
     ];
 
@@ -377,11 +491,11 @@ test.describe("responsive and accessible", () => {
     const { email, code } = await provisionAdmin();
     await signInThroughUi(page, email, code);
     await page.setViewportSize({ width: 320, height: 900 });
-    await page.goto("/admin/accounts");
+    await page.goto("/admin/residents");
     await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
 
     await expect(
-      page.getByRole("heading", { level: 1, name: "Accounts" }),
+      page.getByRole("heading", { level: 1, name: "Residents" }),
     ).toBeVisible();
     const overflowing = await page.evaluate(() => {
       const width = document.documentElement.clientWidth;

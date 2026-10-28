@@ -808,7 +808,7 @@ export function DraftEditor({
               <p>
                 Mark {terms.households} as eligible in the{" "}
                 <Link
-                  href="/admin/households"
+                  href="/admin/residents"
                   className="font-semibold text-accent underline underline-offset-2"
                 >
                   {terms.households} register

@@ -230,8 +230,8 @@ test.describe("unauthenticated callers", () => {
       "/admin",
       "/admin/audit",
       "/admin/votes",
-      "/admin/accounts",
-      "/admin/households",
+      "/admin/residents",
+      "/admin/residents/import",
       `/admin/votes/${UUID}/participation`,
     ]) {
       await page.goto(path);
@@ -284,8 +284,8 @@ test.describe("an enabled resident (not an administrator)", () => {
     for (const path of [
       "/admin/audit",
       "/admin/votes",
-      "/admin/accounts",
-      "/admin/households",
+      "/admin/residents",
+      "/admin/residents/import",
     ]) {
       await page.goto(path);
       await expect(

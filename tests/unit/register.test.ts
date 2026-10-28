@@ -7,6 +7,7 @@ import {
   MAX_ASSIGNABLE,
   createAccount,
   listAccounts,
+  listResidents,
   listAssignableAccounts,
   updateAccount,
 } from "@/server/register/accounts";
@@ -17,7 +18,10 @@ import {
   updateHousehold,
 } from "@/server/register/households";
 import { postgrestQuote, type RegisterDeps } from "@/server/register/shared";
-import { accountListQuerySchema } from "@/shared/contracts/admin-votes";
+import {
+  accountListQuerySchema,
+  residentListQuerySchema,
+} from "@/shared/contracts/admin-votes";
 import {
   accountReviewTargets,
   canReviewAccount,
@@ -52,6 +56,8 @@ class Query {
   order = (...args: unknown[]) => this.record("order", args);
   limit = (...args: unknown[]) => this.record("limit", args);
   eq = (...args: unknown[]) => this.record("eq", args);
+  is = (...args: unknown[]) => this.record("is", args);
+  not = (...args: unknown[]) => this.record("not", args);
   in = (...args: unknown[]) => this.record("in", args);
   neq = (...args: unknown[]) => this.record("neq", args);
   gt = (...args: unknown[]) => this.record("gt", args);
@@ -483,6 +489,135 @@ describe("listAssignableAccounts", () => {
       tables: { profiles: [ok(rows.slice(0, 3))], households: [ok([])] },
     });
     expect(await listAssignableAccounts(w.deps)).toHaveLength(3);
+  });
+});
+
+describe("listResidents", () => {
+  const query = (over: Record<string, unknown> = {}) =>
+    residentListQuerySchema.parse(over);
+
+  it("uses flat/name ordering and preserves App Support and page-scoped enrichment", async () => {
+    const key = `0${"房".repeat(100)}\u001f${"名".repeat(200)}`;
+    const w = world({
+      tables: {
+        resident_directory: [
+          ok([
+            { id: TARGET, sort_key: key },
+            { id: OTHER, sort_key: "1\u001fobserver" },
+          ]),
+        ],
+        profiles: [
+          ok([profile(TARGET, { is_app_support: true, is_readonly: true })]),
+        ],
+      },
+    });
+    const result = await listResidents(
+      w.deps,
+      query({ limit: "1", isAdmin: "false" }),
+    );
+    expect(w.queries[0]?.query.calls).toContainEqual([
+      "order",
+      ["sort_key", { ascending: true }],
+    ]);
+    expect(w.queries[0]?.query.calls).toContainEqual([
+      "order",
+      ["id", { ascending: true }],
+    ]);
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]?.isAppSupport).toBe(true);
+    expect(w.admin.getUserById).toHaveBeenCalledTimes(1);
+    expect(w.admin.getUserById).not.toHaveBeenCalledWith(OTHER);
+    expect(result.page.nextCursor?.length).toBeLessThanOrEqual(512);
+
+    const next = world({
+      tables: { resident_directory: [ok([]), ok({ sort_key: key })] },
+    });
+    await listResidents(
+      next.deps,
+      query({ limit: "1", isAdmin: "false", cursor: result.page.nextCursor }),
+    );
+    expect(next.queries[0]?.query.calls).toContainEqual([
+      "or",
+      [
+        `sort_key.gt.${postgrestQuote(key)},and(sort_key.eq.${postgrestQuote(key)},id.gt.${TARGET})`,
+      ],
+    ]);
+    expect(next.admin.getUserById).not.toHaveBeenCalled();
+
+    const mismatched = world();
+    expect(
+      (
+        await failure(
+          listResidents(
+            mismatched.deps,
+            query({
+              limit: "1",
+              isAdmin: "false",
+              hasHousehold: "false",
+              cursor: result.page.nextCursor,
+            }),
+          ),
+        )
+      ).code,
+    ).toBe("VALIDATION_FAILED");
+  });
+
+  it("filters unassigned accounts in the invoker view before pagination", async () => {
+    const w = world({ tables: { resident_directory: [ok([])] } });
+    await listResidents(
+      w.deps,
+      query({
+        hasHousehold: "false",
+        isReadonly: "true",
+        selfRegistered: "false",
+      }),
+    );
+    expect(w.queries[0]?.query.calls).toContainEqual([
+      "is",
+      ["household_id", null],
+    ]);
+    expect(w.queries[0]?.query.calls).toContainEqual([
+      "eq",
+      ["is_readonly", true],
+    ]);
+    expect(w.queries[0]?.query.calls).toContainEqual([
+      "eq",
+      ["self_registered", false],
+    ]);
+    expect(w.admin.getUserById).not.toHaveBeenCalled();
+  });
+
+  it("normalizes exact-flat filters and applies eligibility in the invoker view", async () => {
+    const w = world({
+      tables: { resident_directory: [ok([])] },
+      rpc: { normalize_household_identifier: ok("a-101") },
+    });
+    await listResidents(
+      w.deps,
+      query({ identifier: "A-101", isEligible: "false" }),
+    );
+    expect(w.queries[0]?.query.calls).toContainEqual([
+      "eq",
+      ["household_identifier_normalized", "a-101"],
+    ]);
+    expect(w.queries[0]?.query.calls).toContainEqual([
+      "eq",
+      ["household_is_eligible", false],
+    ]);
+  });
+
+  it("fails explicitly if current profile enrichment disappears", async () => {
+    const w = world({
+      tables: {
+        resident_directory: [
+          ok([{ id: TARGET, sort_key: "0a-101\u001falice" }]),
+        ],
+        profiles: [ok([])],
+      },
+    });
+    expect((await failure(listResidents(w.deps, query()))).code).toBe(
+      "DEPENDENCY_UNAVAILABLE",
+    );
   });
 });
 

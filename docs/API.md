@@ -73,7 +73,8 @@ All list endpoints use keyset pagination:
 | Member votes | Active first by `closesAt ASC`; terminal votes by completion/cancellation time descending; `id ASC` breaks ties | `status`, `votingType` |
 | Administrator votes | `updatedAt DESC`, then `id DESC` | `status`, `votingType` |
 | Households | Normalized household identifier, then `id`, ascending | `isEligible`; optional exact normalized `identifier` |
-| Accounts | Profile `id ASC` | `status`, `isAdmin`, `isReadonly`, `selfRegistered` |
+| Accounts API | Profile `id ASC` | `status`, `isAdmin`, `isReadonly`, `selfRegistered` |
+| Residents UI (server service, no new API) | Assigned identifier/name first, unassigned name last, then `id ASC` | Account filters plus exact `identifier`, `isEligible`, `hasHousehold` |
 | PUBLIC named responses | Frozen `householdId ASC` within the vote | None |
 | Management-reader participation | Frozen `householdId ASC` within the vote | `submitted` boolean |
 | Audit history | `occurredAt DESC`, then audit `id DESC` | `action`, `targetType`, `from`, `to` |
@@ -228,7 +229,7 @@ After a timeout, lost response, or ambiguous infrastructure error, the client re
 
 ### 4.3 Administrator register and account management
 
-The Accounts review screen defaults to Voters (`isAdmin=false,isReadonly=false`,
+The Residents review screen defaults to Voters (`isAdmin=false,isReadonly=false`,
 the implicit `voter` role);
 **All Roles**, administrators and readonly observers are explicit page-filter
 choices. The API accepts optional boolean `isAdmin`, `isReadonly` and
@@ -238,6 +239,22 @@ or Added by an administrator) and marks self-registered rows.
 `{id,identifier,isEligible}` per account, enriched only for the authorized page
 through the caller's RLS session. Individual account detail retains its existing
 projection. No general member directory or privileged household lookup is added.
+
+The management UI combines Accounts and Households at `/admin/residents`.
+The server-only `listResidents` reads `resident_directory` under the caller's RLS
+session. Optional exact `identifier` (database-normalized), `isEligible`
+(`"true"`/`"false"`) and `hasHousehold` filters apply before pagination. The page's
+**No assignment** eligibility choice (`isEligible=unassigned` in the page URL)
+maps to `hasHousehold=false`; it is not an account-API parameter. Eligible/Not
+eligible exclude unassigned accounts; Any eligibility includes them. Directory
+cursors bind all filters and contain only a profile ID; the current sort key is
+resolved under RLS on the next page. Missing anchors fail explicitly; concurrent
+register edits may move rows, so restart the list when reconciling changes.
+Account API filters/ordering remain unchanged. The former `/admin/accounts`
+and `/admin/households` UI pages, including detail/create/import paths, are
+removed and return 404 without redirects. Use `/admin/residents` and its
+subroutes; `/api/admin/accounts` and `/api/admin/households` remain supported
+operation endpoints, not navigation destinations.
 
 Page-local selections invoke existing `PATCH /api/admin/accounts/{id}` with
 `{status:"ENABLED"}` for **Enable Selected**, or existing
@@ -269,7 +286,7 @@ Read endpoints in this group require a current enabled administrator or readonly
 | `PATCH /api/admin/households/{id}` | Change current label, assignment, or eligibility (the Households edit screen changes eligibility only) | Changed fields among `identifier`, `representativeAccountId`, `isEligible` | `200`: updated household projection |
 
 **Account and household together.** Households are created only together with
-an account in the UI: **Add Account** (`POST /api/admin/accounts` with
+an account in the UI: **Residents → Add Resident** (`POST /api/admin/accounts` with
 `household`) or the account page's household section
 (`PUT /api/admin/accounts/{id}/household`). When Settings → Default Households
 is non-empty, both accept only a listed identifier (case/whitespace-insensitive;
@@ -283,6 +300,13 @@ creates the suspended profile and household with `PROFILE_PROVISIONED` and
 `HOUSEHOLD_CREATED` audits in one transaction, and an identity created by the
 failed request is removed best-effort. A taken identifier returns
 `409 REGISTER_CONFLICT` (`DUPLICATE_IDENTIFIER`, field `household.identifier`).
+
+The Add Resident form requires a household for the `voter` role, even when
+creating a suspended account; management roles may omit it. This is an admin
+form requirement, not a breaking change to optional-household API provisioning.
+Eligibility and immediate enablement remain independent opt-ins. The configured
+default list describes allowed identifiers, not pre-created household records;
+the assignment is created when the resident is saved.
 `enable: true` then runs the normal enable workflow; if that fails, the account
 and household remain, suspended, and the `201` projection shows it. Moving an
 account renames its existing household record: eligibility is kept, the old
@@ -605,7 +629,7 @@ already registered; the RWA chose this over a combined message, and the per-emai
 per-household and global budgets bound enumeration. Auth or database outages
 return `503 DEPENDENCY_UNAVAILABLE`; `429 RATE_LIMITED` carries `Retry-After`.
 
-Administrators review self-registrations on **Accounts** (Source filter) and
+Administrators review self-registrations on **Residents** (Source filter) and
 use the existing enable and eligibility actions; nothing about this endpoint
 enables access or voting.
 

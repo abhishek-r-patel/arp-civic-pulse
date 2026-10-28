@@ -141,12 +141,11 @@ test("all administrator and resident workflows share the approved visual languag
       throw new Error("Visual fixtures are missing.");
     const adminRoutes = [
       "/admin",
-      "/admin/accounts",
-      "/admin/accounts/new",
-      `/admin/accounts/${resident.id}`,
-      "/admin/households",
-      "/admin/households/import",
-      `/admin/households/${resident.householdId}`,
+      "/admin/residents",
+      "/admin/residents/new",
+      `/admin/residents/${resident.id}`,
+      "/admin/residents/import",
+      `/admin/residents/households/${resident.householdId}`,
       "/admin/settings",
       "/admin/audit",
       "/admin/votes",

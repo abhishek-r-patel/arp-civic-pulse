@@ -1,4 +1,4 @@
-// Protected workflow for provisioning an account together with its optional household.
+// Protected one-step resident onboarding; voter accounts require a household in this form.
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { AccountCreateForm } from "@/components/admin/account-forms";
@@ -8,9 +8,9 @@ import { adminPageContext } from "@/server/register/page-context";
 import { loadHouseholdChoices } from "@/server/settings/rwa-profile";
 
 export const metadata = {
-  title: "Add Account",
+  title: "Add Resident",
   description: "Provision a registered member account for your association.",
-  alternates: { canonical: "/admin/accounts/new" },
+  alternates: { canonical: "/admin/residents/new" },
 };
 
 export default async function NewAccountPage() {
@@ -20,14 +20,14 @@ export default async function NewAccountPage() {
   return (
     <div className="grid gap-8">
       <Link
-        href="/admin/accounts"
+        href="/admin/residents"
         className="inline-flex touch-target w-fit items-center gap-1 font-semibold text-accent underline underline-offset-2"
       >
         <ChevronLeft aria-hidden="true" className="size-5" />
-        Accounts
+        Residents
       </Link>
       <PageHeader
-        title="Add Account"
+        title="Add Resident"
         description={`Create a sign-in identity and profile for one person, and assign their ${deps.terms.household} in the same step.`}
       />
       <ManagementFields canManage={deps.actor.isAdmin}>

@@ -33,7 +33,7 @@ ineligible household, created atomically and audited as
 `PROFILE_SELF_REGISTERED`. Repeated emails and already registered households
 are rejected with specific errors (a deliberate, user-chosen enumeration
 trade-off); budgets are per email, per household and global, plus a honeypot.
-Administrators review through the Accounts **Source** filter and the existing
+Administrators review through the Residents **Source** filter and the existing
 enable/eligibility actions. When the RWA has configured Default Households,
 residents pick their flat from that list (type-to-filter combobox) and the server
 and database reject anything else; with no list the field is free text.
@@ -45,10 +45,11 @@ project is recorded below.
 
 ### One-step account and household onboarding
 
-Add Account now creates the account together with an optional household
+Add Resident now creates the account together with its household (required for
+voters in the admin form, optional for management roles)
 (all-or-nothing, through `provision_profile_with_household`), eligibility and
 optional immediate enablement; account pages assign or move a household; the
-separate Add Household page is gone and Households edit changes eligibility
+separate Add Household page is gone and the Residents eligibility editor changes eligibility
 only. Configured Default Households limit administrator choices to listed,
 unassigned identifiers.
 
@@ -67,9 +68,72 @@ disposable-PostgreSQL integration tests pass; migration `20261112100000` is a
 reviewed deployment input, and end-to-end verification against a live Supabase
 project (including real OTP sign-in by the support identity) is still outstanding.
 
+### Residents consolidation verification (28 October 2026)
+
+**Current follow-up:** the user approved consolidating Accounts and Flats into
+one Residents directory, with a required flat for voters in the admin create
+form and optional flats for management roles. Canonical routes now use
+`/admin/residents`; existing account/household APIs, voting safeguards and applied
+migrations remain unchanged. The existing security-invoker directory view supplies
+flat/name ordering and identifier/eligibility/no-assignment filters before
+pagination; page-scoped current-profile enrichment retains App Support handling.
+Account APIs retain their existing filters and ID ordering. This supersedes the
+navigation rollback below, not its historical verification results.
+At the user's request, former Accounts/Households UI routes and compatibility
+redirects are now removed rather than retained. Those URLs return 404; browser
+and screenshot workflows navigate directly to Residents. Account/household APIs
+are unchanged. This removal changes no illustrated Residents controls, so the
+existing affected-workflow screenshots remain applicable.
+The removal follow-up passed three focused Chromium checks: removed URL
+trees return 404 without a Location header, Residents subroutes retain
+signed-out protection, and combined onboarding/eligibility/enablement works
+using Residents URLs directly. Production build (including TypeScript),
+ESLint, guide regeneration/link validation and all 10 renderer tests pass.
+The earlier 511-test unit result below is consolidation evidence; the full unit
+suite was not rerun for this routing-only follow-up.
+
+- Current local checks: **511 unit tests in 31 files**, production build,
+  TypeScript, ESLint, and **10 documentation-renderer tests** pass.
+- Seven focused Chromium journeys pass across the final targeted runs: combined
+  resident/flat creation, required-flat validation, duplicate assignment refusal,
+  eligibility editing, directory filters/pagination, management
+  role behavior and read-only protections, including the observer's own ballot.
+  Directory and onboarding reflow/axe checks cover Light/Dark at 375px, with
+  overflow checks at 320/375/768/1280px. Manual screen-reader/device acceptance
+  remains open.
+- With explicit user approval of the configured disposable project, two focused
+  capture flows refreshed **18 affected administrator/readonly screenshots**.
+  Synthetic records and redaction were used; temporary Default Households and
+  branding settings were restored by the capture cleanup. Earlier attempts hit
+  an isolated screenshot-write failure and temporary Supabase unavailability;
+  final focused reruns passed without weakening checks or TLS.
+- This turn ran no new schema migration, full SQL integration suite, hosted
+  deployment or real SMTP-delivery verification. Existing production launch,
+  capacity, operational and governance gates remain open.
+
+### Centred confirmation popup follow-up (28 October 2026)
+
+The shared native confirmation dialog now centres in both viewport axes at all
+breakpoints instead of becoming a phone bottom sheet. Width gutters, bounded
+height and internal scrolling preserve access to long content and actions.
+Dropdown menus and autocomplete suggestions remain anchored to their controls.
+
+- Two focused Chromium tests pass: actual dialog bounds are centred within 1px
+  at 320x640, 375x812, 768x1024, 1280x900 and 844x390; synthetic tall content
+  scrolls at 375x480, with Cancel reachable. Escape/cancel, return focus and modal
+  focus containment remain covered.
+- A focused synthetic capture passes with Light/Dark phone centring assertions,
+  two refreshed desktop confirmation screenshots and two new phone illustrations.
+  The guides and their HTML copies are regenerated with local link validation.
+- Production build (including TypeScript), ESLint and all 10 documentation
+  renderer tests pass. The full unit/integration suites were not rerun for this
+  shared styling change; real-device/assistive-technology acceptance remains open.
+- No migration or hosted deployment was performed. Existing launch gates remain
+  unchanged.
+
 ### 27 October 2026 verification of both changes
 
-The later Residents-tab experiment has been rolled back locally to the separate
+Historically, the earlier Residents-tab experiment was rolled back to the separate
 Accounts and Households screens, preserving self-registration and one-step
 account/household onboarding. Its additive `20261111100000` view and SQL regression
 test remain because the migration was already applied to the disposable project;
@@ -370,7 +434,24 @@ See the [SMTP verification record](./DEPLOYMENT.md#staging-otp-verification-28-o
 This is not approval of the personal Gmail sender for production, the unchanged
 one-hour OTP expiry, sending capacity, or any production release gate.
 
-**28 October Production-target switch:** the staging host now uses Vercel's
+**Current 28 October staging-only follow-up:** the canonical site is now
+<https://arp-civic-pulse-staging.vercel.app>, using Vercel's Production target
+only with the same disposable database. Hosted Preview deployments are disabled,
+all eight Preview-only variables were removed, Production `APP_ORIGIN` and
+Supabase Auth Site URL are aligned, and redeployment
+`dpl_6cEy2UQrC2ZDFxupXbhy14VMWR5x` of committed `a0823d8` is Ready.
+Current protection settings were preserved; the canonical sign-in/health URLs
+were publicly reachable during checks. Same-origin empty-body authentication
+requests now reach validation (422), wrong-origin requests still fail CSRF (403),
+and health returns 200/ok. No OTP email, new migration, reset, real voting
+acceptance or uncommitted Residents/modal deployment occurred. Main-only Git
+policy is also prepared locally in `vercel.json`, pending a separate commit/push.
+This supersedes earlier git-main URL/Preview-variable/protection observations
+below, not the unresolved gates. Real production remains a separate Vercel and
+non-disposable Supabase setup. See the
+[current staging configuration](./DEPLOYMENT.md#current-staging-configuration-production-target-only).
+
+**Earlier 28 October Production-target switch:** the staging host now uses Vercel's
 Production environment so `main` builds carry application variables. The two
 pending migrations (`20261112100000_app_support_access`,
 `20261113100000_readonly_household_optional`) were applied to the disposable

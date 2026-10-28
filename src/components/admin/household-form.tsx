@@ -48,7 +48,7 @@ export function HouseholdForm({
       setFailure(result);
       return;
     }
-    router.push("/admin/households?notice=household-updated");
+    router.push("/admin/residents?notice=household-updated");
     router.refresh();
   }
 
@@ -65,7 +65,7 @@ export function HouseholdForm({
           <dt className="font-semibold">Representative:</dt>
           <dd>
             <Link
-              href={`/admin/accounts/${household.representativeAccountId}#household`}
+              href={`/admin/residents/${household.representativeAccountId}#household`}
               className="text-accent underline underline-offset-2"
             >
               {household.representative.name}
@@ -101,7 +101,7 @@ export function HouseholdForm({
           Save Changes
         </Button>
         <Link
-          href="/admin/households"
+          href="/admin/residents"
           className="inline-flex touch-target items-center justify-center rounded-control border border-control-border bg-surface px-4 py-3 font-semibold text-primary hover:bg-primary/5"
         >
           Cancel

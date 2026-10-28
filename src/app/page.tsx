@@ -182,11 +182,8 @@ export default async function HomePage({
             <LinkButton href="/admin/votes" variant="secondary">
               Manage Votes
             </LinkButton>
-            <LinkButton href="/admin/households" variant="secondary">
-              {deps.terms.Households} Register
-            </LinkButton>
-            <LinkButton href="/admin/accounts" variant="secondary">
-              Accounts
+            <LinkButton href="/admin/residents" variant="secondary">
+              Residents
             </LinkButton>
           </div>
         </details>

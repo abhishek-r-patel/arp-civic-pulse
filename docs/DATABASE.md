@@ -116,8 +116,10 @@ Suspension/soft deletion blocks application access immediately through profile c
 Migration `20261111100000_resident_directory.sql` retains a read-only
 `public.resident_directory` view joining profiles to their optional households.
 It was applied to the confirmed disposable project during the subsequently
-reverted Residents-tab experiment. The restored Accounts and Households screens
-do not use it. It remains immutable migration history: `security_invoker` applies
+reverted Residents-tab experiment. The current unified Residents screen now uses
+this existing view for filtered flat/name-ordered IDs, then enriches only the
+authorized page with current profile fields and assignments. Consolidation
+changes no schema or grants. It remains immutable migration history: `security_invoker` applies
 the caller's underlying RLS policies, only `authenticated` has SELECT, and no
 writes or new voting permissions are granted. Do not drop it or repair migration
 history merely to roll back the application.

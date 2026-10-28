@@ -213,7 +213,7 @@ select app_private.deployment_bootstrap_admin('<auth user UID>', 'Asha Admin');
 
 Each procedure writes an audit event. `deployment_initialize_settings` can only be run once.
 
-Additional committee accounts use the Accounts page's exclusive management-role
+Additional committee accounts use the Residents page's exclusive management-role
 selector. A household is optional for `rwa-readonly`; assign one only if that
 observer should also vote through it. The account must still be explicitly
 enabled. Role assignment is admin-only and does not create or transfer voting
@@ -279,7 +279,7 @@ If port 3000 is busy, either stop whatever uses it or run `npm run dev -- --port
 
 1. You land on **Sign in**. Enter the administrator's email and choose **Send Sign-In Code**. The screen always says "If this address can sign in, a code may arrive shortly" so it never reveals who is registered.
 2. Enter the six-digit code from your inbox (Option A) or from the script (Option B) and choose **Verify and Sign In**.
-3. You arrive on **Votes** with a header showing **Households, Accounts, Manage Votes** (administrators only) and, on the right of the tabs, **Sign Out**.
+3. You arrive on **Votes** with a header showing **Residents, RWA Settings, Manage Votes, Audit History** (authorized management roles only) and, on the right of the tabs, **Sign Out**.
 
 ### 9.2 A guided first walkthrough
 
@@ -310,7 +310,7 @@ Run `npx playwright test tests/e2e/theme.spec.ts --project=chromium` for the pub
 theme checks. The opted-in `--grep "Platinum and Obsidian"` documentation capture
 uses the verified disposable fixture project for actual Votes/Accounts pictures.
 
-For tabular onboarding review, open **Accounts** (Residents is the default role),
+For tabular onboarding review, open **Residents** (Voters is the default role),
 filter Suspended and select valid rows on the current page. **Enable Selected**
 allows sign-in; **Make Eligible** separately changes assigned-flat eligibility
 for future votes. Select All Roles explicitly to include administrators, whose
@@ -335,8 +335,8 @@ environment using section 6. Do not point fixtures or captures at production.
 
 Follow this to see every built feature:
 
-1. **Accounts → Add account.** Create a resident (name + email) and, in the same form, choose their household (for example `A-101`; when Settings → Default Households is set, pick it from the list) and tick **Eligible to vote**. Tick **Enable account now** to skip step 2. New accounts otherwise start **Suspended**.
-2. **Accounts →** open the resident and choose **Enable Account** (confirm in the dialog). A resident can only be enabled once they have a household; an account created without one can be given one from its own page (**Household** section).
+1. **Residents → Add Resident.** Enter name + email, choose the role and household (for example `A-101`; when Settings → Default Households is set, pick an unassigned listed identifier), and tick **Eligible to vote** if appropriate. A household is required for voters in this form, optional for management roles. Tick **Enable account now** to skip step 2; otherwise the account starts **Suspended**.
+2. **Residents → Manage** the resident and choose **Enable Account** (confirm in the dialog). Legacy accounts without a household can be assigned one from their details page. Use **Change eligibility** for future-vote eligibility. Account access and eligibility remain separate approvals.
 3. Repeat steps 1-2 for a few residents.
 5. **Manage Votes → New Vote.** Choose **PUBLIC** (a question with options) or **PRIVATE** (an election with offices and candidates) and **Create Draft**.
 6. In the editor fill in the five sections: voting type, details, ballot, electorate (search and tick households), and deadline (entered in your RWA's time zone; you see how residents will read it). **Save Draft.**

@@ -15,9 +15,9 @@ export default async function ImportRegisterPage() {
       <PageHeader
         title={`Import ${deps.terms.Households}`}
         actions={
-          <LinkButton href="/admin/households" variant="secondary">
+          <LinkButton href="/admin/residents" variant="secondary">
             <ChevronLeft className="size-5" aria-hidden="true" />
-            {deps.terms.Households}
+            Residents
           </LinkButton>
         }
       />

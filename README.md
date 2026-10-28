@@ -4,23 +4,36 @@ Mobile-first voting and polls for a single Resident Welfare Association (RWA).
 
 The application implements registered-member email OTP access, household/account administration with reviewed CSV import, PUBLIC polls and PRIVATE elections with immediate or scheduled opening, protected results, CSV/PDF exports, and operational backup/recovery tooling. Production use remains blocked by the approvals and external-environment checks in [pilot readiness](./docs/PILOT_READINESS.md).
 
+The [staging site](https://arp-civic-pulse-staging.vercel.app) uses Vercel's
+**Production target only**, backed by the disposable Supabase project. Automatic
+Preview deployments are disabled; only `main` deploys automatically. This is not
+real production: that requires separate Vercel/Supabase projects and approvals.
+See the [current hosting setup](./docs/DEPLOYMENT.md#current-staging-configuration-production-target-only).
+
 Accounts use one of three lowercase role codes: `voter`, `rwa-admin`, or
 `rwa-readonly`. Their personas are Resident, RWA Admin, and RWA ReadOnly.
 Administrators alone assign roles and make management changes; readonly
 observers have the same authorized management reads and downloads, with visible
 disabled controls. Both management roles can also vote through their own enabled
 household entitlement. The management roles are exclusive, and an observer must
-have a household assignment before enablement.
+have a household assignment to vote, but can be enabled without one.
 
-Administrators add a resident's account and household in one step on **Accounts
-→ Add Account** (household optional, eligibility and "Enable account now"
-optional); when Settings → Default Households is set, only unassigned listed
-households can be chosen. An account page can assign or move its household.
+Administrators manage accounts and flats together on **Residents → Add Resident**.
+A household is required when creating a voter in this form, optional for management
+roles; eligibility and "Enable account now" remain separate optional approvals.
+Settings → Default Households defines allowed identifiers, not assignments:
+only unassigned listed households can be chosen when configured; without a list,
+type the identifier. A resident's details page can assign or move its household
+and open its eligibility editor. Residents includes status, role, source, exact
+identifier and eligibility filters plus CSV import. Residents is the only register
+UI route; former Accounts/Households pages return 404, with no redirects. Existing
+account and household APIs remain unchanged. Residents
+sorts by flat/name with unassigned people last and offers a no-assignment filter.
 This needs the reviewed `20261110100000_account_with_household` migration.
 
 Administrators can open **Import CSV** from the register: upload at most 500 rows
 (256 KiB), check conflicts, confirm import, then review and enable suspended
-accounts using individual controls or the Accounts table's separate **Enable Selected**
+accounts using individual controls or the Residents table's separate **Enable Selected**
 and **Make Eligible** actions. The table defaults to Voters; explicitly select
 All Roles to include administrators. Selections cover only the current page.
 Existing records are never overwritten. From a ready
@@ -37,7 +50,7 @@ footer) with their name, email and household identifier, chosen from the
 admin-configured Default Households when any are set (free text otherwise). Each registration is
 created **suspended** with an **ineligible** household; a repeated email or an
 already registered household is rejected with a specific error. Administrators
-find them on **Accounts** with the **Source: Self-registered** filter and use the
+find them on **Residents** with the **Source: Self-registered** filter and use the
 same enable/eligibility actions. This needs the reviewed
 `20261109100000_resident_self_registration` migration; see
 [API.md](./docs/API.md#public-resident-self-registration-endpoint).

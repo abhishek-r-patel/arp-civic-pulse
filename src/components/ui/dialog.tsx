@@ -6,8 +6,8 @@ import { Button } from "./button";
 import { cn } from "./cn";
 
 /*
- * Confirmation dialog (docs/DESIGN_SYSTEM.md section 06): a bottom sheet on
- * phones and a centred modal from the sm breakpoint. It uses the native
+ * Confirmation dialog (docs/DESIGN_SYSTEM.md section 06): centred in the
+ * viewport at every breakpoint, with scrolling for tall content. It uses the native
  * <dialog> in modal mode, which contains focus, makes the rest of the page
  * inert, closes on Esc and returns focus to the control that opened it.
  * Cancel comes first and takes initial focus, so a destructive confirmation is
@@ -62,9 +62,8 @@ export function ConfirmDialog({
         }
       }}
       className={cn(
-        "fixed inset-x-0 bottom-0 m-0 w-full max-w-none rounded-t-card border border-t-[3px] border-border border-t-accent bg-surface p-0 text-primary shadow-xl",
+        "fixed inset-0 m-auto w-[calc(100%_-_2rem)] max-w-lg rounded-card border border-t-[3px] border-border border-t-accent bg-surface p-0 text-primary shadow-xl",
         "pb-[env(safe-area-inset-bottom)] backdrop:bg-primary/50",
-        "sm:inset-auto sm:m-auto sm:max-w-lg sm:rounded-card sm:pb-0",
         "max-h-[90dvh] overflow-y-auto",
       )}
     >

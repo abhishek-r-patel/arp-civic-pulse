@@ -1,4 +1,4 @@
-// Client-side account provisioning (with an optional household) and profile-management forms.
+// Combined resident provisioning (household required for voters) and profile-management forms.
 "use client";
 
 import { useState, type FormEvent } from "react";
@@ -69,6 +69,7 @@ function HouseholdPicker({
       <Notice tone="warning" heading={`No unassigned ${terms.households}`}>
         Every {terms.household} in Settings → Default {terms.Households} is
         already assigned. Add more there first.
+        {error ? <p role="alert">{error}</p> : null}
       </Notice>
     );
   }
@@ -131,6 +132,13 @@ export function AccountCreateForm({
     if (pending) {
       return;
     }
+    if (!isAdmin && !isReadonly && !identifier) {
+      setPickError(
+        `Choose a ${terms.identifierLabel} before creating a resident.`,
+      );
+      document.getElementById("household.identifier")?.focus();
+      return;
+    }
     // Typed text never turned into a list choice must not silently become "no household".
     if (choices.listed && householdText.trim() !== "" && !identifier) {
       setPickError(
@@ -169,17 +177,17 @@ export function AccountCreateForm({
         : result.data.status === "ENABLED"
           ? "account-created-enabled"
           : "account-created";
-    router.push(`/admin/accounts/${result.data.id}?notice=${notice}`);
+    router.push(`/admin/residents/${result.data.id}?notice=${notice}`);
     router.refresh();
   }
 
   return (
     <form onSubmit={submit} noValidate className="grid max-w-ballot gap-6">
-      <Notice tone="info" heading="Add the account and its home together">
-        Choose the person&apos;s {terms.household} here, or leave it blank and
-        assign it later from the account page. The account stays suspended
-        unless you tick Enable account now; residents can only be enabled with a{" "}
-        {terms.household}.
+      <Notice tone="info" heading="Add the resident and their home together">
+        Choose the person&apos;s {terms.household} here. A {terms.household} is
+        required for a voter; management-role accounts can leave it blank. The
+        account stays suspended unless you tick Enable account now. Account
+        access and voting eligibility are separate approvals.
       </Notice>
 
       <ErrorSummary
@@ -246,7 +254,8 @@ export function AccountCreateForm({
             if (next) setPickError(null);
           }}
           onTextChange={setHouseholdText}
-          hint={`The ${terms.household} this person votes for. Leave blank to assign it later.`}
+          required={!isAdmin && !isReadonly}
+          hint={`The ${terms.household} this person votes for. Required for voters; optional for management roles.`}
           error={pickError ?? fieldErrorFor(failure, "household.identifier")}
         />
         <CheckboxField
@@ -277,10 +286,10 @@ export function AccountCreateForm({
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button type="submit" loading={pending}>
           <UserPlus aria-hidden="true" className="size-5" />
-          Create Account
+          Create Resident
         </Button>
         <Link
-          href="/admin/accounts"
+          href="/admin/residents"
           className="inline-flex touch-target items-center justify-center rounded-control border border-control-border bg-surface px-4 py-3 font-semibold text-primary hover:bg-primary/5"
         >
           Cancel
@@ -389,7 +398,7 @@ export function AccountHouseholdSection({
           </span>
           <EligibilityBadge eligible={household.isEligible} />
           <Link
-            href={`/admin/households/${household.id}`}
+            href={`/admin/residents/households/${household.id}`}
             className="font-semibold text-accent underline underline-offset-2"
           >
             Change eligibility
@@ -792,7 +801,7 @@ export function AccountEditor({
               Save Changes
             </Button>
             <Link
-              href="/admin/accounts"
+              href="/admin/residents"
               className="inline-flex touch-target items-center justify-center rounded-control border border-control-border bg-surface px-4 py-3 font-semibold text-primary hover:bg-primary/5"
             >
               Back to accounts

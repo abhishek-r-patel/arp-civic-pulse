@@ -19,7 +19,7 @@ export async function generateMetadata({
   return privateRecordMetadata(
     `Edit ${terms.Household}`,
     `Update current ${terms.household} details without rewriting historical voting assignments.`,
-    "/admin/households/[id]",
+    "/admin/residents/households/[id]",
   )({ params });
 }
 
@@ -45,11 +45,11 @@ export default async function EditHouseholdPage({
   return (
     <div className="grid gap-8">
       <Link
-        href="/admin/households"
+        href="/admin/residents"
         className="inline-flex touch-target w-fit items-center gap-1 font-semibold text-accent underline underline-offset-2"
       >
         <ChevronLeft aria-hidden="true" className="size-5" />
-        {deps.terms.Households}
+        Residents
       </Link>
       <PageHeader
         title={`Edit ${deps.identifierLabel} ${household.identifier}`}

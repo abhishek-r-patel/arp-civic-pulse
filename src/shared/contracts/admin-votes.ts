@@ -2,6 +2,7 @@
 import { z } from "zod";
 import { VOTE_STATUSES, VOTING_TYPES } from "@/shared/contracts/voting";
 import { listQuerySchema, queryBoolean } from "@/shared/contracts/pagination";
+import { householdListQuerySchema } from "@/shared/contracts/register";
 import {
   confirmed,
   draftTitleText,
@@ -336,4 +337,11 @@ export const accountListQuerySchema = listQuerySchema({
   isAdmin: queryBoolean.optional(),
   isReadonly: queryBoolean.optional(),
   selfRegistered: queryBoolean.optional(),
+});
+
+// UI directory cursors use flat/name ordering; the account API retains profile-ID ordering.
+export const residentListQuerySchema = accountListQuerySchema.extend({
+  identifier: householdListQuerySchema.shape.identifier,
+  isEligible: householdListQuerySchema.shape.isEligible,
+  hasHousehold: queryBoolean.optional(),
 });

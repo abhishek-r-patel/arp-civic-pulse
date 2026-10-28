@@ -28,14 +28,17 @@ test("committee observers can read management pages and still cast their own bal
   expect(role).toMatchObject({ isReadonly: true, isAdmin: false });
   await signInThroughUi(page, observer.email, await freshCode(observer.email));
 
-  await page.getByRole("link", { name: "Accounts" }).click();
+  await page
+    .getByRole("navigation", { name: "Main" })
+    .getByRole("link", { name: "Residents" })
+    .click();
   await expect(
     page.getByText("Management changes require the RWA Admin role."),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Enable Selected" }),
   ).toBeDisabled();
-  await page.goto("/admin/accounts/new");
+  await page.goto("/admin/residents/new");
   await expect(page.getByLabel("Email address")).toBeDisabled();
   await page.goto("/admin/votes/new");
   await expect(

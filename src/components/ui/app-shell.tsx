@@ -123,11 +123,8 @@ export async function AppShell({
                   <NavLink href="/">Votes</NavLink>
                   {canViewAdministration(account) ? (
                     <>
-                      <NavLink href="/admin/households">
-                        {terms.Households}
-                      </NavLink>
+                      <NavLink href="/admin/residents">Residents</NavLink>
                       <NavLink href="/admin/settings">RWA Settings</NavLink>
-                      <NavLink href="/admin/accounts">Accounts</NavLink>
                       <NavLink href="/admin/votes">Manage Votes</NavLink>
                       <NavLink href="/admin/audit">Audit History</NavLink>
                     </>

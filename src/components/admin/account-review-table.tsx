@@ -196,7 +196,7 @@ export function AccountReviewTable({
         account.household?.identifier ??
         (account.isAppSupport
           ? "Not applicable (App Support)"
-          : account.isAdmin
+          : account.isAdmin || account.isReadonly
             ? "Not assigned"
             : "Assignment required before enabling"),
     },
@@ -236,7 +236,7 @@ export function AccountReviewTable({
       header: "Actions",
       cell: (account) => (
         <Link
-          href={`/admin/accounts/${account.id}`}
+          href={`/admin/residents/${account.id}`}
           className="inline-flex touch-target items-center font-semibold text-accent underline"
         >
           Manage<span className="sr-only"> {account.representativeName}</span>

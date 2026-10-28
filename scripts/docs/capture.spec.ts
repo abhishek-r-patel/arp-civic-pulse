@@ -127,7 +127,7 @@ test("capture Platinum and Obsidian first-slice documentation", async ({ browser
     await expect(r.getByText("Asha (example)", { exact: true })).toHaveCount(0);
     await signInThroughUi(a, admin.email, admin.code);
     await expect(a.getByRole("region", { name: "Your vote overview" }).locator("dl > div").nth(0).locator("dd").first()).toHaveText("00");
-    await a.goto("/admin/accounts?status=SUSPENDED");
+    await a.goto("/admin/residents?status=SUSPENDED");
     const selectable = a.locator("[data-account-review] tbody input[type=checkbox]:not(:disabled)").first();
     if (await selectable.count()) await selectable.check();
     await r.setViewportSize({ width: 390, height: 844 });
@@ -189,7 +189,7 @@ test("capture bulk account review documentation", async ({ browser }) => {
   const page = await context.newPage();
   screenshotPersona.set(page, "rwa-admin");
   page.setDefaultTimeout(15_000);
-  const accountRow = (id: string) => page.getByRole("row").filter({ has: page.locator(`a[href="/admin/accounts/${id}"]`) });
+  const accountRow = (id: string) => page.getByRole("row").filter({ has: page.locator(`a[href="/admin/residents/${id}"]`) });
   async function findAccount(id: string, url: string) {
     await page.goto(url);
     for (let index = 0; index < 30; index += 1) {
@@ -202,10 +202,10 @@ test("capture bulk account review documentation", async ({ browser }) => {
   }
   try {
     await signInThroughUi(page, operator.email, operator.code);
-    await page.goto("/admin/accounts");
+    await page.goto("/admin/residents");
     await expect(page.getByLabel(/^Role/)).toHaveValue("false");
     await capture(page, "47-accounts-list");
-    await findAccount(resident.id, "/admin/accounts?status=SUSPENDED&limit=100");
+    await findAccount(resident.id, "/admin/residents?status=SUSPENDED&limit=100");
     await expect(accountRow(administrator.id)).toHaveCount(0);
     await accountRow(resident.id).getByRole("checkbox").check();
     await capture(page, "63-account-review");
@@ -226,7 +226,7 @@ test("capture bulk account review documentation", async ({ browser }) => {
     expect(await asUser(operator.id, "(select status from public.profiles where id=$1)", [other.id])).toBe("ENABLED");
     expect(await asUser(operator.id, "(select is_eligible from public.households where id=$1)", [other.householdId])).toBe(false);
     expect(await asUser(operator.id, "(select status from public.profiles where id=$1)", [untouched.id])).toBe("SUSPENDED");
-    await findAccount(administrator.id, "/admin/accounts?status=SUSPENDED&isAdmin=all&limit=100");
+    await findAccount(administrator.id, "/admin/residents?status=SUSPENDED&isAdmin=all&limit=100");
     await expect(page.getByLabel(/^Role/)).toHaveValue("all");
     await expect(page.getByText("0 selected", { exact: true })).toBeVisible();
     await accountRow(administrator.id).getByRole("checkbox").check();
@@ -236,7 +236,7 @@ test("capture bulk account review documentation", async ({ browser }) => {
     await page.getByRole("dialog").getByRole("button", { name: "Enable Selected", exact: true }).click();
     await expect(page.getByText("1 completed", { exact: true })).toBeVisible();
     expect(await asUser(operator.id, "(select status from public.profiles where id=$1)", [administrator.id])).toBe("ENABLED");
-    await findAccount(untouched.id, "/admin/accounts?status=SUSPENDED&limit=100");
+    await findAccount(untouched.id, "/admin/residents?status=SUSPENDED&limit=100");
     await page.route(`**/api/admin/accounts/${untouched.id}`, (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "DEPENDENCY_UNAVAILABLE", message: "Synthetic provider outage." }, requestId: "documentation-failure-example" }) }));
     await accountRow(untouched.id).getByRole("checkbox").check();
     await page.getByRole("button", { name: "Enable Selected (1)", exact: true }).click();
@@ -273,7 +273,7 @@ test("capture bulk import and scheduled opening documentation", async ({ browser
     await signInThroughUi(a, admin.email, admin.code);
     await a.goto("/admin");
     await capture(a, "15-admin-home");
-    await a.goto("/admin/households/import");
+    await a.goto("/admin/residents/import");
     const identifier = await unusedIdentifier();
     const importedEmail = plusEmail();
     const csv = `identifier,representative_name,email,is_eligible\n${identifier},Arun Shah (example),${importedEmail},true\n`;
@@ -290,13 +290,13 @@ test("capture bulk import and scheduled opening documentation", async ({ browser
     await a.getByRole("link", { name: "Review Account", exact: true }).click();
     await expect(a.getByRole("heading", { level: 1, name: "Arun Shah (example)" })).toBeVisible();
     await expect(a.getByRole("button", { name: "Enable Account", exact: true })).toBeVisible();
-    await a.goto(`/admin/households?identifier=${encodeURIComponent(identifier)}`);
+    await a.goto(`/admin/residents?identifier=${encodeURIComponent(identifier)}`);
     await capture(a, "44-household-created");
     const mobileAdmin = await browser.newContext({ viewport: { width: 390, height: 844 }, storageState: await desktop.storageState() });
     try {
       const upload = await mobileAdmin.newPage();
       screenshotPersona.set(upload, "rwa-admin");
-      await upload.goto("/admin/households/import");
+      await upload.goto("/admin/residents/import");
       await upload.getByLabel("Register CSV").setInputFiles({ name: "synthetic-register.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
       await upload.getByRole("button", { name: "Check Register", exact: true }).click();
       await expect(upload.getByRole("cell").filter({ hasText: "Exact match; no changes made. Review account access separately." })).toBeVisible();
@@ -367,12 +367,12 @@ test("capture administrator assignment of exclusive management roles", async ({ 
   const name = "Committee Observer (example)";
   try {
     await signInThroughUi(page, operator.email, operator.code);
-    await page.goto("/admin/accounts/new");
+    await page.goto("/admin/residents/new");
     await page.getByLabel("Email address").fill(email);
     await page.getByLabel("Representative name").fill(name);
     await page.getByLabel("Management role").selectOption("rwa-readonly");
     await capture(page, "30-create-readonly-role");
-    await page.getByRole("button", { name: "Create Account" }).click();
+    await page.getByRole("button", { name: "Create Resident" }).click();
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
     const accountPath = new URL(page.url()).pathname;
     await capture(page, "31-readonly-account-suspended");
@@ -546,38 +546,29 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
       a.getByRole("heading", { level: 1, name: "RWA Settings" }),
     ).toBeVisible();
     await capture(a, "48-rwa-settings");
-    await a.goto("/admin/accounts/new");
+    await a.goto("/admin/residents/new");
     await capture(a, "16-create-account");
     const onboardingEmail = plusEmail();
     await a.getByLabel(/Email address/).fill(onboardingEmail);
     await a.getByLabel(/Representative name/).fill("Arun Shah (example)");
-    await a.getByRole("button", { name: "Create Account" }).click();
+    await a.getByRole("button", { name: "Create Resident" }).click();
+    await expect(a.getByText(/before creating a resident/)).toBeVisible();
+    await capture(a, "43-household-required");
+    const newIdentifier = onboardingFlat;
+    await a.locator('[id="household.identifier"]').fill(newIdentifier);
+    await a.keyboard.press("Tab");
+    await a.getByRole("button", { name: "Create Resident" }).click();
     await expect(
       a.getByRole("heading", { level: 1, name: "Arun Shah (example)" }),
     ).toBeVisible();
     const onboardingAccountPath = new URL(a.url()).pathname;
     await capture(a, "42-created-suspended");
-    await a.getByRole("button", { name: "Enable Account" }).click();
-    await a
-      .getByRole("dialog")
-      .getByRole("button", { name: "Enable Account" })
-      .click();
-    await expect(
-      a.getByText("Flat needed first", { exact: true }),
-    ).toBeVisible();
-    await capture(a, "43-household-required");
-    const newIdentifier = onboardingFlat;
-    await a.locator("#identifier").fill(newIdentifier);
-    // Leaving the field turns exact typed text into the list choice.
-    await a.keyboard.press("Tab");
-    await a.getByRole("button", { name: "Assign Flat" }).click();
-    await expect(a.getByText(`Flat ${newIdentifier} assigned.`)).toBeVisible();
     await a.getByRole("link", { name: "Change eligibility" }).click();
     await a.getByLabel("Eligible to vote").check();
     await a.getByRole("button", { name: "Save Changes" }).click();
     await expect(a.getByText("Flat updated.")).toBeVisible();
     await a.goto(
-      `/admin/households?identifier=${encodeURIComponent(newIdentifier)}`,
+      `/admin/residents?identifier=${encodeURIComponent(newIdentifier)}`,
     );
     await capture(a, "44-household-created");
     await a.goto(onboardingAccountPath);
@@ -591,9 +582,9 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
       a.getByRole("button", { name: "Suspend Account" }),
     ).toBeVisible();
     await capture(a, "46-enabled-account");
-    await a.goto("/admin/accounts");
+    await a.goto("/admin/residents");
     await capture(a, "47-accounts-list");
-    await a.goto(`/admin/accounts/${resident.id}`);
+    await a.goto(`/admin/residents/${resident.id}`);
     await capture(a, "17-account");
     await a.getByRole("button", { name: "Suspend Account" }).click();
     await capture(a, "18-suspend-dialog");
@@ -601,12 +592,12 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     await a.getByRole("button", { name: "Delete Account" }).click();
     await capture(a, "19-delete-dialog");
     await a.keyboard.press("Escape");
-    await a.goto("/admin/accounts/new");
+    await a.goto("/admin/residents/new");
     await a.getByLabel(/Email address/).fill(plusEmail());
     await a.getByLabel(/Representative name/).fill("Meera Iyer (example)");
     await a.locator('[id="household.identifier"]').click();
     await capture(a, "20-add-household");
-    await a.goto(`/admin/households/${resident.householdId}`);
+    await a.goto(`/admin/residents/households/${resident.householdId}`);
     await capture(a, "21-household");
     await a.goto("/admin/votes/new");
     await capture(a, "22-voting-types");
@@ -857,7 +848,7 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     await capture(m, "38-cancelled-member");
     await a.goto("/admin/audit");
     await capture(a, "39-audit");
-    await m.goto("/admin/households");
+    await m.goto("/admin/residents");
     await capture(m, "40-no-admin-access");
     await m.goto("/");
     await m.getByRole("button", { name: "Sign Out" }).click();
@@ -1012,7 +1003,7 @@ test("capture the RWA ReadOnly persona", async ({ browser }) => {
     await expect(page.getByText("RWA ReadOnly", { exact: false }).first()).toBeVisible();
     await appearance("Light");
     await capture(page, "01-votes-home-light");
-    await expect(page.getByRole("link", { name: "Accounts" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Residents" })).toBeVisible();
     await page.getByText("Committee view", { exact: true }).click();
     await expect(
       page.getByText(/View the flats register, accounts and votes/i),
@@ -1020,28 +1011,28 @@ test("capture the RWA ReadOnly persona", async ({ browser }) => {
     await appearance("Dark");
     await capture(page, "02-votes-home-dark");
 
-    await page.goto("/admin/accounts?isAdmin=all");
+    await page.goto("/admin/residents?isAdmin=all");
     await expect(page.getByRole("button", { name: "Enable Selected" })).toBeDisabled();
     await capture(page, "03-accounts-read-all-roles");
-    await page.goto(`/admin/accounts/${observer.id}`);
+    await page.goto(`/admin/residents/${observer.id}`);
     await expect(page.getByLabel("Management role")).toBeDisabled();
     await capture(page, "04-observer-account-detail");
-    await page.goto("/admin/accounts/new");
+    await page.goto("/admin/residents/new");
     await expect(page.getByLabel("Email address")).toBeDisabled();
     await capture(page, "05-create-account-disabled");
 
-    await page.goto("/admin/households");
+    await page.goto("/admin/residents");
     await expect(
-      page.getByRole("link", { name: /^Add Account and Flat$/ }),
+      page.getByRole("link", { name: "Add Resident", exact: true }),
     ).toHaveAttribute("aria-disabled", "true");
     await capture(page, "06-household-register-read");
-    await page.goto(`/admin/accounts/${other.id}`);
+    await page.goto(`/admin/residents/${other.id}`);
     await expect(page.locator("#identifier")).toBeDisabled();
     await capture(page, "07-new-household-disabled");
-    await page.goto(`/admin/households/${other.householdId}`);
+    await page.goto(`/admin/residents/households/${other.householdId}`);
     await expect(page.getByLabel("Eligible to vote")).toBeDisabled();
     await capture(page, "08-edit-household-disabled");
-    await page.goto("/admin/households/import");
+    await page.goto("/admin/residents/import");
     await expect(page.getByLabel("Register CSV")).toBeDisabled();
     await capture(page, "09-register-import-disabled");
 
@@ -1145,6 +1136,83 @@ test("capture the RWA ReadOnly persona", async ({ browser }) => {
   }
 });
 
+test("capture centred confirmation dialogs", async ({ browser }) => {
+  test.setTimeout(180_000);
+  const admin = await provisionAdmin("Dialog Administrator (example)");
+  const subject = await provisionAdmin("Dialog Subject (example)");
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  screenshotPersona.set(page, "rwa-admin");
+  try {
+    await signInThroughUi(page, admin.email, admin.code);
+    await page.goto(`/admin/residents/${subject.id}`);
+    await page.getByRole("button", { name: "Suspend Account" }).click();
+    await capture(page, "18-suspend-dialog", false, true);
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Delete Account" }).click();
+    await capture(page, "19-delete-dialog", false, true);
+    for (const [mode, name] of [["Light", "85-centred-dialog-phone"], ["Dark", "86-centred-dialog-phone-dark"]] as const) {
+      await page.keyboard.press("Escape");
+      const menu = page.locator("details[data-theme-control]");
+      if (await menu.getAttribute("open") === null) await menu.locator("summary").click();
+      await menu.getByRole("radio", { name: mode, exact: true }).check();
+      await page.keyboard.press("Escape");
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.getByRole("button", { name: "Delete Account" }).click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await expect.poll(async () => page.getByRole("dialog").evaluate((element) => {
+        const bounds = element.getBoundingClientRect();
+        return Math.max(
+          Math.abs(bounds.left + bounds.width / 2 - innerWidth / 2),
+          Math.abs(bounds.top + bounds.height / 2 - innerHeight / 2),
+        );
+      })).toBeLessThanOrEqual(1);
+      await capture(page, name, false, true);
+    }
+  } finally {
+    await context.close();
+  }
+});
+
+test("capture Residents management surfaces", async ({ browser }) => {
+  test.setTimeout(180_000);
+  const admin = await provisionAdmin("Residents Administrator (example)");
+  const observer = await seedHousehold();
+  await asUser(admin.id, "public.update_profile($1,$2::jsonb)", [observer.id, JSON.stringify({ isReadonly: true })]);
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const observerContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  const observerPage = await observerContext.newPage();
+  screenshotPersona.set(page, "rwa-admin");
+  screenshotPersona.set(observerPage, "rwa-readonly");
+  try {
+    await signInThroughUi(page, admin.email, admin.code);
+    await capture(page, "15-admin-home");
+    await page.goto("/admin/residents/new");
+    await capture(page, "16-create-account");
+    await page.goto(`/admin/residents/${observer.id}`);
+    await capture(page, "17-account");
+    await page.goto(`/admin/residents/households/${observer.householdId}`);
+    await capture(page, "21-household");
+    await signInThroughUi(observerPage, observer.email, await freshCode(observer.email));
+    await observerPage.goto("/admin/residents?isAdmin=all");
+    await capture(observerPage, "03-accounts-read-all-roles", false, true);
+    await capture(observerPage, "06-household-register-read", false, true);
+    await observerPage.goto(`/admin/residents/${observer.id}`);
+    await capture(observerPage, "04-observer-account-detail");
+    await capture(observerPage, "07-new-household-disabled");
+    await observerPage.goto("/admin/residents/new");
+    await expect(observerPage.getByLabel(/Email address/)).toBeDisabled();
+    await capture(observerPage, "05-create-account-disabled");
+    await observerPage.goto(`/admin/residents/households/${observer.householdId}`);
+    await capture(observerPage, "08-edit-household-disabled");
+    await observerPage.goto("/admin/residents/import");
+    await capture(observerPage, "09-register-import-disabled");
+  } finally {
+    await context.close(); await observerContext.close();
+  }
+});
+
 test("capture self-registration and one-step account onboarding", async ({ browser }) => {
   test.setTimeout(300_000);
   const admin = await provisionAdmin("Onboarding Administrator (example)");
@@ -1192,7 +1260,7 @@ test("capture self-registration and one-step account onboarding", async ({ brows
     await capture(p, "80-register-flat-picker", false, true);
 
     await signInThroughUi(a, admin.email, admin.code);
-    await a.goto("/admin/accounts/new");
+    await a.goto("/admin/residents/new");
     await a.getByLabel(/Email address/).fill(plusEmail());
     await a.getByLabel(/Representative name/).fill("Neha Joshi (example)");
     const adminPicker = a.getByRole("combobox", { name: /Flat Number/ });
@@ -1203,7 +1271,7 @@ test("capture self-registration and one-step account onboarding", async ({ brows
     await a.getByRole("option", { name: chosen, exact: true }).click();
     await a.getByLabel("Eligible to vote").check();
     await a.getByLabel("Enable account now").check();
-    await a.getByRole("button", { name: "Create Account" }).click();
+    await a.getByRole("button", { name: "Create Resident" }).click();
     await expect(a.getByText("Account created and enabled.")).toBeVisible();
     await expect(a.getByText(chosen, { exact: true })).toBeVisible();
     await capture(a, "82-account-created-with-flat");
@@ -1217,9 +1285,18 @@ test("capture self-registration and one-step account onboarding", async ({ brows
     await a.getByRole("dialog").getByRole("button", { name: "Move Flat" }).click();
     await expect(a.getByText(`Moved to ${moveTo}.`)).toBeVisible();
 
-    await a.goto("/admin/accounts?status=SUSPENDED&selfRegistered=true");
+    await a.goto("/admin/residents?status=SUSPENDED&selfRegistered=true");
     await expect(a.locator("[data-account-review]").getByText("Self-registered").first()).toBeVisible();
     await capture(a, "84-self-registered-accounts", false, true);
+    await a.goto("/admin/residents");
+    await expect(a.getByRole("heading", { level: 1, name: "Residents" })).toBeVisible();
+    await capture(a, "47-accounts-list", false, true);
+    await capture(a, "70-platinum-accounts", false, true);
+    const themeMenu = a.locator("details[data-theme-control]");
+    await themeMenu.locator("summary").click();
+    await themeMenu.getByRole("radio", { name: "Dark", exact: true }).check();
+    await a.keyboard.press("Escape");
+    await capture(a, "71-obsidian-accounts", false, true);
   } finally {
     await publicContext.close(); await adminContext.close();
     await asUser(admin.id, "public.update_rwa_profile($1::jsonb)", [JSON.stringify(previous)]);

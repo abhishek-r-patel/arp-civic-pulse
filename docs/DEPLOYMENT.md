@@ -2,11 +2,57 @@
 
 ## 1. Status and approval boundary
 
-This repository is **deployed to protected staging, not deployed to production or approved for real voting**. The architecture prefers Vercel for Next.js and Supabase PostgreSQL/Auth/Cron. The staging account is recorded below; no production Supabase project, production hosting plan, region, domain, budget or trusted ingress is approved by this configuration. No existing hosted project is assumed to be production.
+This repository is **deployed to staging using Vercel's Production target, not real production or approved for real voting**. The architecture prefers Vercel for Next.js and Supabase PostgreSQL/Auth/Cron. The staging account is recorded below; no production Supabase project, production hosting plan, region, domain, budget or trusted ingress is approved by this configuration. No existing hosted project is assumed to be production.
 
 Do not promote a deployment or admit real residents until the open gates in [PILOT_READINESS.md](./PILOT_READINESS.md) are closed. In particular, `TRUSTED_PROXY_CONFIG` is reserved and **does not implement trusted-client-IP limiting**. Approve ingress, implement and test spoof-resistant IP enforcement before release; setting the variable is not a workaround. This guide does not grant approval of A1-A7, providers, regions, retention or recovery objectives.
 
-### Protected staging: 27 October 2026
+### Current staging configuration: Production target only
+
+As of 28 October 2026, the operator approved this permanent staging setup:
+
+- Canonical URL and Production `APP_ORIGIN`:
+  <https://arp-civic-pulse-staging.vercel.app>, without a trailing slash in the
+  environment value. Use this origin for sign-in and all browser mutations.
+  Switching Vercel environments or protection does not rewrite `APP_ORIGIN`.
+- Vercel project `arp-civic-pulse-staging` remains connected to `main` as its
+  Production branch, with `previewDeploymentsDisabled=true`. All eight
+  Preview-only environment entries were removed; the nine Production entries
+  remain. No credentials were transferred to a different project.
+- [vercel.json](../vercel.json) adds a durable Git policy:
+  `git.deploymentEnabled` disables `**` and enables `main`. Vercel enables a
+  branch when any matching rule is true, so `main` still builds while feature
+  branches/PRs do not. This repository change is local until committed/pushed;
+  the hosted project-level Preview disable is already saved independently.
+  Preview remains a provider environment type, not an active app deployment
+  workflow. Existing deployment history/aliases were not deleted; do not use
+  the old git-main or per-deployment URLs for mutations.
+- The database remains `civic-pulse-disposable`. Supabase Auth Site URL was
+  changed from `http://localhost:3000` to the canonical staging origin and
+  verified after reload. The redirect allowlist remains empty: the app uses
+  six-digit codes, not a new redirect/magic-link flow. No data reset, migration,
+  SMTP, OTP policy or database credential change was performed.
+- Current Vercel protection was preserved exactly:
+  `ssoProtection.deploymentType=all_except_custom_domains`. The canonical site
+  and health endpoint were reachable without Vercel login in the verification
+  below; do not infer universal SSO coverage from the historical records.
+- Deployment `dpl_6cEy2UQrC2ZDFxupXbhy14VMWR5x` is **Ready**, Production,
+  using the existing committed revision
+  `a0823d884309b3c3f7cd867038084c00b5e3e06b` and the updated project settings.
+  The uncommitted Residents/modal work was not uploaded, committed or pushed.
+- Hosted checks: sign-in returns 200 with the new canonical URL; a same-origin,
+  cookie/token-bound request with an empty body reaches validation
+  (`422 VALIDATION_FAILED`), while a wrong-origin request is rejected
+  (`403 CSRF_FAILED`). No email was requested by these probes. Health returns
+  `200` with `data.status="ok"`. Fresh OTP delivery/authenticated voting were
+  not rerun and these checks do not close production readiness gates.
+
+Real production must be a **separate Vercel project and non-disposable Supabase
+project**, with separate credentials, approved origin, provider/region,
+verification and release gates. Never repoint this staging project at real
+resident data. Changes to `APP_ORIGIN` require a new deployment; align Supabase's
+Site URL too. The records below are historical and superseded where they differ.
+
+### Historical protected staging: 27 October 2026
 
 - Project: [arp-civic-pulse-staging](https://vercel.com/arp-e93d/arp-civic-pulse-staging), Vercel team `arp-e93d`, Hobby, Node.js 24.x, actual function region `iad1`. This is not approval of a production plan or region.
 - Canonical staging origin: <https://arp-civic-pulse-staging-git-main-arp-e93d.vercel.app>. `APP_ORIGIN` matches it at build and runtime; use this hostname for staging mutations.
@@ -85,7 +131,7 @@ The host remains protected staging; this is not production approval.
 
 - Confirm Vercel plan eligibility, cost, region and runtime/memory/export limits. Do not assume Hobby permits the RWA's use.
 - Use Node.js **24.x**, repository root as the project root, and the Next.js framework preset. Node major 24 is already constrained by `package.json` and `.nvmrc`.
-- `vercel.json` installs with `npm ci` and builds with `npm run deploy:check && npm run build`. Keep Next.js's managed output directory; this is not a static export or Edge-runtime application.
+- `vercel.json` installs with `npm ci`, builds with `npm run deploy:check && npm run build`, and allows automatic Git deployments only for `main`. The staging project's Preview disable and Production-scoped variables are managed separately in Vercel. Keep Next.js's managed output directory; this is not a static export or Edge-runtime application.
 - Vercel manages server startup; do not configure `next dev` as a production command. On an approved self-managed Node host, run `npm run build`, then `npm run start -- --hostname 127.0.0.1 --port 3000` behind an HTTPS reverse proxy and process supervisor. That alternative requires separate ingress approval.
 - `.vercelignore` excludes local environment files, local build output, dumps, encrypted backups, keys and test artifacts from CLI uploads. Its `!.env.example` exception retains only the tracked, placeholder-only example: the prebuild guide renderer validates a link to it. Never put real values in that example or remove the exclusions for `.env` and `.env.*`. `.gitignore` excludes `.vercel` metadata. Review the upload/repository before sending it to an approved host.
 - Choose the application region near the approved database region (Mumbai is an architectural preference, not an approval). Region is intentionally not hard-coded.
@@ -222,7 +268,7 @@ rendered guide output; use direct Next commands when intentionally avoiding the
 hooks. The capture suite uses only synthetic data on the approved disposable
 project and never on production.
 
-Apply the complete ordered migration set from `20261024100000_core_schema.sql` through `20261111100000_resident_directory.sql`. Migrations `20261109100000` and `20261110100000` add resident self-registration (`profiles.self_registered` and the service-role-only `self_register_resident` routine) and administrator account creation together with a household (`provision_profile_with_household`); both were applied on 27 October 2026 only to the user-confirmed disposable project for verification and screenshots, not staging or production. The final migration adds a read-only view applied to the disposable project during the reverted Residents-tab experiment; it remains in migration history but is unused by the restored application. Do not drop the view or rewrite applied history as part of the application rollback. The preceding `20261108100000` committee-observer role migration was applied only to the explicitly confirmed disposable project for synthetic verification, not production. Deploy reviewed migrations before the corresponding application revision, outside voting windows; the Accounts screens read `profiles.self_registered` and Add Account with a household calls the new routine, so this revision's Accounts list, Add Account and `/register` fail until both migrations exist. See [supabase/README.md](../supabase/README.md) and [DATABASE.md](./DATABASE.md). The app never migrates at startup or during the Vercel build.
+Apply the complete ordered migration set from `20261024100000_core_schema.sql` through `20261113100000_readonly_household_optional.sql`. Migrations `20261109100000` and `20261110100000` add resident self-registration (`profiles.self_registered` and the service-role-only `self_register_resident` routine) and administrator account creation together with a household (`provision_profile_with_household`). Migration `20261111100000` supplies the existing security-invoker directory view now used by the unified Residents screen. The consolidation adds no migration, but the view must exist before deploying this revision; do not drop it or rewrite applied history. Migrations `20261112100000` and `20261113100000` preserve App Support Access and household-free management-role enablement. Earlier disposable/staging application evidence is recorded above, not production approval. Deploy reviewed migrations before the corresponding application revision, outside voting windows. The Residents list depends on the directory view and current profile columns; Add Resident and `/register` depend on their provisioning routines. See [supabase/README.md](../supabase/README.md) and [DATABASE.md](./DATABASE.md). The app never migrates at startup or during the Vercel build.
 
 Before rollout, verify a 500-row synthetic import's Auth-provider quota behavior,
 partial-failure/retry handling and suspended-account review. Verify scheduled

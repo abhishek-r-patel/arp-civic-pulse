@@ -119,11 +119,14 @@ browser font requests never contact Google.
 | [src/components/admin/register-import-form.tsx](../src/components/admin/register-import-form.tsx) | Memory-only CSV upload/check, confirmed sequential import, progress/outcomes and account-review links. |
 | [src/shared/contracts/register-import.ts](../src/shared/contracts/register-import.ts) | `csv-parse` parsing, 500-row/256-KiB bounds and strict import contracts. |
 | [src/server/register/import.ts](../src/server/register/import.ts) | Retry-safe Auth orchestration and guarded import assignment; never enables accounts. |
-| [src/app/admin/households/import/page.tsx](../src/app/admin/households/import/page.tsx) | Protected import page reached from the register. |
+| [src/app/admin/residents/page.tsx](../src/app/admin/residents/page.tsx) | Unified Residents directory: account/assignment review, role/status/source and exact identifier/eligibility filters. |
+| [src/app/admin/residents/new/page.tsx](../src/app/admin/residents/new/page.tsx), [details](../src/app/admin/residents/[id]/page.tsx) | Combined onboarding and resident maintenance. |
+| [src/app/admin/residents/import/page.tsx](../src/app/admin/residents/import/page.tsx) | Protected CSV import reached from Residents. |
+| [src/app/admin/residents/households/[id]/page.tsx](../src/app/admin/residents/households/[id]/page.tsx) | Eligibility editor under Residents; existing household API remains authoritative. |
 | [src/app/api/admin/households/import/route.ts](../src/app/api/admin/households/import/route.ts) | Per-row check/import endpoint with CSRF, current-admin checks and import budget. |
 | [src/app/register/page.tsx](../src/app/register/page.tsx), [src/components/access/self-registration-form.tsx](../src/components/access/self-registration-form.tsx) | Public, `noindex` resident self-registration page and form with a hidden honeypot; picks from configured Default Households when any exist. |
 | [src/components/ui/combobox-field.tsx](../src/components/ui/combobox-field.tsx) | Accessible type-to-filter combobox that only accepts one of its options. |
-| [src/components/admin/account-forms.tsx](../src/components/admin/account-forms.tsx) | Add Account with an optional household, eligibility and immediate enablement; account-page household assign/move section and profile editor. |
+| [src/components/admin/account-forms.tsx](../src/components/admin/account-forms.tsx) | Add Resident requires a household for voters (optional for management roles); independent eligibility/enablement opt-ins, household assign/move section and profile editor. |
 | [src/app/api/admin/accounts/[id]/household/route.ts](../src/app/api/admin/accounts/[id]/household/route.ts) | Assign or move an account's household (renaming keeps eligibility). |
 | [src/components/admin/household-form.tsx](../src/components/admin/household-form.tsx) | Eligibility-only household editor linking to the representative's account. |
 | [src/app/api/register/route.ts](../src/app/api/register/route.ts), [src/server/register/self-registration.ts](../src/server/register/self-registration.ts) | CSRF-protected registration endpoint; budgets, Auth identity, service-role routine, cleanup and specific duplicate errors. |
@@ -256,8 +259,21 @@ Suspended/deleted/unprovisioned identities do not gain access merely by holding 
 
 For the full column/key/cardinality diagram, see [the detailed Mermaid ERD in the database contract](./DATABASE.md#4-relationships-and-er-diagram). It shows Supabase Auth as an external identity and distinguishes PUBLIC response rows from PRIVATE aggregate counters.
 
-Accounts can now be reviewed in one table with their RLS-authorized flat assignment
+Residents are reviewed in one table with their RLS-authorized flat assignment
 and eligibility. The page defaults to the implicit `voter` role; selecting All Roles is explicit.
+
+The register UI routes live only under `/admin/residents`. Former Accounts and
+Households UI routes are removed and return 404, without redirects; navigation,
+browser tests and screenshot workflows use Residents directly.
+`listResidents` uses the existing security-invoker directory view
+for flat/name ordering and identifier/eligibility/no-assignment filters before
+pagination. It shares page-scoped account enrichment with `listAccounts`,
+including current App Support flags. Cursors carry only IDs, resolving current
+sort keys through RLS; edits may move rows, so restart when reconciling changes.
+Account API paths, filters and profile-ID ordering
+and optional-household provisioning remain compatible; the stricter voter
+requirement is in the admin form. Settings supplies allowed flat identifiers,
+not assignments. No new migration or voting permission is introduced.
 Selections are current-page only and clear on filter/page/size changes. The two
 actions reuse the existing per-account/per-household PATCH endpoints, not a bulk
 database write or new grant. Access and eligibility remain independent; admins
@@ -367,7 +383,7 @@ The privileged client bypasses RLS: use it only in the established provisioning/
 | `20261108100000_readonly_committee_role` | Exclusive observer role, admin-equivalent reads, admin-only mutations/role changes and household-enabled voting. |
 | `20261109100000_resident_self_registration` | `profiles.self_registered`, `PROFILE_SELF_REGISTERED` audit action, service-role-only `get_self_registration_households` and `self_register_resident` (suspended profile + ineligible household, limited to configured Default Households when set). |
 | `20261110100000_account_with_household` | Service-role-only `provision_profile_with_household`: administrator-created suspended profile plus household in one audited transaction. |
-| `20261111100000_resident_directory` | Read-only security-invoker view, retained as applied migration history after reverting the Residents-tab UI; unused by the restored Accounts and Households screens. |
+| `20261111100000_resident_directory` | Existing security-invoker view now supplies filtered, flat/name-ordered Residents IDs; current profile/assignment enrichment remains RLS-scoped. |
 
 Use the exact ordered filenames in [migrations](../supabase/migrations); do not rewrite an applied migration. New changes require a new versioned migration and fresh/upgrade tests. Never run migrations at application startup or use a reset on an existing real database.
 
@@ -399,8 +415,9 @@ Register changes span Auth and application records; they are not one distributed
 | `/`                                  | Member's entitled votes, filters and own participation. Admins also see management links. |
 | `/votes/{id}`                        | Authorized ballot, submitted state or terminal context.                                   |
 | `/votes/{id}/results`                | Completed totals, authorized named PUBLIC responses and downloads.                          |
-| `/admin/accounts`, `/new`, `/{id}`   | Account list, provisioning, details, role/access changes.                                 |
-| `/admin/households`, `/new`, `/{id}` | Register, assignment, label and future eligibility.                                       |
+| `/admin/residents`, `/new`, `/{id}` | Unified directory, combined provisioning, details, role/access and assignment changes. |
+| `/admin/residents/import`, `/households/{id}` | CSV import and future-vote eligibility editor. |
+| Former `/admin/accounts`, `/admin/households` UI trees | Removed; return 404 without redirects. Use Residents instead. |
 | `/admin/votes`, `/new`, `/{id}`      | Draft creation/editing or frozen lifecycle detail.                                        |
 | `/admin/votes/{id}/preview`          | Version-bound preview/readiness and activation.                                           |
 | `/admin/votes/{id}/participation`    | Participation monitor with no choices.                                                    |
@@ -462,11 +479,25 @@ The database result projection is validated and transformed in [shared result co
 
 Use [UI primitives](../src/components/ui) for status, validation, focus, dialogs and accessible fields. Preserve 48px touch targets, 16px input text, semantic tokens, visible focus and native radios. A button's disabled state is not authorization.
 
+All confirmation popups use [ConfirmDialog](../src/components/ui/dialog.tsx):
+fixed viewport centring on mobile and desktop, bounded width, phone gutters and
+internal scrolling above 90dvh. Keep native modal focus/Escape behavior. This
+does not centre dropdowns or autocomplete lists, which remain by their controls.
+
 Current export controls are ordinary download links: generation progress, in-progress deduplication and inline recoverable errors remain an acknowledged UX gap. Do not document those missing behaviors as implemented.
 
 ## 11. Environment, deployment and operations
 
 Read [environment validation](../src/server/config/environment.ts), [.env.example](../.env.example) and the [deployment guide](./DEPLOYMENT.md).
+
+Staging uses Vercel's **Production target only** at
+<https://arp-civic-pulse-staging.vercel.app>, with Production-scoped variables and
+the disposable Supabase database. Preview deployments are disabled in the hosted
+project; [vercel.json](../vercel.json) also restricts automatic Git deployments to
+`main`. `APP_ORIGIN` and Supabase's Site URL match that exact staging origin.
+Changing deployment/protection settings does not update the origin automatically;
+an origin change requires redeployment. Real production needs separate Vercel
+and non-disposable Supabase projects, not promotion of this staging database.
 
 | Configuration                                                               | Location                                                      |
 | --------------------------------------------------------------------------- | ------------------------------------------------------------- |

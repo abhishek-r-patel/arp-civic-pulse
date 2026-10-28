@@ -203,7 +203,7 @@ export function RegisterImportForm({
                       {outcomes[index]?.accountId ? (
                         <Link
                           className="inline-flex touch-target items-center font-semibold text-accent underline"
-                          href={`/admin/accounts/${outcomes[index]?.accountId}`}
+                          href={`/admin/residents/${outcomes[index]?.accountId}`}
                         >
                           Review Account
                         </Link>

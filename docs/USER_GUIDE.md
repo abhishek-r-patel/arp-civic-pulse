@@ -2,10 +2,10 @@
 
 This guide is organized around what each signed-in persona can do. Choose your role below and go directly to that section. The screenshots use synthetic accounts and voting data; email addresses and codes are masked. Production use remains subject to the open approvals and checks in the [launch audit](./LAUNCH_AUDIT.md) and [pilot readiness register](./PILOT_READINESS.md).
 
-**Navigation after rollback:** Accounts and Households (shown as Flats when configured)
-are separate tabs again. Some retained screenshots show the reverted Residents
-tab; follow the navigation in the written steps instead. Those images await a
-fresh capture on an explicitly authorized disposable environment.
+**Management navigation:** **Residents** combines accounts and flats in one tab.
+Use **Add Resident** to create the account and assign its flat together; Settings
+still owns the allowed flat list. Older illustrations outside the Residents
+workflow may show the former Accounts/Households navigation; follow the written steps.
 
 Open **User Guide** in the application footer to read the self-contained public edition without signing in. The repository copy is [USER_GUIDE.html](./USER_GUIDE.html).
 
@@ -59,6 +59,16 @@ The pictures show an example RWA named **Lakeview Residents Welfare Association*
 
 All names, addresses, identifiers, choices and counts are synthetic. Counts may accumulate between disposable capture runs and are not an RWA size or product limit. Dates and time zones are examples; read each live vote's displayed deadline. Countdown values are snapshots. A confirmation-dialog image shows the confirmation step, not necessarily an executed action. A few sign-in/submission error states are intentionally simulated.
 Resident captures use a 390px mobile viewport. RWA Admin and RWA ReadOnly full-page captures use laptop-width viewports; confirmation dialogs are cropped for legibility. Open or zoom an image to read small text. Use the written steps and the live screen as the authority for your RWA's data and deadlines.
+
+Confirmation popups appear in the centre of the screen on phones, tablets and
+laptops, even when the page behind them is scrolled. Long confirmations scroll
+inside the popup so Cancel and Confirm remain reachable. Cancel or Escape
+closes a confirmation without acting (except while an operation is processing).
+Dropdown menus and flat-picker suggestions stay beside their fields.
+
+![RWA Admin 85: centred confirmation popup on a phone in Light mode](./images/user-guide/rwa-admin/85-centred-dialog-phone.png)
+
+![RWA Admin 86: centred confirmation popup on a phone in Dark mode](./images/user-guide/rwa-admin/86-centred-dialog-phone-dark.png)
 
 ## Resident Persona
 
@@ -156,7 +166,7 @@ Select **Sign Out** on shared devices. Signing out cannot remove files already d
 
 ### Management access and role assignment
 
-The administrator navigation includes Households, RWA Settings, Accounts, Manage Votes and Audit History. Administrators may manage these records; they do not get extra votes or vote on behalf of another household. If an administrator has an assigned eligible household included in a vote's frozen electorate, that administrator can also vote only as that household.
+The administrator navigation includes Residents, RWA Settings, Manage Votes and Audit History. Administrators may manage these records; they do not get extra votes or vote on behalf of another household. If an administrator has an assigned eligible household included in a vote's frozen electorate, that administrator can also vote only as that household.
 
 ![RWA Admin 15: home screen and management navigation](./images/user-guide/rwa-admin/15-admin-home.png)
 
@@ -174,13 +184,17 @@ The **Management role** selector assigns exactly one of Voter (`voter`), RWA Adm
 
 ![RWA Admin 35: account after administrator role assignment](./images/user-guide/rwa-admin/35-admin-role-assigned.png)
 
-### Register and accounts
+### Residents: accounts and flats together
 
-Use **Accounts → Add Account** to create the account and its household in one step. Enter the email and name, choose the role, then choose the household: when Settings → Default Households is set, start typing or open the list and pick one of the households not yet assigned (anything else is refused, so add a missing one to Settings first); with no list, type the identifier. Tick **Eligible to vote** if the household may take part in new votes, and **Enable account now** if the person may sign in straight away (only residents need a household for this). If the household is already taken or anything fails, nothing is created. You may leave the household blank and assign it later.
+Use **Residents → Add Resident** to create the account and its household in one step. Enter the email and name, choose the role, then choose the household. A voter must have a household selected before this form can save; management-role accounts can leave it blank. When Settings → Default Households is set, start typing or open the list and pick an unassigned entry. Settings defines allowed identifiers, not resident assignments; saving creates the assignment. Add a missing identifier in Settings first. With no list, type the identifier. Each household has one representative account; assigned identifiers cannot be chosen again.
 
-Each account page has a **Household** section. An account without a household can be given one there; an account with one can be **moved** to another unassigned household. Moving renames the account's household record: its eligibility stays the same, the old identifier becomes free for a new account, and past or active votes keep the household they were frozen with. Example: move Asha from A-101 to A-205, then add the new A-101 resident with Add Account. The **Households** page lists the register; its edit screen changes eligibility only. Residents cannot be enabled before assignment; an RWA Admin or RWA ReadOnly account may intentionally have no household, but still receives no voting entitlement without one.
+Tick **Eligible to vote** if the household may take part in new votes, and independently tick **Enable account now** if the person may sign in immediately. Both are off initially; access never implies eligibility. A household conflict prevents combined profile/assignment creation. Auth provisioning is a separate service step; if enablement is incomplete, the saved resident stays suspended and the page explains recovery.
 
-![RWA Admin 81: Add Account with the flat picker showing unassigned Default Households](./images/user-guide/rwa-admin/81-add-account-flat-picker.png)
+Choose **Manage** in Residents to edit details, role or access. The household section assigns a missing household on an existing account or **moves** it to an unassigned identifier. Moving preserves eligibility, frees the old identifier, and never rewrites scheduled, active or past vote assignments. Use **Change eligibility** for eligibility-only editing. An RWA Admin or RWA ReadOnly account may intentionally have no household, but receives no ballot without its own frozen entitlement.
+
+![RWA Admin 81: Add Resident with the flat picker showing unassigned configured entries](./images/user-guide/rwa-admin/81-add-account-flat-picker.png)
+
+![RWA Admin 16: one form for resident details, required voter flat and separate eligibility/access approvals](./images/user-guide/rwa-admin/16-create-account.png)
 
 ![RWA Admin 82: account created with its flat, eligible and enabled in one step](./images/user-guide/rwa-admin/82-account-created-with-flat.png)
 
@@ -188,17 +202,15 @@ Each account page has a **Household** section. An account without a household ca
 
 The pictures below show the step-by-step path: an account created without a flat, refused enablement, then a flat assigned from the account page.
 
-![RWA Admin: create a suspended account, assign its household and then enable it](./images/user-guide/register.svg)
-
-![RWA Admin 16: Add Account with optional flat, eligibility and Enable account now](./images/user-guide/rwa-admin/16-create-account.png)
-
-![RWA Admin 42: created account starts suspended](./images/user-guide/rwa-admin/42-created-suspended.png)
-
-![RWA Admin 43: resident enablement blocked before household assignment](./images/user-guide/rwa-admin/43-household-required.png)
-
-![RWA Admin 20: choosing the flat on the Add Account form](./images/user-guide/rwa-admin/20-add-household.png)
-
-![RWA Admin 44: assigned flat in the register](./images/user-guide/rwa-admin/44-household-created.png)
+Use the Residents **Status**, **Role**, **Source**, **Voting eligibility** and
+**Exact identifier** filters to find people and their assignments together.
+The list defaults to Voters; choose All Roles to include management accounts.
+An unassigned account matches neither Eligible nor Not eligible; choose **No
+assignment** (worded with your configured household label) to find only those
+accounts, or Any eligibility to include them. Rows sort by flat then name,
+with unassigned people last. **Import CSV** is available on this same page.
+Use **Residents** directly. Former Accounts and Flats page links are no longer
+supported and show Page not found; replace any bookmarks with Residents.
 
 ![RWA Admin 45: enable-account confirmation](./images/user-guide/rwa-admin/45-enable-dialog.png)
 
@@ -210,11 +222,11 @@ The pictures below show the step-by-step path: an account created without a flat
 
 Residents who registered themselves at `/register` appear as suspended Voters with their household already assigned and **not eligible**; their row is marked **Self-registered**. Set **Source** to **Self-registered** (and **Status** to Suspended) to review them. Check the name, email and household against your records, then use **Enable Selected** for access and **Make Eligible** for voting. A wrong or unknown registration can be left suspended or set to Deleted from **Manage**. Each one is recorded in Audit History as **Profile self registered** by **System**.
 
-![RWA Admin 84: Accounts filtered to suspended self-registered residents](./images/user-guide/rwa-admin/84-self-registered-accounts.png)
+![RWA Admin 84: Residents filtered to suspended self-registered residents](./images/user-guide/rwa-admin/84-self-registered-accounts.png)
 
 Use list filters and pagination to find records rather than creating duplicates. Changing a registered email uses both Auth and the application profile and is not one cross-service transaction. If a partial-failure warning appears, resolve that state before asking the resident to use the new address.
 
-![RWA Admin 47: Accounts review table and page-local selection controls](./images/user-guide/rwa-admin/47-accounts-list.png)
+![RWA Admin 47: Residents directory and page-local selection controls](./images/user-guide/rwa-admin/47-accounts-list.png)
 
 ![RWA Admin 70: Platinum account review table](./images/user-guide/rwa-admin/70-platinum-accounts.png)
 
@@ -269,7 +281,7 @@ household, so they can never vote, change data or assign themselves anything. Th
 control shows whether access is on, the configured support email, and a single
 On/Off button; both turning it on and off are recorded in Audit History. If no
 support contact is configured, the control explains that and no access is granted.
-Accounts lists the support identity with an **App Support (ReadOnly)** badge and
+Residents (choose All Roles) lists the support identity with an **App Support (ReadOnly)** badge and
 shows that it is managed from this control rather than the account editor.
 
 ### Prepare, preview and open a vote
@@ -352,13 +364,13 @@ Management controls remain visible but disabled. Navigation, filters, read-only 
 
 ![RWA ReadOnly 02: Votes home in Obsidian](./images/user-guide/rwa-readonly/02-votes-home-dark.png)
 
-![RWA ReadOnly 03: Accounts directory across all roles with selection actions disabled](./images/user-guide/rwa-readonly/03-accounts-read-all-roles.png)
+![RWA ReadOnly 03: management directory across all roles with selection actions disabled](./images/user-guide/rwa-readonly/03-accounts-read-all-roles.png)
 
 ![RWA ReadOnly 04: observer account details with role changes disabled](./images/user-guide/rwa-readonly/04-observer-account-detail.png)
 
 ![RWA ReadOnly 05: account provisioning controls disabled](./images/user-guide/rwa-readonly/05-create-account-disabled.png)
 
-![RWA ReadOnly 06: household register and read-only row actions](./images/user-guide/rwa-readonly/06-household-register-read.png)
+![RWA ReadOnly 06: unified Residents register with read-only row actions](./images/user-guide/rwa-readonly/06-household-register-read.png)
 
 ![RWA ReadOnly 07: account Flat section disabled](./images/user-guide/rwa-readonly/07-new-household-disabled.png)
 

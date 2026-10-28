@@ -1,7 +1,6 @@
-// Administrator entry redirects to the authorised household register.
+// Administrator entry redirects to the unified Residents directory.
 import { redirect } from "next/navigation";
 
-// The register's landing page is the household list.
 export default function AdminIndexPage() {
-  redirect("/admin/households");
+  redirect("/admin/residents");
 }

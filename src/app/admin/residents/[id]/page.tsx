@@ -1,4 +1,4 @@
-// Protected administrator account maintenance screen.
+// Resident details combine account maintenance and household assignment.
 import { privateRecordMetadata } from "@/shared/metadata";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -20,9 +20,9 @@ import { loadHouseholdChoices } from "@/server/settings/rwa-profile";
 import { idParamsSchema } from "@/shared/contracts/register";
 
 export const generateMetadata = privateRecordMetadata(
-  "Manage account",
+  "Manage resident",
   "Review and maintain a registered member's account and access status.",
-  "/admin/accounts/[id]",
+  "/admin/residents/[id]",
 );
 
 export default async function AccountPage({
@@ -55,11 +55,11 @@ export default async function AccountPage({
   return (
     <div className="grid gap-8">
       <Link
-        href="/admin/accounts"
+        href="/admin/residents"
         className="inline-flex touch-target w-fit items-center gap-1 font-semibold text-accent underline underline-offset-2"
       >
         <ChevronLeft aria-hidden="true" className="size-5" />
-        Accounts
+        Residents
       </Link>
       <PageHeader
         title={account.representativeName}

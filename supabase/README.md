@@ -40,7 +40,7 @@ at start-up, and never uses the migration credentials.
 | `20261108100000_readonly_committee_role` | Exclusive `rwa-readonly` profile flag, admin-equivalent authorized reads, admin-only mutations/role assignment and household-voting compatibility |
 | `20261109100000_resident_self_registration` | `profiles.self_registered`, `PROFILE_SELF_REGISTERED` audit action, service-role-only `get_self_registration_households` and `self_register_resident` (suspended profile + ineligible household, duplicate email/household rejected, limited to configured Default Households when set) |
 | `20261110100000_account_with_household` | Service-role-only `provision_profile_with_household`: an administrator-created suspended profile and its household in one audited transaction |
-| `20261111100000_resident_directory` | Read-only security-invoker profile/household view; retained applied history after the Residents UI rollback, unused by the restored application |
+| `20261111100000_resident_directory` | Existing security-invoker profile/household view now used for the unified Residents directory's filtered flat/name-ordered IDs |
 
 The latest migrations are deployment inputs, not automatically applied by the
 application. `20261109100000` and `20261110100000` were applied on 27 October 2026
@@ -50,9 +50,12 @@ pending changes, outside voting windows. Local integration tests create/drop
 their own disposable databases; they do not migrate your configured hosted project.
 
 The Residents-tab experiment applied `20261111100000` to that disposable project.
-The application rollback restores separate Accounts and Households screens but
-preserves this additive view and its migration/test files. No database rollback,
-data deletion, history repair or hosted deployment is part of the rollback.
+The earlier application rollback preserved this additive view and its
+migration/test files. The current Residents consolidation consumes the existing
+view with page-scoped current-profile enrichment, including App Support flags.
+It adds no migration and changes no RLS, grants or voting permissions. No
+database rollback, data deletion, history repair or hosted deployment is part
+of this local consolidation.
 
 For the separately authorized 27 October screenshot capture, the `20261106100000`
 and `20261107100000` migrations were applied to the confirmed disposable hosted project through the

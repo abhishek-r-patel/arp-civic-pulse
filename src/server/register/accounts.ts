@@ -1,4 +1,4 @@
-// Retry-safe account administration and authorized review-table enrichment.
+// Retry-safe account administration, RLS-bound Residents listing and page-scoped enrichment.
 import "server-only";
 import { z } from "zod";
 import { toApiError } from "@/server/db/errors";
@@ -20,10 +20,14 @@ import {
   assertOk,
   callRoutine,
   loadAuthIdentities,
+  postgrestQuote,
   type AuthIdentity,
   type RegisterDeps,
 } from "@/server/register/shared";
-import { accountListQuerySchema } from "@/shared/contracts/admin-votes";
+import {
+  accountListQuerySchema,
+  residentListQuerySchema,
+} from "@/shared/contracts/admin-votes";
 import type {
   AccountProjection,
   AccountStatus,
@@ -131,6 +135,112 @@ export async function listAccounts(
   const { rows, page } = buildPage(data ?? [], query.limit, binding, (row) => ({
     id: row.id,
   }));
+  return { data: await projectAccounts(deps, rows), page };
+}
+
+// The existing invoker view gives Residents flat/name ordering without changing account API cursors.
+export async function listResidents(
+  deps: RegisterDeps,
+  query: z.output<typeof residentListQuerySchema>,
+): Promise<{ data: ReviewAccountProjection[]; page: PageInfo }> {
+  const identifier =
+    query.identifier === undefined
+      ? undefined
+      : await callRoutine<string>(
+          deps.client,
+          "normalize_household_identifier",
+          {
+            p_identifier: query.identifier,
+          },
+        );
+  const binding = {
+    endpoint: "/admin/residents",
+    filters: {
+      status: query.status,
+      isAdmin: query.isAdmin,
+      isReadonly: query.isReadonly,
+      selfRegistered: query.selfRegistered,
+      identifier,
+      isEligible: query.isEligible,
+      hasHousehold: query.hasHousehold,
+    },
+  };
+  let request = deps.client
+    .from("resident_directory")
+    .select("id, sort_key")
+    .order("sort_key", { ascending: true })
+    .order("id", { ascending: true })
+    .limit(query.limit + 1);
+  if (query.status !== undefined) request = request.eq("status", query.status);
+  if (query.isAdmin !== undefined)
+    request = request.eq("is_admin", query.isAdmin);
+  if (query.isReadonly !== undefined)
+    request = request.eq("is_readonly", query.isReadonly);
+  if (query.selfRegistered !== undefined)
+    request = request.eq("self_registered", query.selfRegistered);
+  if (identifier !== undefined)
+    request = request.eq("household_identifier_normalized", identifier);
+  if (query.isEligible !== undefined)
+    request = request.eq("household_is_eligible", query.isEligible);
+  if (query.hasHousehold === false) request = request.is("household_id", null);
+  if (query.hasHousehold === true)
+    request = request.not("household_id", "is", null);
+  if (query.cursor) {
+    const position = decodeCursor(query.cursor, binding, positionSchema);
+    // Keep names out of cursors and stay within the shared size bound for Unicode names.
+    const anchor = await deps.client
+      .from("resident_directory")
+      .select("sort_key")
+      .eq("id", position.id)
+      .maybeSingle<{ sort_key: string }>();
+    assertOk(anchor.error, anchor.status);
+    if (!anchor.data) {
+      throw new ApiError("VALIDATION_FAILED", {
+        fieldErrors: [
+          {
+            field: "cursor",
+            code: "INVALID_CURSOR",
+            message:
+              "This resident is no longer available. Clear filters to restart the list.",
+          },
+        ],
+      });
+    }
+    request = request.or(
+      `sort_key.gt.${postgrestQuote(anchor.data.sort_key)},and(sort_key.eq.${postgrestQuote(anchor.data.sort_key)},id.gt.${position.id})`,
+    );
+  }
+  const { data, error, status } =
+    await request.returns<{ id: string; sort_key: string }[]>();
+  assertOk(error, status);
+  const { rows, page } = buildPage(data ?? [], query.limit, binding, (row) => ({
+    id: row.id,
+  }));
+  if (!rows.length) return { data: [], page };
+  // Read current profile columns separately: the historical view predates App Support.
+  const profiles = await deps.client
+    .from("profiles")
+    .select(PROFILE_COLUMNS)
+    .in(
+      "id",
+      rows.map((row) => row.id),
+    )
+    .limit(rows.length)
+    .returns<ProfileRow[]>();
+  assertOk(profiles.error, profiles.status);
+  const byId = new Map((profiles.data ?? []).map((row) => [row.id, row]));
+  const ordered = rows.map((row) => {
+    const profile = byId.get(row.id);
+    if (!profile) throw new ApiError("DEPENDENCY_UNAVAILABLE");
+    return profile;
+  });
+  return { data: await projectAccounts(deps, ordered), page };
+}
+
+async function projectAccounts(
+  deps: RegisterDeps,
+  rows: ProfileRow[],
+): Promise<ReviewAccountProjection[]> {
   // Enrich only the authorized page through supported Auth administration.
   const identities = await loadAuthIdentities(
     deps.admin,
@@ -167,16 +277,13 @@ export async function listAccounts(
     ]),
   );
 
-  return {
-    data: rows.map((row) => ({
-      ...toAccountProjection(
-        row,
-        identities.get(row.id) ?? { email: null, emailVerifiedAt: null },
-      ),
-      household: households.get(row.id) ?? null,
-    })),
-    page,
-  };
+  return rows.map((row) => ({
+    ...toAccountProjection(
+      row,
+      identities.get(row.id) ?? { email: null, emailVerifiedAt: null },
+    ),
+    household: households.get(row.id) ?? null,
+  }));
 }
 
 export async function getAccount(
