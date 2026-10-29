@@ -54,12 +54,13 @@ export async function importRegisterRow(
     outcome = await check("import_register_household");
   }
   const messages = {
-    READY: "Ready to import. New accounts remain suspended.",
-    EXISTING: "Exact match; no changes made. Review account access separately.",
+    READY: "Ready to import. New residents will have access suspended.",
+    EXISTING:
+      "Exact match; no changes made. Review resident access separately.",
     CONFLICT:
       "Conflicts with the current register. No existing records were changed.",
     IMPORTED:
-      "Imported with a suspended account. Review and enable the account separately.",
+      "Resident imported with access suspended. Review the resident to enable sign-in.",
   };
   return {
     identifier: row.identifier,

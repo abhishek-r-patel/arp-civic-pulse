@@ -13,7 +13,7 @@ const baseLabels: Record<string, string> = {
   admin: "Administration",
   votes: "Votes",
   residents: "Residents",
-  import: "Import CSV",
+  import: "Import Residents",
   households: "Households",
   settings: "RWA Settings",
   audit: "Audit History",

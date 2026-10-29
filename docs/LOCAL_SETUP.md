@@ -336,9 +336,9 @@ The focused screenshot/browser command is
 `npx playwright test -c playwright.docs.config.ts --grep "bulk account review"`,
 with the documented disposable-project opt-ins and verified CA configuration.
 
-For bulk onboarding, open **Households -> Import CSV**, download the template,
+For bulk onboarding, open **Residents -> Import CSV**, download the template,
 use synthetic names/emails and explicit `true`/`false` eligibility, then check
-and confirm ready rows. Review each imported account before enabling it. For
+and confirm ready rows. Review each imported resident before enabling sign-in. For
 scheduled opening, use **Schedule Vote** on a ready preview, enter an opening
 before closure in the configured RWA time zone, and confirm the immediate freeze.
 Check the resident summary/countdown and pre-opening **Return to Draft** with a

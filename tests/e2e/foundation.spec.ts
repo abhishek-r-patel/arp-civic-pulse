@@ -189,7 +189,6 @@ test("protected admin pages redirect signed-out visitors without revealing anyth
     "/admin/residents",
     "/admin/residents/new",
     "/admin/residents/import",
-    "/admin/residents/households/00000000-0000-4000-8000-000000000001",
   ]) {
     await page.goto(path);
     await expect(page, path).toHaveURL(/\/sign-in$/u);
@@ -209,6 +208,7 @@ test("removed Accounts and Flats UI routes return 404 without redirects", async 
     "/admin/households?identifier=A-101",
     "/admin/households/import",
     `/admin/households/${id}`,
+    `/admin/residents/households/${id}`,
   ]) {
     const response = await request.get(path, { maxRedirects: 0 });
     expect(response.status(), path).toBe(404);

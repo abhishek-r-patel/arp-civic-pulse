@@ -453,7 +453,6 @@ export function AccountHouseholdSection({
         <div id="household-eligibility-editor">
           <HouseholdForm
             key={household.id}
-            mode="inline"
             csrfToken={csrfToken}
             household={household}
             onCancel={() => {
@@ -851,7 +850,7 @@ export function AccountEditor({
         {deleted ? null : (
           <div
             data-resident-actions
-            className="flex flex-wrap items-center justify-center gap-2"
+            className="flex flex-wrap items-center justify-start gap-2"
           >
             <Button type="submit" loading={pending} className="sm:px-3">
               <Save aria-hidden="true" className="size-5" />

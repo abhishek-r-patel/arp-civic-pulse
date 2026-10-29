@@ -6,7 +6,7 @@ import { ChevronLeft } from "lucide-react";
 import { PageHeader } from "@/components/ui/layout";
 import { adminPageContext } from "@/server/register/page-context";
 
-export const metadata = { title: "Import Register" };
+export const metadata = { title: "Import Residents" };
 
 export default async function ImportRegisterPage() {
   const deps = await adminPageContext();
@@ -20,7 +20,7 @@ export default async function ImportRegisterPage() {
           <ChevronLeft aria-hidden="true" className="size-5" />
           Residents
         </Link>
-        <PageHeader title={`Import ${deps.terms.Households}`} />
+        <PageHeader title="Import Residents" />
       </div>
       <ManagementFields canManage={deps.actor.isAdmin}>
         <RegisterImportForm csrfToken={deps.csrfToken} />

@@ -4,7 +4,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Download, FileCheck, Upload } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClasses } from "@/components/ui/button";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { Notice } from "@/components/ui/notice";
@@ -28,6 +28,7 @@ export function RegisterImportForm({
 }: Readonly<{ csrfToken: string | undefined }>) {
   const terms = useHouseholdTerms();
   const [rows, setRows] = useState<ImportRow[]>([]);
+  const [fileName, setFileName] = useState<string>();
   const [outcomes, setOutcomes] = useState<Record<number, ImportOutcome>>({});
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -37,6 +38,7 @@ export function RegisterImportForm({
   const [progress, setProgress] = useState(0);
 
   async function loadFile(file: File | undefined) {
+    setFileName(file?.name);
     setRows([]);
     setOutcomes({});
     setErrors([]);
@@ -151,7 +153,7 @@ export function RegisterImportForm({
               className="inline-flex touch-target items-center font-semibold text-accent underline"
               href={`/admin/residents/${row.outcome.accountId}`}
             >
-              Review Account
+              Review Resident
             </Link>
           ) : null}
         </div>
@@ -161,10 +163,9 @@ export function RegisterImportForm({
   return (
     <div className="grid min-w-0 gap-6">
       <div className="mx-auto grid w-full max-w-ballot gap-6 form-panel">
-        <Notice tone="info" heading="New accounts remain suspended">
-          Review each imported representative before enabling access. Existing
-          register entries and scheduled or active electorates are never
-          overwritten.
+        <Notice tone="info" heading="New residents start with access suspended">
+          Review each resident before enabling sign-in. Existing resident
+          details and scheduled or active voter lists are never overwritten.
         </Notice>
         <a
           href={`data:text/csv;charset=utf-8,${encodeURIComponent(IMPORT_TEMPLATE)}`}
@@ -175,7 +176,11 @@ export function RegisterImportForm({
           Template
         </a>
         <div className="grid gap-2">
-          <label htmlFor="register-csv" className="font-semibold">
+          <label
+            id="register-csv-label"
+            htmlFor="register-csv"
+            className="font-semibold"
+          >
             Register CSV
           </label>
           <p id="register-csv-hint" className="text-caption text-muted">
@@ -183,15 +188,36 @@ export function RegisterImportForm({
             Register to preview each row; nothing is imported until you confirm
             the separate Import action.
           </p>
-          <input
-            id="register-csv"
-            type="file"
-            accept=".csv,text/csv"
-            aria-describedby="register-csv-hint"
-            disabled={busy}
-            onChange={(event) => void loadFile(event.target.files?.[0])}
-            className="touch-target max-w-full rounded-control border border-control-border bg-surface p-3 text-body"
-          />
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <input
+              id="register-csv"
+              type="file"
+              accept=".csv,text/csv"
+              aria-labelledby="register-csv-label"
+              aria-describedby="register-csv-hint register-csv-file-name"
+              disabled={busy}
+              onChange={(event) => void loadFile(event.target.files?.[0])}
+              className="peer sr-only"
+            />
+            <label
+              htmlFor="register-csv"
+              aria-disabled={busy}
+              className={buttonClasses(
+                "secondary",
+                "w-fit shrink-0 cursor-pointer peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-secondary peer-disabled:cursor-not-allowed peer-disabled:opacity-60",
+              )}
+            >
+              <Upload className="size-5" aria-hidden="true" />
+              Browse files
+            </label>
+            <p
+              id="register-csv-file-name"
+              aria-live="polite"
+              className="min-w-0 text-caption break-all text-muted"
+            >
+              {fileName ?? "No file selected"}
+            </p>
+          </div>
         </div>
         {errors.length ? (
           <Notice tone="error" heading="Import needs attention">
@@ -223,7 +249,7 @@ export function RegisterImportForm({
                 onClick={() => setConfirm(true)}
               >
                 <Upload className="size-5" aria-hidden="true" />
-                Import {ready} {terms.Households}
+                Import {ready} {ready === 1 ? "Resident" : "Residents"}
               </Button>
             </div>
           </>
@@ -239,16 +265,17 @@ export function RegisterImportForm({
       ) : null}
       <ConfirmDialog
         open={confirm}
-        title="Import Register"
-        confirmLabel="Import Suspended Accounts"
+        title="Import Residents"
+        confirmLabel="Import Residents"
         busy={busy}
         onCancel={() => setConfirm(false)}
         onConfirm={() => void run("import")}
       >
         <p>
-          Create {ready} register entries and representative accounts? Newly
-          created accounts remain suspended. Conflicts are skipped, existing
-          records are not overwritten, and each row is committed independently.
+          Import {ready} residents from this preview? New residents remain
+          unable to sign in until enabled. Conflicts are skipped, existing
+          resident details are not overwritten, and each resident is processed
+          independently.
         </p>
       </ConfirmDialog>
     </div>

@@ -104,10 +104,6 @@ test("resident eligibility edits inline with cancel, failure and persistent save
   await checkbox.check();
   await save.click();
   await expect(panel.getByText("Eligible", { exact: true })).toBeVisible();
-  await page.goto(`/admin/residents/households/${resident.householdId}`);
-  await expect(
-    page.getByRole("form", { name: "Voting eligibility", exact: true }),
-  ).toBeVisible();
 });
 
 test("Source is an icon column with global sorting and its own filter", async ({
@@ -257,7 +253,6 @@ test("form-focused pages center their heading and controls while directories sta
     "/admin/residents/new",
     "/admin/residents/import",
     `/admin/residents/${resident.id}`,
-    `/admin/residents/households/${resident.householdId}`,
     "/admin/settings",
     "/admin/votes/new",
     `/admin/votes/${draft.id}`,
@@ -299,6 +294,12 @@ test("form-focused pages center their heading and controls while directories sta
             ].join("\n"),
           ),
         });
+        await expect(
+          page.getByText("Browse files", { exact: true }),
+        ).toBeVisible();
+        await expect(
+          page.getByText("preview.csv", { exact: true }),
+        ).toBeVisible();
         const preview = page.getByRole("region", {
           name: "Register import preview and results table",
         });
@@ -388,18 +389,24 @@ test("form-focused pages center their heading and controls while directories sta
             );
           expect(tops).toHaveLength(3);
           expect(new Set(tops).size).toBe(1);
-          const centers = await actions.evaluate((element) => {
-            const buttons = element.querySelectorAll("button");
-            const first = buttons[0]?.getBoundingClientRect();
-            const last = buttons[buttons.length - 1]?.getBoundingClientRect();
-            if (!first || !last) throw new Error("Missing resident actions.");
-            const row = element.getBoundingClientRect();
+          const alignment = await actions.evaluate((element) => {
+            const first = element
+              .querySelector("button")
+              ?.getBoundingClientRect();
+            const form = element.closest("form");
+            if (!first || !form)
+              throw new Error("Missing resident action or form.");
+            const formRect = form.getBoundingClientRect();
             return {
-              group: (first.left + last.right) / 2,
-              row: row.left + row.width / 2,
+              actionLeft: first.left,
+              contentLeft:
+                formRect.left +
+                Number.parseFloat(getComputedStyle(form).paddingLeft),
             };
           });
-          expect(Math.abs(centers.group - centers.row)).toBeLessThan(1);
+          expect(
+            Math.abs(alignment.actionLeft - alignment.contentLeft),
+          ).toBeLessThan(1);
         }
       }
     }

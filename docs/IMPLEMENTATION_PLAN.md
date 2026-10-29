@@ -95,7 +95,8 @@ account with its household (required for voters in this form; optional for manag
 immediate enablement; the account page assigns or moves its household (moving
 renames the household record and keeps eligibility); the separate Add Household
 page was removed and the Residents household editor changes eligibility only
-(inline Save/Cancel on resident details; existing standalone route retained). Configured Default
+(inline Save/Cancel on resident details; no standalone eligibility route).
+Configured Default
 Households restrict administrator choices to listed, unassigned identifiers.
 Migration `20261110100000` is a reviewed deployment input.
 

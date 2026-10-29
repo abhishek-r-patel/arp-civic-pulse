@@ -218,7 +218,7 @@ available. Existing screenshots predate this border and checkbox-row adjustment.
 
 The **Before you add a resident** summary is collapsed initially. Open it for three short reminders about household assignment, sign-in access and voting eligibility. Field-specific guidance remains available beside each label through its **(i)** control.
 
-Choose **Manage** in Residents to edit details, role or access. The household section assigns a missing household on an existing account or **moves** it to an unassigned identifier. Moving preserves eligibility, frees the old identifier, and never rewrites scheduled, active or past vote assignments. **Change eligibility** expands an **Eligible to vote** checkbox with **Save Changes / Cancel** inside this section. Save stays on the resident page and updates the badge; Cancel discards the edit. The move controls return after saving or cancelling. Eligibility affects future votes only, never existing electorates or account access. Existing direct links to the standalone editor still work. The screenshots predate this inline editor; replacement captures remain on hold. An RWA Admin or RWA ReadOnly account may intentionally have no household, but receives no ballot without its own frozen entitlement.
+Choose **Manage** in Residents to edit details, role or access. The household section assigns a missing household on an existing account or **moves** it to an unassigned identifier. Moving preserves eligibility, frees the old identifier, and never rewrites scheduled, active or past vote assignments. **Change eligibility** expands an **Eligible to vote** checkbox with **Save Changes / Cancel** inside this section. Save stays on the resident page and updates the badge; Cancel discards the edit. The move controls return after saving or cancelling. Eligibility affects future votes only, never existing electorates or account access. There is no separate eligibility screen. An RWA Admin or RWA ReadOnly account may intentionally have no household, but receives no ballot without its own frozen entitlement.
 
 ![RWA Admin 81: Add Resident with the flat picker showing unassigned configured entries](./images/user-guide/rwa-admin/81-add-account-flat-picker.png)
 
@@ -327,7 +327,7 @@ Use list filters and pagination to find records rather than creating duplicates.
 
 ![RWA Admin 67: explicit administrator-access warning](./images/user-guide/rwa-admin/67-enable-admin-warning.png)
 
-A CSV import accepts up to 500 records/256 KiB with `identifier,representative_name,email,is_eligible`. Selecting a file parses it in the browser; choose **Check Register** to add a preview/results table at the available page width, while the file controls remain centered. The table stacks labelled rows on phones and wraps long values at larger widths. Nothing is imported until you confirm the separate Import action. Exact matches are skipped; conflicts never overwrite names, roles, assignments, eligibility or access. Imports leave new accounts suspended. Partial provider/connection failures stop processing; recheck before retrying. CSV content remains in page memory, not browser storage.
+A resident CSV import accepts up to 500 records/256 KiB with `identifier,representative_name,email,is_eligible`. Use **Browse files** to select a CSV; its filename appears beside the button and the file is parsed in your browser. Choose **Check Register** to add a preview/results table at the available page width, while the file controls remain centered. The table stacks labelled rows on phones and wraps long values at larger widths. Nothing is imported until you confirm **Import Residents**. Exact matches are skipped; conflicts never overwrite resident details, roles, flat assignments, eligibility or access. Newly imported residents cannot sign in until separately enabled. Partial provider/connection failures stop processing; recheck before retrying. CSV content remains in page memory, not browser storage.
 
 ![RWA Admin 54: validated CSV import preview](./images/user-guide/rwa-admin/54-import-preview.png)
 
@@ -338,8 +338,6 @@ A CSV import accepts up to 500 records/256 KiB with `identifier,representative_n
 Use the household register to add/change identifiers, assignments and eligibility for future votes. Reassignment never transfers a scheduled/active vote entitlement. **Suspend Account** blocks access without deleting historical participation. **Delete Account** is irreversible in the application UI and retains referenced audit/vote history. Hover over either button on resident details for an explanation: after confirmation the resident cannot sign in, vote or view signed-in pages, including through an existing session. Suspension can be reversed by enabling the account; a deleted account cannot be restored. These explanations are also available to screen readers; on touch devices, the confirmation dialog explains the consequences before any change. The last enabled administrator cannot be removed.
 
 The **Delete Account** confirmation explicitly lists the loss of sign-in, voting, PUBLIC response changes and signed-in votes/results access, including existing sessions. It recommends **Cancel → Suspend Account** when a reversible access block is sufficient. Deletion cannot be undone and does not erase submitted votes, audit history or the current household assignment. Cancel is selected initially; nothing changes until you confirm deletion. The existing dialog screenshots predate this expanded warning; replacement captures remain on hold.
-
-![RWA Admin 21: household eligibility editor](./images/user-guide/rwa-admin/21-household.png)
 
 ![RWA Admin 18: suspension confirmation](./images/user-guide/rwa-admin/18-suspend-dialog.png)
 
@@ -352,7 +350,7 @@ padding. On Manage Resident, Status and its badges share a row, with account
 actions below; smaller screens wrap when needed. Existing screenshots predate
 this shared form framing.
 Manage Resident groups **Save Changes**, **Suspend/Enable Account**
-and **Delete Account** in a centered row below Details when space permits. The circled close icon at
+and **Delete Account** in a left-aligned row below Details when space permits. The circled close icon at
 the top-right beside Details returns to Residents without saving, replacing
 the bottom Cancel link. Suspend is amber and Delete is red; Enable retains its
 neutral appearance. Account-state actions still require their
@@ -472,8 +470,6 @@ Management controls remain visible but disabled. Navigation, filters, read-only 
 ![RWA ReadOnly 06: unified Residents register with read-only row actions](./images/user-guide/rwa-readonly/06-household-register-read.png)
 
 ![RWA ReadOnly 07: account Flat section disabled](./images/user-guide/rwa-readonly/07-new-household-disabled.png)
-
-![RWA ReadOnly 08: household eligibility editing disabled](./images/user-guide/rwa-readonly/08-edit-household-disabled.png)
 
 ![RWA ReadOnly 09: CSV import controls disabled](./images/user-guide/rwa-readonly/09-register-import-disabled.png)
 

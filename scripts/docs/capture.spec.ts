@@ -284,15 +284,15 @@ test("capture bulk import and scheduled opening documentation", async ({ browser
     const csv = `identifier,representative_name,email,is_eligible\n${identifier},Arun Shah (example),${importedEmail},true\n`;
     await a.getByLabel("Register CSV").setInputFiles({ name: "synthetic-register.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
     await a.getByRole("button", { name: "Check Register", exact: true }).click();
-    await expect(a.getByText("Ready to import. New accounts remain suspended.", { exact: true })).toBeVisible();
+    await expect(a.getByText("Ready to import. New residents will have access suspended.", { exact: true })).toBeVisible();
     await capture(a, "54-import-preview");
-    await a.getByRole("button", { name: "Import 1 Flats", exact: true }).click();
+    await a.getByRole("button", { name: "Import 1 Resident", exact: true }).click();
     await expect(a.getByRole("dialog")).toBeVisible();
     await capture(a, "55-import-confirm", true);
-    await a.getByRole("dialog").getByRole("button", { name: "Import Suspended Accounts", exact: true }).click();
-    await expect(a.getByRole("cell").filter({ hasText: "Imported with a suspended account. Review and enable the account separately." })).toBeVisible();
+    await a.getByRole("dialog").getByRole("button", { name: "Import Residents", exact: true }).click();
+    await expect(a.getByRole("cell").filter({ hasText: "Resident imported with access suspended. Review the resident to enable sign-in." })).toBeVisible();
     await capture(a, "56-import-result");
-    await a.getByRole("link", { name: "Review Account", exact: true }).click();
+    await a.getByRole("link", { name: "Review Resident", exact: true }).click();
     await expect(a.getByRole("heading", { level: 1, name: "Arun Shah (example)" })).toBeVisible();
     await expect(a.getByRole("button", { name: "Enable Account", exact: true })).toBeVisible();
     await a.goto(`/admin/residents?identifier=${encodeURIComponent(identifier)}`);
@@ -304,7 +304,7 @@ test("capture bulk import and scheduled opening documentation", async ({ browser
       await upload.goto("/admin/residents/import");
       await upload.getByLabel("Register CSV").setInputFiles({ name: "synthetic-register.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
       await upload.getByRole("button", { name: "Check Register", exact: true }).click();
-      await expect(upload.getByRole("cell").filter({ hasText: "Exact match; no changes made. Review account access separately." })).toBeVisible();
+      await expect(upload.getByRole("cell").filter({ hasText: "Exact match; no changes made. Review resident access separately." })).toBeVisible();
       expect(
         await upload.evaluate(() =>
           document.documentElement.scrollWidth <= window.innerWidth,
@@ -722,8 +722,6 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     await a.getByLabel(/Resident name/).fill("Meera Iyer (example)");
     await a.locator('[id="household.identifier"]').click();
     await capture(a, "20-add-household");
-    await a.goto(`/admin/residents/households/${resident.householdId}`);
-    await capture(a, "21-household");
     await a.goto("/admin/votes/new");
     await capture(a, "22-voting-types");
     await a.getByRole("radio", { name: /^PUBLIC voting/ }).check();
@@ -1154,9 +1152,6 @@ test("capture the RWA ReadOnly persona", async ({ browser }) => {
     await page.goto(`/admin/residents/${other.id}`);
     await expect(page.locator("#identifier")).toBeDisabled();
     await capture(page, "07-new-household-disabled");
-    await page.goto(`/admin/residents/households/${other.householdId}`);
-    await expect(page.getByLabel("Eligible to vote")).toBeDisabled();
-    await capture(page, "08-edit-household-disabled");
     await page.goto("/admin/residents/import");
     await expect(page.getByLabel("Register CSV")).toBeDisabled();
     await capture(page, "09-register-import-disabled");
@@ -1364,8 +1359,6 @@ test("capture Residents management surfaces", async ({ browser }) => {
     await capture(page, "16-create-account");
     await page.goto(`/admin/residents/${observer.id}`);
     await capture(page, "17-account");
-    await page.goto(`/admin/residents/households/${observer.householdId}`);
-    await capture(page, "21-household");
     await signInThroughUi(observerPage, observer.email, await freshCode(observer.email));
     await observerPage.goto("/admin/residents?isAdmin=all");
     await capture(observerPage, "03-accounts-read-all-roles", false, true);
@@ -1376,8 +1369,6 @@ test("capture Residents management surfaces", async ({ browser }) => {
     await observerPage.goto("/admin/residents/new");
     await expect(observerPage.getByLabel(/Email address/)).toBeDisabled();
     await capture(observerPage, "05-create-account-disabled");
-    await observerPage.goto(`/admin/residents/households/${observer.householdId}`);
-    await capture(observerPage, "08-edit-household-disabled");
     await observerPage.goto("/admin/residents/import");
     await capture(observerPage, "09-register-import-disabled");
   } finally {
