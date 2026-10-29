@@ -1240,10 +1240,17 @@
         access. The household section assigns a missing household on an existing
         account or <strong>moves</strong> it to an unassigned identifier. Moving
         preserves eligibility, frees the old identifier, and never rewrites
-        scheduled, active or past vote assignments. Use
-        <strong>Change eligibility</strong> for eligibility-only editing. An RWA
-        Admin or RWA ReadOnly account may intentionally have no household, but
-        receives no ballot without its own frozen entitlement.
+        scheduled, active or past vote assignments.
+        <strong>Change eligibility</strong> expands an
+        <strong>Eligible to vote</strong> checkbox with
+        <strong>Save Changes / Cancel</strong> inside this section. Save stays
+        on the resident page and updates the badge; Cancel discards the edit.
+        The move controls return after saving or cancelling. Eligibility affects
+        future votes only, never existing electorates or account access.
+        Existing direct links to the standalone editor still work. The
+        screenshots predate this inline editor; replacement captures remain on
+        hold. An RWA Admin or RWA ReadOnly account may intentionally have no
+        household, but receives no ballot without its own frozen entitlement.
       </p>
       <figure class="wide">
         <img
@@ -1593,7 +1600,24 @@
         <strong>Suspend Account</strong> blocks access without deleting
         historical participation. <strong>Delete Account</strong> is
         irreversible in the application UI and retains referenced audit/vote
-        history. The last enabled administrator cannot be removed.
+        history. Hover over either button on resident details for an
+        explanation: after confirmation the resident cannot sign in, vote or
+        view signed-in pages, including through an existing session. Suspension
+        can be reversed by enabling the account; a deleted account cannot be
+        restored. These explanations are also available to screen readers; on
+        touch devices, the confirmation dialog explains the consequences before
+        any change. The last enabled administrator cannot be removed.
+      </p>
+      <p>
+        The <strong>Delete Account</strong> confirmation explicitly lists the
+        loss of sign-in, voting, PUBLIC response changes and signed-in
+        votes/results access, including existing sessions. It recommends
+        <strong>Cancel → Suspend Account</strong> when a reversible access block
+        is sufficient. Deletion cannot be undone and does not erase submitted
+        votes, audit history or the current household assignment. Cancel is
+        selected initially; nothing changes until you confirm deletion. The
+        existing dialog screenshots predate this expanded warning; replacement
+        captures remain on hold.
       </p>
       <figure class="wide">
         <img
@@ -1625,6 +1649,22 @@
         </figcaption>
       </figure>
       <h3 id="configure-rwa-settings">Configure RWA settings</h3>
+      <p>
+        Forms across the app use a consistent subtle rounded border with
+        comfortable padding. On Manage Resident, Status and its badges share a
+        row, with account actions below; smaller screens wrap when needed.
+        Existing screenshots predate this shared form framing. Manage Resident
+        groups <strong>Save Changes</strong>,
+        <strong>Suspend/Enable Account</strong> and
+        <strong>Delete Account</strong> in a centered row below Details when
+        space permits. The circled close icon at the top-right beside Details
+        returns to Residents without saving, replacing the bottom Cancel link.
+        Suspend is amber and Delete is red; Enable retains its neutral
+        appearance. Account-state actions still require their existing
+        confirmations and do not save pending detail edits. The top Residents
+        link is also navigation back to the directory. Screenshots predate this
+        grouping.
+      </p>
       <p>
         <strong>RWA Settings</strong> controls the full name, alias, address,
         email, phone, optional website, one of six contrast-checked accent

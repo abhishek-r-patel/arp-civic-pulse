@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { ButtonHTMLAttributes, ComponentProps } from "react";
 import { cn } from "./cn";
 
-type ButtonVariant = "primary" | "secondary" | "destructive";
+type ButtonVariant = "primary" | "secondary" | "warning" | "destructive";
 
 type ButtonProps = Readonly<
   ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -17,6 +17,8 @@ const variantClasses: Record<ButtonVariant, string> = {
     "border-accent bg-accent text-on-accent hover:border-accent-strong hover:bg-accent-strong active:bg-accent-strong",
   secondary:
     "border-control-border bg-surface text-primary hover:bg-primary/5 active:bg-primary/10",
+  warning:
+    "border-warning/40 bg-warning/5 text-warning hover:bg-warning/10 active:bg-warning/10",
   destructive:
     "border-error bg-error text-on-error hover:border-error-strong hover:bg-error-strong active:bg-error-strong",
 };

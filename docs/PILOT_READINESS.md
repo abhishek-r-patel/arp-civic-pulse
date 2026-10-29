@@ -49,8 +49,10 @@ Add Resident now creates the account together with its household (required for
 voters in the admin form, optional for management roles)
 (all-or-nothing, through `provision_profile_with_household`), eligibility and
 optional immediate enablement; account pages assign or move a household; the
-separate Add Household page is gone and the Residents eligibility editor changes eligibility
-only. Configured Default Households limit administrator choices to listed,
+separate Add Household page is gone and resident details now expands the shared eligibility
+editor inline with Save/Cancel; direct standalone editor links remain valid.
+This changes eligibility only, not account access or frozen electorates.
+Configured Default Households limit administrator choices to listed,
 unassigned identifiers.
 
 ### App Support Access (RWA-controlled developer help)

@@ -115,7 +115,7 @@ export function RwaProfileForm({
       noValidate
       // Previews the chosen accent on this form's own buttons and swatches.
       data-palette={profile.accentPalette}
-      className="grid max-w-ballot gap-6"
+      className="grid max-w-ballot gap-6 form-panel"
     >
       <ErrorSummary
         failure={failure}

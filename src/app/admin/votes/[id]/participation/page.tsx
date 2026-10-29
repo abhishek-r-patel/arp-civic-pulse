@@ -159,7 +159,7 @@ export default async function ParticipationPage({
 
           <form
             method="get"
-            className="grid gap-4 border-y border-border py-5 sm:grid-cols-[1fr_auto] sm:items-end"
+            className="grid gap-4 form-panel sm:grid-cols-[1fr_auto] sm:items-end"
           >
             <input type="hidden" name="limit" value={query.limit} />
             <SelectField

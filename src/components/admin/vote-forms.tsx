@@ -116,7 +116,11 @@ export function NewDraftForm({ csrfToken }: NewDraftProps) {
   }
 
   return (
-    <form onSubmit={submit} noValidate className="grid max-w-ballot gap-6">
+    <form
+      onSubmit={submit}
+      noValidate
+      className="grid max-w-ballot gap-6 form-panel"
+    >
       <ErrorSummary failure={failure} />
 
       <fieldset
@@ -535,7 +539,7 @@ export function DraftEditor({
       }}
       noValidate
       data-admin-draft
-      className="grid max-w-ballot gap-8"
+      className="grid max-w-ballot gap-8 form-panel"
     >
       {saved ? (
         <Notice tone="success" heading={saved}>

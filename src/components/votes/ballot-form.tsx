@@ -616,7 +616,7 @@ export function BallotForm({
       ) : null}
       <form
         noValidate
-        className="grid gap-6"
+        className="grid gap-6 form-panel"
         onSubmit={(event) => {
           event.preventDefault();
           goToReview(new FormData(event.currentTarget));

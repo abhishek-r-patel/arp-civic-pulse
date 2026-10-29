@@ -940,8 +940,10 @@
                 >
               </td>
               <td>
-                Eligibility-only household editor linking to the
-                representative&#39;s account.
+                Shared eligibility editor: inline Save/Cancel in resident
+                details with same-page refresh, plus the existing standalone
+                route and representative link. Uses the same guarded PATCH
+                endpoint; account access and frozen electorates stay unchanged.
               </td>
             </tr>
             <tr>
@@ -2325,7 +2327,12 @@
         <code>data-form-page</code> marks the adjusted wrappers for browser
         regressions. Directory/import-review, audit, participation and results
         keep their wider workspaces; global breadcrumbs/header/footer remain
-        full-width.
+        full-width. Standalone forms and lifecycle/support/import action panels
+        use the shared <code>form-panel</code> utility: theme border, 8px
+        radius, surface and 16px/24px responsive padding. Assignment sections
+        provide the frame for their nested form; popover/modal forms retain
+        their existing outer frame. Manage Resident places the Status heading
+        and badges in one wrapping row, above account actions.
       </p>
       <p>
         All confirmation popups use

@@ -123,7 +123,7 @@ export function SignInForm({
 
   if (step === "email") {
     return (
-      <form onSubmit={requestCode} noValidate className="grid gap-5">
+      <form onSubmit={requestCode} noValidate className="grid gap-5 form-panel">
         <ErrorSummary failure={failure} fieldLabels={{ email: "Email" }} />
         <TextField
           id="email"
@@ -159,7 +159,7 @@ export function SignInForm({
         {notice}
       </Notice>
 
-      <form onSubmit={verify} noValidate className="grid gap-5">
+      <form onSubmit={verify} noValidate className="grid gap-5 form-panel">
         {failure && failure.code !== "CODE_INVALID_OR_EXPIRED" ? (
           <ErrorSummary failure={failure} fieldLabels={{ code: "Code" }} />
         ) : null}

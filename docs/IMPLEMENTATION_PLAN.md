@@ -94,7 +94,8 @@ Administrator onboarding uses **Residents → Add Resident** to create the
 account with its household (required for voters in this form; optional for management roles), eligibility and optional
 immediate enablement; the account page assigns or moves its household (moving
 renames the household record and keeps eligibility); the separate Add Household
-page was removed and the Residents household editor changes eligibility only. Configured Default
+page was removed and the Residents household editor changes eligibility only
+(inline Save/Cancel on resident details; existing standalone route retained). Configured Default
 Households restrict administrator choices to listed, unassigned identifiers.
 Migration `20261110100000` is a reviewed deployment input.
 

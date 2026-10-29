@@ -85,7 +85,7 @@ export function ScheduleVote({
   }
   return (
     <section
-      className="grid max-w-ballot gap-4"
+      className="grid max-w-ballot gap-4 form-panel"
       aria-labelledby="schedule-heading"
     >
       <h2 id="schedule-heading" className="text-section font-semibold">
@@ -171,7 +171,10 @@ export function WithdrawVoteSchedule({
     router.refresh();
   }
   return (
-    <section className="grid gap-4" aria-labelledby="withdraw-schedule-heading">
+    <section
+      className="grid gap-4 form-panel"
+      aria-labelledby="withdraw-schedule-heading"
+    >
       <h2 id="withdraw-schedule-heading" className="text-section font-semibold">
         Return to Draft
       </h2>
@@ -268,7 +271,10 @@ export function ActivateVote({
   }
 
   return (
-    <section aria-labelledby="activate-heading" className="grid gap-4">
+    <section
+      aria-labelledby="activate-heading"
+      className="grid gap-4 form-panel"
+    >
       <h2 id="activate-heading" className="text-section font-semibold">
         Activate this vote
       </h2>
@@ -431,7 +437,10 @@ export function ChangeDeadline({
   }
 
   return (
-    <section aria-labelledby="deadline-change-heading" className="grid gap-4">
+    <section
+      aria-labelledby="deadline-change-heading"
+      className="grid gap-4 form-panel"
+    >
       <h2 id="deadline-change-heading" className="text-section font-semibold">
         Change Deadline
       </h2>
@@ -562,7 +571,10 @@ export function LifecycleActions({ csrfToken, voteId }: ActionProps) {
   }
 
   return (
-    <section aria-labelledby="lifecycle-heading" className="grid gap-4">
+    <section
+      aria-labelledby="lifecycle-heading"
+      className="grid gap-4 form-panel"
+    >
       <h2 id="lifecycle-heading" className="text-section font-semibold">
         End this vote
       </h2>

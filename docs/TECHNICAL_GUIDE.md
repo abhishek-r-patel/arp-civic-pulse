@@ -136,7 +136,7 @@ browser font requests never contact Google.
 | [src/components/ui/combobox-field.tsx](../src/components/ui/combobox-field.tsx) | Accessible type-to-filter combobox, strict options by default; partial/custom text is an explicit opt-in for directory search. |
 | [src/components/admin/account-forms.tsx](../src/components/admin/account-forms.tsx) | Add Resident requires a household for voters (optional for management roles); its bordered form groups independent eligibility/enablement opt-ins in a wrapping horizontal row. Also owns the household assign/move section and profile editor. |
 | [src/app/api/admin/accounts/[id]/household/route.ts](../src/app/api/admin/accounts/[id]/household/route.ts) | Assign or move an account's household (renaming keeps eligibility). |
-| [src/components/admin/household-form.tsx](../src/components/admin/household-form.tsx) | Eligibility-only household editor linking to the representative's account. |
+| [src/components/admin/household-form.tsx](../src/components/admin/household-form.tsx) | Shared eligibility editor: inline Save/Cancel in resident details with same-page refresh, plus the existing standalone route and representative link. Uses the same guarded PATCH endpoint; account access and frozen electorates stay unchanged. |
 | [src/app/api/register/route.ts](../src/app/api/register/route.ts), [src/server/register/self-registration.ts](../src/server/register/self-registration.ts) | CSRF-protected registration endpoint; budgets, Auth identity, service-role routine, cleanup and specific duplicate errors. |
 | [src/app/api/admin/votes/[id]/schedule/route.ts](../src/app/api/admin/votes/[id]/schedule/route.ts) | Schedule a previewed draft and freeze it immediately. |
 | [src/app/api/admin/votes/[id]/schedule/withdraw/route.ts](../src/app/api/admin/votes/[id]/schedule/withdraw/route.ts) | Confirmed, reasoned pre-opening return to draft. |
@@ -518,6 +518,11 @@ vote new/detail/preview and the voter ballot. Access/register/contact/privacy
 were already centered. `data-form-page` marks the adjusted wrappers for browser
 regressions. Directory/import-review, audit, participation and results keep
 their wider workspaces; global breadcrumbs/header/footer remain full-width.
+Standalone forms and lifecycle/support/import action panels use the shared
+`form-panel` utility: theme border, 8px radius, surface and 16px/24px responsive
+padding. Assignment sections provide the frame for their nested form;
+popover/modal forms retain their existing outer frame. Manage Resident places
+the Status heading and badges in one wrapping row, above account actions.
 
 All confirmation popups use [ConfirmDialog](../src/components/ui/dialog.tsx):
 fixed viewport centring on mobile and desktop, bounded width, phone gutters and

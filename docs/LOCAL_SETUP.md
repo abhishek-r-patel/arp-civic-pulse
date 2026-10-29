@@ -349,7 +349,7 @@ environment using section 6. Do not point fixtures or captures at production.
 Follow this to see every built feature:
 
 1. **Residents → Add Resident.** Enter name + email, choose the role and household (for example `A-101`; when Settings → Default Households is set, pick an unassigned listed identifier), and tick **Eligible to vote** if appropriate. A household is required for voters in this form, optional for management roles. Tick **Enable account now** to skip step 2; otherwise the account starts **Suspended**.
-2. **Residents → Manage** the resident and choose **Enable Account** (confirm in the dialog). Legacy accounts without a household can be assigned one from their details page. Use **Change eligibility** for future-vote eligibility. Account access and eligibility remain separate approvals.
+2. **Residents → Manage** the resident and choose **Enable Account** (confirm in the dialog). Legacy accounts without a household can be assigned one from their details page. **Change eligibility** opens an inline checkbox with **Save Changes / Cancel** for future-vote eligibility, without leaving the page. Account access and eligibility remain separate approvals.
 3. Repeat steps 1-2 for a few residents.
 5. **Manage Votes → New Vote.** Choose **PUBLIC** (a question with options) or **PRIVATE** (an election with offices and candidates) and **Create Draft**.
 6. In the editor fill in the five sections: voting type, details, ballot, electorate (search and tick households), and deadline (entered in your RWA's time zone; you see how residents will read it). **Save Draft.**

@@ -1,13 +1,14 @@
 // Combined resident provisioning (household required for voters) and profile-management forms.
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Home, Save, UserPlus } from "lucide-react";
+import { ChevronDown, CircleX, Home, Save, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ComboboxField } from "@/components/ui/combobox-field";
 import { ConfirmDialog } from "@/components/ui/dialog";
+import { HouseholdForm } from "@/components/admin/household-form";
 import { ErrorSummary } from "@/components/ui/error-summary";
 import { CheckboxField, SelectField, TextField } from "@/components/ui/field";
 import {
@@ -31,6 +32,11 @@ const FIELD_LABELS = {
   email: "Email address",
   representativeName: "Representative name",
 };
+
+const SUSPEND_HELP =
+  "After confirmation, this resident cannot sign in, vote or view signed-in pages, even with an existing session. You can enable the account again later. Past votes remain unchanged.";
+const DELETE_HELP =
+  "After confirmation, this resident permanently loses account access: they cannot sign in, vote or view signed-in pages. The account cannot be restored. Past votes and audit history are retained.";
 
 function duplicateEmail(failure: ApiFailure | null): string | undefined {
   return failure?.code === "REGISTER_CONFLICT" &&
@@ -185,7 +191,7 @@ export function AccountCreateForm({
     <form
       onSubmit={submit}
       noValidate
-      className="grid max-w-ballot gap-6 rounded-card border border-border bg-surface p-4 md:p-6"
+      className="grid max-w-ballot gap-6 form-panel"
     >
       <details className="group rounded-control border border-accent/30 bg-accent/5">
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-control px-4 py-3 text-body font-semibold text-primary hover:bg-accent/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
@@ -348,6 +354,8 @@ export function AccountHouseholdSection({
   const [saved, setSaved] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [editingEligibility, setEditingEligibility] = useState(false);
+  const eligibilityTrigger = useRef<HTMLButtonElement>(null);
   // Choosing the current household again is not a change.
   const options = household
     ? {
@@ -407,7 +415,7 @@ export function AccountHouseholdSection({
     <section
       id="household"
       aria-labelledby="household-heading"
-      className="grid max-w-ballot gap-4 border-t border-border pt-8"
+      className="grid max-w-ballot gap-4 form-panel"
     >
       <h2 id="household-heading" className="text-section font-semibold">
         {terms.Household}
@@ -419,19 +427,50 @@ export function AccountHouseholdSection({
             {household.identifier}
           </span>
           <EligibilityBadge eligible={household.isEligible} />
-          <Link
-            href={`/admin/residents/households/${household.id}`}
-            className="font-semibold text-accent underline underline-offset-2"
-          >
-            Change eligibility
-          </Link>
+          {disabled ? null : (
+            <button
+              ref={eligibilityTrigger}
+              type="button"
+              aria-expanded={editingEligibility}
+              aria-controls="household-eligibility-editor"
+              disabled={pending}
+              onClick={() => {
+                setSaved(null);
+                setEditingEligibility(true);
+              }}
+              className="touch-target font-semibold text-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
+            >
+              Change eligibility
+            </button>
+          )}
         </div>
       ) : (
         <p className="text-body text-muted">
           No {terms.household} is assigned yet.
         </p>
       )}
-      {disabled ? null : (
+      {household && editingEligibility && !disabled ? (
+        <div id="household-eligibility-editor">
+          <HouseholdForm
+            key={household.id}
+            mode="inline"
+            csrfToken={csrfToken}
+            household={household}
+            onCancel={() => {
+              setEditingEligibility(false);
+              eligibilityTrigger.current?.focus();
+            }}
+            onSaved={() => {
+              setEditingEligibility(false);
+              setSaved(
+                "Voting eligibility updated. Existing votes are unchanged.",
+              );
+              eligibilityTrigger.current?.focus();
+            }}
+          />
+        </div>
+      ) : null}
+      {disabled || editingEligibility ? null : (
         <form onSubmit={submit} noValidate className="grid gap-4">
           <ErrorSummary
             failure={failure}
@@ -648,12 +687,29 @@ export function AccountEditor({
         body: (
           <>
             <p>
-              {account.representativeName} will be blocked permanently. This
-              cannot be undone, and the account cannot be restored.
+              Deleting {account.representativeName}&apos;s account permanently
+              removes their access to Civic Pulse, even if they are currently
+              signed in. This cannot be undone, and the account cannot be
+              restored.
             </p>
+            <p>This resident will no longer be able to:</p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>Sign in to Civic Pulse.</li>
+              <li>
+                Cast a vote or change a response in an active PUBLIC poll.
+              </li>
+              <li>View votes, results or any other signed-in pages.</li>
+            </ul>
+            <Notice tone="warning" heading="Recommend: Suspend Account instead">
+              If you only need to block access, cancel and choose Suspend
+              Account instead. Suspension blocks access immediately and lets you
+              enable the account again later. Deletion is permanent.
+            </Notice>
             <p>
-              Their name stays in past records, and any {terms.household} they
-              represent keeps its assignment until you change it.
+              Deletion does not erase their submitted votes, past records or
+              audit history. Their name stays in past records, and any{" "}
+              {terms.household} they represent keeps its assignment until you
+              change it.
             </p>
           </>
         ),
@@ -694,10 +750,10 @@ export function AccountEditor({
       ) : null}
 
       <section aria-labelledby="status-heading" className="grid gap-3">
-        <h2 id="status-heading" className="text-section font-semibold">
-          Status
-        </h2>
         <div className="flex flex-wrap items-center gap-2">
+          <h2 id="status-heading" className="mr-2 text-section font-semibold">
+            Status
+          </h2>
           <AccountStatusBadge status={account.status} />
           <RoleBadge
             isAdmin={account.isAdmin}
@@ -709,37 +765,7 @@ export function AccountEditor({
           <p className="text-body text-muted">
             This account was deleted. It can no longer be changed.
           </p>
-        ) : (
-          <div className="flex flex-col gap-3 sm:flex-row">
-            {account.status === "SUSPENDED" ? (
-              <Button
-                onClick={() =>
-                  setConfirm({ kind: "status", status: "ENABLED" })
-                }
-                disabled={pending}
-              >
-                Enable Account
-              </Button>
-            ) : (
-              <Button
-                variant="secondary"
-                onClick={() =>
-                  setConfirm({ kind: "status", status: "SUSPENDED" })
-                }
-                disabled={pending}
-              >
-                Suspend Account
-              </Button>
-            )}
-            <Button
-              variant="secondary"
-              onClick={() => setConfirm({ kind: "status", status: "DELETED" })}
-              disabled={pending}
-            >
-              Delete Account
-            </Button>
-          </div>
-        )}
+        ) : null}
         {residentWithoutHousehold ? (
           <Notice tone="warning" heading={`${terms.Household} needed first`}>
             <p>
@@ -757,8 +783,18 @@ export function AccountEditor({
         ) : null}
       </section>
 
-      <form onSubmit={save} noValidate className="grid gap-6">
-        <h2 className="text-section font-semibold">Details</h2>
+      <form onSubmit={save} noValidate className="grid gap-6 form-panel">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-section font-semibold">Details</h2>
+          <Link
+            href="/admin/residents"
+            aria-label="Close resident details"
+            title="Close without saving"
+            className="inline-flex size-12 shrink-0 items-center justify-center rounded-control text-muted hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            <CircleX aria-hidden="true" className="size-5" />
+          </Link>
+        </div>
         <ErrorSummary
           failure={residentWithoutHousehold ? null : failure}
           fieldLabels={FIELD_LABELS}
@@ -813,17 +849,54 @@ export function AccountEditor({
         ) : null}
 
         {deleted ? null : (
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button type="submit" loading={pending}>
+          <div
+            data-resident-actions
+            className="flex flex-wrap items-center justify-center gap-2"
+          >
+            <Button type="submit" loading={pending} className="sm:px-3">
               <Save aria-hidden="true" className="size-5" />
               Save Changes
             </Button>
-            <Link
-              href="/admin/residents"
-              className="inline-flex touch-target items-center justify-center rounded-control border border-control-border bg-surface px-4 py-3 font-semibold text-primary hover:bg-primary/5"
+            <Button
+              variant={account.status === "SUSPENDED" ? "secondary" : "warning"}
+              className="sm:px-3"
+              title={account.status === "SUSPENDED" ? undefined : SUSPEND_HELP}
+              aria-describedby={
+                account.status === "SUSPENDED"
+                  ? undefined
+                  : "resident-suspend-help"
+              }
+              onClick={() =>
+                setConfirm({
+                  kind: "status",
+                  status:
+                    account.status === "SUSPENDED" ? "ENABLED" : "SUSPENDED",
+                })
+              }
+              disabled={pending}
             >
-              Back to accounts
-            </Link>
+              {account.status === "SUSPENDED"
+                ? "Enable Account"
+                : "Suspend Account"}
+            </Button>
+            <Button
+              variant="destructive"
+              className="sm:px-3"
+              title={DELETE_HELP}
+              aria-describedby="resident-delete-help"
+              onClick={() => setConfirm({ kind: "status", status: "DELETED" })}
+              disabled={pending}
+            >
+              Delete Account
+            </Button>
+            {account.status === "SUSPENDED" ? null : (
+              <span id="resident-suspend-help" className="sr-only">
+                {SUSPEND_HELP}
+              </span>
+            )}
+            <span id="resident-delete-help" className="sr-only">
+              {DELETE_HELP}
+            </span>
           </div>
         )}
       </form>

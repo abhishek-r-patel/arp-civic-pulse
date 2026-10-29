@@ -218,7 +218,7 @@ available. Existing screenshots predate this border and checkbox-row adjustment.
 
 The **Before you add a resident** summary is collapsed initially. Open it for three short reminders about household assignment, sign-in access and voting eligibility. Field-specific guidance remains available beside each label through its **(i)** control.
 
-Choose **Manage** in Residents to edit details, role or access. The household section assigns a missing household on an existing account or **moves** it to an unassigned identifier. Moving preserves eligibility, frees the old identifier, and never rewrites scheduled, active or past vote assignments. Use **Change eligibility** for eligibility-only editing. An RWA Admin or RWA ReadOnly account may intentionally have no household, but receives no ballot without its own frozen entitlement.
+Choose **Manage** in Residents to edit details, role or access. The household section assigns a missing household on an existing account or **moves** it to an unassigned identifier. Moving preserves eligibility, frees the old identifier, and never rewrites scheduled, active or past vote assignments. **Change eligibility** expands an **Eligible to vote** checkbox with **Save Changes / Cancel** inside this section. Save stays on the resident page and updates the badge; Cancel discards the edit. The move controls return after saving or cancelling. Eligibility affects future votes only, never existing electorates or account access. Existing direct links to the standalone editor still work. The screenshots predate this inline editor; replacement captures remain on hold. An RWA Admin or RWA ReadOnly account may intentionally have no household, but receives no ballot without its own frozen entitlement.
 
 ![RWA Admin 81: Add Resident with the flat picker showing unassigned configured entries](./images/user-guide/rwa-admin/81-add-account-flat-picker.png)
 
@@ -334,7 +334,9 @@ A CSV import accepts up to 500 records/256 KiB with `identifier,representative_n
 
 ![RWA Admin 56: imported accounts linked to review, not automatic enablement](./images/user-guide/rwa-admin/56-import-result.png)
 
-Use the household register to add/change identifiers, assignments and eligibility for future votes. Reassignment never transfers a scheduled/active vote entitlement. **Suspend Account** blocks access without deleting historical participation. **Delete Account** is irreversible in the application UI and retains referenced audit/vote history. The last enabled administrator cannot be removed.
+Use the household register to add/change identifiers, assignments and eligibility for future votes. Reassignment never transfers a scheduled/active vote entitlement. **Suspend Account** blocks access without deleting historical participation. **Delete Account** is irreversible in the application UI and retains referenced audit/vote history. Hover over either button on resident details for an explanation: after confirmation the resident cannot sign in, vote or view signed-in pages, including through an existing session. Suspension can be reversed by enabling the account; a deleted account cannot be restored. These explanations are also available to screen readers; on touch devices, the confirmation dialog explains the consequences before any change. The last enabled administrator cannot be removed.
+
+The **Delete Account** confirmation explicitly lists the loss of sign-in, voting, PUBLIC response changes and signed-in votes/results access, including existing sessions. It recommends **Cancel → Suspend Account** when a reversible access block is sufficient. Deletion cannot be undone and does not erase submitted votes, audit history or the current household assignment. Cancel is selected initially; nothing changes until you confirm deletion. The existing dialog screenshots predate this expanded warning; replacement captures remain on hold.
 
 ![RWA Admin 21: household eligibility editor](./images/user-guide/rwa-admin/21-household.png)
 
@@ -343,6 +345,18 @@ Use the household register to add/change identifiers, assignments and eligibilit
 ![RWA Admin 19: irreversible-deletion confirmation](./images/user-guide/rwa-admin/19-delete-dialog.png)
 
 ### Configure RWA settings
+
+Forms across the app use a consistent subtle rounded border with comfortable
+padding. On Manage Resident, Status and its badges share a row, with account
+actions below; smaller screens wrap when needed. Existing screenshots predate
+this shared form framing.
+Manage Resident groups **Save Changes**, **Suspend/Enable Account**
+and **Delete Account** in a centered row below Details when space permits. The circled close icon at
+the top-right beside Details returns to Residents without saving, replacing
+the bottom Cancel link. Suspend is amber and Delete is red; Enable retains its
+neutral appearance. Account-state actions still require their
+existing confirmations and do not save pending detail edits. The top Residents
+link is also navigation back to the directory. Screenshots predate this grouping.
 
 **RWA Settings** controls the full name, alias, address, email, phone, optional website, one of six contrast-checked accent colours, welcome message, household label, Number/ID identifier wording and administrator-only suggestion lists. Required fields are marked; blank optional fields are hidden. Display wording changes do not rename stored household identifiers or alter matching. Changes apply immediately, including to older votes/results. Only `rwa-admin` can save settings.
 

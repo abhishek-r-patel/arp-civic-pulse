@@ -75,7 +75,7 @@ export function SelfRegistrationForm({
     );
 
   return (
-    <form onSubmit={submit} className="grid gap-5">
+    <form onSubmit={submit} className="grid gap-5 form-panel">
       <ErrorSummary
         failure={failure}
         fieldLabels={{

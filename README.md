@@ -24,7 +24,8 @@ roles; eligibility and "Enable account now" remain separate optional approvals.
 Settings → Default Households defines allowed identifiers, not assignments:
 only unassigned listed households can be chosen when configured; without a list,
 type the identifier. A resident's details page can assign or move its household
-and open its eligibility editor. Residents includes status, role, source, exact
+and edit its eligibility inline with Save/Cancel, without leaving the page.
+Existing direct eligibility-editor links still work. Residents includes status, role, source, exact
 identifier-contains and eligibility filters plus CSV import. Residents is the only register
 UI route; former Accounts/Households pages return 404, with no redirects. Existing
 account and household APIs remain unchanged. Residents

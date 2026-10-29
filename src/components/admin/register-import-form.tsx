@@ -98,7 +98,7 @@ export function RegisterImportForm({
     (outcome) => outcome.state === "READY",
   ).length;
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-6 form-panel">
       <Notice tone="info" heading="New accounts remain suspended">
         Review each imported representative before enabling access. Existing
         register entries and scheduled or active electorates are never

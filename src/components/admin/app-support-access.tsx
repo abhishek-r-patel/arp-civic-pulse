@@ -43,7 +43,7 @@ export function AppSupportAccessControl({
     <section
       id="app-support"
       aria-labelledby="app-support-heading"
-      className="grid max-w-ballot gap-4 border-t border-border pt-8"
+      className="grid max-w-ballot gap-4 form-panel"
     >
       <h2 id="app-support-heading" className="text-section font-semibold">
         App Support Access

@@ -59,6 +59,23 @@ test("public forms and information pages retain centered readable content", asyn
         Math.min(640, layout.viewport - (width < 768 ? 32 : 48)),
       );
       expect(Math.abs(layout.center - layout.viewport / 2)).toBeLessThan(1);
+      if (path !== "/privacy") {
+        const panel = page.locator("main form").first();
+        if (path === "/contact" && (await panel.count()) === 0) {
+          await expect(
+            page.getByText("Online contact is not available yet", {
+              exact: true,
+            }),
+          ).toBeVisible();
+        } else {
+          await expect(panel).toHaveClass(/form-panel/);
+          expect(
+            await panel.evaluate(
+              (element) => getComputedStyle(element).borderTopWidth,
+            ),
+          ).toBe("1px");
+        }
+      }
     }
   }
 });

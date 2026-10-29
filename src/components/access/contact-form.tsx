@@ -49,7 +49,7 @@ export function ContactForm({
     );
 
   return (
-    <form onSubmit={submit} className="grid gap-5">
+    <form onSubmit={submit} className="grid gap-5 form-panel">
       <ErrorSummary
         failure={failure}
         fieldLabels={{ name: "Name", email: "Email", message: "Message" }}

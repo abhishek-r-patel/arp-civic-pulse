@@ -26,6 +26,90 @@ test.skip(
 
 const WIDTHS = [320, 375, 768, 1280];
 
+test("resident eligibility edits inline with cancel, failure and persistent save", async ({
+  page,
+}) => {
+  const admin = await provisionAdmin();
+  const resident = await seedHousehold();
+  await signInThroughUi(page, admin.email, admin.code);
+  const path = `/admin/residents/${resident.id}`;
+  await page.goto(path);
+  const panel = page.locator("#household");
+  const change = panel.getByRole("button", {
+    name: "Change eligibility",
+    exact: true,
+  });
+  const editor = panel.getByRole("form", {
+    name: "Voting eligibility",
+    exact: true,
+  });
+  const checkbox = editor.getByRole("checkbox", {
+    name: "Eligible to vote",
+    exact: true,
+  });
+  const save = editor.getByRole("button", {
+    name: "Save Changes",
+    exact: true,
+  });
+  for (const width of [320, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await change.click();
+    await expect(change).toHaveAttribute("aria-expanded", "true");
+    await expect(checkbox).toBeChecked();
+    await checkbox.uncheck();
+    await expect(
+      editor.getByText(
+        "A vote that is already active keeps the electorate it started with.",
+      ),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth,
+      ),
+    ).toBe(false);
+    await editor.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(editor).toHaveCount(0);
+    await expect(change).toBeFocused();
+    await expect(panel.getByText("Eligible", { exact: true })).toBeVisible();
+  }
+  await change.click();
+  await save.click();
+  await expect(editor.getByText("There are no changes to save.")).toBeVisible();
+  await checkbox.uncheck();
+  const endpoint = `**/api/admin/households/${resident.householdId}`;
+  await page.route(endpoint, (route) => route.abort("failed"));
+  await save.click();
+  await expect(editor.getByRole("alert")).toBeVisible();
+  await expect(checkbox).not.toBeChecked();
+  await expect(panel.getByText("Eligible", { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`${path}$`));
+  await page.unroute(endpoint);
+  await save.click();
+  await expect(editor).toHaveCount(0);
+  await expect(panel.getByText("Not eligible", { exact: true })).toBeVisible();
+  await expect(
+    panel.getByText(
+      "Voting eligibility updated. Existing votes are unchanged.",
+    ),
+  ).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`${path}$`));
+  await page.reload();
+  await expect(panel.getByText("Not eligible", { exact: true })).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Status", exact: true })
+      .getByText("Enabled", { exact: true }),
+  ).toBeVisible();
+  await change.click();
+  await checkbox.check();
+  await save.click();
+  await expect(panel.getByText("Eligible", { exact: true })).toBeVisible();
+  await page.goto(`/admin/residents/households/${resident.householdId}`);
+  await expect(
+    page.getByRole("form", { name: "Voting eligibility", exact: true }),
+  ).toBeVisible();
+});
+
 test("Source is an icon column with global sorting and its own filter", async ({
   page,
 }) => {
@@ -199,6 +283,83 @@ test("form-focused pages center their heading and controls while directories sta
       );
       expect(Math.abs(layout.center - layout.viewport / 2)).toBeLessThan(1);
       expect(layout.overflow).toBe(false);
+      if (path === `/admin/residents/${resident.id}`) {
+        const status = page.getByRole("region", {
+          name: "Status",
+          exact: true,
+        });
+        const heading = await status
+          .getByRole("heading", { name: "Status", exact: true })
+          .boundingBox();
+        const badge = await status
+          .locator("span")
+          .filter({ hasText: /^Enabled$/ })
+          .boundingBox();
+        if (!heading || !badge)
+          throw new Error("Missing resident status heading or badge.");
+        expect(
+          Math.abs(heading.y + heading.height / 2 - badge.y - badge.height / 2),
+        ).toBeLessThan(1);
+        await expect(page.locator("form.form-panel")).toBeVisible();
+        await expect(page.locator("#household.form-panel")).toBeVisible();
+        const actions = page.locator("[data-resident-actions]");
+        await expect(
+          page.getByRole("link", {
+            name: "Close resident details",
+            exact: true,
+          }),
+        ).toHaveAttribute("href", "/admin/residents");
+        await expect(actions.getByRole("link")).toHaveCount(0);
+        await expect(
+          actions.getByRole("button", { name: "Suspend Account", exact: true }),
+        ).toHaveClass(/text-warning/);
+        await expect(
+          actions.getByRole("button", { name: "Delete Account", exact: true }),
+        ).toHaveClass(/bg-error/);
+        const suspend = actions.getByRole("button", {
+          name: "Suspend Account",
+          exact: true,
+        });
+        const remove = actions.getByRole("button", {
+          name: "Delete Account",
+          exact: true,
+        });
+        await expect(suspend).toHaveAttribute(
+          "title",
+          /cannot sign in, vote or view signed-in pages/,
+        );
+        await expect(suspend).toHaveAccessibleDescription(
+          /enable the account again later.*Past votes remain unchanged/,
+        );
+        await expect(remove).toHaveAttribute(
+          "title",
+          /permanently loses account access/,
+        );
+        await expect(remove).toHaveAccessibleDescription(
+          /cannot be restored.*Past votes and audit history are retained/,
+        );
+        if (width >= 1280) {
+          const tops = await actions
+            .locator("button, a")
+            .evaluateAll((elements) =>
+              elements.map((element) => element.getBoundingClientRect().top),
+            );
+          expect(tops).toHaveLength(3);
+          expect(new Set(tops).size).toBe(1);
+          const centers = await actions.evaluate((element) => {
+            const buttons = element.querySelectorAll("button");
+            const first = buttons[0]?.getBoundingClientRect();
+            const last = buttons[buttons.length - 1]?.getBoundingClientRect();
+            if (!first || !last) throw new Error("Missing resident actions.");
+            const row = element.getBoundingClientRect();
+            return {
+              group: (first.left + last.right) / 2,
+              row: row.left + row.width / 2,
+            };
+          });
+          expect(Math.abs(centers.group - centers.row)).toBeLessThan(1);
+        }
+      }
     }
     await page.goto("/admin/residents");
     await expect(page.locator("[data-account-review]")).toBeVisible();
@@ -753,10 +914,14 @@ test.describe("confirmation dialog", () => {
     const { email, code } = await provisionAdmin();
     await signInThroughUi(page, email, code);
 
-    // Manage a second account: suspend is a destructive confirmation.
+    // Manage a second account without performing the destructive action.
     await page.goto("/admin/residents/new");
-    await page.getByLabel(/Email address/).fill(plusEmail());
-    await page.getByLabel(/Resident name/).fill("Dialog Subject");
+    await page
+      .getByRole("textbox", { name: /Email address/ })
+      .fill(plusEmail());
+    await page
+      .getByRole("textbox", { name: /Resident name/ })
+      .fill("Dialog Subject");
     await chooseDropdownOption(page, "Role", "RWA Admin");
     await page.getByRole("button", { name: "Create Resident" }).click();
     await expect(
@@ -771,6 +936,31 @@ test.describe("confirmation dialog", () => {
     // Cancel takes initial focus; a destructive action is never auto-focused.
     await expect(dialog.getByRole("button", { name: "Cancel" })).toBeFocused();
     await expect(dialog.getByText(/cannot be undone/)).toBeVisible();
+    await expect(
+      dialog.getByText("Sign in to Civic Pulse.", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByText(
+        "Cast a vote or change a response in an active PUBLIC poll.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(
+      dialog.getByText("View votes, results or any other signed-in pages.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByText("Recommend: Suspend Account instead", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByText(/enable the account again later. Deletion is permanent/),
+    ).toBeVisible();
+    await expect(
+      dialog.getByText(
+        /does not erase their submitted votes, past records or audit history/,
+      ),
+    ).toBeVisible();
 
     for (const [width, height] of [
       [320, 640],

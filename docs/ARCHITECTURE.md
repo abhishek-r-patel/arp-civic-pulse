@@ -80,6 +80,10 @@ Pin supported dependency versions in a lockfile and review licenses/advisories. 
 
 ## 04 Target Project Structure
 
+- `src/styles/globals.css` defines the shared `form-panel` utility used by
+  standalone access/admin/voting forms and action panels. Nested assignment forms
+  inherit their section's frame; popovers/dialogs retain their existing frame.
+
 - `.vscode/settings.json`: workspace-scoped Copilot commit-message instructions,
   requiring one `type(scope): imperative summary` title, a blank line and a
   plain bullet-point body for Source Control generation.
@@ -256,7 +260,7 @@ remain anchored to their controls.
 - `src/app/admin/residents/[id]/page.tsx`, `AccountHouseholdSection` and `src/app/api/admin/accounts/[id]/household/route.ts`: assign a household to an account without one or move it (rename, eligibility kept, confirmation dialog).
 - `src/app/admin/residents/import/page.tsx` and `src/app/admin/residents/households/[id]/page.tsx`: CSV import and eligibility editor under Residents. Former `/admin/accounts` and `/admin/households` UI route trees and compatibility redirects are removed; those URLs return 404. All navigation, browser tests and capture workflows use Residents directly. Existing account/household API routes remain unchanged. `/admin` opens Residents.
 - `src/server/register/accounts.ts` (`createAccount`): list and "already assigned" pre-checks, Auth identity, the service-role `provision_profile_with_household` routine, best-effort identity removal on failure, then the normal enable workflow when requested. `src/server/register/households.ts` adds `resolveHouseholdChoice`, `assertHouseholdFree`, `getAccountHousehold` and `setAccountHousehold`; `src/server/settings/rwa-profile.ts` `loadHouseholdChoices` supplies the picker options.
-- `src/components/admin/household-form.tsx`: eligibility-only household edit linking to the representative's account. The former `/admin/households/new` page was removed.
+- `src/components/admin/household-form.tsx`: shared eligibility-only editor, expanded inline by `AccountHouseholdSection` with Save/Cancel and same-page refresh; the existing standalone route retains its representative link and directory redirect. Both modes use the existing guarded PATCH API and preserve frozen electorates. Moving a household is hidden during inline editing to keep the operations separate. The former `/admin/households/new` page was removed.
 - `supabase/migrations/20261110100000_account_with_household.sql`; `tests/unit/register.test.ts` (combined creation) and `tests/integration/account-with-household.test.ts`.
 - `supabase/migrations/20261111100000_resident_directory.sql` and `tests/integration/resident-directory.test.ts`: existing security-invoker view and RLS regression coverage, now consumed by `listResidents`. Cursors contain only the stable profile ID, bound to the directory filters; subsequent pages resolve its current sort key through the caller's RLS session. This avoids resident names in URLs and oversized Unicode-name cursors. Concurrent register edits can move rows; restart the list when reconciling changes. No new migration is needed for the consolidation.
 
