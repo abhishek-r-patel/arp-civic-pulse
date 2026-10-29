@@ -143,7 +143,7 @@ test.describe("setting up a PUBLIC vote", () => {
     );
   });
 
-  test("lists the draft with its type, status and deadline, and filters by type", async ({
+  test("lists, filters and sorts votes from their column headings", async ({
     page,
   }) => {
     await signedInAdmin(page);
@@ -159,15 +159,30 @@ test.describe("setting up a PUBLIC vote", () => {
     const row = page.getByRole("link", { name: /Listed question/ }).first();
     await expect(row).toBeVisible();
 
-    await chooseDropdownOption(page, "Voting type", "PRIVATE voting");
-    await page.getByRole("button", { name: "Apply Filters" }).click();
+    await page.getByRole("button", { name: "Filter Type" }).click();
+    await chooseDropdownOption(page, "Voting Type", "PRIVATE voting");
+    await page.getByRole("button", { name: "Apply Filter" }).click();
     await expect(
       page.getByRole("link", { name: /Listed question/ }),
     ).toHaveCount(0);
-    await page.getByRole("link", { name: "Clear" }).click();
+
+    await page.getByRole("link", { name: "Clear filters" }).click();
     await expect(
       page.getByRole("link", { name: /Listed question/ }).first(),
     ).toBeVisible();
+    await page.getByRole("button", { name: "Filter Vote" }).click();
+    await page.getByLabel("Vote title").fill("Listed question");
+    await page.getByRole("button", { name: "Apply Filter" }).click();
+    await expect(
+      page.getByRole("link", { name: /Listed question/ }),
+    ).toBeVisible();
+
+    await page.getByRole("link", { name: "Clear filters" }).click();
+    await page.getByRole("link", { name: "Sort Vote ascending" }).click();
+    await expect(page).toHaveURL(/sort=title&direction=asc/u);
+    await expect(
+      page.getByRole("columnheader", { name: "Vote" }),
+    ).toHaveAttribute("aria-sort", "ascending");
   });
 });
 

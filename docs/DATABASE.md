@@ -33,14 +33,17 @@ the electorate to the caller, even for committee roles. PUBLIC named response
 counts group by respondent household through existence, not selection count.
 No PRIVATE/active named-response metadata is available.
 
-The six UI datasets use exact filtered counts and sort-key anchor lookup to
-support numbered pages while existing HTTP cursor routines stay unchanged.
-Count/anchor use one materialized filtered-key statement snapshot; only one
-anchor is returned, never all account/ballot projections. UI totals remain
-live across requests. This adds no table, policy, index, tally store, write
-workflow or migration-at-startup behavior. Apply before deploying the numbered
-UI; review performance at approved scale rather than claiming count costs
-are constant. See [API pagination](./API.md#22-pagination-and-filtering).
+Numbered UI datasets use exact filtered counts while existing HTTP cursor
+routines stay unchanged. The generic `get_list_page` resolves one bounded
+sort-key anchor from authorized keys in a statement snapshot; the Residents
+and Manage Votes table routines instead filter, order and count globally, then
+return at most 100 page IDs for the existing server-side projections. No full
+register or ballot projection is downloaded to count or paginate. UI totals
+remain live across requests. This adds no table, policy, index, tally store,
+write workflow or migration-at-startup behavior. Apply the required routines
+before deploying their UI revisions; review performance at approved scale
+rather than claiming count costs are constant. See
+[API pagination](./API.md#22-pagination-and-filtering).
 
 Migration `20261115100000_resident_table_controls` adds
 `public.get_resident_table_page(integer, integer, jsonb, text, text)`, owned by
@@ -68,6 +71,15 @@ routine's sort allowlist, ordering `self_registered` false then true ascending
 (Admin-registered then Self-registered) and the reverse descending, before
 paging. Lowercase name/UUID tie-breakers, boolean source filters, metadata and
 authenticated committee-only execution remain unchanged.
+
+Migration `20261120100000_admin_vote_turnout` replaces the guarded
+`get_admin_vote_table_page` routine without changing its authorization, filters,
+ordering, page IDs or metadata. In the same statement snapshot it adds frozen
+electorate and participation counts only for page rows currently Active or
+Completed. The projection is bounded to the page and contains no choices,
+option/candidate totals or individual participation records. Draft, Scheduled
+and Cancelled rows have no turnout entry. The application keeps this
+table-specific projection separate from the existing HTTP vote-list contract.
 
 The Votes concept overview reads exact counts from frozen `electorate` joined to
 vote status and, for responses, its `participation` row. Every query uses the
@@ -609,14 +621,14 @@ Primary keys and unique constraints create their own B-tree indexes. Avoid dupli
 | Composite ownership FKs | Unique `offices(vote_id, id)`, `candidates(office_id, id)`, `poll_options(vote_id, id)`. |
 | PUBLIC option totals and complete named-response joins | `open_responses(vote_id, option_id, household_id)`; PK serves electorate/participation joins. |
 | PRIVATE counter lookup / ownership | Two partial unique indexes described above, plus `closed_tallies(vote_id, office_id)` for complete protected tally reads and parent FK access. |
-| Administrator vote list with stable cursor | `votes(created_at DESC, id DESC)`; filter small status/type sets without speculative extra indexes. |
+| Administrator vote HTTP list with stable cursor | `votes(created_at DESC, id DESC)`; filter small status/type sets without speculative extra indexes. |
 | Creator FK and profile cleanup | `votes(created_by_profile_id)`. |
 | Due-vote scheduler | Partial `votes(closes_at, id)` where status is `ACTIVE`. |
 | Audit history, newest first | `audit_events(occurred_at DESC, id DESC)`; bounded actor and Details substring filters (Details covers reason plus allowlisted JSON values) preserve the order and do not add fuzzy or JSON GIN indexes. |
 | Profile audit references / FK cleanup | `audit_events(actor_profile_id)`; omit a separate general target-history index until a target-filtered journey needs it. |
 | Rate-limit lookup and cleanup | Composite PK and `rate_limit_buckets(expires_at)`. |
 
-Named-response pages use stable household-ID keyset pagination over the vote-prefixed primary key and join snapshots/options; exports deliberately read all authorized respondents. Audit and administrator vote lists use timestamp-plus-ID cursors. Do not add fuzzy search, JSON GIN indexes, materialized views, partitions, or cached tally tables for this MVP.
+Named-response pages use stable household-ID keyset pagination over the vote-prefixed primary key and join snapshots/options; exports deliberately read all authorized respondents. Audit and administrator vote HTTP lists use timestamp-plus-ID cursors. The Manage Votes UI uses a separate committee-guarded ID-page routine for global sorting and filtering; it adds no indexes and does not change the HTTP cursor list. Do not add fuzzy search, JSON GIN indexes, materialized views, partitions, or cached tally tables for this MVP.
 
 Verify plans with `EXPLAIN (ANALYZE, BUFFERS)` on synthetic 500-household data and load-test 100 concurrent users, including contention on one vote. Require p95 page/API latency below two seconds and acknowledgement below three seconds, excluding email/network conditions.
 

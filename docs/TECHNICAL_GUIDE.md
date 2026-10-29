@@ -118,9 +118,11 @@ browser font requests never contact Google.
 | [src/components/admin/rwa-profile-form.tsx](../src/components/admin/rwa-profile-form.tsx) | Administrator RWA profile editor with six accent choices and responsive identity/identifier controls. |
 | [src/components/admin/resident-identifier-filter.tsx](../src/components/admin/resident-identifier-filter.tsx) | Residents exact-identifier filter using the Settings label and all Default Households, with manual entry when the list is empty. |
 | [supabase/migrations/20261105100000_add_amber_accent_palette.sql](../supabase/migrations/20261105100000_add_amber_accent_palette.sql) | Adds the Amber accent to the RWA settings constraint and guarded update validation. |
-| [src/server/http/numbered-page.ts](../src/server/http/numbered-page.ts) | Validates exact UI page metadata and binds authorized anchors to existing list cursors; HTTP list APIs remain unchanged. |
-| [supabase/migrations/20261114100000_numbered_pagination.sql](../supabase/migrations/20261114100000_numbered_pagination.sql) | Guarded filtered counts and bounded anchor lookup for all six paginated UI datasets. |
-| [tests/integration/numbered-pagination.test.ts](../tests/integration/numbered-pagination.test.ts), [unit tests](../tests/unit/numbered-pagination.test.ts), [browser test](../tests/e2e/pagination-live.spec.ts) | Real SQL access/count/anchor checks, metadata/control validation and six-screen navigation/reflow coverage. |
+| [src/server/http/numbered-page.ts](../src/server/http/numbered-page.ts) | Validates generic numbered-page metadata and binds authorized anchors to existing list cursors; HTTP list APIs remain unchanged. |
+| [supabase/migrations/20261114100000_numbered_pagination.sql](../supabase/migrations/20261114100000_numbered_pagination.sql) | Guarded filtered counts and bounded anchor lookup for the generic numbered UI list services. |
+| [supabase/migrations/20261119100000_admin_vote_table_controls.sql](../supabase/migrations/20261119100000_admin_vote_table_controls.sql) | Committee-guarded Manage Votes sorting, filtering, exact totals and bounded page IDs; does not change the HTTP cursor API. |
+| [supabase/migrations/20261120100000_admin_vote_turnout.sql](../supabase/migrations/20261120100000_admin_vote_turnout.sql) | Adds page-bounded aggregate turnout counts for Active/Completed Manage Votes rows; no choices or result totals. |
+| [tests/integration/numbered-pagination.test.ts](../tests/integration/numbered-pagination.test.ts), [unit tests](../tests/unit/numbered-pagination.test.ts), [browser test](../tests/e2e/pagination-live.spec.ts) | Real SQL access/count/anchor/turnout checks, metadata/control validation and six-screen navigation/reflow coverage. |
 | [src/components/admin](../src/components/admin)     | Account/household forms, draft editing, preview and lifecycle interaction.                                              |
 | [src/components/admin/management-fields.tsx](../src/components/admin/management-fields.tsx) | Readonly committee presentation; management controls remain visible but disabled. |
 | [src/components/admin/account-review-table.tsx](../src/components/admin/account-review-table.tsx) | Current-page multi-selection and separate account enablement/flat eligibility confirmations, administrator warning and per-record outcomes. |
@@ -540,10 +542,14 @@ preserving filters and omitting the previous page; there is no apply button or
 separate record-range line.
 Votes, Residents, Manage Votes, Audit History, participation
 and completed PUBLIC named responses request validated numbered metadata.
-Residents uses `get_resident_table_page` for arbitrary global column ordering;
-the other five use `get_list_page` and existing bounded cursor services.
-Counts and IDs/anchors remain caller-authorized. HTTP cursor envelopes and export semantics
-are unchanged. UI `page` values beyond the end clamp to the last page; empty
+Residents and Manage Votes use specialized table-page routines for globally
+filtered ordered IDs. Manage Votes additionally returns only aggregate
+submitted/eligible counts for Active and Completed rows, using the frozen
+electorate denominator; its HTTP cursor projection remains unchanged. Audit
+uses `get_audit_list_page` when its text filters are
+active; the generic list service uses `get_list_page` for bounded cursor anchors.
+Counts and IDs/anchors remain caller-authorized. HTTP cursor envelopes and export
+semantics are unchanged. UI `page` values beyond the end clamp to the last page; empty
 sets show page 1 of 1. Filters/size changes restart at page 1; Residents remounts
 its page-scoped selection state on page/size changes. Missing count metadata
 fails explicitly, never produces a guessed total. Table regions are labelled

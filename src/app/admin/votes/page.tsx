@@ -6,10 +6,15 @@ import {
   firstValues,
   formatInstant,
 } from "@/components/admin/format";
+import {
+  VoteColumnHeader,
+  VoteTableToolbar,
+  type VoteTableState,
+  voteTableClearFiltersHref,
+} from "@/components/admin/vote-table-controls";
 import { VoteStatusBadge, VotingTypeBadge } from "@/components/ui/badges";
-import { Button, LinkButton } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/button";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { SelectField } from "@/components/ui/field";
 import { EmptyState, PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { Pagination } from "@/components/ui/pagination";
@@ -17,15 +22,9 @@ import { DeadlineCountdown } from "@/components/votes/deadline-countdown";
 import { ApiError } from "@/server/http/errors";
 import { readPageNumber } from "@/server/http/numbered-page";
 import { adminPageContext } from "@/server/register/page-context";
-import { listVotes } from "@/server/votes/drafts";
-import { voteListQuerySchema } from "@/shared/contracts/admin-votes";
-import type { AdminVoteSummary } from "@/shared/contracts/drafts";
-import {
-  VOTE_STATUS_LABELS,
-  VOTING_TYPE_LABELS,
-  VOTE_STATUSES,
-  VOTING_TYPES,
-} from "@/shared/contracts/voting";
+import { listVoteTable } from "@/server/votes/drafts";
+import { voteTableQuerySchema } from "@/shared/contracts/admin-votes";
+import type { AdminVoteTableSummary } from "@/shared/contracts/drafts";
 import { formatInZone } from "@/shared/time/zoned";
 
 export const metadata = {
@@ -37,10 +36,19 @@ export const metadata = {
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-const columns: Column<AdminVoteSummary>[] = [
+const columns = (state: VoteTableState): Column<AdminVoteTableSummary>[] => [
   {
     key: "title",
     header: "Vote",
+    sortDirection:
+      state.sort === "title"
+        ? state.direction === "asc"
+          ? "ascending"
+          : "descending"
+        : undefined,
+    headerContent: (
+      <VoteColumnHeader state={state} column="title" title="Vote" />
+    ),
     cell: (vote) => (
       <Link
         href={`/admin/votes/${vote.id}`}
@@ -54,16 +62,43 @@ const columns: Column<AdminVoteSummary>[] = [
   {
     key: "type",
     header: "Type",
+    sortDirection:
+      state.sort === "type"
+        ? state.direction === "asc"
+          ? "ascending"
+          : "descending"
+        : undefined,
+    headerContent: (
+      <VoteColumnHeader state={state} column="type" title="Type" />
+    ),
     cell: (vote) => <VotingTypeBadge type={vote.votingType} />,
   },
   {
     key: "status",
     header: "Status",
+    sortDirection:
+      state.sort === "status"
+        ? state.direction === "asc"
+          ? "ascending"
+          : "descending"
+        : undefined,
+    headerContent: (
+      <VoteColumnHeader state={state} column="status" title="Status" />
+    ),
     cell: (vote) => <VoteStatusBadge status={vote.status} />,
   },
   {
     key: "deadline",
     header: "Deadline",
+    sortDirection:
+      state.sort === "deadline"
+        ? state.direction === "asc"
+          ? "ascending"
+          : "descending"
+        : undefined,
+    headerContent: (
+      <VoteColumnHeader state={state} column="deadline" title="Deadline" />
+    ),
     cell: (vote) => (
       <div className="grid gap-1">
         {vote.status === "SCHEDULED" && vote.opensAt ? (
@@ -89,11 +124,41 @@ const columns: Column<AdminVoteSummary>[] = [
   },
   {
     key: "updated",
-    header: "Last changed",
+    header: "Last Changed",
+    sortDirection:
+      state.sort === "updated"
+        ? state.direction === "asc"
+          ? "ascending"
+          : "descending"
+        : undefined,
+    headerContent: (
+      <VoteColumnHeader state={state} column="updated" title="Last Changed" />
+    ),
     cell: (vote) =>
       vote.timezone
         ? formatInZone(vote.updatedAt, vote.timezone)
         : formatInstant(vote.updatedAt),
+  },
+  {
+    key: "turnout",
+    header: "Turnout",
+    cell: (vote) => {
+      if (vote.status === "DRAFT" || vote.status === "SCHEDULED") {
+        return "Not open";
+      }
+      if (vote.status === "CANCELLED") return "Not available";
+      if (!vote.turnout) return "Turnout unavailable";
+
+      const { eligibleCount, submittedCount, percent } = vote.turnout;
+      return (
+        <span
+          className="tabular-nums"
+          aria-label={`${submittedCount} of ${eligibleCount} eligible; ${percent}% turnout`}
+        >
+          {submittedCount} / {eligibleCount} ({percent}%)
+        </span>
+      );
+    },
   },
 ];
 
@@ -104,19 +169,26 @@ export default async function VotesPage({
   const raw = firstValues(await searchParams);
   const flash = raw.notice ? flashNotices(deps.terms)[raw.notice] : undefined;
 
-  const parsed = voteListQuerySchema.safeParse({
+  const parsed = voteTableQuerySchema.safeParse({
     limit: raw.limit,
     cursor: raw.cursor,
     status: raw.status,
     votingType: raw.votingType,
+    titleContains: raw.titleContains,
+    deadlineFrom: raw.deadlineFrom,
+    deadlineTo: raw.deadlineTo,
+    changedFrom: raw.changedFrom,
+    changedTo: raw.changedTo,
+    sort: raw.sort,
+    direction: raw.direction,
   });
   const filtersInvalid = !parsed.success;
-  const query = parsed.success ? parsed.data : voteListQuerySchema.parse({});
+  const query = parsed.success ? parsed.data : voteTableQuerySchema.parse({});
 
-  let result: Awaited<ReturnType<typeof listVotes>> | null = null;
+  let result: Awaited<ReturnType<typeof listVoteTable>> | null = null;
   let loadError: ApiError | null = null;
   try {
-    result = await listVotes(deps, query, readPageNumber(raw.page));
+    result = await listVoteTable(deps, query, readPageNumber(raw.page));
   } catch (error) {
     if (!(error instanceof ApiError)) {
       throw error;
@@ -124,8 +196,42 @@ export default async function VotesPage({
     loadError = error;
   }
 
-  const filtersActive =
-    query.status !== undefined || query.votingType !== undefined;
+  const filtersActive = [
+    query.titleContains,
+    query.status,
+    query.votingType,
+    query.deadlineFrom,
+    query.deadlineTo,
+    query.changedFrom,
+    query.changedTo,
+  ].some(Boolean);
+  const tableState: VoteTableState = {
+    params: {
+      limit: String(query.limit),
+      titleContains: query.titleContains,
+      status: query.status,
+      votingType: query.votingType,
+      deadlineFrom: query.deadlineFrom,
+      deadlineTo: query.deadlineTo,
+      changedFrom: query.changedFrom,
+      changedTo: query.changedTo,
+      sort: query.sort,
+      direction: query.direction,
+    },
+    sort: query.sort,
+    direction: query.direction,
+  };
+  const paginationParams = {
+    titleContains: query.titleContains,
+    status: query.status,
+    votingType: query.votingType,
+    deadlineFrom: query.deadlineFrom,
+    deadlineTo: query.deadlineTo,
+    changedFrom: query.changedFrom,
+    changedTo: query.changedTo,
+    sort: query.sort,
+    direction: query.direction,
+  };
 
   return (
     <div className="grid gap-8">
@@ -147,50 +253,11 @@ export default async function VotesPage({
       ) : null}
       {filtersInvalid ? (
         <Notice tone="warning" heading="Some filters were not valid">
-          They were ignored. Choose filters below to try again.
+          They were ignored. Choose filters in the table headings to try again.
         </Notice>
       ) : null}
 
-      <form
-        method="get"
-        className="grid gap-4 form-panel sm:grid-cols-[1fr_1fr_auto] sm:items-end"
-      >
-        <input type="hidden" name="limit" value={query.limit} />
-        <SelectField
-          id="status"
-          name="status"
-          label="Status"
-          defaultValue={raw.status ?? ""}
-        >
-          <option value="">Any status</option>
-          {VOTE_STATUSES.map((status) => (
-            <option key={status} value={status}>
-              {VOTE_STATUS_LABELS[status]}
-            </option>
-          ))}
-        </SelectField>
-        <SelectField
-          id="votingType"
-          name="votingType"
-          label="Voting type"
-          defaultValue={raw.votingType ?? ""}
-        >
-          <option value="">Any type</option>
-          {VOTING_TYPES.map((type) => (
-            <option key={type} value={type}>
-              {VOTING_TYPE_LABELS[type]}
-            </option>
-          ))}
-        </SelectField>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Button type="submit">Apply Filters</Button>
-          {filtersActive ? (
-            <LinkButton href="/admin/votes" variant="secondary">
-              Clear
-            </LinkButton>
-          ) : null}
-        </div>
-      </form>
+      <VoteTableToolbar state={tableState} />
 
       {loadError ? (
         <Notice tone="error" heading="Votes could not be loaded">
@@ -202,12 +269,15 @@ export default async function VotesPage({
           <EmptyState
             title="No votes match these filters"
             action={
-              <LinkButton href="/admin/votes" variant="secondary">
+              <LinkButton
+                href={voteTableClearFiltersHref(tableState.params)}
+                variant="secondary"
+              >
                 Clear Filters
               </LinkButton>
             }
           >
-            <p>Try a different status or voting type.</p>
+            <p>Try different filter criteria.</p>
           </EmptyState>
         ) : (
           <EmptyState
@@ -231,13 +301,13 @@ export default async function VotesPage({
         <>
           <DataTable
             caption="Votes"
-            columns={columns}
+            columns={columns(tableState)}
             rows={result.data}
             rowKey={(vote) => vote.id}
           />
           <Pagination
             basePath="/admin/votes"
-            params={{ status: raw.status, votingType: raw.votingType }}
+            params={paginationParams}
             page={result.page}
           />
         </>
@@ -245,7 +315,7 @@ export default async function VotesPage({
       {result && result.data.length === 0 ? (
         <Pagination
           basePath="/admin/votes"
-          params={{ status: raw.status, votingType: raw.votingType }}
+          params={paginationParams}
           page={result.page}
         />
       ) : null}

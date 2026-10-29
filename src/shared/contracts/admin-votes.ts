@@ -312,6 +312,46 @@ export const voteListQuerySchema = listQuerySchema({
   votingType: votingType.optional(),
 });
 
+export const VOTE_TABLE_SORT_KEYS = [
+  "title",
+  "type",
+  "status",
+  "deadline",
+  "updated",
+] as const;
+
+export const voteTableQuerySchema = voteListQuerySchema
+  .extend({
+    titleContains: z.string().trim().min(1).max(100).optional(),
+    deadlineFrom: offsetInstant.optional(),
+    deadlineTo: offsetInstant.optional(),
+    changedFrom: offsetInstant.optional(),
+    changedTo: offsetInstant.optional(),
+    sort: z.enum(VOTE_TABLE_SORT_KEYS).default("updated"),
+    direction: z.enum(["asc", "desc"]).default("desc"),
+  })
+  .refine(
+    (query) =>
+      !query.deadlineFrom ||
+      !query.deadlineTo ||
+      new Date(query.deadlineFrom) < new Date(query.deadlineTo),
+    {
+      path: ["deadlineTo"],
+      message: "The end must be after the start.",
+    },
+  )
+  .refine(
+    (query) =>
+      !query.changedFrom ||
+      !query.changedTo ||
+      new Date(query.changedFrom) < new Date(query.changedTo),
+    {
+      path: ["changedTo"],
+      message: "The end must be after the start.",
+    },
+  );
+export type VoteTableQuery = z.output<typeof voteTableQuerySchema>;
+
 export const participationQuerySchema = listQuerySchema({
   submitted: queryBoolean.optional(),
 });

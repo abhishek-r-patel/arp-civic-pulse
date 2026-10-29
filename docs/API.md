@@ -98,8 +98,27 @@ The enabled-committee guard precedes reads; anonymous and service-role execution
 are revoked. It returns `{ids, totalCount, currentPage, totalPages}` with at most
 100 IDs, filtering and ordering before paging in one statement snapshot.
 Only allowlisted SQL sort expressions and `asc`/`desc` are accepted; values are
-bound parameters. This replaces the Residents UI count/anchor flow, not HTTP
-cursor contracts or the other five datasets.
+bound parameters. This replaces the Residents UI count/anchor flow without
+changing HTTP cursor contracts.
+
+Manage Votes uses the UI-only `get_admin_vote_table_page(page, limit, filters,
+sort, direction)` RPC from migration `20261119100000_admin_vote_table_controls`.
+It returns at most 100 ordered vote IDs and exact page metadata from one
+authorized statement snapshot; the server enriches only those IDs with the
+existing summary projection. Its allowlisted sort keys are title, type, status,
+closing deadline and last changed. Filters include literal case-insensitive
+`titleContains`, exact `status`/`votingType`, inclusive `deadlineFrom` and
+exclusive `deadlineTo` against the closing deadline, and inclusive
+`changedFrom`/exclusive `changedTo` against `updated_at`. Browser-local date
+inputs are converted to UTC instants. The HTTP `/api/admin/votes` cursor
+contract remains unchanged: `status` and `votingType` filters with
+`updatedAt DESC`, then `id DESC`.
+Migration `20261120100000_admin_vote_turnout` adds only aggregate
+`eligibleCount` and `submittedCount` decimal strings for Active and Completed
+page rows. The server validates both counts and derives the exact whole
+percentage using the shared half-up integer arithmetic; no ballot choices or
+candidate/option totals are returned. This remains a UI-only projection and
+does not change the HTTP cursor response.
 
 Totals are current observations, not frozen list snapshots: concurrent
 register/participation/audit changes can move rows or alter page counts between
@@ -112,7 +131,8 @@ entitlements, even for an administrator. Exports remain complete and unpaged.
 | Dataset | Fixed ordering | Supported filters |
 |---|---|---|
 | Member votes | Active first by `closesAt ASC`; terminal votes by completion/cancellation time descending; `id ASC` breaks ties | `status`, `votingType` |
-| Administrator votes | `updatedAt DESC`, then `id DESC` | `status`, `votingType` |
+| Administrator vote HTTP list | `updatedAt DESC`, then `id DESC` | `status`, `votingType` |
+| Manage Votes UI | Default `updatedAt DESC`; allowlisted title, type, status, closing-deadline and updated-time sorting in either direction, stable `id` tie-breaker, null deadlines last | `titleContains` (literal case-insensitive substring), `status`, `votingType`, inclusive/exclusive closing-deadline range, inclusive/exclusive updated-time range |
 | Households | Normalized household identifier, then `id`, ascending | `isEligible`; optional exact normalized `identifier` |
 | Accounts API | Profile `id ASC` | `status`, `isAdmin`, `isReadonly`, `selfRegistered` |
 | Residents UI (server service, no new HTTP API) | Default normalized identifier ascending; allowlisted `representative`, `household`, `status`, `source`, `role`, `eligibility`, `updated` in `asc`/`desc`; nulls last, lowercase name then `id ASC` break ties. Source ascending is Admin-registered before Self-registered. | Account filters plus `identifierContains` (1–100 chars), `isEligible`, `hasHousehold`, literal case-insensitive name substring `representative` (1–200 chars), inclusive `changedFrom`/exclusive `changedTo` profile timestamps |

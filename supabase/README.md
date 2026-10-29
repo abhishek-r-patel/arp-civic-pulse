@@ -48,6 +48,8 @@ at start-up, and never uses the migration credentials.
 | `20261116100000_resident_identifier_contains` | Literal normalized identifier substring filter in the table RPC; existing exact identifier filter retained |
 | `20261117100000_resident_source_sort` | Adds global Source ordering to the committee table RPC; boolean filtering and grants unchanged |
 | `20261118100000_audit_text_filters` | Adds bounded actor and combined Details/reason substring filters and matching numbered audit totals |
+| `20261119100000_admin_vote_table_controls` | Committee-only global Manage Votes table filters, sorting and exact page IDs; existing HTTP cursor list unchanged |
+| `20261120100000_admin_vote_turnout` | Adds page-bounded frozen-electorate and participation aggregates for Active/Completed Manage Votes rows only |
 
 The Source column requires `20261117100000` before its sort links are used.
 It passed local PostgreSQL tests and was applied with separate explicit
@@ -84,6 +86,29 @@ deployment input and has not been applied to any hosted database. Review and
 apply only after independently verifying a disposable target and resolving the
 existing duplicate migration-version blocker; the UI expects the migration's
 RPC signatures when these filters are used.
+
+Manage Votes table controls migration `20261119100000` adds a guarded,
+authenticated-only page-ID routine. After separate authorization, it was applied
+only to the verified `civic-pulse-disposable` project in one verified-TLS
+transaction that executed the exact migration, recorded its ledger entry and
+notified PostgREST to reload the schema. Function ownership and authenticated
+execution were verified; anon/service-role execution is absent. Staging and
+production are untouched. The ordinary CLI dry run remains blocked because
+`20261105100000_change_vote_deadline.sql` would have to be inserted before the
+remote history, and migration `20261118100000` remains unrecorded remotely.
+Neither was applied, and `--include-all` was not used; resolve the blocker only
+through a separately reviewed and authorized procedure.
+
+The Manage Votes Turnout column adds follow-up migration `20261120100000`,
+which replaces only the already-guarded table-page routine and returns
+aggregate counts for Active/Completed page rows. After separate authorization,
+it was applied only to the verified `civic-pulse-disposable` project in one
+verified-TLS transaction with its exact ledger entry and a PostgREST schema
+notification. Function ownership and authenticated-only execution were
+verified; anon/service-role execution is absent. The PostgreSQL integration
+suite was skipped because `INTEGRATION_DATABASE_URL` is unset. Staging and
+production remain untouched, and the existing duplicate migration-version
+blocker remains unresolved.
 
 The separately authorized numbered-pagination follow-up applied
 `20261114100000` to the same disposable project, now also used by the

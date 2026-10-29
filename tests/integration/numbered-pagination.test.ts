@@ -147,6 +147,136 @@ describe.skipIf(!hasDatabase)("numbered pagination", () => {
     expect(resumed.rows[0]?.id).not.toBe(first.id);
   });
 
+  it("filters and sorts administrator vote-table rows before selecting each page", async () => {
+    const firstDraft = await api.call<{ id: string }>(
+      world.admin.id,
+      "public.create_draft($1)",
+      ["PUBLIC"],
+    );
+    const secondDraft = await api.call<{ id: string }>(
+      world.admin.id,
+      "public.create_draft($1)",
+      ["PRIVATE"],
+    );
+    await api.call(world.admin.id, "public.update_draft($1, 1, $2::jsonb)", [
+      firstDraft.id,
+      JSON.stringify({ title: "Table filter unique Alpha" }),
+    ]);
+    await api.call(world.admin.id, "public.update_draft($1, 1, $2::jsonb)", [
+      secondDraft.id,
+      JSON.stringify({ title: "Table filter unique Zulu" }),
+    ]);
+    const filters = JSON.stringify({
+      status: "DRAFT",
+      titleContains: "table filter unique",
+    });
+    const firstPage = await api.call<{
+      ids: string[];
+      totalCount: string;
+      currentPage: number;
+      totalPages: number;
+      turnout: unknown[];
+    }>(
+      world.admin.id,
+      "public.get_admin_vote_table_page($1, $2, $3::jsonb, $4, $5)",
+      [1, 1, filters, "title", "asc"],
+    );
+    const secondPage = await api.call<{ ids: string[]; turnout: unknown[] }>(
+      world.admin.id,
+      "public.get_admin_vote_table_page($1, $2, $3::jsonb, $4, $5)",
+      [2, 1, filters, "title", "asc"],
+    );
+    expect(firstPage).toEqual({
+      ids: [firstDraft.id],
+      totalCount: "2",
+      currentPage: 1,
+      totalPages: 2,
+      turnout: [],
+    });
+    expect(secondPage).toMatchObject({
+      ids: [secondDraft.id],
+      turnout: [],
+    });
+  });
+
+  it("returns only aggregate turnout for active and completed votes", async () => {
+    const vote = await api.activeVote("PUBLIC", {
+      people: [world.alice, world.bob],
+    });
+    const privateVote = await api.activeVote("PRIVATE", {
+      people: [world.alice, world.bob],
+    });
+    const readTurnout = (status: "ACTIVE" | "COMPLETED") =>
+      api.call<{
+        turnout: {
+          id: string;
+          eligibleCount: string;
+          submittedCount: string;
+        }[];
+      }>(
+        world.admin.id,
+        "public.get_admin_vote_table_page($1, $2, $3::jsonb, $4, $5)",
+        [1, 100, JSON.stringify({ status }), "updated", "desc"],
+      );
+
+    const active = await readTurnout("ACTIVE");
+    expect(active.turnout.find((row) => row.id === vote.id)).toEqual({
+      id: vote.id,
+      eligibleCount: "2",
+      submittedCount: "0",
+    });
+    expect(active.turnout.find((row) => row.id === privateVote.id)).toEqual({
+      id: privateVote.id,
+      eligibleCount: "2",
+      submittedCount: "0",
+    });
+
+    await api.cast(world.alice.id, vote.id, {
+      confirmed: true,
+      optionIds: [vote.options[0]?.id],
+    });
+    await api.call(world.admin.id, "public.complete_vote_early($1, true, $2)", [
+      vote.id,
+      "Turnout test completed",
+    ]);
+
+    const completed = await readTurnout("COMPLETED");
+    expect(completed.turnout.find((row) => row.id === vote.id)).toEqual({
+      id: vote.id,
+      eligibleCount: "2",
+      submittedCount: "1",
+    });
+  });
+
+  it("rejects unsupported vote-table sort and filter inputs", async () => {
+    for (const [filters, sort, direction] of [
+      [{}, "title; drop table public.votes", "asc"],
+      [{}, "title", "sideways"],
+      [{ unknown: "value" }, "title", "asc"],
+      [{ status: true }, "title", "asc"],
+      [
+        {
+          deadlineFrom: "2030-01-02T00:00:00Z",
+          deadlineTo: "2030-01-01T00:00:00Z",
+        },
+        "deadline",
+        "asc",
+      ],
+    ] as const) {
+      expect(
+        (
+          await dbError(
+            api.call(
+              world.admin.id,
+              "public.get_admin_vote_table_page($1, $2, $3::jsonb, $4, $5)",
+              [1, 25, JSON.stringify(filters), sort, direction],
+            ),
+          )
+        ).message,
+      ).toContain("VALIDATION_FAILED");
+    }
+  });
+
   it("counts filtered participation without revealing choices and deduplicates multi-select named responses", async () => {
     const vote = await api.activeVote("PUBLIC", {
       openSelectionMode: "MULTIPLE",
@@ -308,6 +438,17 @@ describe.skipIf(!hasDatabase)("numbered pagination", () => {
         "FORBIDDEN",
       );
     }
+    expect(
+      (
+        await dbError(
+          api.call(
+            world.alice.id,
+            "public.get_admin_vote_table_page($1, $2, $3::jsonb, $4, $5)",
+            [1, 25, "{}", "updated", "desc"],
+          ),
+        )
+      ).message,
+    ).toBe("FORBIDDEN");
     const privateVote = await api.activeVote("PRIVATE", {
       people: [world.bob],
     });

@@ -178,6 +178,51 @@ suite was not rerun for this routing-only follow-up.
   deployment or real SMTP-delivery verification. Existing production launch,
   capacity, operational and governance gates remain open.
 
+### Manage Votes table-control follow-up
+
+The Manage Votes list now has global sorting and per-column filters, with exact
+filtered totals and bounded page IDs from the new
+`20261119100000_admin_vote_table_controls` routine. The existing HTTP cursor
+contract is unchanged. After the target was verified and separately authorized,
+only this migration was applied to `civic-pulse-disposable` in one verified-TLS
+transaction with its exact ledger entry and a PostgREST schema notification.
+Function ownership and authenticated-only execution were verified. Staging and
+production were not changed.
+
+- Current local checks pass: **562 unit tests**, ESLint, TypeScript, production
+  build, Prettier, guide rendering/link checks and all **10 renderer tests**.
+- The focused PostgreSQL pagination test was skipped because
+  `INTEGRATION_DATABASE_URL` is unset. The new SQL routine therefore remains
+  unverified by the repository's integration suite. A direct post-apply query
+  confirmed the routine exists, is owned by `cp_owner`, and is executable by
+  `authenticated` but not `anon` or `service_role`.
+- The existing authenticated browser now loads the populated `/admin/votes`
+  screen. A PRIVATE Type filter applied and cleared successfully, restoring the
+  default table view. This is disposable-browser verification, not production
+  or general hosted verification.
+- The normal CLI dry run remains blocked by the duplicate `20261105100000`
+  local migration and the missing `20261118100000` remote record. Neither was
+  changed or applied; `--include-all` was not used. Future full CLI pushes still
+  need that migration-history blocker resolved.
+- User Guide HTML copies were regenerated; guide screenshots were not changed.
+  Accessibility, hosted rollout and all existing launch gates remain open.
+
+### Manage Votes turnout follow-up
+
+The approved final Turnout column shows submitted / frozen eligible households
+and an exact whole percentage for Active/Completed votes. Draft/Scheduled rows
+show **Not open**; Cancelled rows show **Not available**. It does not expose
+candidate or option totals. Its follow-up migration,
+`20261120100000_admin_vote_turnout`, was applied only to the verified
+`civic-pulse-disposable` project after separate authorization. Function
+ownership, fixed search path and authenticated-only execution were verified;
+anon and service-role execution are absent. `INTEGRATION_DATABASE_URL` is
+unset, so the new SQL behavior is not verified by the PostgreSQL integration
+suite. The authenticated local browser loaded the populated Screen 8 table
+after the migration and showed aggregate counts, including PRIVATE turnout.
+Staging and production remain untouched; the prior table-control verification
+above does not cover this follow-up.
+
 ### Centred confirmation popup follow-up (28 October 2026)
 
 The shared native confirmation dialog now centres in both viewport axes at all

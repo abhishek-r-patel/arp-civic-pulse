@@ -18,16 +18,19 @@ import {
   rwaDisplaySchema,
   type AdminVoteDetail,
   type AdminVoteSummary,
+  type AdminVoteTableSummary,
   type DraftPreview,
   type RwaDisplay,
   type SelectableHousehold,
 } from "@/shared/contracts/drafts";
 import {
   voteListQuerySchema,
+  type VoteTableQuery,
   type DraftPatch,
 } from "@/shared/contracts/admin-votes";
 import type { PageInfo } from "@/shared/contracts/pagination";
 import type { VotingType } from "@/shared/contracts/voting";
+import { parseCount, percentage } from "@/shared/validation/numbers";
 import { uuid } from "@/shared/validation/primitives";
 
 /*
@@ -55,6 +58,21 @@ interface SummaryRow {
 }
 
 const positionSchema = z.object({ key: z.string().max(64), id: uuid });
+const voteTableWindowSchema = z.object({
+  ids: z.array(uuid).max(100),
+  totalCount: z.string().regex(/^\d+$/u),
+  currentPage: z.number().int().positive(),
+  totalPages: z.number().int().positive(),
+  turnout: z
+    .array(
+      z.object({
+        id: uuid,
+        eligibleCount: z.string().regex(/^(0|[1-9]\d*)$/u),
+        submittedCount: z.string().regex(/^(0|[1-9]\d*)$/u),
+      }),
+    )
+    .max(100),
+});
 
 function parse<Schema extends z.ZodType>(
   schema: Schema,
@@ -123,24 +141,128 @@ export async function listVotes(
     id: row.id,
   }));
   if (window) page.numbered = window.numbered;
-  const current = rows.some((row) => row.timezone_snapshot === null)
-    ? await getRwaDisplay(deps)
-    : { name: null, timezone: null };
 
   return {
-    data: rows.map((row) => ({
-      id: row.id,
-      votingType: row.voting_type,
-      status: row.status,
-      title: row.title,
-      closesAt: row.closes_at ? new Date(row.closes_at).toISOString() : null,
-      opensAt: row.opens_at ? new Date(row.opens_at).toISOString() : null,
-      draftRevision: row.draft_revision,
-      updatedAt: new Date(row.updated_at).toISOString(),
-      timezone: row.timezone_snapshot ?? current.timezone,
+    data: await projectVoteSummaries(deps, rows),
+    page,
+  };
+}
+
+export async function listVoteTable(
+  deps: RegisterDeps,
+  query: VoteTableQuery,
+  requestedPage: number,
+): Promise<{ data: AdminVoteTableSummary[]; page: PageInfo }> {
+  const { limit, sort, direction } = query;
+  const filters = Object.fromEntries(
+    Object.entries(query).filter(
+      ([key, value]) =>
+        !["limit", "cursor", "sort", "direction"].includes(key) &&
+        value !== undefined,
+    ),
+  );
+  const parsed = voteTableWindowSchema.safeParse(
+    await callRoutine(deps.client, "get_admin_vote_table_page", {
+      p_page: requestedPage,
+      p_limit: limit,
+      p_filters: filters,
+      p_sort: sort,
+      p_direction: direction,
+    }),
+  );
+  if (!parsed.success) throw new ApiError("INTERNAL_ERROR");
+  const { ids, turnout, ...numbered } = parsed.data;
+  const total = Number(numbered.totalCount);
+  const expectedRows = Math.min(
+    limit,
+    Math.max(0, total - (numbered.currentPage - 1) * limit),
+  );
+  if (
+    !Number.isSafeInteger(total) ||
+    numbered.totalPages !== Math.max(1, Math.ceil(total / limit)) ||
+    numbered.currentPage !== Math.min(requestedPage, numbered.totalPages) ||
+    ids.length !== expectedRows ||
+    new Set(ids).size !== ids.length ||
+    turnout.length > ids.length
+  ) {
+    throw new ApiError("INTERNAL_ERROR");
+  }
+  const pageIds = new Set(ids);
+  const turnoutById = new Map<
+    string,
+    { eligibleCount: string; submittedCount: string; percent: string }
+  >();
+  for (const row of turnout) {
+    const eligible = parseCount(row.eligibleCount);
+    const submitted = parseCount(row.submittedCount);
+    if (
+      !pageIds.has(row.id) ||
+      turnoutById.has(row.id) ||
+      eligible === 0n ||
+      submitted > eligible
+    ) {
+      throw new ApiError("INTERNAL_ERROR");
+    }
+    const percent = percentage(submitted, eligible);
+    if (percent === null) throw new ApiError("INTERNAL_ERROR");
+    turnoutById.set(row.id, {
+      eligibleCount: row.eligibleCount,
+      submittedCount: row.submittedCount,
+      percent,
+    });
+  }
+  const page: PageInfo = {
+    limit,
+    hasMore: numbered.currentPage < numbered.totalPages,
+    nextCursor: null,
+    numbered,
+  };
+  if (ids.length === 0) return { data: [], page };
+
+  const { data, error, status } = await deps.client
+    .from("votes")
+    .select(SUMMARY_COLUMNS)
+    .in("id", ids)
+    .limit(ids.length)
+    .returns<SummaryRow[]>();
+  assertOk(error, status);
+  const rowsById = new Map((data ?? []).map((row) => [row.id, row]));
+  const rows = ids.map((id) => {
+    const row = rowsById.get(id);
+    if (!row) throw new ApiError("DEPENDENCY_UNAVAILABLE");
+    return row;
+  });
+  const summaries = await projectVoteSummaries(deps, rows);
+  return {
+    data: summaries.map((summary) => ({
+      ...summary,
+      turnout:
+        summary.status === "ACTIVE" || summary.status === "COMPLETED"
+          ? (turnoutById.get(summary.id) ?? null)
+          : null,
     })),
     page,
   };
+}
+
+async function projectVoteSummaries(
+  deps: RegisterDeps,
+  rows: SummaryRow[],
+): Promise<AdminVoteSummary[]> {
+  const current = rows.some((row) => row.timezone_snapshot === null)
+    ? await getRwaDisplay(deps)
+    : { name: null, timezone: null };
+  return rows.map((row) => ({
+    id: row.id,
+    votingType: row.voting_type,
+    status: row.status,
+    title: row.title,
+    closesAt: row.closes_at ? new Date(row.closes_at).toISOString() : null,
+    opensAt: row.opens_at ? new Date(row.opens_at).toISOString() : null,
+    draftRevision: row.draft_revision,
+    updatedAt: new Date(row.updated_at).toISOString(),
+    timezone: row.timezone_snapshot ?? current.timezone,
+  }));
 }
 
 export async function getVote(

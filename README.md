@@ -46,6 +46,15 @@ and **Per page** options 10/25/50/100. Selecting a page size applies it
 immediately and restarts at page 1 while retaining filters.
 This needs `20261114100000_numbered_pagination`; cursor-based HTTP list APIs and
 full-result downloads remain unchanged.
+The sortable and filterable Manage Votes table additionally requires the
+read-only `20261119100000_admin_vote_table_controls` migration before deploying
+this UI revision; it is applied only to the verified disposable project, not
+staging or production. The application does not apply it at startup.
+The approved Turnout column requires the follow-up
+`20261120100000_admin_vote_turnout` migration, which extends that guarded RPC
+with aggregate submitted/eligible counts for Active and Completed votes only.
+It was applied only to the verified `civic-pulse-disposable` project after
+separate authorization; staging and production are untouched.
 
 Administrators can open **Import CSV** from the register: upload at most 500 rows
 (256 KiB), check conflicts, confirm import, then review and enable suspended

@@ -10,6 +10,7 @@ import {
   formatDuration,
   lifecycleActionSchema,
   voteListQuerySchema,
+  voteTableQuerySchema,
 } from "@/shared/contracts/admin-votes";
 import { requestCodeSchema, verifyCodeSchema } from "@/shared/contracts/auth";
 import { submissionSchema } from "@/shared/contracts/ballots";
@@ -470,6 +471,48 @@ describe("draft contracts", () => {
 });
 
 describe("list query contracts", () => {
+  it("validates the sortable, filtered administrator vote table query", () => {
+    expect(voteTableQuerySchema.parse({})).toMatchObject({
+      sort: "updated",
+      direction: "desc",
+    });
+    expect(
+      voteTableQuerySchema.parse({
+        titleContains: "  Board  ",
+        deadlineFrom: "2030-01-01T00:00:00Z",
+        deadlineTo: "2030-01-02T00:00:00Z",
+        changedFrom: "2030-01-01T00:00:00Z",
+        changedTo: "2030-01-02T00:00:00Z",
+        sort: "deadline",
+        direction: "asc",
+      }),
+    ).toMatchObject({
+      titleContains: "Board",
+      sort: "deadline",
+      direction: "asc",
+    });
+    expect(
+      voteTableQuerySchema.safeParse({
+        deadlineFrom: "2030-01-02T00:00:00Z",
+        deadlineTo: "2030-01-01T00:00:00Z",
+      }).success,
+    ).toBe(false);
+    expect(
+      voteTableQuerySchema.safeParse({
+        changedFrom: "2030-01-02T00:00:00Z",
+        changedTo: "2030-01-01T00:00:00Z",
+      }).success,
+    ).toBe(false);
+    expect(
+      voteTableQuerySchema.safeParse({
+        titleContains: "x".repeat(101),
+      }).success,
+    ).toBe(false);
+    expect(
+      voteTableQuerySchema.safeParse({ sort: "unsupported" }).success,
+    ).toBe(false);
+  });
+
   it("applies the default page size and parses limits", () => {
     expect(voteListQuerySchema.parse({}).limit).toBe(25);
     expect(voteListQuerySchema.parse({ limit: "100" }).limit).toBe(100);

@@ -741,8 +741,9 @@
                 >
               </td>
               <td>
-                Validates exact UI page metadata and binds authorized anchors to
-                existing list cursors; HTTP list APIs remain unchanged.
+                Validates generic numbered-page metadata and binds authorized
+                anchors to existing list cursors; HTTP list APIs remain
+                unchanged.
               </td>
             </tr>
             <tr>
@@ -753,8 +754,32 @@
                 >
               </td>
               <td>
-                Guarded filtered counts and bounded anchor lookup for all six
-                paginated UI datasets.
+                Guarded filtered counts and bounded anchor lookup for the
+                generic numbered UI list services.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a
+                  href="../supabase/migrations/20261119100000_admin_vote_table_controls.sql"
+                  >supabase/migrations/20261119100000_admin_vote_table_controls.sql</a
+                >
+              </td>
+              <td>
+                Committee-guarded Manage Votes sorting, filtering, exact totals
+                and bounded page IDs; does not change the HTTP cursor API.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a
+                  href="../supabase/migrations/20261120100000_admin_vote_turnout.sql"
+                  >supabase/migrations/20261120100000_admin_vote_turnout.sql</a
+                >
+              </td>
+              <td>
+                Adds page-bounded aggregate turnout counts for Active/Completed
+                Manage Votes rows; no choices or result totals.
               </td>
             </tr>
             <tr>
@@ -768,8 +793,8 @@
                 <a href="../tests/e2e/pagination-live.spec.ts">browser test</a>
               </td>
               <td>
-                Real SQL access/count/anchor checks, metadata/control validation
-                and six-screen navigation/reflow coverage.
+                Real SQL access/count/anchor/turnout checks, metadata/control
+                validation and six-screen navigation/reflow coverage.
               </td>
             </tr>
             <tr>
@@ -2347,16 +2372,21 @@
         page; there is no apply button or separate record-range line. Votes,
         Residents, Manage Votes, Audit History, participation and completed
         PUBLIC named responses request validated numbered metadata. Residents
-        uses <code>get_resident_table_page</code> for arbitrary global column
-        ordering; the other five use <code>get_list_page</code> and existing
-        bounded cursor services. Counts and IDs/anchors remain
-        caller-authorized. HTTP cursor envelopes and export semantics are
-        unchanged. UI <code>page</code> values beyond the end clamp to the last
-        page; empty sets show page 1 of 1. Filters/size changes restart at page
-        1; Residents remounts its page-scoped selection state on page/size
-        changes. Missing count metadata fails explicitly, never produces a
-        guessed total. Table regions are labelled and keyboard-focusable to
-        contain overflow when larger pages include wider data. See
+        and Manage Votes use specialized table-page routines for globally
+        filtered ordered IDs. Manage Votes additionally returns only aggregate
+        submitted/eligible counts for Active and Completed rows, using the
+        frozen electorate denominator; its HTTP cursor projection remains
+        unchanged. Audit uses <code>get_audit_list_page</code> when its text
+        filters are active; the generic list service uses
+        <code>get_list_page</code> for bounded cursor anchors. Counts and
+        IDs/anchors remain caller-authorized. HTTP cursor envelopes and export
+        semantics are unchanged. UI <code>page</code> values beyond the end
+        clamp to the last page; empty sets show page 1 of 1. Filters/size
+        changes restart at page 1; Residents remounts its page-scoped selection
+        state on page/size changes. Missing count metadata fails explicitly,
+        never produces a guessed total. Table regions are labelled and
+        keyboard-focusable to contain overflow when larger pages include wider
+        data. See
         <a href="./API.md#22-pagination-and-filtering">pagination contracts</a>
         for concurrency and access details.
       </p>

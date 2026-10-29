@@ -123,6 +123,14 @@ export interface AdminVoteSummary {
   timezone: string | null;
 }
 
+export interface AdminVoteTableSummary extends AdminVoteSummary {
+  turnout: {
+    eligibleCount: string;
+    submittedCount: string;
+    percent: string;
+  } | null;
+}
+
 /** A household the administrator may select for a draft. */
 export interface SelectableHousehold {
   id: string;

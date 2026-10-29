@@ -185,14 +185,26 @@ npx supabase db push --db-url $env:LIVE_DATABASE_URL --dry-run
 npx supabase db push --db-url $env:LIVE_DATABASE_URL --yes
 ```
 
-You should see pending migrations listed (the complete repository sequence runs
-from `20261024100000` through `20261118100000`) and `Finished supabase db push.`
+With a clean migration history, a successful push ends with
+`Finished supabase db push.` This checkout's normal CLI dry run is currently
+blocked: it reports that `20261105100000_change_vote_deadline.sql` would have to
+be inserted before the remote migration history. Do not use `--include-all` to
+work around that blocker.
 Numbered list pages require `20261114100000_numbered_pagination.sql`; apply it
 before running this app revision. Existing cursor API contracts are unchanged.
 Residents column sorting/filtering additionally needs `20261115100000`.
 Partial identifier search needs `20261116100000` before running the new revision.
 Audit History's Who/Details text filters need `20261118100000` before
 running this revision.
+Manage Votes table sorting and filters need
+`20261119100000_admin_vote_table_controls` before running this revision.
+That routine is applied only to the verified disposable project; the pending
+audit-text migration and the duplicate-history blocker remain unresolved.
+The Turnout column also requires
+`20261120100000_admin_vote_turnout`. This follow-up was applied only to the
+verified `civic-pulse-disposable` project after separate authorization; it is
+not applied to staging or production. Do not run the updated page against a
+database missing that routine shape.
 Before any push, check `supabase migration list`: this checkout currently has
 two files sharing version `20261105100000`, which blocks the normal CLI push.
 See [migration status](../supabase/README.md); do not apply older scripts again
