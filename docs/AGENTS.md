@@ -30,6 +30,7 @@ Distinguish proposed, implemented, tested and approved behavior. Never fabricate
 - Use strict TypeScript, explicit types/narrowing, shared Zod validation and existing naming/formatting conventions. Avoid `any`, unchecked casts and suppressed diagnostics.
 - Keep services server-only and out of client imports. Pages call shared services directly rather than internal HTTP endpoints.
 - Update directly affected documentation and contracts. Do not introduce new exact response shapes, rounding policies or pagination conventions solely through this file.
+- Record every approved UI/design decision in `docs/DESIGN_SYSTEM.md` in the same turn and apply it consistently to matching UI across the app, preferably through shared components. Distinguish app-wide rules from screen-specific content and report any rollout still pending; documenting a rule alone does not implement it.
 
 ## 04 Non-Negotiable Voting Rules
 - PUBLIC/PRIVATE are types; Draft/Scheduled/Active/Completed/Cancelled are separate statuses.

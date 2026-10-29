@@ -19,7 +19,7 @@ export default async function RwaSettingsPage() {
   const appSupport = await getAppSupportStatus(deps);
 
   return (
-    <div className="grid gap-8">
+    <div data-form-page className="mx-auto grid w-full max-w-ballot gap-8">
       <PageHeader
         title="RWA Settings"
         description="Personalize how your RWA appears in Civic Pulse. Administrators can edit; committee observers have read-only access. Fields marked * are required; leave any other field blank to hide it everywhere."

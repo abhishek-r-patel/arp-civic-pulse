@@ -65,7 +65,7 @@ export function PageHeader({
       data-page-header
       className="flex min-w-0 flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-start sm:justify-between md:pb-6"
     >
-      <div className="grid max-w-ballot min-w-0 gap-2">
+      <div className="grid min-w-0 flex-1 gap-2">
         <h1 className="font-heading text-page-title font-semibold md:text-page-title-lg">
           {title}
         </h1>

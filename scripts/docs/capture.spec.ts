@@ -204,7 +204,9 @@ test("capture bulk account review documentation", async ({ browser }) => {
   try {
     await signInThroughUi(page, operator.email, operator.code);
     await page.goto("/admin/residents");
-    await expect(page.getByLabel(/^Role/)).toHaveValue("false");
+    await page.getByRole("button", { name: "Filter Role", exact: true }).click();
+    await expect(page.getByRole("combobox", { name: "Role", exact: true })).toHaveText("Voter");
+    await page.keyboard.press("Escape");
     await capture(page, "47-accounts-list");
     await findAccount(resident.id, "/admin/residents?status=SUSPENDED&limit=100");
     await expect(accountRow(administrator.id)).toHaveCount(0);
@@ -228,7 +230,9 @@ test("capture bulk account review documentation", async ({ browser }) => {
     expect(await asUser(operator.id, "(select is_eligible from public.households where id=$1)", [other.householdId])).toBe(false);
     expect(await asUser(operator.id, "(select status from public.profiles where id=$1)", [untouched.id])).toBe("SUSPENDED");
     await findAccount(administrator.id, "/admin/residents?status=SUSPENDED&isAdmin=all&limit=100");
-    await expect(page.getByLabel(/^Role/)).toHaveValue("all");
+    await page.getByRole("button", { name: "Filter Role", exact: true }).click();
+    await expect(page.getByRole("combobox", { name: "Role", exact: true })).toHaveText("All roles");
+    await page.keyboard.press("Escape");
     await expect(page.getByText("0 selected", { exact: true })).toBeVisible();
     await accountRow(administrator.id).getByRole("checkbox").check();
     await page.getByRole("button", { name: "Enable Selected (1)", exact: true }).click();
@@ -373,8 +377,8 @@ test("capture administrator assignment of exclusive management roles", async ({ 
     await page.getByLabel("Resident name").fill(name);
     await chooseDropdownOption(
       page,
-      "Management role",
-      "RWA ReadOnly (rwa-readonly)",
+      "Role",
+      "RWA ReadOnly",
     );
     await capture(page, "30-create-readonly-role");
     await page.getByRole("button", { name: "Create Resident" }).click();
@@ -403,7 +407,7 @@ test("capture administrator assignment of exclusive management roles", async ({ 
     await expect(page.getByRole("button", { name: "Suspend Account" })).toBeVisible();
     await capture(page, "33-readonly-account-enabled");
 
-    await chooseDropdownOption(page, "Management role", "RWA Admin (rwa-admin)");
+    await chooseDropdownOption(page, "Role", "RWA Admin");
     await capture(page, "34-switch-to-admin-role");
     await page.getByRole("button", { name: "Save Changes" }).click();
     await expect(page.getByText("RWA Admin", { exact: true })).toBeVisible();
@@ -1136,7 +1140,7 @@ test("capture the RWA ReadOnly persona", async ({ browser }) => {
     await expect(page.getByRole("button", { name: "Enable Selected" })).toBeDisabled();
     await capture(page, "03-accounts-read-all-roles");
     await page.goto(`/admin/residents/${observer.id}`);
-    await expect(page.getByLabel("Management role")).toBeDisabled();
+    await expect(page.getByLabel("Role", { exact: true })).toBeDisabled();
     await capture(page, "04-observer-account-detail");
     await page.goto("/admin/residents/new");
     await expect(page.getByLabel("Email address")).toBeDisabled();

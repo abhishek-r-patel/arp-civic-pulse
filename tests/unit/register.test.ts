@@ -8,6 +8,7 @@ import {
   createAccount,
   listAccounts,
   listResidents,
+  listResidentTable,
   listAssignableAccounts,
   updateAccount,
 } from "@/server/register/accounts";
@@ -21,6 +22,7 @@ import { postgrestQuote, type RegisterDeps } from "@/server/register/shared";
 import {
   accountListQuerySchema,
   residentListQuerySchema,
+  residentTableQuerySchema,
 } from "@/shared/contracts/admin-votes";
 import {
   accountReviewTargets,
@@ -647,6 +649,97 @@ describe("listResidents", () => {
     expect((await failure(listResidents(w.deps, query()))).code).toBe(
       "DEPENDENCY_UNAVAILABLE",
     );
+  });
+});
+
+describe("listResidentTable", () => {
+  const query = (over: Record<string, unknown> = {}) =>
+    residentTableQuerySchema.parse(over);
+  const metadata = {
+    ids: [OTHER, TARGET],
+    totalCount: "4",
+    currentPage: 2,
+    totalPages: 2,
+  };
+  it("preserves database ordering and enriches only returned IDs", async () => {
+    const w = world({
+      rpc: { get_resident_table_page: ok(metadata) },
+      tables: { profiles: [ok([profile(TARGET), profile(OTHER)])] },
+    });
+    const result = await listResidentTable(
+      w.deps,
+      query({
+        limit: "2",
+        sort: "updated",
+        direction: "desc",
+        representative: "Alice",
+        identifierContains: "a-1",
+        isAdmin: "false",
+      }),
+      2,
+    );
+    expect(result.data.map((row) => row.id)).toEqual([OTHER, TARGET]);
+    expect(result.page.numbered).toEqual({
+      totalCount: "4",
+      currentPage: 2,
+      totalPages: 2,
+    });
+    expect(w.rpcCalls).toEqual([
+      {
+        name: "get_resident_table_page",
+        args: {
+          p_page: 2,
+          p_limit: 2,
+          p_sort: "updated",
+          p_direction: "desc",
+          p_filters: {
+            representative: "Alice",
+            isAdmin: false,
+            identifierContains: "a-1",
+          },
+        },
+      },
+    ]);
+    expect(w.queries[0]?.query.calls).toContainEqual(["limit", [2]]);
+    expect(w.admin.getUserById).toHaveBeenCalledTimes(2);
+  });
+  it("returns honest empty metadata without fetching profiles or Auth users", async () => {
+    const w = world({
+      rpc: {
+        get_resident_table_page: ok({
+          ids: [],
+          totalCount: "0",
+          currentPage: 1,
+          totalPages: 1,
+        }),
+      },
+    });
+    expect((await listResidentTable(w.deps, query(), 9)).data).toEqual([]);
+    expect(w.queries).toHaveLength(0);
+    expect(w.admin.getUserById).not.toHaveBeenCalled();
+  });
+  it.each([
+    { ...metadata, ids: [TARGET, TARGET] },
+    { ...metadata, totalCount: "9007199254740992" },
+    { ...metadata, currentPage: 1 },
+    { ...metadata, totalPages: 3 },
+    { ...metadata, ids: [] },
+    { ...metadata, ids: ["invalid"] },
+  ])("rejects inconsistent RPC metadata %#", async (value) => {
+    const w = world({ rpc: { get_resident_table_page: ok(value) } });
+    expect(
+      (await failure(listResidentTable(w.deps, query({ limit: "2" }), 2))).code,
+    ).toBe("INTERNAL_ERROR");
+    expect(w.admin.getUserById).not.toHaveBeenCalled();
+  });
+  it("fails explicitly if a profile disappears after the window query", async () => {
+    const w = world({
+      rpc: { get_resident_table_page: ok(metadata) },
+      tables: { profiles: [ok([])] },
+    });
+    expect(
+      (await failure(listResidentTable(w.deps, query({ limit: "2" }), 2))).code,
+    ).toBe("DEPENDENCY_UNAVAILABLE");
   });
 });
 

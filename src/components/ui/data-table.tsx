@@ -12,6 +12,8 @@ import { cn } from "./cn";
 export interface Column<Row> {
   key: string;
   header: string;
+  headerContent?: ReactNode;
+  sortDirection?: "ascending" | "descending";
   cell: (row: Row) => ReactNode;
   numeric?: boolean;
   className?: string;
@@ -43,7 +45,14 @@ export function DataTable<Row>({
         className="w-full text-left text-body tabular-nums max-md:block"
       >
         <caption className="sr-only">{caption}</caption>
-        <thead role="rowgroup" className="max-md:sr-only">
+        <thead
+          role="rowgroup"
+          className={
+            columns.some((column) => column.headerContent)
+              ? "max-md:hidden"
+              : "max-md:sr-only"
+          }
+        >
           <tr
             role="row"
             className="border-b border-border bg-background text-caption text-muted"
@@ -53,12 +62,14 @@ export function DataTable<Row>({
                 key={column.key}
                 role="columnheader"
                 scope="col"
+                aria-label={column.headerContent ? column.header : undefined}
+                aria-sort={column.sortDirection}
                 className={cn(
                   "px-4 py-3 font-semibold",
                   column.numeric && "text-right tabular-nums",
                 )}
               >
-                {column.header}
+                {column.headerContent ?? column.header}
               </th>
             ))}
           </tr>

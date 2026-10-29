@@ -42,6 +42,27 @@ workflow or migration-at-startup behavior. Apply before deploying the numbered
 UI; review performance at approved scale rather than claiming count costs
 are constant. See [API pagination](./API.md#22-pagination-and-filtering).
 
+Migration `20261115100000_resident_table_controls` adds
+`public.get_resident_table_page(integer, integer, jsonb, text, text)`, owned by
+`cp_owner` with an empty search path and authenticated-only execution. Its current
+enabled-committee check precedes all reads. It joins the existing directory view
+and profiles to sort/filter the full authorized directory before returning at
+most 100 ordered profile IDs and exact count/page metadata in one statement.
+Sort expressions are allowlisted; filter values are bound. Null sort values come
+last, then lowercase representative name and UUID stabilize ties. Name matching
+is literal case-insensitive substring matching, not Auth email search; changed
+bounds use `profiles.updated_at` (inclusive start/exclusive end). Existing
+`get_list_page`, cursor APIs, tables, grants to members and voting rules are
+unchanged. Apply the new routine before this Residents application revision;
+local disposable PostgreSQL testing is not hosted migration authorization.
+
+Migration `20261116100000_resident_identifier_contains` replaces only that routine
+to accept `identifierContains`, normalized with the existing household key helper
+and matched literally using `strpos` before paging/counting. Normalized length
+must be 1–100 characters. Existing exact `identifier` remains supported, including
+for older application revisions; privileges, guards, sort order and metadata
+shape are unchanged. No wildcard operators or typo-distance search are introduced.
+
 The Votes concept overview reads exact counts from frozen `electorate` joined to
 vote status and, for responses, its `participation` row. Every query uses the
 verified user's client and explicitly filters the representative profile ID, even
@@ -135,9 +156,9 @@ Suspension/soft deletion blocks application access immediately through profile c
 Migration `20261111100000_resident_directory.sql` retains a read-only
 `public.resident_directory` view joining profiles to their optional households.
 It was applied to the confirmed disposable project during the subsequently
-reverted Residents-tab experiment. The current unified Residents screen now uses
-this existing view for filtered flat/name-ordered IDs, then enriches only the
-authorized page with current profile fields and assignments. Consolidation
+reverted Residents-tab experiment. The current unified Residents screen uses
+this view through the guarded table-window routine for globally sorted/filtered
+IDs, then enriches only the authorized page with current profiles and assignments. Consolidation
 changes no schema or grants. It remains immutable migration history: `security_invoker` applies
 the caller's underlying RLS policies, only `authenticated` has SELECT, and no
 writes or new voting permissions are granted. Do not drop it or repair migration

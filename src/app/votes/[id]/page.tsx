@@ -60,7 +60,7 @@ export default async function MemberVotePage({
   const voting = open && vote.entitled && (vote.canSubmit || vote.submitted);
 
   return (
-    <div className="grid gap-8">
+    <div data-form-page className="mx-auto grid w-full max-w-ballot gap-8">
       <Link
         href="/"
         className="inline-flex touch-target w-fit items-center gap-1 font-semibold text-accent underline underline-offset-2"

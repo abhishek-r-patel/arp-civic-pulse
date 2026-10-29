@@ -42,6 +42,7 @@ export function FieldInfo({
 
 type FieldChrome = Readonly<{
   label: string;
+  hideLabel?: boolean;
   inline?: boolean;
   hint?: string;
   error?: string;
@@ -53,6 +54,7 @@ type FieldChrome = Readonly<{
 export function Chrome({
   id,
   label,
+  hideLabel = false,
   inline = false,
   hint,
   error,
@@ -61,13 +63,15 @@ export function Chrome({
   children,
 }: FieldChrome & Readonly<{ id: string; children: ReactNode }>) {
   const labelElement = (
-    <label htmlFor={id} className="text-body font-semibold text-primary">
+    <label
+      htmlFor={id}
+      className={hideLabel ? "sr-only" : "text-body font-semibold text-primary"}
+    >
       {label}
       {required ? (
         <>
           <span aria-hidden="true" className="text-error">
-            {" "}
-            *
+            {"\u00a0"}*
           </span>
           <span className="sr-only"> (required)</span>
         </>
@@ -99,7 +103,7 @@ export function Chrome({
 
   if (inline) {
     return (
-      <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,0.42fr)_minmax(0,1fr)] sm:items-center sm:gap-4">
+      <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,0.5fr)_minmax(0,1fr)] sm:items-center sm:gap-4">
         {labelContent}
         <div className="grid min-w-0 gap-2">
           {children}
@@ -136,6 +140,7 @@ type TextFieldProps = Readonly<
 export function TextField({
   id,
   label,
+  hideLabel,
   inline,
   hint,
   error,
@@ -152,6 +157,7 @@ export function TextField({
     <Chrome
       id={fieldId}
       label={label}
+      hideLabel={hideLabel}
       inline={inline ?? true}
       hint={hint}
       error={error}
@@ -213,6 +219,8 @@ function selectOptions(children: ReactNode): SelectMenuOption[] {
 
 type SelectFieldProps = Readonly<
   FieldChrome & {
+    fitContent?: boolean;
+    menuInFlow?: boolean;
     id?: string;
     name?: string;
     value?: string;
@@ -225,12 +233,16 @@ type SelectFieldProps = Readonly<
 >;
 
 export function SelectField({
+  fitContent,
+  menuInFlow,
   id,
   label,
+  hideLabel,
   inline,
   hint,
   error,
   required = false,
+  showOptional,
   className,
   children,
   name,
@@ -246,12 +258,16 @@ export function SelectField({
     <Chrome
       id={fieldId}
       label={label}
+      hideLabel={hideLabel}
       inline={inline ?? true}
       hint={hint}
       error={error}
       required={required}
+      showOptional={showOptional}
     >
       <SelectMenu
+        fitContent={fitContent}
+        menuInFlow={menuInFlow}
         id={fieldId}
         name={name}
         label={label}

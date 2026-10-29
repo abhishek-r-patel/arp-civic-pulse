@@ -1,4 +1,4 @@
-/* Accessible type-to-filter picker that only accepts one of its options (WAI-ARIA combobox with listbox). */
+/* Accessible type-to-filter picker; custom search text is an explicit opt-in. */
 "use client";
 
 import { useId, useRef, useState, type KeyboardEvent } from "react";
@@ -14,9 +14,15 @@ export function ComboboxField({
   id,
   name,
   label,
+  hideLabel,
   hint,
   error,
   required = false,
+  inline = true,
+  showOptional,
+  menuInFlow = false,
+  allowCustomValue = false,
+  maxLength,
   options,
   value,
   onChange,
@@ -26,11 +32,17 @@ export function ComboboxField({
   id: string;
   name: string;
   label: string;
+  hideLabel?: boolean;
   hint?: string;
   error?: string;
   required?: boolean;
+  inline?: boolean;
+  showOptional?: boolean;
+  menuInFlow?: boolean;
+  allowCustomValue?: boolean;
+  maxLength?: number;
   options: readonly string[];
-  /** The chosen option, or "" when nothing valid is chosen. */
+  /** Chosen option, or typed text when allowCustomValue is enabled. */
   value: string;
   onChange: (value: string) => void;
   /** Raw typed text, so an optional field can tell "left blank" from "typed but not chosen". */
@@ -44,7 +56,7 @@ export function ComboboxField({
   const [active, setActive] = useState(-1);
   const input = useRef<HTMLInputElement>(null);
 
-  const query = text === value ? "" : matchKey(text);
+  const query = !allowCustomValue && text === value ? "" : matchKey(text);
   const matches = query
     ? options.filter((option) => matchKey(option).includes(query))
     : options;
@@ -58,7 +70,7 @@ export function ComboboxField({
     setActive(-1);
   }
 
-  // Leaving the field keeps only an exact (key-equal) option; anything else stays unchosen.
+  // Strict pickers require an exact option; search filters may retain partial text.
   function settle() {
     setOpen(false);
     setActive(-1);
@@ -66,6 +78,8 @@ export function ComboboxField({
     if (exact) {
       setText(exact);
       onChange(exact);
+    } else if (allowCustomValue) {
+      onChange(text);
     } else if (text !== value) {
       onChange("");
     }
@@ -106,7 +120,9 @@ export function ComboboxField({
     <Chrome
       id={id}
       label={label}
-      inline
+      hideLabel={hideLabel}
+      inline={inline}
+      showOptional={showOptional}
       hint={hint}
       error={error}
       required={required}
@@ -119,6 +135,7 @@ export function ComboboxField({
           type="text"
           role="combobox"
           autoComplete="off"
+          maxLength={maxLength}
           spellCheck={false}
           required={required}
           aria-autocomplete="list"
@@ -140,7 +157,8 @@ export function ComboboxField({
             onTextChange?.(event.target.value);
             setOpen(true);
             setActive(-1);
-            if (value) onChange("");
+            if (allowCustomValue) onChange(event.target.value);
+            else if (value) onChange("");
           }}
           onFocus={() => setOpen(true)}
           onClick={() => setOpen(true)}
@@ -166,7 +184,10 @@ export function ComboboxField({
           role="listbox"
           aria-label={label}
           hidden={!open || shown.length === 0}
-          className="absolute top-full right-0 left-0 z-50 mt-1 max-h-72 overflow-y-auto rounded-card border border-border bg-surface p-1 text-primary shadow-panel"
+          className={cn(
+            "z-50 mt-1 max-h-72 overflow-y-auto rounded-card border border-border bg-surface p-1 text-primary shadow-panel",
+            !menuInFlow && "absolute top-full right-0 left-0",
+          )}
         >
           {shown.map((option, index) => (
             <li
@@ -187,8 +208,15 @@ export function ComboboxField({
           ))}
         </ul>
         {open && shown.length === 0 ? (
-          <p className="absolute top-full right-0 left-0 z-50 mt-1 rounded-card border border-border bg-surface px-3 py-2 text-caption text-muted shadow-panel">
-            No matches.
+          <p
+            className={cn(
+              "z-50 mt-1 rounded-card border border-border bg-surface px-3 py-2 text-caption text-muted shadow-panel",
+              !menuInFlow && "absolute top-full right-0 left-0",
+            )}
+          >
+            {allowCustomValue
+              ? "No suggestions. You can still search this text."
+              : "No matches."}
           </p>
         ) : null}
         <p role="status" className="sr-only">

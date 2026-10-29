@@ -72,7 +72,7 @@ export default async function VotePage({
   }
 
   return (
-    <div className="grid gap-8">
+    <div data-form-page className="mx-auto grid w-full max-w-ballot gap-8">
       <Link
         href="/admin/votes"
         className="inline-flex touch-target w-fit items-center gap-1 font-semibold text-accent underline underline-offset-2"

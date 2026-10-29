@@ -17,6 +17,13 @@ This adds guarded count/page-anchor metadata, not new voting permissions.
 The pagination application changes have not been deployed by this task; database
 application and local browser verification are not hosted application verification.
 
+**Residents table-control follow-up:** migration `20261115100000` is applied only
+to the verified disposable database after explicit authorization. Its CLI dry run
+found duplicate local version `20261105100000`; a separately approved transaction
+applied only the new routine and its ledger entry. See
+[migration status](../supabase/README.md) for the unresolved duplicate-file issue.
+Local Chromium table/phone/observer checks are not a hosted application rollout.
+
 - Canonical URL and Production `APP_ORIGIN`:
   <https://arp-civic-pulse-staging.vercel.app>, without a trailing slash in the
   environment value. Use this origin for sign-in and all browser mutations.
@@ -275,7 +282,7 @@ rendered guide output; use direct Next commands when intentionally avoiding the
 hooks. The capture suite uses only synthetic data on the approved disposable
 project and never on production.
 
-Apply the complete ordered migration set from `20261024100000_core_schema.sql` through `20261114100000_numbered_pagination.sql`. Migrations `20261109100000` and `20261110100000` add resident self-registration (`profiles.self_registered` and the service-role-only `self_register_resident` routine) and administrator account creation together with a household (`provision_profile_with_household`). Migration `20261111100000` supplies the existing security-invoker directory view now used by the unified Residents screen. The consolidation adds no migration, but the view must exist before deploying this revision; do not drop it or rewrite applied history. Migrations `20261112100000` and `20261113100000` preserve App Support Access and household-free management-role enablement. Earlier disposable/staging application evidence is recorded above, not production approval. Deploy reviewed migrations before the corresponding application revision, outside voting windows. The Residents list depends on the directory view and current profile columns; Add Resident and `/register` depend on their provisioning routines. See [supabase/README.md](../supabase/README.md) and [DATABASE.md](./DATABASE.md). The app never migrates at startup or during the Vercel build.
+Apply the complete ordered migration set from `20261024100000_core_schema.sql` through `20261116100000_resident_identifier_contains.sql`. Migrations `20261109100000` and `20261110100000` add resident self-registration (`profiles.self_registered` and the service-role-only `self_register_resident` routine) and administrator account creation together with a household (`provision_profile_with_household`). Migration `20261111100000` supplies the existing security-invoker directory view; `20261115100000` adds the committee-only globally sorted/filtered page-ID/count routine required by the new Residents table. Migration `20261116100000` adds identifier substring matching while retaining exact filters for older callers. Both table migrations are applied only to the separately authorized disposable project, not real production. Resolve the duplicate local migration-version issue described above before relying on a complete CLI push. Do not drop the view or rewrite applied history. Migrations `20261112100000` and `20261113100000` preserve App Support Access and household-free management-role enablement. Earlier disposable/staging application evidence is recorded above, not production approval. Deploy reviewed migrations before the corresponding application revision, outside voting windows. The Residents list depends on the directory view, table-window routine and current profile columns; Add Resident and `/register` depend on their provisioning routines. See [supabase/README.md](../supabase/README.md) and [DATABASE.md](./DATABASE.md). The app never migrates at startup or during the Vercel build.
 
 Before rollout, verify a 500-row synthetic import's Auth-provider quota behavior,
 partial-failure/retry handling and suspended-account review. Verify scheduled

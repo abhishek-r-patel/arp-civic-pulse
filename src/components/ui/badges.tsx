@@ -129,8 +129,30 @@ const accountStatusConfig: Record<
 
 export function AccountStatusBadge({
   status,
-}: Readonly<{ status: AccountStatus }>) {
+  iconOnly = false,
+}: Readonly<{ status: AccountStatus; iconOnly?: boolean }>) {
   const { icon: Icon, classes } = accountStatusConfig[status];
+
+  if (iconOnly) {
+    return (
+      <details className="relative inline-block">
+        <summary
+          title={ACCOUNT_STATUS_LABELS[status]}
+          className={cn(
+            baseClasses,
+            classes,
+            "size-12 cursor-pointer list-none justify-center [&::-webkit-details-marker]:hidden",
+          )}
+        >
+          <Icon aria-hidden="true" className="size-4" />
+          <span className="sr-only">{ACCOUNT_STATUS_LABELS[status]}</span>
+        </summary>
+        <span className="absolute top-full left-0 z-20 mt-1 w-max rounded-control border border-border bg-surface px-3 py-2 text-caption text-primary shadow-panel">
+          {ACCOUNT_STATUS_LABELS[status]}
+        </span>
+      </details>
+    );
+  }
 
   return (
     <span className={cn(baseClasses, classes)}>

@@ -1,0 +1,437 @@
+// Global URL-backed directory sorting and column filters, with a mobile toolbar.
+"use client";
+
+import {
+  useId,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ArrowDown, ArrowUp, ArrowUpDown, ListFilter } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { SelectField, TextField } from "@/components/ui/field";
+import { ResidentIdentifierFilter } from "./resident-identifier-filter";
+import { instantToLocalInput, zonedLocalToInstant } from "@/shared/time/zoned";
+import { RESIDENT_SORT_KEYS } from "@/shared/contracts/admin-votes";
+import { useHouseholdTerms } from "@/components/ui/household-terms";
+
+type SortKey = (typeof RESIDENT_SORT_KEYS)[number];
+type FilterKey = SortKey | "source";
+export type ResidentTableState = Readonly<{
+  params: Readonly<Record<string, string | undefined>>;
+  identifiers: readonly string[];
+  sort: SortKey;
+  direction: "asc" | "desc";
+}>;
+
+const fields: Record<FilterKey, readonly string[]> = {
+  representative: ["representative"],
+  household: ["identifier"],
+  status: ["status"],
+  role: ["isAdmin"],
+  eligibility: ["isEligible"],
+  updated: ["changedFrom", "changedTo"],
+  source: ["selfRegistered"],
+};
+const subscribe = () => () => {};
+const localZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+const serverZone = () => null;
+
+export function residentTableHref(
+  params: ResidentTableState["params"],
+  changes: Readonly<Record<string, string>>,
+): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && !["page", "cursor", "notice"].includes(key))
+      search.set(key, value);
+  }
+  for (const [key, value] of Object.entries(changes)) {
+    if (value) search.set(key, value);
+    else search.delete(key);
+  }
+  return `/admin/residents?${search}`;
+}
+
+function TablePopover({
+  label,
+  active,
+  children,
+}: Readonly<{
+  label: string;
+  active?: boolean;
+  children: ReactNode;
+}>) {
+  const id = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ top: 16, left: 16 });
+  const place = useCallback(() => {
+    const rect = trigger.current?.getBoundingClientRect();
+    if (!rect) return;
+    const height =
+      panel.current?.getBoundingClientRect().height || innerHeight * 0.7;
+    setPosition({
+      top: Math.max(16, Math.min(rect.bottom + 8, innerHeight - height - 16)),
+      left: Math.max(16, Math.min(rect.left, innerWidth - 336)),
+    });
+  }, []);
+  useEffect(() => {
+    function resize() {
+      if (panel.current?.matches(":popover-open")) place();
+    }
+    const observer = new ResizeObserver(resize);
+    if (panel.current) observer.observe(panel.current);
+    window.addEventListener("resize", resize);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", resize);
+    };
+  }, [place]);
+  return (
+    <>
+      <button
+        type="button"
+        ref={trigger}
+        popoverTarget={id}
+        aria-label={label}
+        aria-describedby={active ? `${id}-active` : undefined}
+        className={`inline-flex size-12 shrink-0 items-center justify-center rounded-control hover:bg-accent/10 ${active ? "text-accent" : "text-muted"}`}
+        onClick={place}
+      >
+        <ListFilter aria-hidden="true" className="size-4" />
+        {active ? (
+          <span aria-hidden="true" className="text-caption">
+            *
+          </span>
+        ) : null}
+        {active ? (
+          <span id={`${id}-active`} className="sr-only">
+            Filter applied
+          </span>
+        ) : null}
+      </button>
+      <div
+        id={id}
+        ref={panel}
+        popover="auto"
+        role="dialog"
+        onToggle={(event) => {
+          if (event.newState === "open") place();
+        }}
+        aria-label={label}
+        style={position}
+        className="fixed inset-auto m-0 max-h-[70dvh] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-card border border-border bg-surface p-4 text-left text-body font-normal text-primary shadow-panel"
+      >
+        <p className="mb-3 font-semibold">{label}</p>
+        {children}
+      </div>
+    </>
+  );
+}
+
+function FilterForm({
+  state,
+  column,
+  all = false,
+}: Readonly<{
+  state: ResidentTableState;
+  column?: FilterKey;
+  all?: boolean;
+}>) {
+  const id = useId();
+  const terms = useHouseholdTerms();
+  const router = useRouter();
+  const timezone = useSyncExternalStore(subscribe, localZone, serverZone);
+  const [error, setError] = useState("");
+  const keys = all
+    ? Object.values(fields).flat().concat("sort", "direction")
+    : column
+      ? fields[column]
+      : [];
+  const includes = (key: FilterKey) => all || column === key;
+  const value = (key: string) => state.params[key] ?? "";
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const from = form.elements.namedItem("changedFrom");
+    const to = form.elements.namedItem("changedTo");
+    for (const input of [from, to]) {
+      if (
+        !(input instanceof HTMLInputElement) ||
+        input.type !== "datetime-local" ||
+        !input.value
+      )
+        continue;
+      const result = zonedLocalToInstant(input.value, timezone ?? "UTC");
+      if (!result.ok) {
+        setError("Choose a valid, unambiguous local date and time.");
+        return;
+      }
+      data.set(input.name, result.instant);
+    }
+    const start = data.get("changedFrom");
+    const end = data.get("changedTo");
+    if (
+      typeof start === "string" &&
+      start &&
+      typeof end === "string" &&
+      end &&
+      new Date(start) >= new Date(end)
+    ) {
+      setError("Changed Before must be after Changed From.");
+      return;
+    }
+    const search = new URLSearchParams();
+    data.forEach((value, key) => {
+      if (typeof value === "string" && value) search.set(key, value);
+    });
+    router.push(`/admin/residents?${search}`);
+  }
+  const common = {
+    inline: false,
+    showOptional: false,
+    hideLabel: !all && column !== "updated",
+  };
+  return (
+    <form
+      method="get"
+      action="/admin/residents"
+      onSubmit={submit}
+      className="grid gap-3"
+    >
+      {Object.entries(state.params)
+        .filter(
+          ([key, val]) =>
+            val !== undefined &&
+            !["page", "cursor", "notice", ...keys].includes(key),
+        )
+        .map(([key, val]) => (
+          <input key={key} type="hidden" name={key} value={val} />
+        ))}
+      {includes("representative") ? (
+        <TextField
+          {...common}
+          id={`${id}-name`}
+          name="representative"
+          label="Representative"
+          defaultValue={value("representative")}
+          maxLength={200}
+          placeholder="Contains..."
+        />
+      ) : null}
+      {includes("household") ? (
+        <ResidentIdentifierFilter
+          id={`${id}-identifier`}
+          label={terms.identifierLabel}
+          hideLabel={!all}
+          options={state.identifiers}
+          defaultValue={value("identifier")}
+        />
+      ) : null}
+      {includes("status") ? (
+        <SelectField
+          menuInFlow
+          {...common}
+          id={`${id}-status`}
+          name="status"
+          label="Status"
+          defaultValue={value("status")}
+        >
+          <option value="">Any status</option>
+          <option value="ENABLED">Enabled</option>
+          <option value="SUSPENDED">Suspended</option>
+          <option value="DELETED">Deleted</option>
+        </SelectField>
+      ) : null}
+      {includes("role") ? (
+        <SelectField
+          menuInFlow
+          {...common}
+          id={`${id}-role`}
+          name="isAdmin"
+          label="Role"
+          defaultValue={value("isAdmin") || "false"}
+        >
+          <option value="all">All roles</option>
+          <option value="true">RWA Admin</option>
+          <option value="readonly">RWA ReadOnly</option>
+          <option value="false">Voter</option>
+        </SelectField>
+      ) : null}
+      {includes("eligibility") ? (
+        <SelectField
+          menuInFlow
+          {...common}
+          id={`${id}-eligibility`}
+          name="isEligible"
+          label="Voting Eligibility"
+          defaultValue={value("isEligible")}
+        >
+          <option value="">Any eligibility</option>
+          <option value="true">Eligible</option>
+          <option value="false">Not eligible</option>
+          <option value="unassigned">No {terms.household} assigned</option>
+        </SelectField>
+      ) : null}
+      {includes("source") ? (
+        <SelectField
+          menuInFlow
+          {...common}
+          id={`${id}-source`}
+          name="selfRegistered"
+          label="Source"
+          defaultValue={value("selfRegistered")}
+        >
+          <option value="">Any source</option>
+          <option value="true">Self-registered</option>
+          <option value="false">Admin-registered</option>
+        </SelectField>
+      ) : null}
+      {includes("updated") ? (
+        <>
+          <p className="text-caption text-muted">
+            Times in {timezone ?? "UTC"}; the end is exclusive.
+          </p>
+          <TextField
+            {...common}
+            id={`${id}-from`}
+            name="changedFrom"
+            label="Changed From"
+            type="datetime-local"
+            defaultValue={instantToLocalInput(
+              value("changedFrom") || null,
+              timezone ?? "UTC",
+            )}
+            key={`from-${timezone}`}
+          />
+          <TextField
+            {...common}
+            id={`${id}-to`}
+            name="changedTo"
+            label="Changed Before"
+            type="datetime-local"
+            defaultValue={instantToLocalInput(
+              value("changedTo") || null,
+              timezone ?? "UTC",
+            )}
+            key={`to-${timezone}`}
+          />
+        </>
+      ) : null}
+      {all ? (
+        <>
+          <SelectField
+            menuInFlow
+            {...common}
+            id={`${id}-sort`}
+            name="sort"
+            label="Sort By"
+            defaultValue={state.sort}
+          >
+            <option value="representative">Representative</option>
+            <option value="household">{terms.Household}</option>
+            <option value="status">Status</option>
+            <option value="role">Role</option>
+            <option value="eligibility">Voting Eligibility</option>
+            <option value="updated">Last Changed</option>
+          </SelectField>
+          <SelectField
+            menuInFlow
+            {...common}
+            id={`${id}-direction`}
+            name="direction"
+            label="Sort Direction"
+            defaultValue={state.direction}
+          >
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
+          </SelectField>
+        </>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-error">
+          {error}
+        </p>
+      ) : null}
+      <Button type="submit">Apply Filters</Button>
+    </form>
+  );
+}
+
+export function ResidentColumnHeader({
+  state,
+  column,
+  title,
+}: Readonly<{
+  state: ResidentTableState;
+  column: SortKey;
+  title: string;
+}>) {
+  const selected = state.sort === column;
+  const direction = selected && state.direction === "asc" ? "desc" : "asc";
+  const Icon = selected
+    ? state.direction === "asc"
+      ? ArrowUp
+      : ArrowDown
+    : ArrowUpDown;
+  return (
+    <div className="flex items-center">
+      <Link
+        href={residentTableHref(state.params, { sort: column, direction })}
+        aria-label={`Sort ${title} ${direction === "asc" ? "ascending" : "descending"}`}
+        className="inline-flex min-h-12 items-center gap-1 wrap-normal text-primary"
+      >
+        {title}
+        <Icon aria-hidden="true" className="size-4 shrink-0" />
+      </Link>
+      <TablePopover
+        label={`Filter ${title}`}
+        active={fields[column].some(
+          (key) =>
+            Boolean(state.params[key]) &&
+            !(key === "isAdmin" && state.params[key] === "all"),
+        )}
+      >
+        <FilterForm state={state} column={column} />
+      </TablePopover>
+    </div>
+  );
+}
+
+export function ResidentTableToolbar({
+  state,
+}: Readonly<{ state: ResidentTableState }>) {
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-3">
+      <div className="flex items-center md:hidden">
+        <span className="text-caption">Sort &amp; Filter</span>
+        <TablePopover label="Sort & Filter">
+          <FilterForm state={state} all />
+        </TablePopover>
+      </div>
+      <div className="hidden items-center md:flex">
+        <span className="text-caption">Source</span>
+        <TablePopover
+          label="Filter Source"
+          active={Boolean(state.params.selfRegistered)}
+        >
+          <FilterForm state={state} column="source" />
+        </TablePopover>
+      </div>
+      <Link
+        href="/admin/residents"
+        className="inline-flex min-h-12 items-center font-semibold text-accent underline"
+      >
+        Reset Table
+      </Link>
+    </div>
+  );
+}

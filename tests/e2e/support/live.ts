@@ -89,9 +89,11 @@ export async function signInThroughUi(
 ): Promise<void> {
   await stubCodeRequest(page);
   await page.goto("/sign-in");
-  await page.getByLabel(/Registered email address/).fill(email);
+  await page
+    .getByRole("textbox", { name: /^Registered email address/ })
+    .fill(email);
   await page.getByRole("button", { name: "Send Sign-In Code" }).click();
-  await page.getByLabel(/Six-digit code/).fill(code);
+  await page.getByRole("textbox", { name: /^Six-digit code/ }).fill(code);
   await page.getByRole("button", { name: "Verify and Sign In" }).click();
   await expect(
     page.getByRole("heading", { level: 1, name: "Votes" }),

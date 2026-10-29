@@ -38,7 +38,12 @@ disposable database into the real register.
 
 All six paginated UI lists now request exact authorized filtered totals and a
 bounded page anchor through `get_list_page`, then read the existing bounded
-projection. Apply migration `20261114100000` before deploying this revision.
+projection, except Residents: migration `20261115100000` supplies its
+`get_resident_table_page` ordered-ID/count projection for global column controls.
+Apply both reviewed migrations before their application revisions.
+The subsequent identifier-contains filter needs `20261116100000`; existing
+exact filters remain available for older applications. Measure substring query
+cost at approved scale rather than treating local functional tests as capacity evidence.
 Monitor list latency and database load with this additional count/anchor work;
 old list timings do not establish its production capacity. Metadata failures
 remain explicit errors, never a zero-result fallback. Counts are live

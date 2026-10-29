@@ -26,6 +26,8 @@ type SelectMenuProps = Readonly<{
   invalid?: boolean;
   className?: string;
   buttonClassName?: string;
+  fitContent?: boolean;
+  menuInFlow?: boolean;
   onChange?: (value: string) => void;
 }>;
 
@@ -43,6 +45,8 @@ export function SelectMenu({
   invalid = false,
   className,
   buttonClassName,
+  fitContent = false,
+  menuInFlow = false,
   onChange,
 }: SelectMenuProps) {
   const listId = useId();
@@ -201,6 +205,18 @@ export function SelectMenu({
         if (!event.currentTarget.contains(event.relatedTarget)) close();
       }}
     >
+      {fitContent ? (
+        <div
+          aria-hidden="true"
+          className="invisible h-0 overflow-hidden border-x px-3.5 pr-12 text-body whitespace-nowrap"
+        >
+          {options.map((option, index) => (
+            <span key={index} className="block">
+              {option.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
       {name ? (
         <input
           type="hidden"
@@ -256,7 +272,8 @@ export function SelectMenu({
         aria-labelledby={labelledBy}
         aria-hidden={!open}
         className={cn(
-          "absolute top-full right-0 left-0 z-50 mt-1 max-h-72 w-full max-w-full min-w-0 overflow-y-auto rounded-card border border-border bg-surface p-1 text-primary shadow-panel",
+          "z-50 mt-1 max-h-72 w-full max-w-full min-w-0 overflow-y-auto rounded-card border border-border bg-surface p-1 text-primary shadow-panel",
+          !menuInFlow && "absolute top-full right-0 left-0",
           !open && "hidden",
         )}
       >

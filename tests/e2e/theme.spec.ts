@@ -3,6 +3,33 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 const KEY = "civic-pulse-theme";
+test("page shells use available viewport width with responsive gutters", async ({
+  page,
+}) => {
+  for (const width of [320, 1280, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/privacy");
+    const layout = await page.locator("main").evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return {
+        width: rect.width,
+        left: rect.left,
+        padding: parseFloat(style.paddingLeft),
+        overflow: document.documentElement.scrollWidth > innerWidth,
+      };
+    });
+    expect(layout.width).toBe(width);
+    expect(layout.left).toBe(0);
+    expect(layout.padding).toBe(width < 768 ? 16 : 24);
+    expect(layout.overflow).toBe(false);
+    const header = page.locator("[data-page-header] > div").first();
+    expect(
+      await header.evaluate((element) => getComputedStyle(element).maxWidth),
+    ).toBe("none");
+  }
+});
+
 async function choose(page: Page, mode: "Light" | "Dark" | "System") {
   const menu = page.locator("details[data-theme-control]");
   if ((await menu.getAttribute("open")) === null)
@@ -10,6 +37,31 @@ async function choose(page: Page, mode: "Light" | "Dark" | "System") {
   await menu.getByRole("radio", { name: mode, exact: true }).check();
   await page.keyboard.press("Escape");
 }
+
+test("public forms and information pages retain centered readable content", async ({
+  page,
+}) => {
+  for (const width of [320, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const path of ["/sign-in", "/register", "/contact", "/privacy"]) {
+      await page.goto(path);
+      const layout = await page
+        .locator("main > .max-w-ballot")
+        .evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          return {
+            width: rect.width,
+            center: rect.left + rect.width / 2,
+            viewport: document.documentElement.clientWidth,
+          };
+        });
+      expect(layout.width).toBe(
+        Math.min(640, layout.viewport - (width < 768 ? 32 : 48)),
+      );
+      expect(Math.abs(layout.center - layout.viewport / 2)).toBeLessThan(1);
+    }
+  }
+});
 
 test("appearance defaults to System, follows live device changes and remembers explicit preference", async ({
   page,

@@ -116,6 +116,7 @@ browser font requests never contact Google.
 | [src/components/ui/field.tsx](../src/components/ui/field.tsx) | Responsive inline form labels with adjacent click-to-open help and explicit errors. |
 | [src/components/ui/select-menu.tsx](../src/components/ui/select-menu.tsx), [src/components/ui/field-classes.ts](../src/components/ui/field-classes.ts) | Shared keyboard-accessible dropdown with a menu constrained to its trigger width and common control sizing. |
 | [src/components/admin/rwa-profile-form.tsx](../src/components/admin/rwa-profile-form.tsx) | Administrator RWA profile editor with six accent choices and responsive identity/identifier controls. |
+| [src/components/admin/resident-identifier-filter.tsx](../src/components/admin/resident-identifier-filter.tsx) | Residents exact-identifier filter using the Settings label and all Default Households, with manual entry when the list is empty. |
 | [supabase/migrations/20261105100000_add_amber_accent_palette.sql](../supabase/migrations/20261105100000_add_amber_accent_palette.sql) | Adds the Amber accent to the RWA settings constraint and guarded update validation. |
 | [src/server/http/numbered-page.ts](../src/server/http/numbered-page.ts) | Validates exact UI page metadata and binds authorized anchors to existing list cursors; HTTP list APIs remain unchanged. |
 | [supabase/migrations/20261114100000_numbered_pagination.sql](../supabase/migrations/20261114100000_numbered_pagination.sql) | Guarded filtered counts and bounded anchor lookup for all six paginated UI datasets. |
@@ -126,14 +127,14 @@ browser font requests never contact Google.
 | [src/components/admin/register-import-form.tsx](../src/components/admin/register-import-form.tsx) | Memory-only CSV upload/check, confirmed sequential import, progress/outcomes and account-review links. |
 | [src/shared/contracts/register-import.ts](../src/shared/contracts/register-import.ts) | `csv-parse` parsing, 500-row/256-KiB bounds and strict import contracts. |
 | [src/server/register/import.ts](../src/server/register/import.ts) | Retry-safe Auth orchestration and guarded import assignment; never enables accounts. |
-| [src/app/admin/residents/page.tsx](../src/app/admin/residents/page.tsx) | Unified Residents directory: account/assignment review, role/status/source and exact identifier/eligibility filters. |
+| [src/app/admin/residents/page.tsx](../src/app/admin/residents/page.tsx) | Unified Residents directory: account/assignment review, role/status/source, identifier-contains and eligibility filters. |
 | [src/app/admin/residents/new/page.tsx](../src/app/admin/residents/new/page.tsx), [details](../src/app/admin/residents/[id]/page.tsx) | Combined onboarding and resident maintenance. |
 | [src/app/admin/residents/import/page.tsx](../src/app/admin/residents/import/page.tsx) | Protected CSV import reached from Residents. |
 | [src/app/admin/residents/households/[id]/page.tsx](../src/app/admin/residents/households/[id]/page.tsx) | Eligibility editor under Residents; existing household API remains authoritative. |
 | [src/app/api/admin/households/import/route.ts](../src/app/api/admin/households/import/route.ts) | Per-row check/import endpoint with CSRF, current-admin checks and import budget. |
 | [src/app/register/page.tsx](../src/app/register/page.tsx), [src/components/access/self-registration-form.tsx](../src/components/access/self-registration-form.tsx) | Public, `noindex` resident self-registration page and form with a hidden honeypot; picks from configured Default Households when any exist. |
-| [src/components/ui/combobox-field.tsx](../src/components/ui/combobox-field.tsx) | Accessible type-to-filter combobox that only accepts one of its options. |
-| [src/components/admin/account-forms.tsx](../src/components/admin/account-forms.tsx) | Add Resident requires a household for voters (optional for management roles); independent eligibility/enablement opt-ins, household assign/move section and profile editor. |
+| [src/components/ui/combobox-field.tsx](../src/components/ui/combobox-field.tsx) | Accessible type-to-filter combobox, strict options by default; partial/custom text is an explicit opt-in for directory search. |
+| [src/components/admin/account-forms.tsx](../src/components/admin/account-forms.tsx) | Add Resident requires a household for voters (optional for management roles); its bordered form groups independent eligibility/enablement opt-ins in a wrapping horizontal row. Also owns the household assign/move section and profile editor. |
 | [src/app/api/admin/accounts/[id]/household/route.ts](../src/app/api/admin/accounts/[id]/household/route.ts) | Assign or move an account's household (renaming keeps eligibility). |
 | [src/components/admin/household-form.tsx](../src/components/admin/household-form.tsx) | Eligibility-only household editor linking to the representative's account. |
 | [src/app/api/register/route.ts](../src/app/api/register/route.ts), [src/server/register/self-registration.ts](../src/server/register/self-registration.ts) | CSRF-protected registration endpoint; budgets, Auth identity, service-role routine, cleanup and specific duplicate errors. |
@@ -272,23 +273,39 @@ and eligibility. The page defaults to the implicit `voter` role; selecting All R
 The register UI routes live only under `/admin/residents`. Former Accounts and
 Households UI routes are removed and return 404, without redirects; navigation,
 browser tests and screenshot workflows use Residents directly.
-`listResidents` uses the existing security-invoker directory view
-for flat/name ordering and identifier/eligibility/no-assignment filters before
-pagination. It shares page-scoped account enrichment with `listAccounts`,
-including current App Support flags. Cursors carry only IDs, resolving current
-sort keys through RLS; edits may move rows, so restart when reconciling changes.
+`listResidentTable` calls the enabled-committee-only `get_resident_table_page`
+RPC from migration `20261115100000_resident_table_controls`. It returns only the
+bounded ordered IDs and exact page/count metadata from one statement snapshot.
+Allowlisted sorting and all filters run before pagination; the service validates
+metadata and enriches only those IDs with profiles, households and supported Auth
+identities, including current App Support flags. The older `listResidents` cursor
+service remains compatible. Concurrent edits may move rows between requests.
 Account API paths, filters and profile-ID ordering
 and optional-household provisioning remain compatible; the stricter voter
 requirement is in the admin form. Settings supplies allowed flat identifiers,
-not assignments. No new migration or voting permission is introduced.
-Selections are current-page only and clear on filter/page/size changes. The two
+not assignments. Apply the new read-only routine before deploying this table
+revision; the app does not migrate at startup. No voting permission is introduced.
+Selections are current-page only and clear on sort/filter/page/size changes. The two
 actions reuse the existing per-account/per-household PATCH endpoints, not a bulk
 database write or new grant. Access and eligibility remain independent; admins
 without flats can be enabled only through explicit inclusion and a warning.
 Deleted/missing-assignment/already-satisfied rows are excluded as appropriate.
 Every request rechecks permissions and commits separately. Uncertain failures stop
 the batch; UI completion never rolls back earlier records or conceals an unknown
-outcome. Existing mutation/provider limits apply. No new migration is needed.
+outcome. Existing mutation/provider limits apply; the actions need no new write routine.
+
+The [table controls](../src/components/admin/resident-table-controls.tsx) replace
+the separate Residents filter form with sortable/filterable column headings,
+Source in a compact toolbar and all controls in **Sort & Filter** on phones.
+Representative and identifier use literal case-insensitive substring matching;
+names do not search Auth email. The page maps URL `identifier` to RPC
+`identifierContains` after migration `20261116100000`; the old exact RPC filter
+and cursor APIs remain compatible. Settings identifier suggestions accept partial
+text via explicit `allowCustomValue` on the shared combobox; onboarding keeps its
+strict default. Last Changed uses profile timestamps and inclusive/exclusive instant
+bounds entered in the browser zone. Top-layer native popovers avoid table
+clipping; their dropdown lists expand in flow within the scrollable panel.
+Observers retain these controls outside management-disabled fields.
 
 CSV import checks every record without overwriting existing state, then applies
 ready rows independently. Exact retries are skipped; conflicting identifiers,
@@ -485,6 +502,18 @@ The database result projection is validated and transformed in [shared result co
 - PDF fonts are bundled and traced for deployment; unsupported text is explicitly refused, with CSV guidance.
 
 Use [UI primitives](../src/components/ui) for status, validation, focus, dialogs and accessible fields. Preserve 48px touch targets, 16px input text, semantic tokens, visible focus and native radios. A button's disabled state is not authorization.
+The shared content token in [global styles](../src/styles/globals.css) has no
+maximum width: pages, headers and footers fill the viewport minus 16px phone or
+24px desktop gutters. Form/ballot and short-copy blocks retain their independent
+640px bounds; table regions contain any horizontal overflow.
+Shared page-header descriptions are an exception to the short-copy limit: they
+fill the available space beside actions and wrap responsively.
+Form-focused route wrappers center the whole title/description/form unit at
+640px, not each field individually: resident new/detail/eligibility, Settings,
+vote new/detail/preview and the voter ballot. Access/register/contact/privacy
+were already centered. `data-form-page` marks the adjusted wrappers for browser
+regressions. Directory/import-review, audit, participation and results keep
+their wider workspaces; global breadcrumbs/header/footer remain full-width.
 
 All confirmation popups use [ConfirmDialog](../src/components/ui/dialog.tsx):
 fixed viewport centring on mobile and desktop, bounded width, phone gutters and
@@ -498,9 +527,10 @@ dropdown. The shared client component navigates immediately on selection,
 preserving filters and omitting the previous page; there is no apply button or
 separate record-range line.
 Votes, Residents, Manage Votes, Audit History, participation
-and completed PUBLIC named responses request validated numbered metadata through
-`get_list_page`; counts and anchors remain caller-authorized, and the original
-bounded cursor services provide rows. HTTP cursor envelopes and export semantics
+and completed PUBLIC named responses request validated numbered metadata.
+Residents uses `get_resident_table_page` for arbitrary global column ordering;
+the other five use `get_list_page` and existing bounded cursor services.
+Counts and IDs/anchors remain caller-authorized. HTTP cursor envelopes and export semantics
 are unchanged. UI `page` values beyond the end clamp to the last page; empty
 sets show page 1 of 1. Filters/size changes restart at page 1; Residents remounts
 its page-scoped selection state on page/size changes. Missing count metadata

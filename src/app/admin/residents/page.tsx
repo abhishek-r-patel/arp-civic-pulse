@@ -1,19 +1,18 @@
 // Unified resident directory with account access, assignments and voting eligibility.
 import { Upload, UserPlus } from "lucide-react";
 import { AccountReviewTable } from "@/components/admin/account-review-table";
-import { ManagementFields } from "@/components/admin/management-fields";
 import { flashNotices, firstValues } from "@/components/admin/format";
-import { Button, LinkButton } from "@/components/ui/button";
-import { SelectField, TextField } from "@/components/ui/field";
+import { LinkButton } from "@/components/ui/button";
 import { EmptyState, PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { Pagination } from "@/components/ui/pagination";
 import { WelcomeMessage } from "@/components/ui/rwa-branding";
 import { ApiError } from "@/server/http/errors";
 import { readPageNumber } from "@/server/http/numbered-page";
-import { listResidents } from "@/server/register/accounts";
+import { listResidentTable } from "@/server/register/accounts";
 import { adminPageContext } from "@/server/register/page-context";
-import { residentListQuerySchema } from "@/shared/contracts/admin-votes";
+import { getRwaProfile } from "@/server/settings/rwa-profile";
+import { residentTableQuerySchema } from "@/shared/contracts/admin-votes";
 
 export const metadata = {
   title: "Residents",
@@ -28,11 +27,12 @@ export default async function ResidentsPage({
   searchParams,
 }: Readonly<{ searchParams: SearchParams }>) {
   const deps = await adminPageContext();
+  const { defaultHouseholds } = await getRwaProfile(deps.client);
   const raw = firstValues(await searchParams);
   const flash = raw.notice ? flashNotices(deps.terms)[raw.notice] : undefined;
   const roleFilter = raw.isAdmin ?? "false";
 
-  const parsed = residentListQuerySchema.safeParse({
+  const parsed = residentTableQuerySchema.safeParse({
     limit: raw.limit,
     cursor: raw.cursor,
     status: raw.status,
@@ -49,19 +49,24 @@ export default async function ResidentsPage({
           ? "true"
           : "false",
     selfRegistered: raw.selfRegistered,
-    identifier: raw.identifier,
+    identifierContains: raw.identifier,
     isEligible: raw.isEligible === "unassigned" ? undefined : raw.isEligible,
     hasHousehold: raw.isEligible === "unassigned" ? "false" : undefined,
+    representative: raw.representative,
+    changedFrom: raw.changedFrom,
+    changedTo: raw.changedTo,
+    sort: raw.sort,
+    direction: raw.direction,
   });
   const filtersInvalid = !parsed.success;
   const query = parsed.success
     ? parsed.data
-    : residentListQuerySchema.parse({ isAdmin: "false", isReadonly: "false" });
+    : residentTableQuerySchema.parse({ isAdmin: "false", isReadonly: "false" });
 
-  let result: Awaited<ReturnType<typeof listResidents>> | null = null;
+  let result: Awaited<ReturnType<typeof listResidentTable>> | null = null;
   let loadError: ApiError | null = null;
   try {
-    result = await listResidents(deps, query, readPageNumber(raw.page));
+    result = await listResidentTable(deps, query, readPageNumber(raw.page));
   } catch (error) {
     if (!(error instanceof ApiError)) {
       throw error;
@@ -74,9 +79,34 @@ export default async function ResidentsPage({
     query.isAdmin !== false ||
     query.isReadonly !== false ||
     query.selfRegistered !== undefined ||
-    query.identifier !== undefined ||
+    query.identifierContains !== undefined ||
     query.isEligible !== undefined ||
-    query.hasHousehold !== undefined;
+    query.hasHousehold !== undefined ||
+    query.representative !== undefined ||
+    query.changedFrom !== undefined ||
+    query.changedTo !== undefined;
+
+  const params = {
+    limit: String(query.limit),
+    status: query.status,
+    isAdmin: parsed.success ? roleFilter : "false",
+    selfRegistered:
+      query.selfRegistered === undefined
+        ? undefined
+        : String(query.selfRegistered),
+    identifier: query.identifierContains,
+    isEligible:
+      query.hasHousehold === false
+        ? "unassigned"
+        : query.isEligible === undefined
+          ? undefined
+          : String(query.isEligible),
+    representative: query.representative,
+    changedFrom: query.changedFrom,
+    changedTo: query.changedTo,
+    sort: query.sort,
+    direction: query.direction,
+  };
 
   return (
     <div className="grid gap-8">
@@ -115,72 +145,6 @@ export default async function ResidentsPage({
           They were ignored. Choose filters below to try again.
         </Notice>
       ) : null}
-
-      <form
-        method="get"
-        className="grid gap-4 border-y border-border py-5 sm:grid-cols-2 sm:items-end lg:grid-cols-3"
-      >
-        <input type="hidden" name="limit" value={query.limit} />
-        <SelectField
-          id="status"
-          name="status"
-          label="Status"
-          defaultValue={raw.status ?? ""}
-        >
-          <option value="">Any status</option>
-          <option value="ENABLED">Enabled</option>
-          <option value="SUSPENDED">Suspended</option>
-          <option value="DELETED">Deleted</option>
-        </SelectField>
-        <SelectField
-          id="isEligible"
-          name="isEligible"
-          label="Voting eligibility"
-          defaultValue={raw.isEligible ?? ""}
-        >
-          <option value="">Any eligibility</option>
-          <option value="true">Eligible</option>
-          <option value="false">Not eligible</option>
-          <option value="unassigned">No {deps.terms.household} assigned</option>
-        </SelectField>
-        <TextField
-          id="identifier"
-          name="identifier"
-          label={`Exact ${deps.identifierLabel}`}
-          hint={`Matches the full ${deps.identifierLabel.toLowerCase()} value.`}
-          defaultValue={raw.identifier ?? ""}
-          autoComplete="off"
-        />
-        <SelectField
-          id="isAdmin"
-          name="isAdmin"
-          label="Role"
-          defaultValue={roleFilter}
-        >
-          <option value="all">All roles</option>
-          <option value="true">RWA Admin (rwa-admin)</option>
-          <option value="readonly">RWA ReadOnly (rwa-readonly)</option>
-          <option value="false">Voters (voter)</option>
-        </SelectField>
-        <SelectField
-          id="selfRegistered"
-          name="selfRegistered"
-          label="Source"
-          defaultValue={raw.selfRegistered ?? ""}
-        >
-          <option value="">Any source</option>
-          <option value="true">Self-registered</option>
-          <option value="false">Added by an administrator</option>
-        </SelectField>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Button type="submit">Apply Filters</Button>
-          {filtersActive ? (
-            <LinkButton href="/admin/residents" variant="secondary">
-              Clear
-            </LinkButton>
-          ) : null}
-        </div>
-      </form>
 
       {loadError ? (
         <Notice tone="error" heading="Residents could not be loaded">
@@ -224,41 +188,27 @@ export default async function ResidentsPage({
             </p>
           </EmptyState>
         )
-      ) : result ? (
+      ) : null}
+      {result ? (
         <>
-          <ManagementFields canManage={deps.actor.isAdmin}>
-            <AccountReviewTable
-              key={`${result.page.numbered?.currentPage}:${query.limit}:${query.status ?? "all"}:${roleFilter}:${raw.selfRegistered ?? "any"}:${query.identifier ?? ""}:${raw.isEligible ?? "any"}`}
-              accounts={result.data}
-              csrfToken={deps.csrfToken}
-            />
-          </ManagementFields>
+          <AccountReviewTable
+            key={`${result.page.numbered?.currentPage}:${JSON.stringify(params)}`}
+            accounts={result.data}
+            csrfToken={deps.csrfToken}
+            canManage={deps.actor.isAdmin}
+            tableState={{
+              params,
+              identifiers: defaultHouseholds,
+              sort: query.sort,
+              direction: query.direction,
+            }}
+          />
           <Pagination
             basePath="/admin/residents"
-            params={{
-              limit: String(query.limit),
-              status: raw.status,
-              isAdmin: roleFilter,
-              selfRegistered: raw.selfRegistered,
-              identifier: raw.identifier,
-              isEligible: raw.isEligible,
-            }}
+            params={params}
             page={result.page}
           />
         </>
-      ) : null}
-      {result && result.data.length === 0 ? (
-        <Pagination
-          basePath="/admin/residents"
-          params={{
-            status: raw.status,
-            isAdmin: roleFilter,
-            selfRegistered: raw.selfRegistered,
-            identifier: raw.identifier,
-            isEligible: raw.isEligible,
-          }}
-          page={result.page}
-        />
       ) : null}
     </div>
   );

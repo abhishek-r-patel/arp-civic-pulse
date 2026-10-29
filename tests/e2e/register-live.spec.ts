@@ -1,6 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import {
+  activateVoteFor,
+  asUser,
   freshCode,
   plusEmail,
   provisionAdmin,
@@ -24,12 +26,325 @@ test.skip(
 
 const WIDTHS = [320, 375, 768, 1280];
 
+test("form-focused pages center their heading and controls while directories stay wide", async ({
+  page,
+}) => {
+  const admin = await provisionAdmin();
+  const resident = await seedHousehold();
+  const draft = await asUser<{ id: string }>(
+    admin.id,
+    "public.create_draft($1)",
+    ["PUBLIC"],
+  );
+  const active = await activateVoteFor(admin.id, [resident.householdId]);
+  await signInThroughUi(page, admin.email, admin.code);
+  const paths = [
+    "/admin/residents/new",
+    `/admin/residents/${resident.id}`,
+    `/admin/residents/households/${resident.householdId}`,
+    "/admin/settings",
+    "/admin/votes/new",
+    `/admin/votes/${draft.id}`,
+    `/admin/votes/${draft.id}/preview`,
+    `/votes/${active.id}`,
+  ];
+  for (const width of [320, 1280, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const path of paths) {
+      await page.goto(path);
+      const wrapper = page.locator("[data-form-page]");
+      await expect(wrapper).toBeVisible();
+      const layout = await wrapper.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          width: rect.width,
+          center: rect.left + rect.width / 2,
+          viewport: document.documentElement.clientWidth,
+          overflow: document.documentElement.scrollWidth > innerWidth,
+        };
+      });
+      expect(layout.width).toBe(
+        Math.min(640, layout.viewport - (width < 768 ? 32 : 48)),
+      );
+      expect(Math.abs(layout.center - layout.viewport / 2)).toBeLessThan(1);
+      expect(layout.overflow).toBe(false);
+    }
+    await page.goto("/admin/residents");
+    await expect(page.locator("[data-account-review]")).toBeVisible();
+    expect(await page.locator("[data-form-page]").count()).toBe(0);
+    if (width > 640) {
+      const table = await page.locator("[data-data-table]").boundingBox();
+      expect(table?.width).toBeGreaterThan(640);
+    }
+  }
+});
+
 // The dev server compiles each route on first use and every call crosses a
 // corporate proxy to the hosted project, so allow generous time.
 test.beforeEach(() => {
   test.setTimeout(240_000);
 });
 test.use({ actionTimeout: 30_000, navigationTimeout: 60_000 });
+
+test("Add Resident keeps opt-ins inline inside a bordered responsive form", async ({
+  page,
+}) => {
+  const admin = await provisionAdmin();
+  await signInThroughUi(page, admin.email, admin.code);
+  await page.goto("/admin/residents/new");
+  const form = page.locator("[data-form-page] form");
+  for (const width of [320, 375, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    const layout = await form.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        borders: [
+          style.borderTopWidth,
+          style.borderRightWidth,
+          style.borderBottomWidth,
+          style.borderLeftWidth,
+        ],
+        padding: parseFloat(style.paddingLeft),
+        overflow: document.documentElement.scrollWidth > innerWidth,
+      };
+    });
+    expect(layout.borders).toEqual(["1px", "1px", "1px", "1px"]);
+    expect(layout.padding).toBe(width < 768 ? 16 : 24);
+    expect(layout.overflow).toBe(false);
+    const requiredLabel = await form
+      .locator('label[for="representativeName"]')
+      .evaluate((element) => {
+        const text = element.firstChild;
+        const marker = element.querySelector('[aria-hidden="true"]');
+        if (!text || !marker) {
+          throw new Error("Resident name must have a required marker.");
+        }
+        const range = document.createRange();
+        const label = text.textContent ?? "";
+        range.setStart(text, label.lastIndexOf(" ") + 1);
+        range.setEnd(text, label.length);
+        return {
+          wordTop: range.getBoundingClientRect().top,
+          markerTop: marker.getBoundingClientRect().top,
+          height: element.getBoundingClientRect().height,
+          lineHeight: parseFloat(getComputedStyle(element).lineHeight),
+        };
+      });
+    expect(requiredLabel.markerTop).toBe(requiredLabel.wordTop);
+    if (width >= 768) {
+      expect(requiredLabel.height).toBe(requiredLabel.lineHeight);
+    }
+    const eligible = form.getByRole("checkbox", {
+      name: "Eligible to vote",
+      exact: true,
+    });
+    const enable = form.getByRole("checkbox", {
+      name: "Enable account now",
+      exact: true,
+    });
+    await expect(eligible).toBeDisabled();
+    await expect(enable).toBeDisabled();
+    if (width >= 768) {
+      const first = await eligible.boundingBox();
+      const second = await enable.boundingBox();
+      expect(first).not.toBeNull();
+      expect(second).not.toBeNull();
+      if (!first || !second) {
+        throw new Error("Both resident opt-ins must have visible bounds.");
+      }
+      expect(first.y).toBe(second.y);
+      expect(second.x).toBeGreaterThan(first.x + first.width);
+    }
+    for (const label of ["Eligible to vote", "Enable account now"]) {
+      const help = form.getByLabel(`Information about ${label}`, {
+        exact: true,
+      });
+      await help.click();
+      await expect(help.locator("..")).toHaveAttribute("open");
+      await help.click();
+    }
+  }
+});
+
+test("resident role options show names without internal codes", async ({
+  page,
+}) => {
+  const { email, code } = await provisionAdmin();
+  await signInThroughUi(page, email, code);
+  for (const path of ["/admin/residents/new", "/admin/residents"]) {
+    await page.goto(path);
+    if (path === "/admin/residents") {
+      const headers = page
+        .getByRole("table", {
+          name: "Account access and voting eligibility review",
+        })
+        .getByRole("columnheader");
+      await expect(headers).toHaveCount(8);
+      for (const [index, title] of [
+        [1, "Representative"],
+        [3, "Status"],
+        [4, "Role"],
+        [5, "Voting Eligibility"],
+        [6, "Last Changed"],
+      ] as const) {
+        await expect(headers.nth(index)).toHaveAttribute("aria-label", title);
+      }
+      await page
+        .getByRole("button", { name: "Filter Role", exact: true })
+        .click();
+      const filters = page.locator("form").filter({
+        has: page.getByRole("button", { name: "Apply Filters", exact: true }),
+      });
+      await expect(
+        filters.getByText("(optional)", { exact: true }),
+      ).toHaveCount(0);
+    }
+    if (path.endsWith("/new")) {
+      const summary = page.getByText("Before you add a resident", {
+        exact: true,
+      });
+      const guidance = page.locator("details").filter({ has: summary });
+      await expect(guidance).not.toHaveAttribute("open");
+      await summary.click();
+      await expect(guidance.getByRole("listitem")).toHaveCount(3);
+      await expect(
+        guidance.getByText(/eligibility is approved separately/),
+      ).toBeVisible();
+      await summary.click();
+      await expect(guidance).not.toHaveAttribute("open");
+    }
+    await page.getByRole("combobox", { name: "Role", exact: true }).click();
+    const menu = page.getByRole("listbox", { name: "Role", exact: true });
+    await expect(menu.getByRole("option")).toHaveText(
+      path.endsWith("/new")
+        ? ["Voter", "RWA Admin", "RWA ReadOnly"]
+        : ["All roles", "RWA Admin", "RWA ReadOnly", "Voter"],
+    );
+    await page.keyboard.press("Escape");
+  }
+});
+
+test("resident table controls preserve global query state and fit phone viewports", async ({
+  page,
+}) => {
+  const admin = await provisionAdmin();
+  await signInThroughUi(page, admin.email, admin.code);
+  await page.goto("/admin/residents?page=2&limit=10");
+  const manage = page.locator('tbody a[href^="/admin/residents/"]').first();
+  await expect(manage).toHaveAttribute("aria-label", /^Manage .+/);
+  await expect(manage).toHaveAttribute("title", /^Manage .+/);
+  await expect(manage).toHaveText("");
+  await expect(manage.locator("svg")).toBeVisible();
+  await page
+    .getByRole("link", { name: "Sort Representative ascending", exact: true })
+    .click();
+  await expect(
+    page.getByRole("columnheader", { name: "Representative", exact: true }),
+  ).toHaveAttribute("aria-sort", "ascending");
+  await expect(page).not.toHaveURL(/[?&]page=/);
+  await expect(page).toHaveURL(/[?&]limit=10/);
+  await page
+    .getByRole("button", { name: "Filter Last Changed", exact: true })
+    .click();
+  await page
+    .getByRole("textbox", { name: "Changed From", exact: true })
+    .fill("2000-01-01T00:00");
+  await page
+    .getByRole("textbox", { name: "Changed Before", exact: true })
+    .fill("2100-01-01T00:00");
+  await page
+    .getByRole("button", { name: "Apply Filters", exact: true })
+    .click();
+  await expect(page).toHaveURL(/changedTo=/);
+  await page.getByRole("button", { name: "Filter Role", exact: true }).click();
+  await chooseDropdownOption(page, "Role", "All roles");
+  await page
+    .getByRole("button", { name: "Apply Filters", exact: true })
+    .click();
+  await expect(page).toHaveURL(/isAdmin=all/);
+  await expect(page).toHaveURL(/changedFrom=/);
+  await expect(
+    page.getByText("Residents could not be loaded", { exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Filter Representative", exact: true })
+    .click();
+  await page
+    .getByRole("textbox", { name: "Representative", exact: true })
+    .fill("no-synthetic-match-938574");
+  await page
+    .getByRole("button", { name: "Apply Filters", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", {
+      name: "No residents match these filters",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Filter Representative", exact: true }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page
+    .getByRole("button", { name: "Sort & Filter", exact: true })
+    .click();
+  const panel = page.getByRole("dialog", {
+    name: "Sort & Filter",
+    exact: true,
+  });
+  await expect(panel).toBeVisible();
+  const bounds = await panel.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(
+    bounds &&
+      bounds.x >= 0 &&
+      bounds.y >= 0 &&
+      bounds.x + bounds.width <= 320 &&
+      bounds.y + bounds.height <= 740,
+  ).toBe(true);
+  await chooseDropdownOption(page, "Role", "Voter");
+  await page
+    .getByRole("textbox", { name: "Representative", exact: true })
+    .fill("");
+  await page
+    .getByRole("button", { name: "Apply Filters", exact: true })
+    .click();
+  await expect(page).not.toHaveURL(/representative=/);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.getByRole("link", { name: "Reset Table", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/residents$/);
+  await expect(page.getByText("0 selected", { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 920 });
+  const identifier = (
+    await page
+      .locator("tbody tr td:nth-child(3) > span.min-w-0")
+      .first()
+      .innerText()
+  ).trim();
+  const partial = identifier.slice(1).toLowerCase();
+  const householdHeader = page.getByRole("columnheader").nth(2);
+  await householdHeader.getByRole("button").click();
+  const filterPanel = page.locator("[popover]:popover-open");
+  await filterPanel.locator("input:not([type=hidden])").fill(partial);
+  await page
+    .getByRole("button", { name: "Apply Filters", exact: true })
+    .click();
+  await expect(page).toHaveURL(/identifier=/);
+  await expect(
+    page.getByText("Residents could not be loaded", { exact: true }),
+  ).toHaveCount(0);
+  const matches = await page
+    .locator("tbody tr td:nth-child(3) > span.min-w-0")
+    .allTextContents();
+  expect(matches.length).toBeGreaterThan(0);
+  expect(matches.every((value) => value.toLowerCase().includes(partial))).toBe(
+    true,
+  );
+});
 
 test.describe("sign-in screen", () => {
   test("shows a generic acknowledgement for an unregistered address and no code is sent", async ({
@@ -310,11 +625,7 @@ test.describe("confirmation dialog", () => {
     await page.goto("/admin/residents/new");
     await page.getByLabel(/Email address/).fill(plusEmail());
     await page.getByLabel(/Resident name/).fill("Dialog Subject");
-    await chooseDropdownOption(
-      page,
-      "Management role",
-      "RWA Admin (rwa-admin)",
-    );
+    await chooseDropdownOption(page, "Role", "RWA Admin");
     await page.getByRole("button", { name: "Create Resident" }).click();
     await expect(
       page.getByRole("heading", { level: 1, name: "Dialog Subject" }),
@@ -407,11 +718,7 @@ test.describe("confirmation dialog", () => {
     await page.goto("/admin/residents/new");
     await page.getByLabel(/Email address/).fill(plusEmail());
     await page.getByLabel(/Resident name/).fill("Focus Subject");
-    await chooseDropdownOption(
-      page,
-      "Management role",
-      "RWA ReadOnly (rwa-readonly)",
-    );
+    await chooseDropdownOption(page, "Role", "RWA ReadOnly");
     await page.getByLabel("Enable account now").check();
     await page.getByRole("button", { name: "Create Resident" }).click();
     await expect(page.getByText("Account created and enabled.")).toBeVisible();
@@ -452,11 +759,7 @@ test.describe("responsive and accessible", () => {
     await page
       .getByLabel(/Resident name/)
       .fill("Layout Subject With A Rather Long Name That Must Wrap Not Clip");
-    await chooseDropdownOption(
-      page,
-      "Management role",
-      "RWA ReadOnly (rwa-readonly)",
-    );
+    await chooseDropdownOption(page, "Role", "RWA ReadOnly");
     await page.getByRole("button", { name: "Create Resident" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
       "Layout Subject",

@@ -199,6 +199,22 @@ Register import and scheduling implementation map:
 
 Account and household onboarding map:
 
+The shared `--container-content` token in `src/styles/globals.css` is uncapped:
+application/public page shells, headers and footers use available viewport width
+with 16px phone and 24px desktop gutters. Individual form/ballot and short-copy
+blocks retain `max-w-ballot` readability bounds. Table overflow remains contained
+inside its labelled region rather than widening the document.
+Shared `PageHeader` in `src/components/ui/layout.tsx` lets its title/description
+grow beside the right-aligned actions; it has no independent copy-width cap.
+Form-focused route wrappers use `mx-auto w-full max-w-ballot` with
+`data-form-page` for layout regression coverage: resident new/detail/household
+eligibility, RWA Settings, vote new/detail/preview and the voter ballot.
+Titles, back links, notices and controls center as one left-aligned unit.
+Existing access/register/contact/privacy wrappers already use this width.
+Directory/import-review, audit, participation and results remain wide; shared
+breadcrumbs stay in the shell. `tests/e2e/register-live.spec.ts` and
+`tests/e2e/theme.spec.ts` cover route-level centering and responsive gutters.
+
 Shared numbered navigation is implemented in `src/components/ui/pagination.tsx`
 and `src/server/http/numbered-page.ts`, using the guarded
 `supabase/migrations/20261114100000_numbered_pagination.sql` count/anchor RPC.
@@ -214,7 +230,8 @@ record-range line.
 `tests/integration/numbered-pagination.test.ts` and
 `tests/e2e/pagination-live.spec.ts` cover metadata, authorization and navigation.
 Each page remains bounded (100 maximum); exact authorized counts and a bounded
-sort-key offset locate the existing cursor rather than reading all projections.
+sort-key offset locate the existing cursor rather than reading all projections,
+except Residents, which now returns ordered page IDs through its table-window RPC.
 Count/anchor share a snapshot, but changing data between page requests can still
 move rows. Full exports and PRIVATE/active-result privacy boundaries are unchanged.
 
@@ -225,7 +242,10 @@ and internal scrolling for content taller than 90dvh. Native focus containment,
 Escape cancellation and return focus are preserved; menus and combobox lists
 remain anchored to their controls.
 
-- `src/app/admin/residents/page.tsx`: unified people/assignment directory, defaulting to Voters, with role/status/source/identifier/eligibility (including no assignment) filters and independent access/eligibility review actions. `listResidents` in `src/server/register/accounts.ts` reads the existing security-invoker directory view, sorting assigned households by normalized identifier then name, unassigned people last, with ID tie-breaking. Filters precede pagination. Shared page-scoped profile/household/Auth enrichment preserves App Support flags without privileged register reads. Account API paths, ID ordering and response shapes remain unchanged.
+- `src/app/admin/residents/page.tsx`: unified people/assignment directory, defaulting to Voters, with global column sorting, role/status/source/identifier/eligibility (including no assignment), name and profile-changed-time filters, plus independent access/eligibility review actions. `listResidentTable` in `src/server/register/accounts.ts` validates bounded ordered IDs and exact metadata from `get_resident_table_page`, then uses shared page-scoped profile/household/Auth enrichment, preserving App Support flags. Account API paths, ID ordering, response shapes and the older `listResidents` cursor service remain unchanged.
+- `src/components/admin/resident-table-controls.tsx`, `resident-identifier-filter.tsx` and shared `src/components/ui/data-table.tsx`: URL-backed sortable column headers with `aria-sort`, native top-layer filter popovers, Settings-backed identifier picker/manual fallback, desktop Source and mobile Sort & Filter controls. Dropdown lists expand in flow inside scrolling panels. Controls remain usable for observers outside management-disabled fields; selections clear on ordering/filter/page/size changes.
+- `supabase/migrations/20261115100000_resident_table_controls.sql`, `tests/integration/resident-table.test.ts`, `tests/unit/resident-table-controls.test.ts` and `tests/unit/register.test.ts`: guarded global query, real PostgreSQL sort/filter/page/permission coverage and service/URL/header regression checks. Apply the read-only migration before the new table revision; it is not automatically applied.
+- `supabase/migrations/20261116100000_resident_identifier_contains.sql`: additive table-RPC filter for case-insensitive identifier substrings, preserving the old exact filter and all account/cursor APIs. The Residents page maps URL `identifier` to `identifierContains`; `resident-identifier-filter.tsx` accepts partial text with optional Settings suggestions using `ComboboxField.allowCustomValue`, leaving strict onboarding defaults unchanged.
 - `src/app/admin/residents/new/page.tsx`, `src/components/admin/account-forms.tsx` (`AccountCreateForm`, shared `HouseholdPicker`): one form for the account, household (required for voters in the admin form, optional for management roles; combobox of unassigned Default Households when configured, otherwise free text), eligibility and "Enable account now". The API retains optional-household provisioning for compatibility.
 - `src/app/admin/residents/[id]/page.tsx`, `AccountHouseholdSection` and `src/app/api/admin/accounts/[id]/household/route.ts`: assign a household to an account without one or move it (rename, eligibility kept, confirmation dialog).
 - `src/app/admin/residents/import/page.tsx` and `src/app/admin/residents/households/[id]/page.tsx`: CSV import and eligibility editor under Residents. Former `/admin/accounts` and `/admin/households` UI route trees and compatibility redirects are removed; those URLs return 404. All navigation, browser tests and capture workflows use Residents directly. Existing account/household API routes remain unchanged. `/admin` opens Residents.

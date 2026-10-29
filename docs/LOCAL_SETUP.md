@@ -186,9 +186,15 @@ npx supabase db push --db-url $env:LIVE_DATABASE_URL --yes
 ```
 
 You should see pending migrations listed (the complete repository sequence runs
-from `20261024100000` through `20261114100000`) and `Finished supabase db push.`
+from `20261024100000` through `20261116100000`) and `Finished supabase db push.`
 Numbered list pages require `20261114100000_numbered_pagination.sql`; apply it
 before running this app revision. Existing cursor API contracts are unchanged.
+Residents column sorting/filtering additionally needs `20261115100000`.
+Partial identifier search needs `20261116100000` before running the new revision.
+Before any push, check `supabase migration list`: this checkout currently has
+two files sharing version `20261105100000`, which blocks the normal CLI push.
+See [migration status](../supabase/README.md); do not apply older scripts again
+or repair history without investigating and obtaining authorization.
 The lifecycle migration also schedules a Supabase Cron job
 (`civic-pulse-complete-due-votes`, once a minute) when `pg_cron` is available,
 which it is on Supabase.
@@ -320,8 +326,9 @@ For tabular onboarding review, open **Residents** (Voters is the default role),
 filter Suspended and select valid rows on the current page. **Enable Selected**
 allows sign-in; **Make Eligible** separately changes assigned-flat eligibility
 for future votes. Select All Roles explicitly to include administrators, whose
-enable confirmation carries a management-access warning. Changing page/filters
-clears selection. Use the existing reviewed schema; this UI adds no migration.
+enable confirmation carries a management-access warning. Changing sort/page/filters
+clears selection. The review actions add no write migration; current table
+controls require the `20261115100000` read routine described above.
 To review residents who registered themselves at `/register`, also set **Source**
 to **Self-registered**; their flats start ineligible, so use **Make Eligible** as
 well as **Enable Selected** once you have checked them.

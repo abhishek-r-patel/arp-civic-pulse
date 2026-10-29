@@ -339,9 +339,38 @@ export const accountListQuerySchema = listQuerySchema({
   selfRegistered: queryBoolean.optional(),
 });
 
-// UI directory cursors use flat/name ordering; the account API retains profile-ID ordering.
+// Legacy directory cursors use flat/name ordering; the account API retains profile-ID ordering.
 export const residentListQuerySchema = accountListQuerySchema.extend({
   identifier: householdListQuerySchema.shape.identifier,
   isEligible: householdListQuerySchema.shape.isEligible,
   hasHousehold: queryBoolean.optional(),
 });
+
+export const RESIDENT_SORT_KEYS = [
+  "representative",
+  "household",
+  "status",
+  "role",
+  "eligibility",
+  "updated",
+] as const;
+export const residentTableQuerySchema = residentListQuerySchema
+  .extend({
+    identifierContains: householdListQuerySchema.shape.identifier,
+    representative: z.string().trim().min(1).max(200).optional(),
+    changedFrom: offsetInstant.optional(),
+    changedTo: offsetInstant.optional(),
+    sort: z.enum(RESIDENT_SORT_KEYS).default("household"),
+    direction: z.enum(["asc", "desc"]).default("asc"),
+  })
+  .refine(
+    (value) =>
+      !value.changedFrom ||
+      !value.changedTo ||
+      new Date(value.changedFrom) < new Date(value.changedTo),
+    {
+      path: ["changedTo"],
+      message: "The end must be after the start.",
+    },
+  );
+export type ResidentTableQuery = z.output<typeof residentTableQuerySchema>;

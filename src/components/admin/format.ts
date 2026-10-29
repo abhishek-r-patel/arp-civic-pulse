@@ -43,16 +43,19 @@ export function firstValues(
   return result;
 }
 
-// Dates are shown with an explicit time-zone label. The RWA zone is not exposed
-// to this screen yet, so these are UTC.
-export function formatInstant(iso: string): string {
-  return `${new Intl.DateTimeFormat("en-GB", {
+// A caller-supplied zone is explicit; existing server-side consumers retain UTC.
+export function formatLocalInstant(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-    timeZone: "UTC",
-  }).format(new Date(iso))} UTC`;
+    timeZone,
+  }).format(new Date(iso));
+}
+
+export function formatInstant(iso: string): string {
+  return `${formatLocalInstant(iso, "UTC")} UTC`;
 }

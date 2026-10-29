@@ -38,8 +38,24 @@ test("committee observers can read management pages and still cast their own bal
   await expect(
     page.getByRole("button", { name: "Enable Selected" }),
   ).toBeDisabled();
+  await page.getByRole("button", { name: "Filter Role", exact: true }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Role", exact: true }),
+  ).toBeEnabled();
+  await page.keyboard.press("Escape");
+  await page
+    .getByRole("link", { name: "Sort Representative ascending", exact: true })
+    .click();
+  await expect(
+    page.getByRole("columnheader", { name: "Representative", exact: true }),
+  ).toHaveAttribute("aria-sort", "ascending");
+  await expect(
+    page.getByRole("checkbox", { name: "Select All", exact: true }),
+  ).toBeDisabled();
   await page.goto("/admin/residents/new");
-  await expect(page.getByLabel("Email address")).toBeDisabled();
+  await expect(
+    page.getByRole("textbox", { name: /^Email address/ }),
+  ).toBeDisabled();
   await page.goto("/admin/votes/new");
   await expect(
     page.getByRole("radio", { name: /PUBLIC voting/ }),

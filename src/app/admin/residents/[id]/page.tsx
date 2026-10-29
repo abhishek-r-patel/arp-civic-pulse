@@ -53,7 +53,7 @@ export default async function AccountPage({
   const choices = await loadHouseholdChoices(deps, household?.identifier);
 
   return (
-    <div className="grid gap-8">
+    <div data-form-page className="mx-auto grid w-full max-w-ballot gap-8">
       <Link
         href="/admin/residents"
         className="inline-flex touch-target w-fit items-center gap-1 font-semibold text-accent underline underline-offset-2"

@@ -94,7 +94,7 @@ export default async function PreviewPage({
 
   if (stale || !preview) {
     return (
-      <div className="grid gap-8">
+      <div data-form-page className="mx-auto grid w-full max-w-ballot gap-8">
         {back}
         <PageHeader title="Preview Ballot" />
         <Notice tone="warning" heading="This preview is out of date">
@@ -120,7 +120,7 @@ export default async function PreviewPage({
   const display = readyToActivate ? await getRwaDisplay(deps) : null;
 
   return (
-    <div className="grid gap-8">
+    <div data-form-page className="mx-auto grid w-full max-w-ballot gap-8">
       {back}
       <PageHeader
         title="Preview Ballot"

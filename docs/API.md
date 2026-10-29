@@ -92,6 +92,15 @@ unchanged list service reads only the selected page. No full register is
 downloaded to count or paginate it. The HTTP endpoints above do not accept
 `page` or return numbered metadata and retain their existing keyset contract.
 
+Residents now uses the separate `get_resident_table_page(page, limit, filters,
+sort, direction)` RPC from migration `20261115100000_resident_table_controls`.
+The enabled-committee guard precedes reads; anonymous and service-role execution
+are revoked. It returns `{ids, totalCount, currentPage, totalPages}` with at most
+100 IDs, filtering and ordering before paging in one statement snapshot.
+Only allowlisted SQL sort expressions and `asc`/`desc` are accepted; values are
+bound parameters. This replaces the Residents UI count/anchor flow, not HTTP
+cursor contracts or the other five datasets.
+
 Totals are current observations, not frozen list snapshots: concurrent
 register/participation/audit changes can move rows or alter page counts between
 requests. Refresh/restart when reconciling changes. Count failures are explicit
@@ -106,7 +115,7 @@ entitlements, even for an administrator. Exports remain complete and unpaged.
 | Administrator votes | `updatedAt DESC`, then `id DESC` | `status`, `votingType` |
 | Households | Normalized household identifier, then `id`, ascending | `isEligible`; optional exact normalized `identifier` |
 | Accounts API | Profile `id ASC` | `status`, `isAdmin`, `isReadonly`, `selfRegistered` |
-| Residents UI (server service, no new API) | Assigned identifier/name first, unassigned name last, then `id ASC` | Account filters plus exact `identifier`, `isEligible`, `hasHousehold` |
+| Residents UI (server service, no new HTTP API) | Default normalized identifier ascending; allowlisted `representative`, `household`, `status`, `role`, `eligibility`, `updated` in `asc`/`desc`; nulls last, lowercase name then `id ASC` break ties | Account filters plus `identifierContains` (1–100 chars), `isEligible`, `hasHousehold`, literal case-insensitive name substring `representative` (1–200 chars), inclusive `changedFrom`/exclusive `changedTo` profile timestamps |
 | PUBLIC named responses | Frozen `householdId ASC` within the vote | None |
 | Management-reader participation | Frozen `householdId ASC` within the vote | `submitted` boolean |
 | Audit history | `occurredAt DESC`, then audit `id DESC` | `action`, `targetType`, `from`, `to` |
@@ -266,22 +275,29 @@ the implicit `voter` role);
 **All Roles**, administrators and readonly observers are explicit page-filter
 choices. The API accepts optional boolean `isAdmin`, `isReadonly` and
 `selfRegistered` filters; the page exposes the last as **Source** (Self-registered
-or Added by an administrator) and marks self-registered rows.
+or Admin-registered) and marks self-registered rows.
 `GET /api/admin/accounts` additionally returns `household: null` or
 `{id,identifier,isEligible}` per account, enriched only for the authorized page
 through the caller's RLS session. Individual account detail retains its existing
 projection. No general member directory or privileged household lookup is added.
 
 The management UI combines Accounts and Households at `/admin/residents`.
-The server-only `listResidents` reads `resident_directory` under the caller's RLS
-session. Optional exact `identifier` (database-normalized), `isEligible`
+The server-only `listResidentTable` calls the guarded table-window RPC and
+enriches only its ordered IDs through the caller's RLS session. Optional
+`identifierContains` (database-normalized, case-insensitive literal substring), `isEligible`
 (`"true"`/`"false"`) and `hasHousehold` filters apply before pagination. The page's
 **No assignment** eligibility choice (`isEligible=unassigned` in the page URL)
 maps to `hasHousehold=false`; it is not an account-API parameter. Eligible/Not
 eligible exclude unassigned accounts; Any eligibility includes them. Directory
-cursors bind all filters and contain only a profile ID; the current sort key is
-resolved under RLS on the next page. Missing anchors fail explicitly; concurrent
-register edits may move rows, so restart the list when reconciling changes.
+controls use numbered pages with global sorting; name search does not scan Auth
+email. Changed-time ranges require offset timestamps and reject reversed ranges.
+Migration `20261116100000` adds `identifierContains` to the table RPC. The page's
+`identifier` URL parameter now maps to this contains filter; existing bookmarks
+intentionally gain contains semantics. RPC `identifier` and household HTTP filters
+remain exact. `%`, `_` and `*` are literal characters, not wildcard syntax.
+The older `listResidents` cursor service remains unchanged; its cursors bind all
+filters and contain only a profile ID, resolved to a current sort key under RLS.
+Concurrent register edits may move rows, so restart when reconciling changes.
 Account API filters/ordering remain unchanged. The former `/admin/accounts`
 and `/admin/households` UI pages, including detail/create/import paths, are
 removed and return 404 without redirects. Use `/admin/residents` and its
@@ -291,14 +307,14 @@ operation endpoints, not navigation destinations.
 Page-local selections invoke existing `PATCH /api/admin/accounts/{id}` with
 `{status:"ENABLED"}` for **Enable Selected**, or existing
 `PATCH /api/admin/households/{id}` with `{isEligible:true}` for **Make Eligible**.
-There is no bulk bypass endpoint or schema migration. Each request independently
+There is no bulk bypass endpoint or new write migration. Each request independently
 rechecks current administrator capability, normal budgets, Auth/profile consistency
 and assignment requirements. Administrator accounts are allowed only after an
 explicit role-filter choice and confirmation warning. UI target filtering is
 convenience, not authorization. Enablement never implicitly changes eligibility;
 eligibility never implicitly enables access. Neither rewrites frozen electorates.
 Each record commits separately; a failed/uncertain request stops later rows and
-requires review before retry. Page/filter/size changes clear selections; same-page
+requires review before retry. Sort/page/filter/size changes clear selections; same-page
 refresh prunes stale rows without losing still-actionable selections.
 
 Read endpoints in this group require a current enabled administrator or readonly observer; write endpoints require a current enabled administrator. The HTTP term `account` means one managed Auth identity plus its application profile; `account.id` equals `profiles.id` and the Auth user UUID. It is not a separate accounts table. Profiles are separate from households; a household is optional for both management roles, while an enabled resident must have one.

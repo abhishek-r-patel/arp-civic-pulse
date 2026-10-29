@@ -108,6 +108,33 @@ contracts, full-result exports and PRIVATE/active-response privacy remain unchan
 
 ### Residents consolidation verification (28 October 2026)
 
+**Substring-search follow-up:** name search already matches case-insensitive
+substrings; identifier search now does too, including partial text when Settings
+suggestions exist. Migration `20261116100000` was separately authorized and
+applied only to the verified disposable database. Local checks passed 553 unit
+tests, 17 PostgreSQL tests (including all four requested Abhi name variants,
+literal wildcard characters, global identifier paging and exact-filter
+compatibility), and the focused Chromium table-controls journey with a partial
+identifier submitted through the real form. No typo-tolerant search, HTTP
+filter contract change, refreshed screenshot or production approval is claimed.
+
+**Column-control follow-up:** Residents now uses global sortable/filterable
+headings rather than a separate top filter form, with Source in the table
+toolbar and Sort & Filter on phones. Migration `20261115100000` is a new,
+read-only deployment input, now applied only to the verified disposable project
+with explicit authorization. Local verification passed 549 unit tests, 26 real
+PostgreSQL tests across the new query and legacy directory/pagination files,
+and three focused Chromium journeys across the final targeted runs (role labels,
+global query controls/320px layout and observer reads without mutation).
+A separate browser check verified the name-sort boundary between pages.
+TypeScript, lint, formatting, build and 10 guide-renderer tests also pass.
+The CLI duplicate-migration-version issue is recorded in
+[migration status](../supabase/README.md); only the new routine was applied.
+Historical browser results below remain separate evidence. Guide screenshots
+remain unchanged under the existing capture hold and predate the new controls;
+hosted application rollout, screenshot refresh and full manual accessibility
+acceptance are not claimed. No launch gate is closed.
+
 **Current follow-up:** the user approved consolidating Accounts and Flats into
 one Residents directory, with a required flat for voters in the admin create
 form and optional flats for management roles. Canonical routes now use

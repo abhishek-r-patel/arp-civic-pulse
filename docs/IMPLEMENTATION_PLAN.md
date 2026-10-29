@@ -118,6 +118,20 @@ The compact-control follow-up replaces text navigation with labelled/titled
 icons, combines page position and exact result count in one summary, and
 automatically applies page-size selections without a separate button.
 
+The Residents table-control follow-up replaces the separate filter form with
+sortable/filterable column headings, a compact Source toolbar and all controls
+in a mobile Sort & Filter popover. Migration `20261115100000` supplies the guarded,
+globally filtered/ordered page IDs and exact metadata; existing cursor APIs and
+write operations remain unchanged. It was separately authorized and applied only
+to the verified disposable database; the duplicate local migration-version
+issue is documented in [migration status](../supabase/README.md).
+The following `20261116100000` migration adds literal identifier-contains matching
+for the Residents page; name matching already supported case-insensitive contains.
+Settings supplies suggestions rather than restricting search text. Exact account
+APIs and strict onboarding pickers remain unchanged.
+Local PostgreSQL regression checks are not a hosted
+deployment, refreshed guide capture or production-readiness approval.
+
 App Support Access, requested so the developer can review configuration and usage
 from inside the app during onboarding, replaces any hidden login or standing
 default administrator with a consented, RWA-controlled toggle in RWA Settings.

@@ -25,11 +25,18 @@ Settings → Default Households defines allowed identifiers, not assignments:
 only unassigned listed households can be chosen when configured; without a list,
 type the identifier. A resident's details page can assign or move its household
 and open its eligibility editor. Residents includes status, role, source, exact
-identifier and eligibility filters plus CSV import. Residents is the only register
+identifier-contains and eligibility filters plus CSV import. Residents is the only register
 UI route; former Accounts/Households pages return 404, with no redirects. Existing
 account and household APIs remain unchanged. Residents
-sorts by flat/name with unassigned people last and offers a no-assignment filter.
-This needs the reviewed `20261110100000_account_with_household` migration.
+defaults to flat/name sorting with unassigned people last, with sortable/filterable
+column headings and a compact Source toolbar (**Sort & Filter** on phones).
+Controls cover all matching residents before pagination, including name and
+Last Changed range filters. This also needs the reviewed
+`20261115100000_resident_table_controls` read-only RPC migration before deployment.
+It is applied only to the authorized disposable database, not real production.
+The identifier-contains follow-up additionally needs
+`20261116100000_resident_identifier_contains`: both name and identifier searches
+match anywhere, ignoring case, without wildcard syntax. Exact API filters remain unchanged.
 
 All paginated screens (Votes, Residents, Manage Votes, Audit History,
 participation and completed PUBLIC named responses) show filtered result totals,

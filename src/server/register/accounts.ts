@@ -28,6 +28,7 @@ import {
 import {
   accountListQuerySchema,
   residentListQuerySchema,
+  type ResidentTableQuery,
 } from "@/shared/contracts/admin-votes";
 import type {
   AccountProjection,
@@ -245,6 +246,75 @@ export async function listResidents(
   const byId = new Map((profiles.data ?? []).map((row) => [row.id, row]));
   const ordered = rows.map((row) => {
     const profile = byId.get(row.id);
+    if (!profile) throw new ApiError("DEPENDENCY_UNAVAILABLE");
+    return profile;
+  });
+  return { data: await projectAccounts(deps, ordered), page };
+}
+
+const tableWindowSchema = z.object({
+  ids: z.array(uuid).max(100),
+  totalCount: z.string().regex(/^\d+$/u),
+  currentPage: z.number().int().positive(),
+  totalPages: z.number().int().positive(),
+});
+
+/** Global table sorting is performed before the bounded profile/Auth enrichment. */
+export async function listResidentTable(
+  deps: RegisterDeps,
+  input: ResidentTableQuery,
+  requestedPage: number,
+): Promise<{ data: ReviewAccountProjection[]; page: PageInfo }> {
+  const validated = input;
+  const { limit, sort, direction } = validated;
+  const parsed = tableWindowSchema.safeParse(
+    await callRoutine(deps.client, "get_resident_table_page", {
+      p_page: requestedPage,
+      p_limit: limit,
+      p_sort: sort,
+      p_direction: direction,
+      p_filters: Object.fromEntries(
+        Object.entries(validated).filter(
+          ([key, value]) =>
+            !["limit", "cursor", "sort", "direction"].includes(key) &&
+            value !== undefined,
+        ),
+      ),
+    }),
+  );
+  if (!parsed.success) throw new ApiError("INTERNAL_ERROR");
+  const { ids, ...numbered } = parsed.data;
+  const total = Number(numbered.totalCount);
+  const expectedRows = Math.min(
+    limit,
+    Math.max(0, total - (numbered.currentPage - 1) * limit),
+  );
+  if (
+    !Number.isSafeInteger(total) ||
+    numbered.totalPages !== Math.max(1, Math.ceil(total / limit)) ||
+    numbered.currentPage !== Math.min(requestedPage, numbered.totalPages) ||
+    ids.length !== expectedRows ||
+    new Set(ids).size !== ids.length
+  ) {
+    throw new ApiError("INTERNAL_ERROR");
+  }
+  const page: PageInfo = {
+    limit,
+    hasMore: numbered.currentPage < numbered.totalPages,
+    nextCursor: null,
+    numbered,
+  };
+  if (!ids.length) return { data: [], page };
+  const profiles = await deps.client
+    .from("profiles")
+    .select(PROFILE_COLUMNS)
+    .in("id", ids)
+    .limit(ids.length)
+    .returns<ProfileRow[]>();
+  assertOk(profiles.error, profiles.status);
+  const byId = new Map((profiles.data ?? []).map((row) => [row.id, row]));
+  const ordered = ids.map((id) => {
+    const profile = byId.get(id);
     if (!profile) throw new ApiError("DEPENDENCY_UNAVAILABLE");
     return profile;
   });

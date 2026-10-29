@@ -4,7 +4,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Home, Save, UserPlus } from "lucide-react";
+import { ChevronDown, Home, Save, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ComboboxField } from "@/components/ui/combobox-field";
 import { ConfirmDialog } from "@/components/ui/dialog";
@@ -182,13 +182,34 @@ export function AccountCreateForm({
   }
 
   return (
-    <form onSubmit={submit} noValidate className="grid max-w-ballot gap-6">
-      <Notice tone="info" heading="Add the resident and their home together">
-        Choose the person&apos;s {terms.household} here. A {terms.household} is
-        required for a voter; management-role accounts can leave it blank. The
-        account stays suspended unless you tick Enable account now. Account
-        access and voting eligibility are separate approvals.
-      </Notice>
+    <form
+      onSubmit={submit}
+      noValidate
+      className="grid max-w-ballot gap-6 rounded-card border border-border bg-surface p-4 md:p-6"
+    >
+      <details className="group rounded-control border border-accent/30 bg-accent/5">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-control px-4 py-3 text-body font-semibold text-primary hover:bg-accent/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
+          <span>Before you add a resident</span>
+          <ChevronDown
+            aria-hidden="true"
+            className="size-5 shrink-0 text-accent transition-transform group-open:rotate-180"
+          />
+        </summary>
+        <ul className="grid list-disc gap-2 pr-4 pb-4 pl-9 text-body text-primary">
+          <li>
+            <span className="font-semibold">{terms.Household}:</span> required
+            for Voter; optional for RWA Admin and RWA ReadOnly.
+          </li>
+          <li>
+            <span className="font-semibold">Sign-in:</span> starts suspended
+            unless &quot;Enable account now&quot; is selected.
+          </li>
+          <li>
+            <span className="font-semibold">Voting:</span> eligibility is
+            approved separately from sign-in access.
+          </li>
+        </ul>
+      </details>
 
       <ErrorSummary
         failure={failure}
@@ -229,7 +250,7 @@ export function AccountCreateForm({
       />
       <SelectField
         id="managementRole"
-        label="Management role"
+        label="Role"
         hint={`Roles do not grant voting rights. Voters need their own eligible ${terms.household}; residents need one before enablement.`}
         value={isAdmin ? "rwa-admin" : isReadonly ? "rwa-readonly" : "voter"}
         onChange={(value) => {
@@ -237,9 +258,9 @@ export function AccountCreateForm({
           setIsReadonly(value === "rwa-readonly");
         }}
       >
-        <option value="voter">Voter (voter)</option>
-        <option value="rwa-admin">RWA Admin (rwa-admin)</option>
-        <option value="rwa-readonly">RWA ReadOnly (rwa-readonly)</option>
+        <option value="voter">Voter</option>
+        <option value="rwa-admin">RWA Admin</option>
+        <option value="rwa-readonly">RWA ReadOnly</option>
       </SelectField>
 
       <fieldset className="grid gap-4">
@@ -254,9 +275,12 @@ export function AccountCreateForm({
           }}
           onTextChange={setHouseholdText}
           required={!isAdmin && !isReadonly}
-          hint={`Voters: required. Management roles: optional. This is the ${terms.household} they vote for.`}
+          hint={`Voters: required. RWA Admin and RWA ReadOnly: optional. This is the ${terms.household} they vote for.`}
           error={pickError ?? fieldErrorFor(failure, "household.identifier")}
         />
+      </fieldset>
+
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
         <CheckboxField
           id="isEligible"
           name="isEligible"
@@ -266,21 +290,20 @@ export function AccountCreateForm({
           disabled={identifier === ""}
           onChange={(event) => setEligible(event.target.checked)}
         />
-      </fieldset>
-
-      <CheckboxField
-        id="enable"
-        name="enable"
-        label="Enable account now"
-        hint={
-          canEnable
-            ? "Enable now for sign-in; leave unticked to review first."
-            : `Select a ${terms.household} first to enable this resident.`
-        }
-        checked={enable && canEnable}
-        disabled={!canEnable}
-        onChange={(event) => setEnable(event.target.checked)}
-      />
+        <CheckboxField
+          id="enable"
+          name="enable"
+          label="Enable account now"
+          hint={
+            canEnable
+              ? "Enable now for sign-in; leave unticked to review first."
+              : `Select a ${terms.household} first to enable this resident.`
+          }
+          checked={enable && canEnable}
+          disabled={!canEnable}
+          onChange={(event) => setEnable(event.target.checked)}
+        />
+      </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button type="submit" loading={pending}>
@@ -771,7 +794,7 @@ export function AccountEditor({
         />
         <SelectField
           id="managementRole"
-          label="Management role"
+          label="Role"
           hint={`Roles do not grant voting rights. Voters need their own eligible ${terms.household}; residents need one before enablement.`}
           disabled={deleted}
           value={isAdmin ? "rwa-admin" : isReadonly ? "rwa-readonly" : "voter"}
@@ -780,9 +803,9 @@ export function AccountEditor({
             setIsReadonly(value === "rwa-readonly");
           }}
         >
-          <option value="voter">Voter (voter)</option>
-          <option value="rwa-admin">RWA Admin (rwa-admin)</option>
-          <option value="rwa-readonly">RWA ReadOnly (rwa-readonly)</option>
+          <option value="voter">Voter</option>
+          <option value="rwa-admin">RWA Admin</option>
+          <option value="rwa-readonly">RWA ReadOnly</option>
         </SelectField>
 
         {unchanged ? (

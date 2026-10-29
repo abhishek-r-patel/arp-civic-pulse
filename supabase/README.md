@@ -44,6 +44,8 @@ at start-up, and never uses the migration credentials.
 | `20261112100000_app_support_access` | RWA-controlled, household-free read-only App Support Access |
 | `20261113100000_readonly_household_optional` | Household-free management-role enablement without voting entitlement |
 | `20261114100000_numbered_pagination` | Authenticated, guarded filtered totals and bounded page-anchor lookup for numbered UI navigation; existing list/result routines and cursor APIs are unchanged |
+| `20261115100000_resident_table_controls` | Committee-only globally sorted/filtered resident page IDs with exact metadata; existing HTTP cursor APIs and write routines unchanged |
+| `20261116100000_resident_identifier_contains` | Literal normalized identifier substring filter in the table RPC; existing exact identifier filter retained |
 
 The latest migrations are deployment inputs, not automatically applied by the
 application. `20261109100000` and `20261110100000` were applied on 27 October 2026
@@ -51,6 +53,22 @@ only to the user-confirmed disposable project (dry run first, `--skip-vault`), n
 staging or production. Apply only after independently verifying the target and reviewing
 pending changes, outside voting windows. Local integration tests create/drop
 their own disposable databases; they do not migrate your configured hosted project.
+
+The Residents column-control upgrade additionally requires `20261115100000`.
+It passed local disposable PostgreSQL tests and was applied only to the verified
+`civic-pulse-disposable` project with explicit authorization. The CLI dry run was
+blocked by two pre-existing local files sharing version `20261105100000`
+(`add_amber_accent_palette` and `change_vote_deadline`). With separate approval,
+only `20261115100000` and its migration-ledger entry were committed atomically
+over verified TLS, followed by a schema-cache notification and grant checks.
+The duplicate-file issue remains unresolved; do not use `--include-all` or
+repair/rewrite migration history blindly. No other migration was applied.
+
+The separately authorized substring-search follow-up applied only
+`20261116100000` and its ledger entry in one TLS-verified transaction to that same
+verified disposable project, then notified PostgREST to reload its schema.
+Authenticated execution and absence of anon/service-role execution were checked.
+Historical migrations and the duplicate-file issue were left untouched.
 
 The separately authorized numbered-pagination follow-up applied
 `20261114100000` to the same disposable project, now also used by the

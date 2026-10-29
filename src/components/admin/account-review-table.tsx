@@ -1,11 +1,17 @@
 /* Page-scoped review with independent, confirmed account-access and flat-eligibility actions. */
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCheck, UserCheck } from "lucide-react";
-import { formatInstant } from "@/components/admin/format";
+import { CheckCheck, UserCheck, UserRoundPen } from "lucide-react";
+import { formatInstant, formatLocalInstant } from "@/components/admin/format";
+import { ManagementFields } from "./management-fields";
+import {
+  ResidentColumnHeader,
+  ResidentTableToolbar,
+  type ResidentTableState,
+} from "./resident-table-controls";
 import {
   AccountStatusBadge,
   EligibilityBadge,
@@ -24,14 +30,27 @@ import {
 } from "@/shared/contracts/register";
 import { apiRequest } from "@/shared/http/api-client";
 
+const subscribe = () => () => {};
+const browserTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+const serverTimezone = () => null;
+
 export function AccountReviewTable({
   accounts: initial,
   csrfToken,
+  tableState,
+  canManage,
 }: Readonly<{
   accounts: ReviewAccountProjection[];
   csrfToken: string | undefined;
+  tableState: ResidentTableState;
+  canManage: boolean;
 }>) {
   const terms = useHouseholdTerms();
+  const timezone = useSyncExternalStore(
+    subscribe,
+    browserTimezone,
+    serverTimezone,
+  );
   const router = useRouter();
   const [accounts, setAccounts] = useState(initial);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -153,6 +172,7 @@ export function AccountReviewTable({
             className="size-5 accent-accent"
             checked={selected.has(account.id)}
             disabled={
+              !canManage ||
               busy ||
               (!canReviewAccount(account, "enable") &&
                 !canReviewAccount(account, "eligible"))
@@ -191,7 +211,7 @@ export function AccountReviewTable({
     },
     {
       key: "household",
-      header: terms.identifierLabel,
+      header: terms.Household,
       cell: (account) =>
         account.household?.identifier ??
         (account.isAppSupport
@@ -201,14 +221,11 @@ export function AccountReviewTable({
             : "Assignment required before enabling"),
     },
     {
-      key: "eligibility",
-      header: "Voting eligibility",
-      cell: (account) =>
-        account.household ? (
-          <EligibilityBadge eligible={account.household.isEligible} />
-        ) : (
-          "Not assigned"
-        ),
+      key: "status",
+      header: "Status",
+      cell: (account) => (
+        <AccountStatusBadge status={account.status} iconOnly />
+      ),
     },
     {
       key: "role",
@@ -222,14 +239,32 @@ export function AccountReviewTable({
       ),
     },
     {
-      key: "status",
-      header: "Account status",
-      cell: (account) => <AccountStatusBadge status={account.status} />,
+      key: "eligibility",
+      header: "Voting Eligibility",
+      cell: (account) =>
+        account.household ? (
+          <EligibilityBadge eligible={account.household.isEligible} />
+        ) : (
+          "Not assigned"
+        ),
     },
     {
       key: "updated",
-      header: "Last changed",
-      cell: (account) => formatInstant(account.updatedAt),
+      header: "Last Changed",
+      cell: (account) => (
+        <time
+          dateTime={account.updatedAt}
+          title={
+            timezone
+              ? `Your time zone: ${timezone}`
+              : "UTC (before local display loads)"
+          }
+        >
+          {timezone
+            ? formatLocalInstant(account.updatedAt, timezone)
+            : formatInstant(account.updatedAt)}
+        </time>
+      ),
     },
     {
       key: "manage",
@@ -237,52 +272,92 @@ export function AccountReviewTable({
       cell: (account) => (
         <Link
           href={`/admin/residents/${account.id}`}
-          className="inline-flex touch-target items-center font-semibold text-accent underline"
+          aria-label={`Manage ${account.representativeName}`}
+          title={`Manage ${account.representativeName}`}
+          className="inline-flex size-12 items-center justify-center rounded-control text-accent hover:bg-accent/10"
         >
-          Manage<span className="sr-only"> {account.representativeName}</span>
+          <UserRoundPen aria-hidden="true" className="size-5" />
         </Link>
       ),
     },
   ];
+  const sortKeys: Readonly<Record<string, ResidentTableState["sort"]>> = {
+    name: "representative",
+    household: "household",
+    status: "status",
+    role: "role",
+    eligibility: "eligibility",
+    updated: "updated",
+  };
+  const tableColumns = columns.map(
+    (column): Column<ReviewAccountProjection> => {
+      const key = sortKeys[column.key];
+      if (!key) return column;
+      return {
+        ...column,
+        sortDirection:
+          tableState.sort === key
+            ? tableState.direction === "asc"
+              ? "ascending"
+              : "descending"
+            : undefined,
+        headerContent: (
+          <ResidentColumnHeader
+            state={tableState}
+            column={key}
+            title={column.header}
+          />
+        ),
+      };
+    },
+  );
   return (
     <div data-account-review className="grid gap-5">
-      <div className="flex flex-wrap items-center gap-4 border-b border-border pb-5">
-        <label className="inline-flex touch-target items-center gap-2">
-          <input
-            ref={selectPage}
-            type="checkbox"
-            className="size-5 accent-accent"
-            checked={allSelected}
-            disabled={busy || !selectable.length}
-            onChange={(event) =>
-              setSelected(
-                event.target.checked
-                  ? new Set(selectable.map((account) => account.id))
-                  : new Set(),
-              )
-            }
-          />
-          Select All on This Page
-        </label>
-        <span role="status" className="font-semibold text-accent tabular-nums">
-          {selected.size} selected{busy ? `; ${completed} completed` : ""}
-        </span>
-        <Button
-          disabled={busy || !enable.length}
-          onClick={() => setAction("enable")}
-        >
-          <UserCheck aria-hidden="true" className="size-5" />
-          Enable Selected ({enable.length})
-        </Button>
-        <Button
-          variant="secondary"
-          disabled={busy || !eligible.length}
-          onClick={() => setAction("eligible")}
-        >
-          <CheckCheck aria-hidden="true" className="size-5" />
-          Make Eligible ({eligible.length})
-        </Button>
-      </div>
+      <ResidentTableToolbar state={tableState} />
+      <ManagementFields canManage={canManage}>
+        <div className="flex flex-wrap items-center gap-4 border-b border-border pb-5">
+          <label className="inline-flex touch-target items-center gap-2">
+            <input
+              ref={selectPage}
+              type="checkbox"
+              className="size-5 accent-accent"
+              checked={allSelected}
+              disabled={busy || !selectable.length}
+              onChange={(event) =>
+                setSelected(
+                  event.target.checked
+                    ? new Set(selectable.map((account) => account.id))
+                    : new Set(),
+                )
+              }
+            />
+            Select All
+          </label>
+          <span
+            role="status"
+            className="font-semibold text-accent tabular-nums"
+          >
+            {selected.size} selected{busy ? `; ${completed} completed` : ""}
+          </span>
+          <div className="ml-auto flex max-w-full flex-wrap justify-end gap-4">
+            <Button
+              disabled={busy || !enable.length}
+              onClick={() => setAction("enable")}
+            >
+              <UserCheck aria-hidden="true" className="size-5" />
+              Enable Selected ({enable.length})
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={busy || !eligible.length}
+              onClick={() => setAction("eligible")}
+            >
+              <CheckCheck aria-hidden="true" className="size-5" />
+              Make Eligible ({eligible.length})
+            </Button>
+          </div>
+        </div>
+      </ManagementFields>
       {problem ? (
         <Notice tone="error" heading="Review before retrying">
           <p>{problem}</p>
@@ -299,7 +374,7 @@ export function AccountReviewTable({
       ) : null}
       <DataTable
         caption="Account access and voting eligibility review"
-        columns={columns}
+        columns={tableColumns}
         rows={accounts}
         rowKey={(account) => account.id}
       />

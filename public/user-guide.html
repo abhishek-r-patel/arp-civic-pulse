@@ -1122,14 +1122,16 @@
         </figcaption>
       </figure>
       <p>
-        The <strong>Management role</strong> selector assigns exactly one of
-        Voter (<code>voter</code>), RWA Admin (<code>rwa-admin</code>) or RWA
-        ReadOnly (<code>rwa-readonly</code>). Only an enabled RWA Admin can
-        change roles. A household is optional for an RWA ReadOnly account, just
-        as for an RWA Admin: it can be enabled without one, in which case it
-        reads the authorized management scope but has no ballot. Account role is
-        separate from household eligibility and frozen vote entitlement. The
-        database protects the final enabled RWA Admin from removal.
+        The <strong>Role</strong> selector shows <strong>Voter</strong>,
+        <strong>RWA Admin</strong> and <strong>RWA ReadOnly</strong>, without
+        repeating their internal codes. The same labels are used when adding or
+        editing a resident and filtering the Residents list. Only an enabled RWA
+        Admin can change roles. A household is optional for an RWA ReadOnly
+        account, just as for an RWA Admin: it can be enabled without one, in
+        which case it reads the authorized management scope but has no ballot.
+        Account role is separate from household eligibility and frozen vote
+        entitlement. The database protects the final enabled RWA Admin from
+        removal.
       </p>
       <figure class="wide">
         <img
@@ -1206,13 +1208,13 @@
         its household in one step. Enter the email and resident name, choose the
         role, then choose the household by its
         <strong>Flat Number</strong> field. A voter must have a household
-        selected before this form can save; management-role accounts can leave
-        it blank. When Settings → Default Households is set, start typing or
-        open the list and pick an unassigned entry. Settings defines allowed
-        identifiers, not resident assignments; saving creates the assignment.
-        Add a missing identifier in Settings first. With no list, type the
-        identifier. Each household has one representative account; assigned
-        identifiers cannot be chosen again.
+        selected before this form can save; RWA Admin and RWA ReadOnly accounts
+        can leave it blank. When Settings → Default Households is set, start
+        typing or open the list and pick an unassigned entry. Settings defines
+        allowed identifiers, not resident assignments; saving creates the
+        assignment. Add a missing identifier in Settings first. With no list,
+        type the identifier. Each household has one representative account;
+        assigned identifiers cannot be chosen again.
       </p>
       <p>
         Tick <strong>Eligible to vote</strong> if the household may take part in
@@ -1221,7 +1223,17 @@
         implies eligibility. A household conflict prevents combined
         profile/assignment creation. Auth provisioning is a separate service
         step; if enablement is incomplete, the saved resident stays suspended
-        and the page explains recovery.
+        and the page explains recovery. The complete Add Resident form has a
+        subtle border. The two checkboxes share a row when space permits and
+        wrap on narrow screens; their <strong>(i)</strong> help remains
+        available. Existing screenshots predate this border and checkbox-row
+        adjustment.
+      </p>
+      <p>
+        The <strong>Before you add a resident</strong> summary is collapsed
+        initially. Open it for three short reminders about household assignment,
+        sign-in access and voting eligibility. Field-specific guidance remains
+        available beside each label through its <strong>(i)</strong> control.
       </p>
       <p>
         Choose <strong>Manage</strong> in Residents to edit details, role or
@@ -1283,19 +1295,54 @@
       <p>
         The pictures below show the step-by-step path: an account created
         without a flat, refused enablement, then a flat assigned from the
-        account page.
+        account page. Residents screenshots retain the earlier filter layout;
+        use the current column controls described below.
       </p>
       <p>
-        Use the Residents <strong>Status</strong>, <strong>Role</strong>,
-        <strong>Source</strong>, <strong>Voting eligibility</strong> and
-        <strong>Exact identifier</strong> filters to find people and their
-        assignments together. The list defaults to Voters; choose All Roles to
-        include management accounts. An unassigned account matches neither
-        Eligible nor Not eligible; choose <strong>No assignment</strong> (worded
-        with your configured household label) to find only those accounts, or
-        Any eligibility to include them. Rows sort by flat then name, with
-        unassigned people last. <strong>Import CSV</strong> is available on this
-        same page. Use <strong>Residents</strong> directly. Former Accounts and
+        Use the filter button beside a Residents column heading to find people
+        and their assignments together. <strong>Representative</strong> searches
+        names (not email); <strong>Status</strong>, <strong>Role</strong>,
+        <strong>Voting Eligibility</strong>, the configured identifier (for
+        example <strong>Flat Number</strong>) and
+        <strong>Last Changed</strong> have their own filters. Date ranges use
+        your browser time zone: <strong>Changed From</strong> includes that
+        instant, <strong>Changed Before</strong> excludes it.
+        <strong>Source</strong> is in the compact table toolbar. Single-field
+        popups show <strong>Filter [column]</strong> and the control directly,
+        without repeating the field label (for example
+        <strong>Filter Flat</strong> followed by its input). Date ranges retain
+        <strong>Changed From / Changed Before</strong> labels; the multi-field
+        phone panel still labels each field. Representative and identifier
+        filters match text anywhere, ignoring case:
+        <strong>Abhi</strong> matches <strong>abhijin</strong>,
+        <strong>Abhishek</strong>, <strong>ABHILASH</strong> and
+        <strong>Dhvabhi</strong>. Type the text without <code>*</code> or
+        <code>%</code>; those characters are literal, not wildcards. Other
+        active filters still restrict the results. Identifier suggestions come
+        from Default Households in RWA Settings, including already assigned
+        entries, but you can enter any partial identifier without choosing a
+        suggestion. With no Settings list, the field is a plain text box. Leave
+        it blank to include all identifiers. Existing bookmarked identifier
+        filters now use contains matching too. On phones, open
+        <strong>Sort &amp; Filter</strong> for all filters and ordering. The old
+        separate top filter form is removed. Filter panels have labels above
+        full-width controls and no redundant optional markers. The identifier
+        filter has no <strong>(i)</strong> control. Source choices are
+        <strong>Any source</strong>, <strong>Self-registered</strong> and
+        <strong>Admin-registered</strong>. The list defaults to Voters; choose
+        All Roles to include management accounts. An unassigned account matches
+        neither Eligible nor Not eligible; choose
+        <strong>No assignment</strong> (worded with your configured household
+        label) to find only those accounts, or Any eligibility to include them.
+        Select a sortable column heading to order all matching residents; select
+        it again to reverse the direction. Sorting and filtering apply across
+        pages, not only the visible rows, and restart at page 1. Applied filters
+        show an asterisk beside their button.
+        <strong>Reset Table</strong> restores the Voter filter and flat/name
+        ascending order, with unassigned people last.
+        <strong>Import CSV</strong> is available on this same page. ReadOnly
+        observers can use the table controls but cannot select or change
+        residents. Use <strong>Residents</strong> directly. Former Accounts and
         Flats page links are no longer supported and show Page not found;
         replace any bookmarks with Residents.
       </p>
@@ -1329,9 +1376,45 @@
         </figcaption>
       </figure>
       <p>
+        The toolbar shows <strong>Select All</strong> and the selection count on
+        the left, with action buttons right-aligned.
+        <strong>Select All</strong> selects actionable rows on the current page
+        only.
+      </p>
+      <p>
+        The Residents columns are <strong>Select</strong>,
+        <strong>Representative</strong>, <strong>Flat</strong> (or your
+        configured household name), <strong>Status</strong>,
+        <strong>Role</strong>, <strong>Voting Eligibility</strong>,
+        <strong>Last Changed</strong> and <strong>Actions</strong>. Last Changed
+        uses your browser/device time zone without repeating a zone suffix;
+        hover over a date to see the zone. Until the browser loads, dates are
+        explicitly labelled UTC. It tracks changes to the account profile, not
+        separate household eligibility edits. Voting deadlines still use the RWA
+        time zone. Pages throughout the app now use the available window width
+        with small side gutters, giving tables more room on wide screens.
+        Individual forms and ballots keep their narrower readable layout.
+        Existing guide screenshots predate this width adjustment. Form-focused
+        pages center their title, description, guidance and controls together in
+        a readable column: Add/Manage Resident, eligibility, RWA Settings, vote
+        setup/detail, ballot preview and voting. Sign-in, registration and
+        contact already follow this layout. Text remains left-aligned within the
+        centered column; tables and results workspaces retain the wider layout.
+        Page descriptions also expand beside the action buttons instead of
+        staying in a narrow column; on phones the actions stack below. Status
+        uses a check, pause or ban icon for Enabled, Suspended or Deleted. Hover
+        for its name, or tap/click the icon (Enter/Space with keyboard focus) to
+        reveal the label; screen readers retain the full name. In
+        <strong>Actions</strong>, select the person/edit icon to manage that
+        resident. Hover for <strong>Manage [resident name]</strong>; keyboard
+        and screen-reader navigation retain the same named link. ReadOnly
+        observers can open it to inspect details without editing.
+      </p>
+      <p>
         <strong>Enable Selected</strong> and <strong>Make Eligible</strong> are
-        separate page-local operations. Selections cover the current page; they
-        do not alter a frozen electorate. The default role filter is Voters
+        separate page-local operations. Selections cover the current page and
+        clear when sorting, filtering, changing pages or page size; they do not
+        alter a frozen electorate. The default role filter is Voters
         (<code>voter</code>). Choose All Roles or RWA Admin
         (<code>rwa-admin</code>) explicitly before selecting an RWA Admin for
         enablement. Each account commits separately; after a failure, refresh
