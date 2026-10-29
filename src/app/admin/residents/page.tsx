@@ -6,7 +6,6 @@ import { LinkButton } from "@/components/ui/button";
 import { EmptyState, PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { Pagination } from "@/components/ui/pagination";
-import { WelcomeMessage } from "@/components/ui/rwa-branding";
 import { ApiError } from "@/server/http/errors";
 import { readPageNumber } from "@/server/http/numbered-page";
 import { listResidentTable } from "@/server/register/accounts";
@@ -133,7 +132,6 @@ export default async function ResidentsPage({
           </div>
         }
       />
-      <WelcomeMessage message={deps.branding.welcomeMessage} />
 
       {flash ? (
         <Notice tone="success" heading={flash}>

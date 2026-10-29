@@ -2,9 +2,48 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { AccountStatusBadge } from "@/components/ui/badges";
+import {
+  AccountStatusBadge,
+  RegistrationSourceBadge,
+  RoleBadge,
+} from "@/components/ui/badges";
 
 describe("account status badges", () => {
+  it.each([
+    [{ isAdmin: false }, "Voter", "success"],
+    [{ isAdmin: false, isReadonly: true }, "RWA ReadOnly", "warning"],
+    [{ isAdmin: true }, "RWA Admin", "error"],
+    [
+      { isAdmin: false, isReadonly: true, isAppSupport: true },
+      "App Support (ReadOnly)",
+      "warning",
+    ],
+  ] as const)(
+    "colours role %j without removing its label",
+    (props, label, tone) => {
+      const html = renderToStaticMarkup(createElement(RoleBadge, props));
+      expect(html).toContain(label);
+      expect(html).toContain(`border-${tone}/40`);
+      expect(html).toContain(`text-${tone}`);
+      expect(html).toContain("<svg");
+    },
+  );
+  it.each([
+    [true, "Self-registered"],
+    [false, "Admin-registered"],
+  ] as const)(
+    "names registration source %s for hover, keyboard and touch",
+    (selfRegistered, label) => {
+      const html = renderToStaticMarkup(
+        createElement(RegistrationSourceBadge, { selfRegistered }),
+      );
+      expect(html).toContain(`title="${label}"`);
+      expect(html).toContain(`<span class="sr-only">${label}</span>`);
+      expect(html).toContain(selfRegistered ? "lucide-user" : "lucide-shield");
+      expect(html).toContain("<summary");
+      expect(html).toContain("<details");
+    },
+  );
   it.each([
     ["ENABLED", "Enabled"],
     ["SUSPENDED", "Suspended"],

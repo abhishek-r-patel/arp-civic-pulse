@@ -988,8 +988,10 @@
                 >
               </td>
               <td>
-                Plain-text signed-in footer contact block and welcome message
-                shown to residents and administrators.
+                Plain-text signed-in footer contact block; welcome message
+                appears only on the resident-facing Votes route
+                (<code>/</code>), including for committee viewers, never on
+                administration screens.
               </td>
             </tr>
             <tr>
@@ -1609,10 +1611,16 @@
           >table controls</a
         >
         replace the separate Residents filter form with sortable/filterable
-        column headings, Source in a compact toolbar and all controls in
-        <strong>Sort &amp; Filter</strong> on phones. Representative and
-        identifier use literal case-insensitive substring matching; names do not
-        search Auth email. The page maps URL <code>identifier</code> to RPC
+        column headings, including the icon-only Source column immediately
+        before Actions, and all controls in
+        <strong>Sort &amp; Filter</strong> on phones. Source has no separate top
+        filter; its ascending order is Admin-registered then Self-registered,
+        reversed for descending. Migration
+        <code>20261117100000_resident_source_sort.sql</code> adds the global
+        <code>source</code> sort key without changing the existing boolean
+        source filter or API contracts. Representative and identifier use
+        literal case-insensitive substring matching; names do not search Auth
+        email. The page maps URL <code>identifier</code> to RPC
         <code>identifierContains</code> after migration
         <code>20261116100000</code>; the old exact RPC filter and cursor APIs
         remain compatible. Settings identifier suggestions accept partial text

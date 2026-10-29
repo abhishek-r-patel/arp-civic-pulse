@@ -63,6 +63,12 @@ must be 1–100 characters. Existing exact `identifier` remains supported, inclu
 for older application revisions; privileges, guards, sort order and metadata
 shape are unchanged. No wildcard operators or typo-distance search are introduced.
 
+Migration `20261117100000_resident_source_sort` adds `source` to the same
+routine's sort allowlist, ordering `self_registered` false then true ascending
+(Admin-registered then Self-registered) and the reverse descending, before
+paging. Lowercase name/UUID tie-breakers, boolean source filters, metadata and
+authenticated committee-only execution remain unchanged.
+
 The Votes concept overview reads exact counts from frozen `electorate` joined to
 vote status and, for responses, its `participation` row. Every query uses the
 verified user's client and explicitly filters the representative profile ID, even

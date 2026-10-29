@@ -26,6 +26,137 @@ test.skip(
 
 const WIDTHS = [320, 375, 768, 1280];
 
+test("Source is an icon column with global sorting and its own filter", async ({
+  page,
+}) => {
+  const admin = await provisionAdmin();
+  await seedHousehold();
+  await signInThroughUi(page, admin.email, admin.code);
+  await page.setViewportSize({ width: 1920, height: 900 });
+  await page.goto("/admin/residents?isAdmin=all&limit=10&page=2");
+  await expect(
+    page
+      .locator("[data-resident-toolbar]")
+      .getByRole("link", { name: "Reset Table", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("link", { name: "Sort Source ascending", exact: true })
+    .click();
+  await expect(page).toHaveURL(/sort=source/);
+  await expect(page).not.toHaveURL(/[?&]page=/);
+  const header = page.getByRole("columnheader", {
+    name: "Source",
+    exact: true,
+  });
+  await expect(header).toHaveAttribute("aria-sort", "ascending");
+  await expect(
+    page.getByRole("button", { name: "Filter Source", exact: true }),
+  ).toHaveCount(1);
+  const icon = page
+    .locator("tbody details summary[title='Admin-registered']")
+    .first();
+  await expect(icon).toBeVisible();
+  await expect(icon.locator(".sr-only")).toHaveText("Admin-registered");
+  await icon.click();
+  await expect(icon.locator("..")).toHaveAttribute("open");
+  await icon.click();
+  await page
+    .getByRole("link", { name: "Sort Source descending", exact: true })
+    .click();
+  await expect(header).toHaveAttribute("aria-sort", "descending");
+  for (const [label, value] of [
+    ["Self-registered", "true"],
+    ["Admin-registered", "false"],
+  ] as const) {
+    await page
+      .getByRole("button", { name: "Filter Source", exact: true })
+      .click();
+    const panel = page.getByRole("dialog", {
+      name: "Filter Source",
+      exact: true,
+    });
+    await panel.getByRole("combobox", { name: "Source", exact: true }).click();
+    await panel.getByRole("option", { name: label, exact: true }).click();
+    await panel
+      .getByRole("button", { name: "Apply Filters", exact: true })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`selfRegistered=${value}`));
+    await expect(
+      page.getByRole("heading", { name: "Residents", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.locator("tbody details summary").filter({
+        has: page.locator(".sr-only", {
+          hasText:
+            label === "Self-registered"
+              ? "Admin-registered"
+              : "Self-registered",
+        }),
+      }),
+    ).toHaveCount(0);
+  }
+  await page.setViewportSize({ width: 320, height: 900 });
+  await page
+    .getByRole("button", { name: "Sort & Filter", exact: true })
+    .click();
+  const mobile = page.getByRole("dialog", {
+    name: "Sort & Filter",
+    exact: true,
+  });
+  await mobile.getByRole("combobox", { name: "Sort By", exact: true }).click();
+  await mobile.getByRole("option", { name: "Source", exact: true }).click();
+  await mobile
+    .getByRole("button", { name: "Apply Filters", exact: true })
+    .click();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+  ).toBe(false);
+});
+
+test("configured welcome message stays on resident Votes, not administration screens", async ({
+  page,
+}) => {
+  const admin = await provisionAdmin();
+  await signInThroughUi(page, admin.email, admin.code);
+  const branding = await asUser<{ welcomeMessage: string }>(
+    admin.id,
+    "public.get_rwa_branding()",
+    [],
+  );
+  await page.goto("/");
+  const message = page.getByRole("region", {
+    name: "Message from your RWA",
+    exact: true,
+  });
+  if (branding.welcomeMessage) {
+    await expect(message).toHaveText(branding.welcomeMessage);
+  } else {
+    await expect(message).toHaveCount(0);
+  }
+  for (const path of ["/admin/residents", "/admin/votes"]) {
+    await page.goto(path);
+    await expect(
+      page.getByRole("heading", {
+        name: path.endsWith("residents") ? "Residents" : "Manage Votes",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(message).toHaveCount(0);
+  }
+  await page.goto("/admin/settings");
+  await page
+    .getByLabel("Information about Welcome Message", { exact: true })
+    .click();
+  await expect(
+    page.getByText(
+      "Appears only on the resident-facing Votes page, not administration screens",
+      { exact: false },
+    ),
+  ).toBeVisible();
+});
+
 test("form-focused pages center their heading and controls while directories stay wide", async ({
   page,
 }) => {
@@ -179,13 +310,14 @@ test("resident role options show names without internal codes", async ({
           name: "Account access and voting eligibility review",
         })
         .getByRole("columnheader");
-      await expect(headers).toHaveCount(8);
+      await expect(headers).toHaveCount(9);
       for (const [index, title] of [
         [1, "Representative"],
         [3, "Status"],
         [4, "Role"],
         [5, "Voting Eligibility"],
         [6, "Last Changed"],
+        [7, "Source"],
       ] as const) {
         await expect(headers.nth(index)).toHaveAttribute("aria-label", title);
       }

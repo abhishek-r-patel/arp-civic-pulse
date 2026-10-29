@@ -235,7 +235,18 @@ assignments together. **Representative** searches names (not email); **Status**,
 **Role**, **Voting Eligibility**, the configured identifier (for example
 **Flat Number**) and **Last Changed** have their own filters. Date ranges use your
 browser time zone: **Changed From** includes that instant, **Changed Before**
-excludes it. **Source** is in the compact table toolbar.
+excludes it. **Source**, immediately before Actions, has its own sortable heading
+and column filter, not a separate top filter. Its icon shows **Self-registered**
+or **Admin-registered** on hover or click/tap (person and shield icons,
+respectively); ascending puts Admin-registered
+first and descending puts Self-registered first. The old self-registration
+caption below a name is replaced by this column. Existing screenshots predate it.
+**Reset Table** sits beside Select All and the selection count in the same
+toolbar as the right-aligned bulk actions, rather than in a separate row.
+Role badges use green for Voter, amber for RWA ReadOnly (including App Support)
+and red for RWA Admin, with text and icons retained. These colours describe the
+role, not whether the account is enabled or eligible. Existing screenshots
+predate these role colours.
 Single-field popups show **Filter [column]** and the control directly, without
 repeating the field label (for example **Filter Flat** followed by its input).
 Date ranges retain **Changed From / Changed Before** labels; the multi-field
@@ -337,7 +348,7 @@ Use the household register to add/change identifiers, assignments and eligibilit
 
 The alias appears in the compact header; the full name appears on vote/result pages and exports. Address and configured contacts appear only in their documented footer/privacy/PDF locations. The household-label suggestions are display values, not aliases for stored identifiers. **Default Households** offers up to 1000 unique identifiers (up to 100 characters each); **RWA Positions** offers up to 50 unique office names (up to 200 characters each). These are suggestions only and never create register entries or offices until an administrator selects the relevant action. When **Default Households** is not empty it is also the list residents choose from on the public **Register** page and the list administrators choose from when adding or moving an account's household (anyone opening that page can see the identifiers, but not names or which are taken), and self-registration accepts only those entries; leave it blank to let residents type their identifier.
 
-More specifically, the alias appears below the compact Civic Pulse brand and in the sign-in identity; the full name appears on vote/results/home pages, exports and the footer. Address, email, phone and website are shown only in configured public/signed-in contact locations. Accent colour changes links/buttons/highlights. The welcome message appears on Votes, Households and Manage Votes. Empty optional values stay hidden. Changing these values applies to existing results as well as future screens; the vote's saved RWA name is internal history, not the current display name.
+More specifically, the alias appears below the compact Civic Pulse brand and in the sign-in identity; the full name appears on vote/results/home pages, exports and the footer. Address, email, phone and website are shown only in configured public/signed-in contact locations. Accent colour changes links/buttons/highlights. The welcome message appears only on the resident-facing Votes page, not Residents or Manage Votes. Empty optional values stay hidden. Changing these values applies to existing results as well as future screens; the vote's saved RWA name is internal history, not the current display name. Existing guide screenshots predate this message-placement change.
 
 ![RWA Admin 48: RWA profile, appearance, wording and suggestion settings](./images/user-guide/rwa-admin/48-rwa-settings.png)
 

@@ -57,6 +57,9 @@ describe("resident table controls", () => {
       direction: "asc",
       limit: 25,
     });
+    expect(residentTableQuerySchema.parse({ sort: "source" }).sort).toBe(
+      "source",
+    );
     for (const bad of [
       { sort: "email" },
       { direction: "sideways" },

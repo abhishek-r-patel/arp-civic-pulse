@@ -72,6 +72,14 @@ same enable/eligibility actions. This needs the reviewed
 
 ## Source of truth
 
+Commit titles use scoped Conventional Commits: `type(scope): imperative summary`
+(for example `feat(admin): add resident source sorting`). Generate one message
+with one title, a blank line and ordinary `- ` bullet points, not multiple
+Conventional Commit titles. The workspace
+[VS Code settings](./.vscode/settings.json) configure Source Control's
+**Generate Commit Message** action with this rule; review generated messages
+before committing. Shared agent guidance lives in [docs/AGENTS.md](./docs/AGENTS.md).
+
 ### Appearance Review Slice
 
 Platinum light and Obsidian dark appearance are available through the header's

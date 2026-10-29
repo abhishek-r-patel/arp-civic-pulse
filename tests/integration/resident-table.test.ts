@@ -77,7 +77,14 @@ describe.skipIf(!hasDatabase)("resident table windows", () => {
     ]);
   });
 
-  it.each(["representative", "status", "role", "eligibility", "updated"])(
+  it.each([
+    "representative",
+    "status",
+    "source",
+    "role",
+    "eligibility",
+    "updated",
+  ])(
     "keeps %s ordering consistent between full and paged reads",
     async (sort) => {
       for (const direction of ["asc", "desc"]) {
@@ -93,6 +100,53 @@ describe.skipIf(!hasDatabase)("resident table windows", () => {
       }
     },
   );
+
+  it("sorts mixed registration sources globally in both directions and keeps source filtering", async () => {
+    await db.asSuperuser(async (client) => {
+      await client.query("begin");
+      try {
+        await client.query("set local role cp_owner");
+        await client.query(
+          "update public.profiles set self_registered = true where id = any($1::uuid[])",
+          [[world.bob.id, world.dave.id]],
+        );
+        await client.query("set local role authenticated");
+        await client.query(
+          "select set_config('request.jwt.claims', $1, true)",
+          [JSON.stringify({ role: "authenticated", sub: observer })],
+        );
+        const read = async (direction: string, page: number, filters = {}) =>
+          (
+            await client.query<{ value: Window }>(
+              "select public.get_resident_table_page($1,2,$2::jsonb,'source',$3) value",
+              [page, JSON.stringify(filters), direction],
+            )
+          ).rows[0]?.value ??
+          (() => {
+            throw new Error("Missing source-sort window");
+          })();
+        const asc = [];
+        const desc = [];
+        for (const page of [1, 2, 3]) {
+          asc.push(...(await read("asc", page)).ids);
+          desc.push(...(await read("desc", page)).ids);
+        }
+        expect(asc.slice(-2)).toEqual([world.bob.id, world.dave.id]);
+        expect(desc.slice(0, 2)).toEqual([world.bob.id, world.dave.id]);
+        expect(await read("asc", 1, { selfRegistered: true })).toMatchObject({
+          ids: [world.bob.id, world.dave.id],
+          totalCount: "2",
+          totalPages: 1,
+        });
+        expect(await read("desc", 1, { selfRegistered: false })).toMatchObject({
+          totalCount: "4",
+          totalPages: 2,
+        });
+      } finally {
+        await client.query("rollback");
+      }
+    });
+  });
 
   it("uses the displayed values for name, status and role ordering", async () => {
     expect(

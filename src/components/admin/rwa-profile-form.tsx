@@ -272,7 +272,7 @@ export function RwaProfileForm({
         name="welcomeMessage"
         label="Welcome Message"
         showOptional={false}
-        hint={`Plain text (max ${WELCOME_MESSAGE_MAX_LENGTH} characters). Appears on Votes, ${preview.Households} and Manage Votes; blank hides it.`}
+        hint={`Plain text (max ${WELCOME_MESSAGE_MAX_LENGTH} characters). Appears only on the resident-facing Votes page, not administration screens; blank hides it.`}
         maxLength={WELCOME_MESSAGE_MAX_LENGTH}
         value={profile.welcomeMessage}
         onChange={(event) => update("welcomeMessage", event.target.value)}

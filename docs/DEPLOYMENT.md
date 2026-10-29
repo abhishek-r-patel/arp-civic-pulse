@@ -264,6 +264,15 @@ embedded images, print layout and **Back to Civic Pulse** on the deployed host.
 
 ## 4. Production database and migrations
 
+The Source-column follow-up extends the required ordered migration set through
+`20261117100000_resident_source_sort.sql`, beyond the earlier identifier-search
+baseline described below. Deploy it before using the `source` sort key.
+It was separately authorized and applied only to the verified
+`civic-pulse-disposable` project with its ledger entry in one verified-TLS
+transaction, followed by schema reload and grant checks. No resident records
+were changed by the migration. The duplicate historical version issue remains
+unresolved; this is neither a production migration nor production approval.
+
 The appearance review slice adds no database migration or account preference
 service. Include the locked `next-themes` dependency and allow Next's build-time
 Sora/Manrope preparation; the browser must load fonts from this application, not

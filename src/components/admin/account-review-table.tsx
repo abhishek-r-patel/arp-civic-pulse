@@ -15,6 +15,7 @@ import {
 import {
   AccountStatusBadge,
   EligibilityBadge,
+  RegistrationSourceBadge,
   RoleBadge,
 } from "@/components/ui/badges";
 import { Button } from "@/components/ui/button";
@@ -201,11 +202,6 @@ export function AccountReviewTable({
             {account.email ?? "Email unavailable"}
             {account.email && !account.emailVerifiedAt ? " - not verified" : ""}
           </span>
-          {account.selfRegistered ? (
-            <span className="text-caption font-semibold text-muted">
-              Self-registered
-            </span>
-          ) : null}
         </span>
       ),
     },
@@ -267,6 +263,15 @@ export function AccountReviewTable({
       ),
     },
     {
+      key: "source",
+      header: "Source",
+      cell: (account) => (
+        <RegistrationSourceBadge
+          selfRegistered={account.selfRegistered === true}
+        />
+      ),
+    },
+    {
       key: "manage",
       header: "Actions",
       cell: (account) => (
@@ -285,6 +290,7 @@ export function AccountReviewTable({
     name: "representative",
     household: "household",
     status: "status",
+    source: "source",
     role: "role",
     eligibility: "eligibility",
     updated: "updated",
@@ -313,51 +319,60 @@ export function AccountReviewTable({
   );
   return (
     <div data-account-review className="grid gap-5">
-      <ResidentTableToolbar state={tableState} />
-      <ManagementFields canManage={canManage}>
-        <div className="flex flex-wrap items-center gap-4 border-b border-border pb-5">
-          <label className="inline-flex touch-target items-center gap-2">
-            <input
-              ref={selectPage}
-              type="checkbox"
-              className="size-5 accent-accent"
-              checked={allSelected}
-              disabled={busy || !selectable.length}
-              onChange={(event) =>
-                setSelected(
-                  event.target.checked
-                    ? new Set(selectable.map((account) => account.id))
-                    : new Set(),
-                )
-              }
-            />
-            Select All
-          </label>
-          <span
-            role="status"
-            className="font-semibold text-accent tabular-nums"
-          >
-            {selected.size} selected{busy ? `; ${completed} completed` : ""}
-          </span>
-          <div className="ml-auto flex max-w-full flex-wrap justify-end gap-4">
-            <Button
-              disabled={busy || !enable.length}
-              onClick={() => setAction("enable")}
+      <div
+        data-resident-toolbar
+        className="flex flex-wrap items-center gap-4 border-b border-border pb-5"
+      >
+        <ManagementFields canManage={canManage}>
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="inline-flex touch-target items-center gap-2">
+              <input
+                ref={selectPage}
+                type="checkbox"
+                className="size-5 accent-accent"
+                checked={allSelected}
+                disabled={busy || !selectable.length}
+                onChange={(event) =>
+                  setSelected(
+                    event.target.checked
+                      ? new Set(selectable.map((account) => account.id))
+                      : new Set(),
+                  )
+                }
+              />
+              Select All
+            </label>
+            <span
+              role="status"
+              className="font-semibold text-accent tabular-nums"
             >
-              <UserCheck aria-hidden="true" className="size-5" />
-              Enable Selected ({enable.length})
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={busy || !eligible.length}
-              onClick={() => setAction("eligible")}
-            >
-              <CheckCheck aria-hidden="true" className="size-5" />
-              Make Eligible ({eligible.length})
-            </Button>
+              {selected.size} selected{busy ? `; ${completed} completed` : ""}
+            </span>
           </div>
+        </ManagementFields>
+        <ResidentTableToolbar state={tableState} />
+        <div className="ml-auto max-w-full">
+          <ManagementFields canManage={canManage}>
+            <div className="flex max-w-full flex-wrap justify-end gap-4">
+              <Button
+                disabled={busy || !enable.length}
+                onClick={() => setAction("enable")}
+              >
+                <UserCheck aria-hidden="true" className="size-5" />
+                Enable Selected ({enable.length})
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={busy || !eligible.length}
+                onClick={() => setAction("eligible")}
+              >
+                <CheckCheck aria-hidden="true" className="size-5" />
+                Make Eligible ({eligible.length})
+              </Button>
+            </div>
+          </ManagementFields>
         </div>
-      </ManagementFields>
+      </div>
       {problem ? (
         <Notice tone="error" heading="Review before retrying">
           <p>{problem}</p>

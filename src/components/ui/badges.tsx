@@ -10,6 +10,7 @@ import {
   Eye,
   Lock,
   PencilLine,
+  Shield,
   ShieldCheck,
   User,
 } from "lucide-react";
@@ -162,6 +163,30 @@ export function AccountStatusBadge({
   );
 }
 
+export function RegistrationSourceBadge({
+  selfRegistered,
+}: Readonly<{ selfRegistered: boolean }>) {
+  const label = selfRegistered ? "Self-registered" : "Admin-registered";
+  const Icon = selfRegistered ? User : Shield;
+  return (
+    <details className="relative inline-block">
+      <summary
+        title={label}
+        className={cn(
+          baseClasses,
+          "size-12 cursor-pointer list-none justify-center border-muted/40 bg-muted/10 text-primary [&::-webkit-details-marker]:hidden",
+        )}
+      >
+        <Icon aria-hidden="true" className="size-4" />
+        <span className="sr-only">{label}</span>
+      </summary>
+      <span className="absolute top-full left-0 z-20 mt-1 w-max rounded-control border border-border bg-surface px-3 py-2 text-caption text-primary shadow-panel">
+        {label}
+      </span>
+    </details>
+  );
+}
+
 export function RoleBadge({
   isAdmin,
   isReadonly,
@@ -178,8 +203,10 @@ export function RoleBadge({
       className={cn(
         baseClasses,
         isAdmin
-          ? "border-primary/40 bg-primary/10 text-primary"
-          : "border-muted/40 bg-muted/10 text-muted",
+          ? "border-error/40 bg-error/10 text-error"
+          : isReadonly || isAppSupport
+            ? "border-warning/40 bg-warning/5 text-warning"
+            : "border-success/40 bg-success/5 text-success",
       )}
     >
       <Icon aria-hidden="true" className="size-4" />

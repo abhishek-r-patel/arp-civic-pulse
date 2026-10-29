@@ -1,0 +1,7 @@
+{
+  "github.copilot.chat.commitMessageGeneration.instructions": [
+    {
+      "text": "Generate exactly ONE commit message for the entire supplied diff, not a list of separate commits. Format: one scoped Conventional Commit title, then one blank line, then a concise body of ordinary '- ' bullet points. The title must be type(scope): imperative summary, with a meaningful scope covering the overall change (for example admin, residents, pagination, forms, auth, docs, or ops). Never use an unscoped title such as feat: or fix:. Only the first line may have a Conventional Commit prefix; body bullets must be plain descriptions, never additional feat(...):, docs(...):, fix(...): or test(...): titles. Do not output alternatives, headings, explanations or code fences. Describe the actual diff; do not claim changes or verification not present in the context. Example format:\nfeat(admin): refine resident table controls\n\n- Add registration source sorting and filtering\n- Update related guidance and regression tests"
+    }
+  ]
+}

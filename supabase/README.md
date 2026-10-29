@@ -46,6 +46,14 @@ at start-up, and never uses the migration credentials.
 | `20261114100000_numbered_pagination` | Authenticated, guarded filtered totals and bounded page-anchor lookup for numbered UI navigation; existing list/result routines and cursor APIs are unchanged |
 | `20261115100000_resident_table_controls` | Committee-only globally sorted/filtered resident page IDs with exact metadata; existing HTTP cursor APIs and write routines unchanged |
 | `20261116100000_resident_identifier_contains` | Literal normalized identifier substring filter in the table RPC; existing exact identifier filter retained |
+| `20261117100000_resident_source_sort` | Adds global Source ordering to the committee table RPC; boolean filtering and grants unchanged |
+
+The Source column requires `20261117100000` before its sort links are used.
+It passed local PostgreSQL tests and was applied with separate explicit
+authorization only to the verified `civic-pulse-disposable` project, together
+with its ledger entry in one verified-TLS transaction and a PostgREST schema
+reload. Authenticated execute is present; anon/service-role execute is absent.
+The duplicate historical version blocker below remains. No production approval.
 
 The latest migrations are deployment inputs, not automatically applied by the
 application. `20261109100000` and `20261110100000` were applied on 27 October 2026

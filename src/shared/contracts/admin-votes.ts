@@ -350,6 +350,7 @@ export const RESIDENT_SORT_KEYS = [
   "representative",
   "household",
   "status",
+  "source",
   "role",
   "eligibility",
   "updated",

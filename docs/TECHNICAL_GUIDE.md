@@ -141,7 +141,7 @@ browser font requests never contact Google.
 | [src/app/api/admin/votes/[id]/schedule/route.ts](../src/app/api/admin/votes/[id]/schedule/route.ts) | Schedule a previewed draft and freeze it immediately. |
 | [src/app/api/admin/votes/[id]/schedule/withdraw/route.ts](../src/app/api/admin/votes/[id]/schedule/withdraw/route.ts) | Confirmed, reasoned pre-opening return to draft. |
 | [src/components/admin/rwa-profile-form.tsx](../src/components/admin/rwa-profile-form.tsx) | Administrator form for RWA identity, contact, palette, welcome message and identifier wording. |
-| [src/components/ui/rwa-branding.tsx](../src/components/ui/rwa-branding.tsx) | Plain-text signed-in footer contact block and welcome message shown to residents and administrators. |
+| [src/components/ui/rwa-branding.tsx](../src/components/ui/rwa-branding.tsx) | Plain-text signed-in footer contact block; welcome message appears only on the resident-facing Votes route (`/`), including for committee viewers, never on administration screens. |
 | [src/components/ui/info-tip.tsx](../src/components/ui/info-tip.tsx) | Compact (i) disclosure that opens on mouse hover or click/tap and closes on Escape or an outside click; used for the NOTA rule. |
 | [src/components/votes/nota-explanation.tsx](../src/components/votes/nota-explanation.tsx) | Shared NOTA rule text for the resident ballot and the administrator preview. |
 | [src/components/votes/result-bars.tsx](../src/components/votes/result-bars.tsx) | Shared result rows ("Label 4/10 40%" above a bar) for options, candidates, NOTA and turnout. |
@@ -296,7 +296,11 @@ outcome. Existing mutation/provider limits apply; the actions need no new write 
 
 The [table controls](../src/components/admin/resident-table-controls.tsx) replace
 the separate Residents filter form with sortable/filterable column headings,
-Source in a compact toolbar and all controls in **Sort & Filter** on phones.
+including the icon-only Source column immediately before Actions, and all controls in
+**Sort & Filter** on phones. Source has no separate top filter; its ascending
+order is Admin-registered then Self-registered, reversed for descending.
+Migration `20261117100000_resident_source_sort.sql` adds the global `source`
+sort key without changing the existing boolean source filter or API contracts.
 Representative and identifier use literal case-insensitive substring matching;
 names do not search Auth email. The page maps URL `identifier` to RPC
 `identifierContains` after migration `20261116100000`; the old exact RPC filter

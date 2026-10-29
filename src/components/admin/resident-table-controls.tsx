@@ -22,7 +22,7 @@ import { RESIDENT_SORT_KEYS } from "@/shared/contracts/admin-votes";
 import { useHouseholdTerms } from "@/components/ui/household-terms";
 
 type SortKey = (typeof RESIDENT_SORT_KEYS)[number];
-type FilterKey = SortKey | "source";
+type FilterKey = SortKey;
 export type ResidentTableState = Readonly<{
   params: Readonly<Record<string, string | undefined>>;
   identifiers: readonly string[];
@@ -339,6 +339,7 @@ function FilterForm({
             <option value="representative">Representative</option>
             <option value="household">{terms.Household}</option>
             <option value="status">Status</option>
+            <option value="source">Source</option>
             <option value="role">Role</option>
             <option value="eligibility">Voting Eligibility</option>
             <option value="updated">Last Changed</option>
@@ -415,15 +416,6 @@ export function ResidentTableToolbar({
         <span className="text-caption">Sort &amp; Filter</span>
         <TablePopover label="Sort & Filter">
           <FilterForm state={state} all />
-        </TablePopover>
-      </div>
-      <div className="hidden items-center md:flex">
-        <span className="text-caption">Source</span>
-        <TablePopover
-          label="Filter Source"
-          active={Boolean(state.params.selfRegistered)}
-        >
-          <FilterForm state={state} column="source" />
         </TablePopover>
       </div>
       <Link

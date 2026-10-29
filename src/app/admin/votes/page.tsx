@@ -12,7 +12,6 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { SelectField } from "@/components/ui/field";
 import { EmptyState, PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
-import { WelcomeMessage } from "@/components/ui/rwa-branding";
 import { Pagination } from "@/components/ui/pagination";
 import { DeadlineCountdown } from "@/components/votes/deadline-countdown";
 import { ApiError } from "@/server/http/errors";
@@ -140,7 +139,6 @@ export default async function VotesPage({
           </LinkButton>
         }
       />
-      <WelcomeMessage message={deps.branding.welcomeMessage} />
 
       {flash ? (
         <Notice tone="success" heading={flash}>
