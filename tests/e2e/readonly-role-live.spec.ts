@@ -58,7 +58,7 @@ test("committee observers can read management pages and still cast their own bal
   ).toBeDisabled();
   await page.goto("/admin/votes/new");
   await expect(
-    page.getByRole("radio", { name: /PUBLIC voting/ }),
+    page.getByRole("radio", { name: /PUBLIC Voting/ }),
   ).toBeDisabled();
 
   await page.goto(`/votes/${vote.id}`);

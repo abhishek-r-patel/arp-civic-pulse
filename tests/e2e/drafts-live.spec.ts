@@ -56,14 +56,14 @@ test.describe("creating a draft", () => {
     ).toBeVisible();
     await expect(page).toHaveURL(/\/admin\/votes\/new$/u);
 
-    await page.getByRole("radio", { name: /^PRIVATE voting/ }).check();
+    await page.getByRole("radio", { name: /^PRIVATE Voting/ }).check();
     await page.getByRole("button", { name: "Create Draft" }).click();
     await expect(
       page.getByRole("heading", { level: 1, name: "Untitled draft" }),
     ).toBeVisible();
     await expect(page.getByText(/Draft created\./)).toBeVisible();
     await expect(
-      page.getByRole("radio", { name: /^PRIVATE voting/ }),
+      page.getByRole("radio", { name: /^PRIVATE Voting/ }),
     ).toBeChecked();
   });
 });
@@ -111,7 +111,7 @@ test.describe("setting up a PUBLIC vote", () => {
       ballot.getByRole("heading", { name: "Repaint the clubhouse?" }),
     ).toBeVisible();
     await expect(
-      ballot.getByText("PUBLIC voting", { exact: true }),
+      ballot.getByText("PUBLIC Voting", { exact: true }),
     ).toBeVisible();
     await expect(ballot.getByText("Draft", { exact: true })).toBeVisible();
     await expect(ballot.getByText(OPEN_NOTICE)).toBeVisible();
@@ -160,7 +160,7 @@ test.describe("setting up a PUBLIC vote", () => {
     await expect(row).toBeVisible();
 
     await page.getByRole("button", { name: "Filter Type" }).click();
-    await chooseDropdownOption(page, "Voting Type", "PRIVATE voting");
+    await chooseDropdownOption(page, "Voting Type", "PRIVATE Voting");
     await page.getByRole("button", { name: "Apply Filter" }).click();
     await expect(
       page.getByRole("link", { name: /Listed question/ }),
@@ -221,7 +221,7 @@ test.describe("setting up a PRIVATE vote", () => {
     await page.getByRole("link", { name: "Preview Ballot" }).click();
     const ballot = page.getByRole("article");
     await expect(
-      ballot.getByText("PRIVATE voting", { exact: true }),
+      ballot.getByText("PRIVATE Voting", { exact: true }),
     ).toBeVisible();
     await expect(ballot.getByText(CLOSED_NOTICE)).toBeVisible();
     await expect(ballot.getByText(CLOSED_LIMITS)).toBeVisible();
@@ -269,10 +269,10 @@ test.describe("changing the voting type", () => {
     await save(page, 2);
 
     // The radio stays on PUBLIC until confirmed, so click rather than check().
-    const closed = page.getByRole("radio", { name: /^PRIVATE voting/ });
+    const closed = page.getByRole("radio", { name: /^PRIVATE Voting/ });
     await closed.click();
     const dialog = page.getByRole("dialog", {
-      name: "Change to PRIVATE voting?",
+      name: "Change to PRIVATE Voting?",
     });
     await expect(dialog).toBeVisible();
     await expect(
@@ -282,7 +282,7 @@ test.describe("changing the voting type", () => {
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
     await expect(
-      page.getByRole("radio", { name: /^PUBLIC voting/ }),
+      page.getByRole("radio", { name: /^PUBLIC Voting/ }),
     ).toBeChecked();
     await expect(page.getByLabel(/^Option 1/)).toHaveValue("Yes");
 
@@ -292,7 +292,7 @@ test.describe("changing the voting type", () => {
       .getByRole("button", { name: "Change Type" })
       .click();
     await expect(
-      page.getByRole("radio", { name: /^PRIVATE voting/ }),
+      page.getByRole("radio", { name: /^PRIVATE Voting/ }),
     ).toBeChecked();
     await expect(
       page.getByRole("button", { name: "Add Office" }),
@@ -301,7 +301,7 @@ test.describe("changing the voting type", () => {
 
     await page.reload();
     await expect(
-      page.getByRole("radio", { name: /^PRIVATE voting/ }),
+      page.getByRole("radio", { name: /^PRIVATE Voting/ }),
     ).toBeChecked();
     await expect(page.getByLabel(/^Option 1/)).toHaveCount(0);
   });

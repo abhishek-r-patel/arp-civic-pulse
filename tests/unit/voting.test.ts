@@ -10,6 +10,10 @@ import {
 describe("voting vocabulary", () => {
   it("keeps the exact API enum values", () => {
     expect(VOTING_TYPES).toEqual(["PUBLIC", "PRIVATE"]);
+    expect(VOTING_TYPE_LABELS).toEqual({
+      PUBLIC: "PUBLIC Voting",
+      PRIVATE: "PRIVATE Voting",
+    });
     expect(VOTE_STATUSES).toEqual([
       "DRAFT",
       "SCHEDULED",

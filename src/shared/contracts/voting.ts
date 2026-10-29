@@ -13,8 +13,8 @@ export type VoteStatus = (typeof VOTE_STATUSES)[number];
 
 // Voting type and lifecycle status are separate concepts and never share a label.
 export const VOTING_TYPE_LABELS: Record<VotingType, string> = {
-  PUBLIC: "PUBLIC voting",
-  PRIVATE: "PRIVATE voting",
+  PUBLIC: "PUBLIC Voting",
+  PRIVATE: "PRIVATE Voting",
 };
 
 export const VOTE_STATUS_LABELS: Record<VoteStatus, string> = {

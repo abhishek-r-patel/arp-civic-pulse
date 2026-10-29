@@ -54,7 +54,7 @@ test.describe("activation", () => {
 
     // An incomplete draft has no activation control at all.
     await page.goto("/admin/votes/new");
-    await page.getByRole("radio", { name: /^PUBLIC voting/ }).check();
+    await page.getByRole("radio", { name: /^PUBLIC Voting/ }).check();
     await page.getByRole("button", { name: "Create Draft" }).click();
     await page.getByRole("link", { name: "Preview Ballot" }).click();
     await expect(

@@ -36,7 +36,6 @@ import {
 } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
 import { useHouseholdTerms } from "@/components/ui/household-terms";
-import { privacyCopy } from "@/components/votes/privacy-notice";
 import {
   COLLECTION_LIMITS,
   normalizedKey,
@@ -64,16 +63,20 @@ const DEADLINE_MESSAGES = {
 
 function typeDescriptions(
   terms: ReturnType<typeof useHouseholdTerms>,
-): Record<VotingType, { summary: string; privacy: string }> {
-  const copy = privacyCopy(terms);
+): Record<VotingType, { summary: string; example: string; privacy: string }> {
   return {
     PUBLIC: {
-      summary: `One question with options, such as a yes/no decision. Each ${terms.household} picks one option, or several if you allow it.`,
-      privacy: copy.PUBLIC,
+      summary: "A community poll with options.",
+      example:
+        "“Should we repaint the clubhouse?” - Yes or No. Some polls allow more than one choice.",
+      privacy: `While open, eligible voters, RWA Admins, and read-only RWA observers see totals only. Voters can change their choice until closing. After closing, authorized results may show each voter's name, ${terms.identifierLabel.toLowerCase()}, and final choices.`,
     },
     PRIVATE: {
-      summary: `An election with offices and candidates. Each ${terms.household} picks one candidate or NOTA for every office.`,
-      privacy: copy.PRIVATE,
+      summary: "An election to choose people for RWA roles.",
+      example:
+        "“Who should be chair?” For each role, choose a candidate or “None of the Above” (NOTA).",
+      privacy:
+        "While open, Civic Pulse shows only how many people voted. After closing, results show totals, never an individual's choices.",
     },
   };
 }
@@ -164,9 +167,11 @@ export function NewDraftForm({ csrfToken }: NewDraftProps) {
               <span className="text-body">
                 {typeDescriptions(terms)[value].summary}
               </span>
+              <span className="text-body">
+                Example: {typeDescriptions(terms)[value].example}
+              </span>
               <span className="text-body text-muted">
-                What residents are told:{" "}
-                {typeDescriptions(terms)[value].privacy}
+                Privacy and results: {typeDescriptions(terms)[value].privacy}
               </span>
             </span>
           </label>
