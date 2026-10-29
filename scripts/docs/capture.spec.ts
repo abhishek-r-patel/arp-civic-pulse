@@ -552,7 +552,7 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     await capture(a, "15-admin-home");
     await a.goto("/admin/settings");
     await expect(
-      a.getByRole("heading", { level: 1, name: "RWA Settings" }),
+      a.getByRole("heading", { level: 1, name: "Settings" }),
     ).toBeVisible();
     const valueGuide = a
       .locator("details")

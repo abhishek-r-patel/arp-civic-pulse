@@ -136,7 +136,7 @@ deployment, refreshed guide capture or production-readiness approval.
 
 App Support Access, requested so the developer can review configuration and usage
 from inside the app during onboarding, replaces any hidden login or standing
-default administrator with a consented, RWA-controlled toggle in RWA Settings.
+default administrator with a consented, RWA-controlled toggle in Settings.
 The server-only `APP_SUPPORT_EMAIL` only enables the toggle; turning access on
 creates a single household-free, read-only `rwa-readonly` support profile
 (`profiles.is_app_support`) that signs in through the normal email OTP flow and

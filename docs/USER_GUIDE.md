@@ -189,7 +189,7 @@ Select **Sign Out** on shared devices. Signing out cannot remove files already d
 
 ### Management access and role assignment
 
-The administrator navigation includes Residents, RWA Settings, Manage Votes and Audit History. Administrators may manage these records; they do not get extra votes or vote on behalf of another household. If an administrator has an assigned eligible household included in a vote's frozen electorate, that administrator can also vote only as that household.
+The administrator navigation includes Residents, Manage Votes and Audit History. A gear link named **Settings** sits beside **Sign Out** on the right; hover over it to see its label. Administrators may manage these records; they do not get extra votes or vote on behalf of another household. If an administrator has an assigned eligible household included in a vote's frozen electorate, that administrator can also vote only as that household.
 
 ![RWA Admin 15: home screen and management navigation](./images/user-guide/rwa-admin/15-admin-home.png)
 
@@ -255,7 +255,7 @@ Representative and identifier filters match text anywhere, ignoring case:
 **Abhi** matches **abhijin**, **Abhishek**, **ABHILASH** and **Dhvabhi**.
 Type the text without `*` or `%`; those characters are literal, not wildcards.
 Other active filters still restrict the results. Identifier suggestions come from
-Default Households in RWA Settings, including already assigned entries, but you
+Default Households in Settings, including already assigned entries, but you
 can enter any partial identifier without choosing a suggestion. With no Settings
 list, the field is a plain text box. Leave it blank to include all identifiers.
 Existing bookmarked identifier filters now use contains matching too.
@@ -293,7 +293,7 @@ keep their narrower readable layout. Existing guide screenshots predate this
 width adjustment.
 Form-focused pages center their title, description, guidance and controls
 together in a readable column: Add/Manage Resident, CSV import, eligibility,
-RWA Settings, vote setup/detail, ballot preview and voting. Sign-in, registration
+Settings, vote setup/detail, ballot preview and voting. Sign-in, registration
 and contact already follow this layout. Text remains left-aligned within the
 centered column; tables and results workspaces retain the wider layout.
 Page descriptions also expand beside the action buttons instead of staying in
@@ -357,7 +357,7 @@ neutral appearance. Account-state actions still require their
 existing confirmations and do not save pending detail edits. The top Residents
 link is also navigation back to the directory. Screenshots predate this grouping.
 
-**RWA Settings** controls the full name, alias, address, email, phone, optional website, one of six contrast-checked accent colours, welcome message, household label, Number/ID identifier wording and administrator-only suggestion lists. Required fields are marked; blank optional fields are hidden. Display wording changes do not rename stored household identifiers or alter matching. Changes apply immediately, including to older votes/results. Only `rwa-admin` can save settings.
+**Settings** controls the full name, alias, address, email, phone, optional website, one of six contrast-checked accent colours, welcome message, household label, Number/ID identifier wording and administrator-only suggestion lists. Required fields are marked; blank optional fields are hidden. Display wording changes do not rename stored household identifiers or alter matching. Changes apply immediately, including to older votes/results. Only `rwa-admin` can save settings.
 
 The alias appears in the compact header; the full name appears on vote/result pages and exports. Address and configured contacts appear only in their documented footer/privacy/PDF locations. The household-label suggestions are display values, not aliases for stored identifiers. **Default Households** offers up to 1000 unique identifiers (up to 100 characters each); **RWA Positions** offers up to 50 unique office names (up to 200 characters each). These are suggestions only and never create register entries or offices until an administrator selects the relevant action. When **Default Households** is not empty it is also the list residents choose from on the public **Register** page and the list administrators choose from when adding or moving an account's household (anyone opening that page can see the identifiers, but not names or which are taken), and self-registration accepts only those entries; leave it blank to let residents type their identifier.
 
@@ -367,7 +367,7 @@ More specifically, the alias appears below the compact Civic Pulse brand and in 
 
 ### Turn App Support Access on or off
 
-RWA Settings also has an **App Support Access** control. When your deployment is
+Settings also has an **App Support Access** control. When your deployment is
 set up with a developer/support contact (`APP_SUPPORT_EMAIL`), you can turn this
 on if you would like the developer to look at your configuration from inside the
 app while you get started, and turn it off again whenever you no longer need the
@@ -473,9 +473,9 @@ Management controls remain visible but disabled. Navigation, filters, read-only 
 
 ![RWA ReadOnly 09: CSV import controls disabled](./images/user-guide/rwa-readonly/09-register-import-disabled.png)
 
-![RWA ReadOnly 10: RWA Settings read in Platinum](./images/user-guide/rwa-readonly/10-rwa-settings-read-light.png)
+![RWA ReadOnly 10: Settings read in Platinum](./images/user-guide/rwa-readonly/10-rwa-settings-read-light.png)
 
-![RWA ReadOnly 11: RWA Settings read in Obsidian](./images/user-guide/rwa-readonly/11-rwa-settings-read-dark.png)
+![RWA ReadOnly 11: Settings read in Obsidian](./images/user-guide/rwa-readonly/11-rwa-settings-read-dark.png)
 
 ![RWA ReadOnly 12: vote inventory and draft navigation](./images/user-guide/rwa-readonly/12-vote-list-read.png)
 

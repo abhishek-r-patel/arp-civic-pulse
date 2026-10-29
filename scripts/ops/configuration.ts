@@ -279,7 +279,7 @@ export function configurationReport(
   check(
     "APP_SUPPORT_ACCESS",
     accounts.enabledAppSupport === 0,
-    "App Support Access is on; the RWA should turn it off in RWA Settings once support is complete.",
+    "App Support Access is on; the RWA should turn it off in Settings once support is complete.",
     "warn",
   );
   check(

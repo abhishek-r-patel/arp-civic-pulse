@@ -376,7 +376,7 @@ export function RwaProfileForm({
         error={fieldErrorFor(failure, "rwaPositions")}
       />
       {saved ? (
-        <Notice tone="success" heading="RWA Settings Updated">
+        <Notice tone="success" heading="Settings Updated">
           The new details now appear across the app, including existing votes
           and results. Signed-in members and the public see only the parts
           described beside each field.

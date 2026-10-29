@@ -9,7 +9,14 @@ import { cn } from "./cn";
 export function NavLink({
   href,
   children,
-}: Readonly<{ href: string; children: ReactNode }>) {
+  title,
+  ariaLabel,
+}: Readonly<{
+  href: string;
+  children: ReactNode;
+  title?: string;
+  ariaLabel?: string;
+}>) {
   const pathname = usePathname();
   const current = href === "/" ? pathname === "/" : pathname.startsWith(href);
 
@@ -17,6 +24,8 @@ export function NavLink({
     <Link
       href={href}
       aria-current={current ? "page" : undefined}
+      aria-label={ariaLabel}
+      title={title}
       className={cn(
         "inline-flex touch-target items-center rounded-control px-3 py-2 text-body font-semibold",
         current

@@ -1,6 +1,7 @@
 // Session-aware server shell with safe public navigation and contextual breadcrumbs.
 import type { ReactNode } from "react";
 import Image from "next/image";
+import { Settings } from "lucide-react";
 import { SignOutButton } from "@/components/access/sign-out-button";
 import { getSessionState } from "@/server/authorization/account";
 import { getCsrfToken } from "@/server/http/csrf-cookie";
@@ -66,8 +67,7 @@ export async function AppShell({
         </a>
         <header className="border-b border-border bg-surface">
           {/* Row one: title and signed-in identity. Row two: tabs on the left
-              and Sign Out on the right, so the button stays beside the tabs
-              at every width instead of wrapping onto its own line. */}
+              and Settings/Sign Out actions on the right. */}
           <div className="mx-auto grid w-full max-w-content gap-1 px-4 py-2 md:px-6">
             <div className="flex items-center justify-between gap-3">
               <a
@@ -124,13 +124,21 @@ export async function AppShell({
                   {canViewAdministration(account) ? (
                     <>
                       <NavLink href="/admin/residents">Residents</NavLink>
-                      <NavLink href="/admin/settings">RWA Settings</NavLink>
                       <NavLink href="/admin/votes">Manage Votes</NavLink>
                       <NavLink href="/admin/audit">Audit History</NavLink>
                     </>
                   ) : null}
                 </nav>
-                <div className="shrink-0">
+                <div className="flex shrink-0 items-center gap-1">
+                  {canViewAdministration(account) ? (
+                    <NavLink
+                      href="/admin/settings"
+                      ariaLabel="Settings"
+                      title="Settings"
+                    >
+                      <Settings aria-hidden="true" className="size-5" />
+                    </NavLink>
+                  ) : null}
                   <SignOutButton csrfToken={csrfToken} />
                 </div>
               </div>

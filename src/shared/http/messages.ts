@@ -19,7 +19,7 @@ const CONFLICT_REASONS: Record<string, string> = {
   HOUSEHOLD_REQUIRED:
     "Residents need an assigned household. Assign one first, or keep the RWA Admin or RWA ReadOnly role.",
   APP_SUPPORT_MANAGED:
-    "This is the App Support account. Turn it on or off from RWA Settings, under App Support Access.",
+    "This is the App Support account. Turn it on or off from Settings, under App Support Access.",
   APP_SUPPORT_ACCOUNT:
     "The App Support account cannot represent a household or vote. Choose a different account.",
   APP_SUPPORT_EMAIL_IN_USE:

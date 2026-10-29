@@ -151,7 +151,7 @@ browser font requests never contact Google.
 | [src/shared/contracts/household-terms.ts](../src/shared/contracts/household-terms.ts) | Household label and Number/ID identifier-kind contracts, suggestions, and `buildHouseholdTerms` (singular, plural, sentence-case and identifier wording). |
 | [src/components/ui/household-terms.tsx](../src/components/ui/household-terms.tsx) | Client provider and `useHouseholdTerms()` hook; the app shell supplies the current terms. |
 | [src/shared/contracts/rwa-profile.ts](../src/shared/contracts/rwa-profile.ts) | Strict RWA profile, member branding and public identity projections, palette list and telephone link helper. |
-| [src/app/admin/settings/page.tsx](../src/app/admin/settings/page.tsx) | Protected RWA Settings screen. |
+| [src/app/admin/settings/page.tsx](../src/app/admin/settings/page.tsx) | Protected Settings screen. |
 | [src/app/api/admin/settings/route.ts](../src/app/api/admin/settings/route.ts) | CSRF-protected administrator profile update endpoint. |
 | [src/shared](../src/shared)                         | Browser-safe contracts, validation, HTTP client, time formatting and countdown arithmetic.                              |
 | [src/styles/globals.css](../src/styles/globals.css) | Shared Tailwind design tokens and global styling.                                                                       |
@@ -638,7 +638,7 @@ change.
 ### App Support Access (RWA-controlled read-only help)
 
 For live in-app help, an enabled RWA Admin can turn **App Support Access** on or
-off from RWA Settings. Setting the server-only `APP_SUPPORT_EMAIL` only makes the
+off from Settings. Setting the server-only `APP_SUPPORT_EMAIL` only makes the
 toggle available; it grants nothing by itself. When on, the guarded
 `set_app_support_access` routine creates (or re-enables) a single household-free,
 read-only `rwa-readonly` profile (`profiles.is_app_support`) for that address, so

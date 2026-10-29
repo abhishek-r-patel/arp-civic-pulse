@@ -58,7 +58,7 @@ unassigned identifiers.
 ### App Support Access (RWA-controlled developer help)
 
 In place of a hidden login or standing default administrator, an enabled RWA
-Admin can turn App Support Access on or off from RWA Settings. The server-only
+Admin can turn App Support Access on or off from Settings. The server-only
 `APP_SUPPORT_EMAIL` only enables the toggle; turning it on creates a single
 household-free, read-only `rwa-readonly` support profile (`profiles.is_app_support`,
 guarded by a check constraint and triggers) that signs in through the normal

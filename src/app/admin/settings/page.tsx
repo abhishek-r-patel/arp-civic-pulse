@@ -9,7 +9,7 @@ import { getAppSupportStatus } from "@/server/settings/app-support";
 import { ChevronDown } from "lucide-react";
 
 export const metadata = {
-  title: "RWA Settings",
+  title: "Settings",
   description: "Configure the RWA organization profile and display wording.",
   alternates: { canonical: "/admin/settings" },
 };
@@ -21,7 +21,7 @@ export default async function RwaSettingsPage() {
   return (
     <div data-form-page className="mx-auto grid w-full max-w-ballot gap-8">
       <PageHeader
-        title="RWA Settings"
+        title="Settings"
         description="Personalize how your RWA appears in Civic Pulse. Administrators can edit; committee observers have read-only access. Fields marked * are required; leave any other field blank to hide it everywhere."
       />
       <details className="group rounded-control border border-accent/30 bg-accent/5">

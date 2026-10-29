@@ -15,7 +15,7 @@ const baseLabels: Record<string, string> = {
   residents: "Residents",
   import: "Import Residents",
   households: "Households",
-  settings: "RWA Settings",
+  settings: "Settings",
   audit: "Audit History",
   new: "New",
   results: "Results",

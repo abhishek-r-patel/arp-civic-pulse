@@ -125,7 +125,7 @@ for permissions, output/exit semantics and checks that remain manual.
 
 To try **App Support Access** locally, add an optional `APP_SUPPORT_EMAIL=<a
 synthetic address>` to `.env.local` and apply the `20261112100000` migration. The
-variable alone grants nothing; sign in as a local RWA Admin, open RWA Settings and
+variable alone grants nothing; sign in as a local RWA Admin, open Settings and
 turn App Support Access on to create the household-free, read-only support
 profile, then turn it off to suspend it. See
 [Operations](./OPERATIONS.md#app-support-access-developer-help-rwa-controlled).
@@ -291,7 +291,7 @@ If port 3000 is busy, either stop whatever uses it or run `npm run dev -- --port
 
 1. You land on **Sign in**. Enter the administrator's email and choose **Send Sign-In Code**. The screen always says "If this address can sign in, a code may arrive shortly" so it never reveals who is registered.
 2. Enter the six-digit code from your inbox (Option A) or from the script (Option B) and choose **Verify and Sign In**.
-3. You arrive on **Votes** with a header showing **Residents, RWA Settings, Manage Votes, Audit History** (authorized management roles only) and, on the right of the tabs, **Sign Out**.
+3. You arrive on **Votes** with **Residents, Manage Votes and Audit History** in the header (authorized management roles only). The **Settings** gear and **Sign Out** are beside each other at the right; hover over the gear to see its label.
 
 ### 9.2 A guided first walkthrough
 

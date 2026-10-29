@@ -34,7 +34,7 @@ export default async function ManagementLayout({
             href="/admin/settings#app-support"
             className="font-semibold underline underline-offset-2"
           >
-            Turn it off in RWA Settings
+            Turn it off in Settings
           </Link>{" "}
           when you no longer need help.
         </Notice>

@@ -74,14 +74,14 @@ export default async function AccountPage({
           <p className="text-body break-all">
             {account.email ?? "Email unavailable"}
           </p>
-          <Notice tone="info" heading="Managed From RWA Settings">
+          <Notice tone="info" heading="Managed From Settings">
             This is the App Support account. It is always read-only, has no{" "}
             {deps.terms.household} and cannot vote. Turn it on or off from{" "}
             <Link
               href="/admin/settings#app-support"
               className="font-semibold underline underline-offset-2"
             >
-              RWA Settings, App Support Access
+              Settings, App Support Access
             </Link>
             .
           </Notice>

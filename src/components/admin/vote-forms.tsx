@@ -255,7 +255,7 @@ type EditorProps = Readonly<{
   identifierLabel: string;
   initial: AdminVoteDetail;
   households: readonly SelectableHousehold[];
-  /** RWA positions from RWA Settings, suggested as PRIVATE office names. */
+  /** RWA positions from Settings, suggested as PRIVATE office names. */
   positions?: readonly string[];
   flash?: string | undefined;
 }>;
@@ -1261,7 +1261,7 @@ function OfficesEditor({
             : canAddPositions
               ? `Add All Positions adds ${missing.length === 1 ? "the missing position" : `the ${missing.length} missing positions`} (${missing.join(", ")}) as offices.`
               : `The ${COLLECTION_LIMITS.offices}-office limit is reached; remove an office to add more positions.`}{" "}
-          Positions come from RWA Settings.
+          Positions come from Settings.
         </p>
       ) : null}
     </div>

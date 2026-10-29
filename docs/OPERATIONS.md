@@ -187,7 +187,7 @@ When a deploying RWA wants the developer to inspect configuration from inside th
 app during onboarding, set the server-only `APP_SUPPORT_EMAIL` to the developer's
 address and apply migration `20261112100000`. Setting the variable grants nothing
 on its own. An enabled RWA Admin turns **App Support Access** on from
-RWA Settings (`/admin/settings#app-support`); only then is a household-free,
+Settings (`/admin/settings#app-support`); only then is a household-free,
 read-only (`rwa-readonly`) support profile created for that address, which signs
 in through the normal email OTP flow. The support identity has no household, so it
 cannot vote, and ordinary account tools cannot edit or assign it a household. The
