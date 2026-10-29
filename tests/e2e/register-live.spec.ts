@@ -121,7 +121,7 @@ test("Source is an icon column with global sorting and its own filter", async ({
   await expect(
     page
       .locator("[data-resident-toolbar]")
-      .getByRole("link", { name: "Reset Table", exact: true }),
+      .getByRole("link", { name: "Clear filters", exact: true }),
   ).toBeVisible();
   await page
     .getByRole("link", { name: "Sort Source ascending", exact: true })
@@ -255,6 +255,7 @@ test("form-focused pages center their heading and controls while directories sta
   await signInThroughUi(page, admin.email, admin.code);
   const paths = [
     "/admin/residents/new",
+    "/admin/residents/import",
     `/admin/residents/${resident.id}`,
     `/admin/residents/households/${resident.householdId}`,
     "/admin/settings",
@@ -283,6 +284,47 @@ test("form-focused pages center their heading and controls while directories sta
       );
       expect(Math.abs(layout.center - layout.viewport / 2)).toBeLessThan(1);
       expect(layout.overflow).toBe(false);
+      if (path === "/admin/residents/import" && width === 1280) {
+        await page.getByLabel("Register CSV").setInputFiles({
+          name: "preview.csv",
+          mimeType: "text/csv",
+          buffer: Buffer.from(
+            [
+              "identifier,representative_name,email,is_eligible",
+              ...Array.from(
+                { length: 5 },
+                (_, index) =>
+                  `DOC-${width}-${index + 1},Example Resident ${index + 1},preview-${width}-${index + 1}@example.test,true`,
+              ),
+            ].join("\n"),
+          ),
+        });
+        const preview = page.getByRole("region", {
+          name: "Register import preview and results table",
+        });
+        await expect(preview).toHaveCount(0);
+        await page.getByRole("button", { name: "Check Register" }).click();
+        await expect(preview.getByRole("row")).toHaveCount(6);
+        for (const previewWidth of [320, 1280, 1920]) {
+          await page.setViewportSize({ width: previewWidth, height: 900 });
+          const previewLayout = await preview.evaluate((element) => {
+            const form = document.querySelector(".form-panel");
+            return {
+              formWidth: form?.getBoundingClientRect().width ?? 0,
+              tableWidth: element.getBoundingClientRect().width,
+              overflow: element.scrollWidth > element.clientWidth,
+              pageOverflow: document.documentElement.scrollWidth > innerWidth,
+            };
+          });
+          expect(previewLayout.overflow).toBe(false);
+          expect(previewLayout.pageOverflow).toBe(false);
+          if (previewWidth >= 768)
+            expect(previewLayout.tableWidth).toBeGreaterThan(
+              previewLayout.formWidth,
+            );
+        }
+        await page.setViewportSize({ width, height: 900 });
+      }
       if (path === `/admin/residents/${resident.id}`) {
         const status = page.getByRole("region", {
           name: "Status",
@@ -608,8 +650,20 @@ test("resident table controls preserve global query state and fit phone viewport
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await page.getByRole("link", { name: "Reset Table", exact: true }).click();
-  await expect(page).toHaveURL(/\/admin\/residents$/);
+  await page.getByRole("link", { name: "Clear filters", exact: true }).click();
+  await expect(page).toHaveURL(/sort=representative/);
+  await expect(page).toHaveURL(/direction=asc/);
+  await expect(page).toHaveURL(/limit=10/);
+  await expect(page).not.toHaveURL(
+    /(?:isAdmin|changedFrom|changedTo|representative)=/,
+  );
+  await expect(page).not.toHaveURL(/[?&]page=/);
+  await expect(
+    page.getByRole("columnheader", {
+      name: "Representative",
+      exact: true,
+    }),
+  ).toHaveAttribute("aria-sort", "ascending");
   await expect(page.getByText("0 selected", { exact: true })).toBeVisible();
   await page.setViewportSize({ width: 1280, height: 920 });
   const identifier = (

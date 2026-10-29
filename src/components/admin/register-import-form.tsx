@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Download, FileCheck, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DataTable, type Column } from "@/components/ui/data-table";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { Notice } from "@/components/ui/notice";
 import { useHouseholdTerms } from "@/components/ui/household-terms";
@@ -17,6 +18,11 @@ import {
   type ImportRow,
 } from "@/shared/contracts/register-import";
 
+type RegisterPreviewRow = ImportRow & {
+  rowNumber: number;
+  outcome: ImportOutcome | undefined;
+};
+
 export function RegisterImportForm({
   csrfToken,
 }: Readonly<{ csrfToken: string | undefined }>) {
@@ -26,6 +32,7 @@ export function RegisterImportForm({
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [checked, setChecked] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [progress, setProgress] = useState(0);
 
@@ -34,6 +41,7 @@ export function RegisterImportForm({
     setOutcomes({});
     setErrors([]);
     setChecked(false);
+    setShowPreview(false);
     setProgress(0);
     if (!file) return;
     if (file.size > IMPORT_BYTE_LIMIT) {
@@ -56,6 +64,7 @@ export function RegisterImportForm({
     setConfirm(false);
     setErrors([]);
     setProgress(0);
+    if (action === "preview") setShowPreview(true);
     let completed = true;
     for (const [index, row] of rows.entries()) {
       if (
@@ -97,124 +106,136 @@ export function RegisterImportForm({
   const ready = Object.values(outcomes).filter(
     (outcome) => outcome.state === "READY",
   ).length;
+  const previewRows: RegisterPreviewRow[] = rows.map((row, index) => ({
+    ...row,
+    rowNumber: index + 2,
+    outcome: outcomes[index],
+  }));
+  const previewColumns: readonly Column<RegisterPreviewRow>[] = [
+    {
+      key: "row",
+      header: "Row",
+      numeric: true,
+      cell: (row) => row.rowNumber,
+    },
+    {
+      key: "identifier",
+      header: terms.identifierLabel,
+      className: "break-all",
+      cell: (row) => row.identifier,
+    },
+    {
+      key: "representative",
+      header: "Representative",
+      cell: (row) => row.representativeName,
+    },
+    {
+      key: "email",
+      header: "Email",
+      className: "break-all",
+      cell: (row) => row.email,
+    },
+    {
+      key: "eligible",
+      header: "Eligible",
+      cell: (row) => (row.isEligible ? "Yes" : "No"),
+    },
+    {
+      key: "outcome",
+      header: "Outcome",
+      cell: (row) => (
+        <div className="grid justify-items-start gap-1">
+          <span>{row.outcome?.message ?? "Not checked"}</span>
+          {row.outcome?.accountId ? (
+            <Link
+              className="inline-flex touch-target items-center font-semibold text-accent underline"
+              href={`/admin/residents/${row.outcome.accountId}`}
+            >
+              Review Account
+            </Link>
+          ) : null}
+        </div>
+      ),
+    },
+  ];
   return (
-    <div className="grid gap-6 form-panel">
-      <Notice tone="info" heading="New accounts remain suspended">
-        Review each imported representative before enabling access. Existing
-        register entries and scheduled or active electorates are never
-        overwritten.
-      </Notice>
-      <a
-        href={`data:text/csv;charset=utf-8,${encodeURIComponent(IMPORT_TEMPLATE)}`}
-        download="register-template.csv"
-        className="inline-flex touch-target w-fit items-center gap-2 font-semibold text-accent underline"
-      >
-        <Download className="size-5" aria-hidden="true" /> Download CSV Template
-      </a>
-      <div className="grid gap-2">
-        <label htmlFor="register-csv" className="font-semibold">
-          Register CSV
-        </label>
-        <input
-          id="register-csv"
-          type="file"
-          accept=".csv,text/csv"
-          disabled={busy}
-          onChange={(event) => void loadFile(event.target.files?.[0])}
-          className="touch-target max-w-full rounded-control border border-control-border bg-surface p-3 text-body"
-        />
-      </div>
-      {errors.length ? (
-        <Notice tone="error" heading="Import needs attention">
-          <ul className="list-disc pl-5">
-            {errors.map((error, index) => (
-              <li key={index}>{error}</li>
-            ))}
-          </ul>
+    <div className="grid min-w-0 gap-6">
+      <div className="mx-auto grid w-full max-w-ballot gap-6 form-panel">
+        <Notice tone="info" heading="New accounts remain suspended">
+          Review each imported representative before enabling access. Existing
+          register entries and scheduled or active electorates are never
+          overwritten.
         </Notice>
-      ) : null}
-      {rows.length ? (
-        <>
-          <p role="status">
-            {busy
-              ? `Processed ${progress} of ${rows.length}`
-              : `${rows.length} rows; ${ready} ready to import`}
+        <a
+          href={`data:text/csv;charset=utf-8,${encodeURIComponent(IMPORT_TEMPLATE)}`}
+          download="register-template.csv"
+          className="inline-flex touch-target w-fit items-center gap-2 font-semibold text-accent underline"
+        >
+          <Download className="size-5" aria-hidden="true" /> Download CSV
+          Template
+        </a>
+        <div className="grid gap-2">
+          <label htmlFor="register-csv" className="font-semibold">
+            Register CSV
+          </label>
+          <p id="register-csv-hint" className="text-caption text-muted">
+            Selecting a CSV reads and parses it in your browser. Choose Check
+            Register to preview each row; nothing is imported until you confirm
+            the separate Import action.
           </p>
-          <div className="flex flex-wrap gap-3">
-            <Button
-              variant="secondary"
-              disabled={busy}
-              onClick={() => void run("preview")}
-            >
-              <FileCheck className="size-5" aria-hidden="true" />
-              Check Register
-            </Button>
-            <Button
-              disabled={busy || !checked || ready === 0}
-              onClick={() => setConfirm(true)}
-            >
-              <Upload className="size-5" aria-hidden="true" />
-              Import {ready} {terms.Households}
-            </Button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-5xl table-auto text-left text-body">
-              <caption className="sr-only">
-                Register import preview and results
-              </caption>
-              <thead>
-                <tr>
-                  {[
-                    "Row",
-                    terms.identifierLabel,
-                    "Representative",
-                    "Email",
-                    "Eligible",
-                    "Outcome",
-                  ].map((heading) => (
-                    <th
-                      key={heading}
-                      scope="col"
-                      className="border-b border-border p-3 whitespace-nowrap"
-                    >
-                      {heading}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, index) => (
-                  <tr key={index}>
-                    <td className="border-b border-border p-3">{index + 2}</td>
-                    <td className="border-b border-border p-3">
-                      {row.identifier}
-                    </td>
-                    <td className="border-b border-border p-3">
-                      {row.representativeName}
-                    </td>
-                    <td className="border-b border-border p-3 break-all">
-                      {row.email}
-                    </td>
-                    <td className="border-b border-border p-3">
-                      {row.isEligible ? "Yes" : "No"}
-                    </td>
-                    <td className="min-w-52 border-b border-border p-3">
-                      {outcomes[index]?.message ?? "Not checked"}
-                      {outcomes[index]?.accountId ? (
-                        <Link
-                          className="inline-flex touch-target items-center font-semibold text-accent underline"
-                          href={`/admin/residents/${outcomes[index]?.accountId}`}
-                        >
-                          Review Account
-                        </Link>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+          <input
+            id="register-csv"
+            type="file"
+            accept=".csv,text/csv"
+            aria-describedby="register-csv-hint"
+            disabled={busy}
+            onChange={(event) => void loadFile(event.target.files?.[0])}
+            className="touch-target max-w-full rounded-control border border-control-border bg-surface p-3 text-body"
+          />
+        </div>
+        {errors.length ? (
+          <Notice tone="error" heading="Import needs attention">
+            <ul className="list-disc pl-5">
+              {errors.map((error, index) => (
+                <li key={index}>{error}</li>
+              ))}
+            </ul>
+          </Notice>
+        ) : null}
+        {rows.length ? (
+          <>
+            <p role="status">
+              {busy
+                ? `Processed ${progress} of ${rows.length}`
+                : `${rows.length} rows; ${ready} ready to import`}
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                variant="secondary"
+                disabled={busy}
+                onClick={() => void run("preview")}
+              >
+                <FileCheck className="size-5" aria-hidden="true" />
+                Check Register
+              </Button>
+              <Button
+                disabled={busy || !checked || ready === 0}
+                onClick={() => setConfirm(true)}
+              >
+                <Upload className="size-5" aria-hidden="true" />
+                Import {ready} {terms.Households}
+              </Button>
+            </div>
+          </>
+        ) : null}
+      </div>
+      {showPreview && rows.length ? (
+        <DataTable
+          caption="Register import preview and results"
+          columns={previewColumns}
+          rows={previewRows}
+          rowKey={(row) => row.identifier}
+        />
       ) : null}
       <ConfirmDialog
         open={confirm}

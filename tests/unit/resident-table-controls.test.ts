@@ -5,7 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 import { residentTableQuerySchema } from "@/shared/contracts/admin-votes";
 import { DataTable } from "@/components/ui/data-table";
 import { SelectField } from "@/components/ui/field";
-import { residentTableHref } from "@/components/admin/resident-table-controls";
+import {
+  residentTableClearFiltersHref,
+  residentTableHref,
+} from "@/components/admin/resident-table-controls";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
@@ -48,6 +51,30 @@ describe("resident table controls", () => {
       representative: "Alice & Bob",
       isAdmin: "all",
       sort: "representative",
+      direction: "desc",
+    });
+  });
+  it("clears filters while preserving the current sort and page size", () => {
+    const href = residentTableClearFiltersHref({
+      page: "4",
+      cursor: "old",
+      notice: "saved",
+      limit: "50",
+      representative: "Alice",
+      identifier: "A-101",
+      status: "SUSPENDED",
+      isAdmin: "all",
+      isEligible: "false",
+      changedFrom: "2026-10-01T00:00",
+      changedTo: "2026-10-10T00:00",
+      selfRegistered: "true",
+      sort: "source",
+      direction: "desc",
+    });
+    const params = new URL(href, "https://example.test").searchParams;
+    expect(Object.fromEntries(params)).toEqual({
+      limit: "50",
+      sort: "source",
       direction: "desc",
     });
   });

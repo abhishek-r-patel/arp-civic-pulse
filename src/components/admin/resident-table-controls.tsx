@@ -13,7 +13,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, ArrowUpDown, ListFilter } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SelectField, TextField } from "@/components/ui/field";
 import { ResidentIdentifierFilter } from "./resident-identifier-filter";
@@ -42,6 +42,11 @@ const fields: Record<FilterKey, readonly string[]> = {
 const subscribe = () => () => {};
 const localZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 const serverZone = () => null;
+const filterResetParams = Object.fromEntries(
+  Object.values(fields)
+    .flat()
+    .map((key) => [key, ""]),
+);
 
 export function residentTableHref(
   params: ResidentTableState["params"],
@@ -57,6 +62,12 @@ export function residentTableHref(
     else search.delete(key);
   }
   return `/admin/residents?${search}`;
+}
+
+export function residentTableClearFiltersHref(
+  params: ResidentTableState["params"],
+): string {
+  return residentTableHref(params, filterResetParams);
 }
 
 function TablePopover({
@@ -105,7 +116,7 @@ function TablePopover({
         className={`inline-flex size-12 shrink-0 items-center justify-center rounded-control hover:bg-accent/10 ${active ? "text-accent" : "text-muted"}`}
         onClick={place}
       >
-        <ListFilter aria-hidden="true" className="size-4" />
+        <Filter aria-hidden="true" className="size-4" />
         {active ? (
           <span aria-hidden="true" className="text-caption">
             *
@@ -419,10 +430,10 @@ export function ResidentTableToolbar({
         </TablePopover>
       </div>
       <Link
-        href="/admin/residents"
+        href={residentTableClearFiltersHref(state.params)}
         className="inline-flex min-h-12 items-center font-semibold text-accent underline"
       >
-        Reset Table
+        Clear filters
       </Link>
     </div>
   );

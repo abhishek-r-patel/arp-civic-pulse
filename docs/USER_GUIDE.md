@@ -241,7 +241,7 @@ or **Admin-registered** on hover or click/tap (person and shield icons,
 respectively); ascending puts Admin-registered
 first and descending puts Self-registered first. The old self-registration
 caption below a name is replaced by this column. Existing screenshots predate it.
-**Reset Table** sits beside Select All and the selection count in the same
+**Clear filters** sits beside Select All and the selection count in the same
 toolbar as the right-aligned bulk actions, rather than in a separate row.
 Role badges use green for Voter, amber for RWA ReadOnly (including App Support)
 and red for RWA Admin, with text and icons retained. These colours describe the
@@ -270,10 +270,11 @@ assignment** (worded with your configured household label) to find only those
 accounts, or Any eligibility to include them. Select a sortable column heading to
 order all matching residents; select it again to reverse the direction. Sorting
 and filtering apply across pages, not only the visible rows, and restart at
-page 1. Applied filters show an asterisk beside their button. **Reset Table**
-restores the Voter filter and flat/name ascending order, with unassigned people
-last. **Import CSV** is available on this same page. ReadOnly observers can use
-the table controls but cannot select or change residents.
+page 1. Applied filters show an asterisk beside their button. **Clear filters**
+removes active filters and returns to the default Voter view and page 1 while
+preserving the current sort, direction and page size. **Import CSV** is available
+on this same page. ReadOnly observers can use the table controls but cannot
+select or change residents.
 Use **Residents** directly. Former Accounts and Flats page links are no longer
 supported and show Page not found; replace any bookmarks with Residents.
 
@@ -291,10 +292,10 @@ gutters, giving tables more room on wide screens. Individual forms and ballots
 keep their narrower readable layout. Existing guide screenshots predate this
 width adjustment.
 Form-focused pages center their title, description, guidance and controls
-together in a readable column: Add/Manage Resident, eligibility, RWA Settings,
-vote setup/detail, ballot preview and voting. Sign-in, registration and contact
-already follow this layout. Text remains left-aligned within the centered column;
-tables and results workspaces retain the wider layout.
+together in a readable column: Add/Manage Resident, CSV import, eligibility,
+RWA Settings, vote setup/detail, ballot preview and voting. Sign-in, registration
+and contact already follow this layout. Text remains left-aligned within the
+centered column; tables and results workspaces retain the wider layout.
 Page descriptions also expand beside the action buttons instead of staying in
 a narrow column; on phones the actions stack below.
 Status uses a check, pause or ban icon for Enabled, Suspended or Deleted. Hover for its name, or tap/click the icon (Enter/Space with keyboard focus) to reveal the label; screen readers retain the full name.
@@ -326,7 +327,7 @@ Use list filters and pagination to find records rather than creating duplicates.
 
 ![RWA Admin 67: explicit administrator-access warning](./images/user-guide/rwa-admin/67-enable-admin-warning.png)
 
-A CSV import accepts up to 500 records/256 KiB with `identifier,representative_name,email,is_eligible`. Check and review every row first. Exact matches are skipped; conflicts never overwrite names, roles, assignments, eligibility or access. Imports leave new accounts suspended. Partial provider/connection failures stop processing; recheck before retrying. CSV content remains in page memory, not browser storage.
+A CSV import accepts up to 500 records/256 KiB with `identifier,representative_name,email,is_eligible`. Selecting a file parses it in the browser; choose **Check Register** to add a preview/results table at the available page width, while the file controls remain centered. The table stacks labelled rows on phones and wraps long values at larger widths. Nothing is imported until you confirm the separate Import action. Exact matches are skipped; conflicts never overwrite names, roles, assignments, eligibility or access. Imports leave new accounts suspended. Partial provider/connection failures stop processing; recheck before retrying. CSV content remains in page memory, not browser storage.
 
 ![RWA Admin 54: validated CSV import preview](./images/user-guide/rwa-admin/54-import-preview.png)
 

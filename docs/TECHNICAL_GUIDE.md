@@ -310,6 +310,8 @@ strict default. Last Changed uses profile timestamps and inclusive/exclusive ins
 bounds entered in the browser zone. Top-layer native popovers avoid table
 clipping; their dropdown lists expand in flow within the scrollable panel.
 Observers retain these controls outside management-disabled fields.
+The **Clear filters** link removes active filter parameters and returns to page 1
+while preserving the current sort, direction and page size.
 
 CSV import checks every record without overwriting existing state, then applies
 ready rows independently. Exact retries are skipped; conflicting identifiers,
@@ -512,12 +514,14 @@ maximum width: pages, headers and footers fill the viewport minus 16px phone or
 640px bounds; table regions contain any horizontal overflow.
 Shared page-header descriptions are an exception to the short-copy limit: they
 fill the available space beside actions and wrap responsively.
-Form-focused route wrappers center the whole title/description/form unit at
-640px, not each field individually: resident new/detail/eligibility, Settings,
-vote new/detail/preview and the voter ballot. Access/register/contact/privacy
+Form-focused route wrappers center the title/description/form controls at 640px,
+not each field individually: resident new/detail/eligibility/import,
+Settings, vote new/detail/preview and the voter ballot. Access/register/contact/privacy
 were already centered. `data-form-page` marks the adjusted wrappers for browser
-regressions. Directory/import-review, audit, participation and results keep
-their wider workspaces; global breadcrumbs/header/footer remain full-width.
+regressions. Directory, audit, participation and results keep their wider
+workspaces; after Check Register, import preview/results use a separate
+full-content-width shared table, with stacked label/value rows on phones. Global
+breadcrumbs/header/footer remain full-width.
 Standalone forms and lifecycle/support/import action panels use the shared
 `form-panel` utility: theme border, 8px radius, surface and 16px/24px responsive
 padding. Assignment sections provide the frame for their nested form;

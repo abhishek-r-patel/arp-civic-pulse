@@ -1631,7 +1631,10 @@
         timestamps and inclusive/exclusive instant bounds entered in the browser
         zone. Top-layer native popovers avoid table clipping; their dropdown
         lists expand in flow within the scrollable panel. Observers retain these
-        controls outside management-disabled fields.
+        controls outside management-disabled fields. The
+        <strong>Clear filters</strong> link removes active filter parameters and
+        returns to page 1 while preserving the current sort, direction and page
+        size.
       </p>
       <p>
         CSV import checks every record without overwriting existing state, then
@@ -2320,15 +2323,17 @@
         independent 640px bounds; table regions contain any horizontal overflow.
         Shared page-header descriptions are an exception to the short-copy
         limit: they fill the available space beside actions and wrap
-        responsively. Form-focused route wrappers center the whole
-        title/description/form unit at 640px, not each field individually:
-        resident new/detail/eligibility, Settings, vote new/detail/preview and
-        the voter ballot. Access/register/contact/privacy were already centered.
-        <code>data-form-page</code> marks the adjusted wrappers for browser
-        regressions. Directory/import-review, audit, participation and results
-        keep their wider workspaces; global breadcrumbs/header/footer remain
-        full-width. Standalone forms and lifecycle/support/import action panels
-        use the shared <code>form-panel</code> utility: theme border, 8px
+        responsively. Form-focused route wrappers center the
+        title/description/form controls at 640px, not each field individually:
+        resident new/detail/eligibility/import, Settings, vote
+        new/detail/preview and the voter ballot. Access/register/contact/privacy
+        were already centered. <code>data-form-page</code> marks the adjusted
+        wrappers for browser regressions. Directory, audit, participation and
+        results keep their wider workspaces; after Check Register, import
+        preview/results use a separate full-content-width shared table, with
+        stacked label/value rows on phones. Global breadcrumbs/header/footer
+        remain full-width. Standalone forms and lifecycle/support/import action
+        panels use the shared <code>form-panel</code> utility: theme border, 8px
         radius, surface and 16px/24px responsive padding. Assignment sections
         provide the frame for their nested form; popover/modal forms retain
         their existing outer frame. Manage Resident places the Status heading
