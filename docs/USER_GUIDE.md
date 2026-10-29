@@ -189,7 +189,7 @@ Select **Sign Out** on shared devices. Signing out cannot remove files already d
 
 ### Management access and role assignment
 
-The administrator navigation includes Residents, Manage Votes and Audit History. A gear link named **Settings** sits beside **Sign Out** on the right; hover over it to see its label. Administrators may manage these records; they do not get extra votes or vote on behalf of another household. If an administrator has an assigned eligible household included in a vote's frozen electorate, that administrator can also vote only as that household.
+The administrator navigation includes Residents and Manage Votes. On the right, the gear icon opens **Settings**, followed by the **Audit History** icon for the administrative event log; hover over either icon to see its label. Administrators may manage these records; they do not get extra votes or vote on behalf of another household. If an administrator has an assigned eligible household included in a vote's frozen electorate, that administrator can also vote only as that household.
 
 ![RWA Admin 15: home screen and management navigation](./images/user-guide/rwa-admin/15-admin-home.png)
 
@@ -435,7 +435,7 @@ Complete early only when authorized; enter a meaningful reason, which is recorde
 
 ![RWA Admin 37: cancellation reason confirmation](./images/user-guide/rwa-admin/37-cancel-dialog.png)
 
-Use **Audit History** to review administrative actors/actions, targets and times. It does not contain OTPs or PRIVATE selections. Authorized completed results use the same projections as downloads. PUBLIC reports include named household responses; PRIVATE reports include aggregates only.
+Use **Audit History** to review administrative actors/actions, targets and times. The columns are **When**, **Who**, **Target**, **Action** and **Details**. Times and the inclusive **From** / exclusive **Before** filters use your browser's local time zone. Filter **Who**, **Target**, **Action** or **Details**. Details includes any reason an action required, and its filter searches both the reason and the details shown in the log; text matching is case-insensitive. Actions without a reason have no Reason entry. Target record IDs and effective/processed times in Details are hidden by default; use **Show Target IDs**, **Show Effective Time** and **Show Processed Time** above the list to reveal them independently. Expand **About this history** for explanations of reasons, effective/processed times and target IDs. On a phone, open **Filter Audit History** to access all filters. Results remain newest first; **Clear filters** keeps the selected page size. Audit History does not contain OTPs or PRIVATE selections. Authorized completed results use the same projections as downloads. PUBLIC reports include named household responses; PRIVATE reports include aggregates only.
 
 ![RWA Admin 31: Manage Votes list and status filters](./images/user-guide/rwa-admin/31-admin-votes.png)
 

@@ -43,18 +43,28 @@ export async function numberedPage(
   limit: number,
   binding: CursorBinding,
 ): Promise<{ cursor: string | undefined; numbered: NumberedPageInfo }> {
+  const filters = Object.fromEntries(
+    Object.entries(binding.filters ?? {}).filter(
+      ([, value]) => value !== undefined,
+    ),
+  );
+  const hasAuditTextFilters =
+    dataset === "audit" &&
+    ["who", "details"].some((key) => filters[key] !== undefined);
   const parsed = windowSchema.safeParse(
-    await callRoutine(deps.client, "get_list_page", {
-      p_dataset: dataset,
-      p_page: requestedPage,
-      p_limit: limit,
-      p_filters: Object.fromEntries(
-        Object.entries(binding.filters ?? {}).filter(
-          ([, value]) => value !== undefined,
-        ),
-      ),
-      p_vote_id: binding.parentId ?? null,
-    }),
+    hasAuditTextFilters
+      ? await callRoutine(deps.client, "get_audit_list_page", {
+          p_page: requestedPage,
+          p_limit: limit,
+          p_filters: filters,
+        })
+      : await callRoutine(deps.client, "get_list_page", {
+          p_dataset: dataset,
+          p_page: requestedPage,
+          p_limit: limit,
+          p_filters: filters,
+          p_vote_id: binding.parentId ?? null,
+        }),
   );
   if (!parsed.success) throw new ApiError("INTERNAL_ERROR");
   const { position, ...numbered } = parsed.data;

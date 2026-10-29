@@ -316,6 +316,8 @@ export const participationQuerySchema = listQuerySchema({
   submitted: queryBoolean.optional(),
 });
 
+const auditTextFilter = z.string().trim().min(1).max(100).optional();
+
 export const auditQuerySchema = listQuerySchema({
   action: z
     .string()
@@ -327,6 +329,8 @@ export const auditQuerySchema = listQuerySchema({
     .optional(),
   from: offsetInstant.optional(),
   to: offsetInstant.optional(),
+  who: auditTextFilter,
+  details: auditTextFilter,
 }).refine((query) => !query.from || !query.to || query.from < query.to, {
   path: ["to"],
   message: "The end must be after the start.",

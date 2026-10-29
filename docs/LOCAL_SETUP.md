@@ -186,11 +186,13 @@ npx supabase db push --db-url $env:LIVE_DATABASE_URL --yes
 ```
 
 You should see pending migrations listed (the complete repository sequence runs
-from `20261024100000` through `20261116100000`) and `Finished supabase db push.`
+from `20261024100000` through `20261118100000`) and `Finished supabase db push.`
 Numbered list pages require `20261114100000_numbered_pagination.sql`; apply it
 before running this app revision. Existing cursor API contracts are unchanged.
 Residents column sorting/filtering additionally needs `20261115100000`.
 Partial identifier search needs `20261116100000` before running the new revision.
+Audit History's Who/Details text filters need `20261118100000` before
+running this revision.
 Before any push, check `supabase migration list`: this checkout currently has
 two files sharing version `20261105100000`, which blocks the normal CLI push.
 See [migration status](../supabase/README.md); do not apply older scripts again
@@ -291,7 +293,7 @@ If port 3000 is busy, either stop whatever uses it or run `npm run dev -- --port
 
 1. You land on **Sign in**. Enter the administrator's email and choose **Send Sign-In Code**. The screen always says "If this address can sign in, a code may arrive shortly" so it never reveals who is registered.
 2. Enter the six-digit code from your inbox (Option A) or from the script (Option B) and choose **Verify and Sign In**.
-3. You arrive on **Votes** with **Residents, Manage Votes and Audit History** in the header (authorized management roles only). The **Settings** gear and **Sign Out** are beside each other at the right; hover over the gear to see its label.
+3. You arrive on **Votes** with **Residents** and **Manage Votes** in the header (authorized management roles only). At the right, the **Settings** gear is followed by the **Audit History** icon and **Sign Out**; hover over either icon to see its label.
 
 ### 9.2 A guided first walkthrough
 

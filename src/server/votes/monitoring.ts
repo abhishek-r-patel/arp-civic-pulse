@@ -126,6 +126,8 @@ export async function listAuditEvents(
       targetType: query.targetType,
       from: query.from,
       to: query.to,
+      who: query.who,
+      details: query.details,
     },
   };
   const window =
@@ -146,6 +148,8 @@ export async function listAuditEvents(
       p_target_type: query.targetType ?? null,
       p_from: query.from ?? null,
       p_to: query.to ?? null,
+      ...(query.who ? { p_who: query.who } : {}),
+      ...(query.details ? { p_details: query.details } : {}),
     }),
   );
 

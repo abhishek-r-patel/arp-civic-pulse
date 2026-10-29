@@ -46,13 +46,17 @@ describe.skipIf(!hasDatabase)("numbered pagination", () => {
     filters = {},
     voteId: string | null = null,
   ) =>
-    api.call<Window>(sub, "public.get_list_page($1, $2, $3, $4::jsonb, $5)", [
-      dataset,
-      page,
-      limit,
-      JSON.stringify(filters),
-      voteId,
-    ]);
+    dataset === "audit"
+      ? api.call<Window>(sub, "public.get_audit_list_page($1, $2, $3::jsonb)", [
+          page,
+          limit,
+          JSON.stringify(filters),
+        ])
+      : api.call<Window>(
+          sub,
+          "public.get_list_page($1, $2, $3, $4::jsonb, $5)",
+          [dataset, page, limit, JSON.stringify(filters), voteId],
+        );
 
   it("counts assigned/unassigned residents with the same filters and order as the directory", async () => {
     const first = await window(world.admin.id, "residents");
@@ -233,6 +237,63 @@ describe.skipIf(!hasDatabase)("numbered pagination", () => {
     expect(
       await window(observer, "audit", 1, 25, { from: "2200-01-01T00:00:00Z" }),
     ).toMatchObject({ totalCount: "0" });
+  });
+
+  it("filters audit actors and allowlisted details or reasons in pages and rows", async () => {
+    const reason = "audit-filter-reason-unique";
+    const detail = "audit-filter-detail-unique";
+    await db.asOwner((client) =>
+      client.query(
+        `select app_private.append_audit(
+          'PROFILE', $1::uuid, 'VOTE_CANCELLED', 'VOTE', 'audit-filter-target',
+          $2, $3::jsonb
+        )`,
+        [
+          world.admin.id,
+          reason,
+          JSON.stringify({ timezone: detail, otp: "unsearchable-secret" }),
+        ],
+      ),
+    );
+
+    const filters = { who: "asha adm", details: reason };
+    const page = await window(world.admin.id, "audit", 1, 25, filters);
+    expect(page).toMatchObject({
+      totalCount: "1",
+      currentPage: 1,
+      totalPages: 1,
+      position: null,
+    });
+
+    const result = await api.call<{
+      rows: {
+        targetId: string;
+        reason: string | null;
+        details: Record<string, unknown>;
+      }[];
+    }>(
+      world.admin.id,
+      "public.list_audit_events(25, null, null, null, null, null, $1, $2)",
+      ["asha adm", reason],
+    );
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]).toMatchObject({
+      targetId: "audit-filter-target",
+      reason,
+      details: { timezone: detail },
+    });
+    expect(JSON.stringify(result)).not.toContain("unsearchable-secret");
+
+    expect(
+      await window(world.admin.id, "audit", 1, 25, {
+        details: "unsearchable-secret",
+      }),
+    ).toMatchObject({ totalCount: "0" });
+    expect(
+      await window(world.admin.id, "audit", 1, 25, {
+        details: detail,
+      }),
+    ).toMatchObject({ totalCount: "1" });
   });
 
   it("denies anonymous, suspended, ordinary-member management and unauthorized parent reads", async () => {

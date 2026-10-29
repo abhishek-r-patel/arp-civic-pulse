@@ -1,21 +1,13 @@
 // Global URL-backed directory sorting and column filters, with a mobile toolbar.
 "use client";
 
-import {
-  useId,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+import { useId, useState, useSyncExternalStore, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, ArrowUpDown, Filter } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SelectField, TextField } from "@/components/ui/field";
+import { TableFilterPopover } from "@/components/ui/table-filter-popover";
 import { ResidentIdentifierFilter } from "./resident-identifier-filter";
 import { instantToLocalInput, zonedLocalToInstant } from "@/shared/time/zoned";
 import { RESIDENT_SORT_KEYS } from "@/shared/contracts/admin-votes";
@@ -68,83 +60,6 @@ export function residentTableClearFiltersHref(
   params: ResidentTableState["params"],
 ): string {
   return residentTableHref(params, filterResetParams);
-}
-
-function TablePopover({
-  label,
-  active,
-  children,
-}: Readonly<{
-  label: string;
-  active?: boolean;
-  children: ReactNode;
-}>) {
-  const id = useId();
-  const trigger = useRef<HTMLButtonElement>(null);
-  const panel = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ top: 16, left: 16 });
-  const place = useCallback(() => {
-    const rect = trigger.current?.getBoundingClientRect();
-    if (!rect) return;
-    const height =
-      panel.current?.getBoundingClientRect().height || innerHeight * 0.7;
-    setPosition({
-      top: Math.max(16, Math.min(rect.bottom + 8, innerHeight - height - 16)),
-      left: Math.max(16, Math.min(rect.left, innerWidth - 336)),
-    });
-  }, []);
-  useEffect(() => {
-    function resize() {
-      if (panel.current?.matches(":popover-open")) place();
-    }
-    const observer = new ResizeObserver(resize);
-    if (panel.current) observer.observe(panel.current);
-    window.addEventListener("resize", resize);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", resize);
-    };
-  }, [place]);
-  return (
-    <>
-      <button
-        type="button"
-        ref={trigger}
-        popoverTarget={id}
-        aria-label={label}
-        aria-describedby={active ? `${id}-active` : undefined}
-        className={`inline-flex size-12 shrink-0 items-center justify-center rounded-control hover:bg-accent/10 ${active ? "text-accent" : "text-muted"}`}
-        onClick={place}
-      >
-        <Filter aria-hidden="true" className="size-4" />
-        {active ? (
-          <span aria-hidden="true" className="text-caption">
-            *
-          </span>
-        ) : null}
-        {active ? (
-          <span id={`${id}-active`} className="sr-only">
-            Filter applied
-          </span>
-        ) : null}
-      </button>
-      <div
-        id={id}
-        ref={panel}
-        popover="auto"
-        role="dialog"
-        onToggle={(event) => {
-          if (event.newState === "open") place();
-        }}
-        aria-label={label}
-        style={position}
-        className="fixed inset-auto m-0 max-h-[70dvh] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-card border border-border bg-surface p-4 text-left text-body font-normal text-primary shadow-panel"
-      >
-        <p className="mb-3 font-semibold">{label}</p>
-        {children}
-      </div>
-    </>
-  );
 }
 
 function FilterForm({
@@ -404,7 +319,7 @@ export function ResidentColumnHeader({
         {title}
         <Icon aria-hidden="true" className="size-4 shrink-0" />
       </Link>
-      <TablePopover
+      <TableFilterPopover
         label={`Filter ${title}`}
         active={fields[column].some(
           (key) =>
@@ -413,7 +328,7 @@ export function ResidentColumnHeader({
         )}
       >
         <FilterForm state={state} column={column} />
-      </TablePopover>
+      </TableFilterPopover>
     </div>
   );
 }
@@ -425,9 +340,9 @@ export function ResidentTableToolbar({
     <div className="flex flex-wrap items-center justify-end gap-3">
       <div className="flex items-center md:hidden">
         <span className="text-caption">Sort &amp; Filter</span>
-        <TablePopover label="Sort & Filter">
+        <TableFilterPopover label="Sort & Filter">
           <FilterForm state={state} all />
-        </TablePopover>
+        </TableFilterPopover>
       </div>
       <Link
         href={residentTableClearFiltersHref(state.params)}

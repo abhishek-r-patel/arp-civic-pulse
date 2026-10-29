@@ -47,6 +47,7 @@ at start-up, and never uses the migration credentials.
 | `20261115100000_resident_table_controls` | Committee-only globally sorted/filtered resident page IDs with exact metadata; existing HTTP cursor APIs and write routines unchanged |
 | `20261116100000_resident_identifier_contains` | Literal normalized identifier substring filter in the table RPC; existing exact identifier filter retained |
 | `20261117100000_resident_source_sort` | Adds global Source ordering to the committee table RPC; boolean filtering and grants unchanged |
+| `20261118100000_audit_text_filters` | Adds bounded actor and combined Details/reason substring filters and matching numbered audit totals |
 
 The Source column requires `20261117100000` before its sort links are used.
 It passed local PostgreSQL tests and was applied with separate explicit
@@ -77,6 +78,12 @@ The separately authorized substring-search follow-up applied only
 verified disposable project, then notified PostgREST to reload its schema.
 Authenticated execution and absence of anon/service-role execution were checked.
 Historical migrations and the duplicate-file issue were left untouched.
+
+Audit History's Who/Details filter migration `20261118100000` is a new
+deployment input and has not been applied to any hosted database. Review and
+apply only after independently verifying a disposable target and resolving the
+existing duplicate migration-version blocker; the UI expects the migration's
+RPC signatures when these filters are used.
 
 The separately authorized numbered-pagination follow-up applied
 `20261114100000` to the same disposable project, now also used by the

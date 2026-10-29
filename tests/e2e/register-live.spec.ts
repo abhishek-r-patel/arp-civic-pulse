@@ -780,27 +780,40 @@ test.describe("sign-in screen", () => {
     await expect(
       nav.getByRole("link", { name: "Settings", exact: true }),
     ).toHaveCount(0);
+    await expect(
+      nav.getByRole("link", { name: "Audit History", exact: true }),
+    ).toHaveCount(0);
 
     const settingsLink = page.getByRole("link", {
       name: "Settings",
       exact: true,
     });
+    const auditLink = page.getByRole("link", {
+      name: "Audit History",
+      exact: true,
+    });
     await expect(settingsLink).toHaveAttribute("href", "/admin/settings");
     await expect(settingsLink).toHaveAttribute("title", "Settings");
     await expect(settingsLink.locator("svg")).toBeVisible();
+    await expect(auditLink).toHaveAttribute("href", "/admin/audit");
+    await expect(auditLink).toHaveAttribute("title", "Audit History");
+    await expect(auditLink.locator("svg")).toBeVisible();
 
     const settingsBounds = await settingsLink.boundingBox();
+    const auditBounds = await auditLink.boundingBox();
     const signOutBounds = await page
       .getByRole("button", { name: "Sign Out" })
       .boundingBox();
     expect(settingsBounds).not.toBeNull();
+    expect(auditBounds).not.toBeNull();
     expect(signOutBounds).not.toBeNull();
-    if (!settingsBounds || !signOutBounds) {
-      throw new Error("Settings and Sign Out controls must be visible.");
+    if (!settingsBounds || !auditBounds || !signOutBounds) {
+      throw new Error(
+        "Audit, Settings, and Sign Out controls must be visible.",
+      );
     }
-    expect(settingsBounds.x + settingsBounds.width).toBeLessThan(
-      signOutBounds.x,
-    );
+    expect(settingsBounds.x + settingsBounds.width).toBeLessThan(auditBounds.x);
+    expect(auditBounds.x + auditBounds.width).toBeLessThan(signOutBounds.x);
 
     await page.getByRole("button", { name: "Sign Out" }).click();
     await expect(page).toHaveURL(/\/sign-in$/u);

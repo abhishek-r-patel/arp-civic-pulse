@@ -918,15 +918,134 @@ test.describe("administrator monitoring", () => {
     expect(json).not.toContain(office?.candidates[0]?.id ?? "x");
     expect(json).not.toContain("@");
     expect(json).not.toContain("accepted");
+    await asUser(
+      adminUser.id,
+      "public.cancel_vote($1, true, 'Audit reason display')",
+      [vote.id],
+    );
 
     await page.goto("/admin/audit");
     await expect(
       page.getByRole("heading", { level: 1, name: "Audit History" }),
     ).toBeVisible();
+    const auditHelp = page.getByText("About this history", { exact: true });
+    await expect(auditHelp).toBeVisible();
+    await expect(
+      page.getByText("Some actions require a reason", { exact: false }),
+    ).toBeHidden();
+    await auditHelp.click();
+    await expect(
+      page.getByText("Some actions require a reason", { exact: false }),
+    ).toBeVisible();
+    await auditHelp.click();
+    await page.getByRole("button", { name: "Filter Action" }).click();
+    await expect(
+      page.getByRole("dialog", { name: "Filter Action" }),
+    ).toBeVisible();
     const events = page.getByRole("table", { name: "Audit events" });
     await expect(events.getByText("Vote activated").first()).toBeVisible();
+    await expect(events.getByRole("columnheader").nth(2)).toContainText(
+      "Target",
+    );
+    await expect(events.getByRole("columnheader").nth(3)).toContainText(
+      "Action",
+    );
+    const showTargetIds = page.getByRole("checkbox", {
+      name: "Show Target IDs",
+    });
+    await expect(showTargetIds).not.toBeChecked();
+    await expect(events.getByText(vote.id, { exact: true })).toHaveCount(0);
+    await showTargetIds.check();
+    await expect(events.getByText(vote.id, { exact: true })).toBeVisible();
+    await showTargetIds.uncheck();
+    await expect(events.getByText(vote.id, { exact: true })).toHaveCount(0);
+    const showEffectiveTimes = page.getByRole("checkbox", {
+      name: "Show Effective Time",
+    });
+    const showProcessedTimes = page.getByRole("checkbox", {
+      name: "Show Processed Time",
+    });
+    await expect(showEffectiveTimes).not.toBeChecked();
+    await expect(showProcessedTimes).not.toBeChecked();
+    await expect(
+      events.getByText("Effective time:", { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      events.getByText("Processed time:", { exact: true }),
+    ).toHaveCount(0);
+    await showEffectiveTimes.check();
+    await expect(
+      events.getByText("Effective time:", { exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+      events.getByText("Processed time:", { exact: true }),
+    ).toHaveCount(0);
+    await showProcessedTimes.check();
+    await expect(
+      events.getByText("Processed time:", { exact: true }).first(),
+    ).toBeVisible();
+    await expect(events.getByText(vote.id, { exact: true })).toHaveCount(0);
+    await showEffectiveTimes.uncheck();
+    await expect(
+      events.getByText("Effective time:", { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      events.getByText("Processed time:", { exact: true }).first(),
+    ).toBeVisible();
+    await showProcessedTimes.uncheck();
+    await expect(
+      events.getByText("Processed time:", { exact: true }),
+    ).toHaveCount(0);
+    const cancelledRow = events.getByRole("row").filter({
+      hasText: "Vote cancelled",
+    });
+    await expect(cancelledRow).toContainText("Reason:");
+    await expect(cancelledRow).toContainText("Audit reason display");
+    await expect(
+      events.getByRole("columnheader", { name: "Reason" }),
+    ).toHaveCount(0);
+    const timezone = await page.evaluate(
+      () => Intl.DateTimeFormat().resolvedOptions().timeZone,
+    );
+    await expect(events.locator("tbody time").first()).toHaveAttribute(
+      "title",
+      `Your time zone: ${timezone}`,
+    );
+    await page.getByRole("button", { name: "Filter When" }).click();
+    await expect(page.getByLabel("From (local time)")).toBeVisible();
+    await expect(
+      page.getByRole("dialog", { name: "Filter When" }),
+    ).toContainText(timezone);
+    await page.keyboard.press("Escape");
+    for (const column of ["Who", "Details"]) {
+      await expect(
+        page.getByRole("button", { name: `Filter ${column}` }),
+      ).toBeVisible();
+    }
+    await page.getByRole("button", { name: "Filter Details" }).click();
+    await page.getByLabel("Details").fill("Audit reason display");
+    await page.getByRole("button", { name: "Apply Filters" }).click();
+    await expect(cancelledRow).toBeVisible();
+    await expect(events.getByText("Vote activated").first()).toHaveCount(0);
+    await page.getByRole("link", { name: "Clear filters" }).click();
+    await expect(events.getByText("Vote activated").first()).toBeVisible();
+
     await chooseDropdownOption(page, "Action", "Vote activated");
     await page.getByRole("button", { name: "Apply Filters" }).click();
+    await expect(events.getByText("Vote activated").first()).toBeVisible();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(
+      page.getByRole("button", { name: "Filter Audit History" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Filter Audit History" }).click();
+    await expect(
+      page.getByRole("dialog", { name: "Filter Audit History" }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Action")).toHaveValue("VOTE_ACTIVATED");
+    await expect(page.getByLabel("Who", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Details", { exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
     await expect(events.getByText("Vote activated").first()).toBeVisible();
     const auditText = await page.locator("#main-content").innerText();
     expect(auditText).not.toMatch(/optionId|\botp\b|ballot:/iu);

@@ -536,5 +536,24 @@ describe("list query contracts", () => {
     expect(auditQuerySchema.safeParse({ from: "2030-01-01" }).success).toBe(
       false,
     );
+    expect(
+      auditQuerySchema.safeParse({
+        who: "  Asha Admin  ",
+        details: " early ",
+      }),
+    ).toMatchObject({
+      success: true,
+      data: { who: "Asha Admin", details: "early" },
+    });
+    expect(
+      auditQuerySchema.safeParse({
+        who: " ",
+      }).success,
+    ).toBe(false);
+    expect(
+      auditQuerySchema.safeParse({
+        details: "x".repeat(101),
+      }).success,
+    ).toBe(false);
   });
 });

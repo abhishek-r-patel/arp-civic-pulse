@@ -1,8 +1,16 @@
 // Protected administrative audit history with server-side filters.
-import { formatInstant, firstValues } from "@/components/admin/format";
-import { Button, LinkButton } from "@/components/ui/button";
+import { ChevronDown } from "lucide-react";
+import { firstValues } from "@/components/admin/format";
+import {
+  AuditColumnFilter,
+  AuditDetailTime,
+  AuditTargetId,
+  AuditTargetIdProvider,
+  AuditTimestamp,
+  AuditTableToolbar,
+  type AuditTableState,
+} from "@/components/admin/audit-table-controls";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { SelectField } from "@/components/ui/field";
 import { EmptyState, PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { Pagination } from "@/components/ui/pagination";
@@ -71,6 +79,15 @@ const LEGACY_VOTING_TYPES: Record<string, string> = {
 };
 
 function detailLabel(key: string, terms: HouseholdTerms): string {
+  if (key === "reason") {
+    return "Reason";
+  }
+  if (key === "effectiveAt") {
+    return "Effective time";
+  }
+  if (key === "processedAt") {
+    return "Processed time";
+  }
   if (key === "householdIdentifier") {
     return terms.identifierLabel;
   }
@@ -83,76 +100,115 @@ function detailLabel(key: string, terms: HouseholdTerms): string {
   return key;
 }
 
-function detailValue(key: string, value: unknown): string {
+function detailValue(key: string, value: unknown) {
   if (typeof value !== "string") {
     return JSON.stringify(value);
+  }
+  if (
+    (key === "effectiveAt" || key === "processedAt") &&
+    Number.isFinite(Date.parse(value))
+  ) {
+    return <AuditTimestamp value={value} />;
   }
   return key === "votingType" ? (LEGACY_VOTING_TYPES[value] ?? value) : value;
 }
 
 function Details({
+  reason,
   details,
   terms,
 }: Readonly<{
+  reason: string | null;
   details: AuditEvent["details"];
   terms: HouseholdTerms;
 }>) {
-  const entries = Object.entries(details);
+  const entries: [string, unknown][] = [
+    ...(reason ? [["reason", reason] as [string, unknown]] : []),
+    ...Object.entries(details),
+  ];
   if (entries.length === 0) {
     return <span className="text-muted">—</span>;
   }
   return (
     <dl className="grid gap-0.5 text-caption">
-      {entries.map(([key, value]) => (
-        <div key={key} className="flex flex-wrap gap-x-2">
-          <dt className="font-semibold text-muted">
-            {detailLabel(key, terms)}:
-          </dt>
-          <dd className="min-w-0 break-words">{detailValue(key, value)}</dd>
-        </div>
-      ))}
+      {entries.map(([key, value]) => {
+        const entry = (
+          <div className="flex flex-wrap gap-x-2">
+            <dt className="font-semibold text-muted">
+              {detailLabel(key, terms)}:
+            </dt>
+            <dd className="min-w-0 break-words">{detailValue(key, value)}</dd>
+          </div>
+        );
+        const timeKind =
+          key === "effectiveAt"
+            ? "effective"
+            : key === "processedAt"
+              ? "processed"
+              : null;
+        return timeKind ? (
+          <AuditDetailTime key={key} kind={timeKind}>
+            {entry}
+          </AuditDetailTime>
+        ) : (
+          <div key={key}>{entry}</div>
+        );
+      })}
     </dl>
   );
 }
 
-const columns = (terms: HouseholdTerms): Column<AuditEvent>[] => [
+const columns = (
+  terms: HouseholdTerms,
+  state: AuditTableState,
+): Column<AuditEvent>[] => [
   {
     key: "when",
     header: "When",
-    cell: (event) => (
-      <time dateTime={event.occurredAt}>{formatInstant(event.occurredAt)}</time>
+    headerContent: (
+      <AuditColumnFilter state={state} column="when" title="When" />
     ),
+    cell: (event) => <AuditTimestamp value={event.occurredAt} />,
   },
   {
     key: "actor",
     header: "Who",
+    headerContent: <AuditColumnFilter state={state} column="who" title="Who" />,
     cell: (event) =>
       event.actorKind === "PROFILE"
         ? (event.actorName ?? "Former account")
         : label(event.actorKind, terms),
   },
   {
-    key: "action",
-    header: "Action",
-    cell: (event) => label(event.action, terms),
-  },
-  {
     key: "target",
     header: "Target",
+    headerContent: (
+      <AuditColumnFilter state={state} column="target" title="Target" />
+    ),
     cell: (event) => (
       <span>
         {label(event.targetType, terms)}
-        <span className="block text-caption break-all text-muted">
-          {event.targetId}
-        </span>
+        <AuditTargetId value={event.targetId} />
       </span>
     ),
   },
-  { key: "reason", header: "Reason", cell: (event) => event.reason ?? "—" },
+  {
+    key: "action",
+    header: "Action",
+    headerContent: (
+      <AuditColumnFilter state={state} column="action" title="Action" />
+    ),
+    cell: (event) => label(event.action, terms),
+  },
   {
     key: "details",
     header: "Details",
-    cell: (event) => <Details details={event.details} terms={terms} />,
+    headerContent: (
+      <AuditColumnFilter state={state} column="details" title="Details" />
+    ),
+    cell: (event) => (
+      <Details reason={event.reason} details={event.details} terms={terms} />
+    ),
   },
 ];
 
@@ -169,6 +225,10 @@ export default async function AuditPage({
     cursor: raw.cursor,
     action: raw.action,
     targetType: raw.targetType,
+    from: raw.from,
+    to: raw.to,
+    who: raw.who,
+    details: raw.details ?? raw.reason,
   });
   const query = parsed.success ? parsed.data : auditQuerySchema.parse({});
 
@@ -184,14 +244,67 @@ export default async function AuditPage({
   }
 
   const filtersActive =
-    query.action !== undefined || query.targetType !== undefined;
+    query.action !== undefined ||
+    query.targetType !== undefined ||
+    query.from !== undefined ||
+    query.to !== undefined ||
+    query.who !== undefined ||
+    query.details !== undefined;
+  const tableState: AuditTableState = {
+    params: {
+      limit: String(query.limit),
+      action: query.action,
+      targetType: query.targetType,
+      from: query.from,
+      to: query.to,
+      who: query.who,
+      details: query.details,
+    },
+    actions: ACTIONS.map((action) => ({
+      value: action,
+      label: label(action, deps.terms),
+    })),
+    targetTypes: TARGET_TYPES.map((targetType) => ({
+      value: targetType,
+      label: label(targetType, deps.terms),
+    })),
+  };
 
   return (
     <div className="grid gap-8">
       <PageHeader
         title="Audit History"
-        description="A permanent record of administrative actions, newest first. It never contains sign-in codes, ballots or selections. Times are UTC."
+        description="A permanent record of administrative actions, newest first. It never contains sign-in codes, ballots or selections. Times use your browser's local time zone."
       />
+      <details className="group rounded-control border border-accent/30 bg-accent/5">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-control px-4 py-3 text-body font-semibold text-primary hover:bg-accent/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
+          <span>About this history</span>
+          <ChevronDown
+            aria-hidden="true"
+            className="size-5 shrink-0 text-accent transition-transform group-open:rotate-180"
+          />
+        </summary>
+        <div className="grid gap-2 px-4 pb-4 text-body text-primary">
+          <p>
+            <span className="font-semibold">Reasons:</span> Some actions require
+            a reason, which appears in Details. Other actions have no reason.
+          </p>
+          <p>
+            <span className="font-semibold">Effective time:</span> when an event
+            takes effect. <span className="font-semibold">Processed time:</span>{" "}
+            when the system handled or reconciled it. Both are hidden by
+            default; use <strong>Show Effective Time</strong> or{" "}
+            <strong>Show Processed Time</strong> above the list independently
+            when needed.
+          </p>
+          <p>
+            <span className="font-semibold">Target ID:</span> the unique record
+            identifier, useful for tracing or support; it is not a code or
+            secret. IDs are hidden by default; use{" "}
+            <strong>Show Target IDs</strong> above the list when needed.
+          </p>
+        </div>
+      </details>
 
       {!parsed.success ? (
         <Notice tone="warning" heading="Some filters were not valid">
@@ -199,88 +312,65 @@ export default async function AuditPage({
         </Notice>
       ) : null}
 
-      <form
-        method="get"
-        className="grid gap-4 form-panel sm:grid-cols-[1fr_1fr_auto] sm:items-end"
-      >
-        <input type="hidden" name="limit" value={query.limit} />
-        <SelectField
-          id="action"
-          name="action"
-          label="Action"
-          defaultValue={raw.action ?? ""}
-        >
-          <option value="">Any action</option>
-          {ACTIONS.map((action) => (
-            <option key={action} value={action}>
-              {label(action, deps.terms)}
-            </option>
-          ))}
-        </SelectField>
-        <SelectField
-          id="targetType"
-          name="targetType"
-          label="Target"
-          defaultValue={raw.targetType ?? ""}
-        >
-          <option value="">Any target</option>
-          {TARGET_TYPES.map((type) => (
-            <option key={type} value={type}>
-              {label(type, deps.terms)}
-            </option>
-          ))}
-        </SelectField>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Button type="submit">Apply Filters</Button>
-          {filtersActive ? (
-            <LinkButton href="/admin/audit" variant="secondary">
-              Clear
-            </LinkButton>
-          ) : null}
-        </div>
-      </form>
+      <AuditTargetIdProvider>
+        <AuditTableToolbar state={tableState} />
 
-      {loadError ? (
-        <Notice tone="error" heading="The audit history could not be loaded">
-          <p>
-            Try again in a moment. If this keeps happening, quote this reference
-            to support: {loadError.code}.
-          </p>
-        </Notice>
-      ) : result && result.data.length === 0 ? (
-        <EmptyState
-          title={
-            filtersActive ? "No events match these filters" : "No events yet"
-          }
-        >
-          <p>
-            {filtersActive
-              ? "Try a different action or target."
-              : "Administrative actions will appear here as they happen."}
-          </p>
-        </EmptyState>
-      ) : result ? (
-        <>
-          <DataTable
-            caption="Audit events"
-            columns={columns(deps.terms)}
-            rows={result.data}
-            rowKey={(event) => event.id}
-          />
+        {loadError ? (
+          <Notice tone="error" heading="The audit history could not be loaded">
+            <p>
+              Try again in a moment. If this keeps happening, quote this
+              reference to support: {loadError.code}.
+            </p>
+          </Notice>
+        ) : result && result.data.length === 0 ? (
+          <EmptyState
+            title={
+              filtersActive ? "No events match these filters" : "No events yet"
+            }
+          >
+            <p>
+              {filtersActive
+                ? "Try different filter criteria."
+                : "Administrative actions will appear here as they happen."}
+            </p>
+          </EmptyState>
+        ) : result ? (
+          <>
+            <DataTable
+              caption="Audit events"
+              columns={columns(deps.terms, tableState)}
+              rows={result.data}
+              rowKey={(event) => event.id}
+            />
+            <Pagination
+              basePath="/admin/audit"
+              params={{
+                action: query.action,
+                targetType: query.targetType,
+                from: query.from,
+                to: query.to,
+                who: query.who,
+                details: query.details,
+              }}
+              page={result.page}
+            />
+          </>
+        ) : null}
+        {result && result.data.length === 0 ? (
           <Pagination
             basePath="/admin/audit"
-            params={{ action: raw.action, targetType: raw.targetType }}
+            params={{
+              action: query.action,
+              targetType: query.targetType,
+              from: query.from,
+              to: query.to,
+              who: query.who,
+              details: query.details,
+            }}
             page={result.page}
           />
-        </>
-      ) : null}
-      {result && result.data.length === 0 ? (
-        <Pagination
-          basePath="/admin/audit"
-          params={{ action: raw.action, targetType: raw.targetType }}
-          page={result.page}
-        />
-      ) : null}
+        ) : null}
+      </AuditTargetIdProvider>
     </div>
   );
 }
