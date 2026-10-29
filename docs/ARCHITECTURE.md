@@ -252,6 +252,7 @@ and internal scrolling for content taller than 90dvh. Native focus containment,
 Escape cancellation and return focus are preserved; menus and combobox lists
 remain anchored to their controls.
 
+- `src/components/ui/date-time-picker.tsx`: accessible themed calendar modal and 12-hour AM/PM editor for draft opening/closing deadlines; displays `hh:mm:ss AM/PM` and returns second-precision local values for conversion in the configured RWA timezone.
 - `src/app/admin/residents/page.tsx`: unified people/assignment directory, defaulting to Voters, with global column sorting, role/status/source/identifier/eligibility (including no assignment), name and profile-changed-time filters, plus independent access/eligibility review actions. `listResidentTable` in `src/server/register/accounts.ts` validates bounded ordered IDs and exact metadata from `get_resident_table_page`, then uses shared page-scoped profile/household/Auth enrichment, preserving App Support flags. Account API paths, ID ordering, response shapes and the older `listResidents` cursor service remain unchanged.
 - `src/components/admin/resident-table-controls.tsx`, `resident-identifier-filter.tsx` and shared `src/components/ui/data-table.tsx`: URL-backed sortable column headers with `aria-sort`, native top-layer filter popovers, Settings-backed identifier picker/manual fallback, Source column controls and mobile Sort & Filter controls. Dropdown lists expand in flow inside scrolling panels. The Clear filters link removes filter state while preserving sort, direction and page size. Controls remain usable for observers outside management-disabled fields; selections clear on ordering/filter/page/size changes.
 - `src/components/admin/audit-table-controls.tsx` and `src/components/ui/table-filter-popover.tsx`: Audit History's URL-backed browser-local date-range, Who, Action, Target and combined Details/reason filters, including its mobile combined filter toolbar; the shared viewport-aware native popover is also used by Residents. Clearing filters preserves page size; audit pagination remains newest-first and timestamps display in the viewer's time zone.
@@ -285,6 +286,9 @@ Resident self-registration implementation map:
 - `src/app/api/admin/votes/[id]/schedule/route.ts` and `schedule/withdraw/route.ts`: confirmed schedule/withdrawal endpoints. Existing lifecycle controls, preview and vote pages provide the UI.
 - `supabase/migrations/20261106100000_register_import.sql`: guarded import inspection/assignment; `tests/integration/register-import.test.ts` verifies conflicts, permissions, concurrency and suspended access.
 - `supabase/migrations/20261107100000_scheduled_opening.sql`: opening fields, scheduled state, freeze/withdraw/opening routines, direct-read ballot privacy and Cron integration; existing `tests/integration/lifecycle.test.ts` exercises boundaries.
+- `supabase/migrations/20261121100000_vote_draft_opening.sql`: persists an optional planned opening in a draft and exposes it only through the guarded draft projection; scheduling still requires the confirmed freeze routine.
+- `supabase/migrations/20261121110000_draft_opening_public_private_types.sql`: keeps planned-opening draft updates compatible with PUBLIC/PRIVATE ballot options and offices; `tests/integration/drafts.test.ts` covers saving the opening with ballot content.
+- `supabase/migrations/20261122100000_delete_drafts.sql`: adds revision-checked, confirmed and audited draft deletion through a guarded administrator routine.
 - `scripts/docs/capture.spec.ts`: opted-in synthetic Resident, RWA Admin and RWA ReadOnly persona captures. Screenshots are written to `docs/images/user-guide/{voter,rwa-admin,rwa-readonly}` with email/code redaction. `tests/e2e/support/live.ts` uses the existing operational database helper for verified TLS with a provider CA, not a certificate-verification bypass.
 
 ### Public discovery and contact additions
@@ -406,7 +410,7 @@ Each `cast_vote` call performs one guarded PostgreSQL transaction:
 
 ## 08 Lifecycle, Maintenance and Counting
 ### Draft and activation
-- A ready preview may instead schedule a future opening in the RWA time zone. Scheduling freezes ballot, electorate, representatives and policy/display snapshots immediately and initializes zero PRIVATE counters. Residents see only summary/instructions/times/countdown until opening; RLS also hides candidates/options from direct reads. The database-clock opening helper shares the vote lock and admission timeout. Cron and authorized list/detail/submission calls reconcile due openings; delayed processing never opens early or extends closure. A missed window completes with zero participation at its original deadline.
+- A ready preview may instead schedule the future opening time saved in the draft's Deadline section, shown and confirmed in the RWA time zone without a second editable opening field. Scheduling freezes ballot, electorate, representatives and policy/display snapshots immediately and initializes zero PRIVATE counters. Residents see only summary/instructions/times/countdown until opening; RLS also hides candidates/options from direct reads. The database-clock opening helper shares the vote lock and admission timeout. Cron and authorized list/detail/submission calls reconcile due openings; delayed processing never opens early or extends closure. A missed window completes with zero participation at its original deadline.
 - A confirmed withdrawal with a reason may return a scheduled vote to draft only before opening. It clears frozen snapshots/zero counters, advances the revision and records `VOTE_SCHEDULE_WITHDRAWN`; fresh preview and scheduling/activation are required. No active or terminal vote can use this path.
 - Use draft revision checks to prevent lost edits and stale preview confirmations.
 - Activation atomically revalidates the previewed revision, freezes ballot content/electorate/representative assignments (the deadline can later move only through the audited deadline change below) and relevant display metadata, initializes counters, changes state and appends audit history.
@@ -449,6 +453,7 @@ Use same-origin endpoints and explicit response projections. Server actions may 
 | `GET /api/votes/{id}/results` | Authorized active aggregates or completed, reconciled results |
 | `GET /api/votes/{id}/exports/{format}` | CSV; PDF only when implemented |
 | `/api/admin/households`, `/api/admin/votes` | Admin register, lists and revision-checked draft operations |
+| `DELETE /api/admin/votes/{id}` | Confirmed, revision-checked draft deletion with an audit record |
 | `POST /api/admin/votes/{id}/{action}` | Validated activation, early completion and cancellation |
 | `GET /api/admin/votes/{id}/participation` | Admin participation monitoring without selections |
 | `GET /api/admin/audit` | Paginated audit history |

@@ -1,13 +1,20 @@
-// Guarded vote setup and draft editing presented as clear sections without altering revision semantics.
+// Guarded vote setup, revision-aware draft editing, cancellation and deletion.
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type PointerEvent,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowDown,
-  ArrowUp,
   Eye,
+  GripVertical,
   ListPlus,
   Plus,
   Save,
@@ -26,6 +33,7 @@ import {
   type OptionDraft,
 } from "@/components/admin/draft-model";
 import { Button, LinkButton } from "@/components/ui/button";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { ErrorSummary } from "@/components/ui/error-summary";
 import {
@@ -48,6 +56,7 @@ import { VOTING_TYPE_LABELS, type VotingType } from "@/shared/contracts/voting";
 import { apiRequest, type ApiFailure } from "@/shared/http/api-client";
 import { fieldErrorFor } from "@/shared/http/messages";
 import {
+  defaultDraftClosingLocal,
   formatInZone,
   instantToLocalInput,
   zonedLocalToInstant,
@@ -59,6 +68,7 @@ const DEADLINE_MESSAGES = {
     "That time does not exist on the day the clocks change. Choose a different time.",
   AMBIGUOUS:
     "That time happens twice on the day the clocks change. Choose a different time.",
+  WINDOW: "Voting must open before it closes.",
 } as const;
 
 function typeDescriptions(
@@ -80,8 +90,6 @@ function typeDescriptions(
     },
   };
 }
-
-const buttonInline = "sm:w-auto";
 
 type NewDraftProps = Readonly<{ csrfToken: string | undefined }>;
 
@@ -115,7 +123,7 @@ export function NewDraftForm({ csrfToken }: NewDraftProps) {
       setFailure(result);
       return;
     }
-    router.push(`/admin/votes/${result.data.id}?notice=draft-created`);
+    router.push(`/admin/votes/${result.data.id}?notice=draft-created&new=1`);
   }
 
   return (
@@ -200,62 +208,174 @@ function ReorderControls({
   label,
   index,
   count,
+  group,
   onMove,
   onRemove,
 }: Readonly<{
   label: string;
   index: number;
   count: number;
-  onMove: (delta: -1 | 1) => void;
+  group: string;
+  onMove: (index: number) => void;
   onRemove: () => void;
 }>) {
   return (
-    <div className="flex flex-wrap gap-2">
-      <Button
-        variant="secondary"
-        className={buttonInline}
-        disabled={index === 0}
-        onClick={() => onMove(-1)}
-        aria-label={`Move ${label} up`}
-      >
-        <ArrowUp aria-hidden="true" className="size-5" />
-        <span className="sr-only sm:not-sr-only">Up</span>
-      </Button>
-      <Button
-        variant="secondary"
-        className={buttonInline}
-        disabled={index === count - 1}
-        onClick={() => onMove(1)}
-        aria-label={`Move ${label} down`}
-      >
-        <ArrowDown aria-hidden="true" className="size-5" />
-        <span className="sr-only sm:not-sr-only">Down</span>
-      </Button>
-      <Button
-        variant="secondary"
-        className={buttonInline}
-        onClick={onRemove}
-        aria-label={`Remove ${label}`}
-      >
-        <Trash2 aria-hidden="true" className="size-5" />
-        <span className="sr-only sm:not-sr-only">Remove</span>
-      </Button>
+    <div className="flex shrink-0 gap-1">
+      <ReorderHandle
+        label={label}
+        index={index}
+        count={count}
+        group={group}
+        onMove={onMove}
+      />
+      <RemoveItemButton label={label} onRemove={onRemove} />
     </div>
   );
 }
 
-function moved<T>(items: readonly T[], index: number, delta: -1 | 1): T[] {
-  const target = index + delta;
-  if (target < 0 || target >= items.length) {
+function ReorderHandle({
+  label,
+  index,
+  count,
+  group,
+  onMove,
+}: Readonly<{
+  label: string;
+  index: number;
+  count: number;
+  group: string;
+  onMove: (index: number) => void;
+}>) {
+  const [dragging, setDragging] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
+  const pointerId = useRef<number | null>(null);
+  const dropIndex = useRef(index);
+  const startIndex = useRef(index);
+
+  function onPointerDown(event: PointerEvent<HTMLButtonElement>) {
+    if (
+      !event.isPrimary ||
+      (event.pointerType === "mouse" && event.button !== 0)
+    ) {
+      return;
+    }
+    event.preventDefault();
+    pointerId.current = event.pointerId;
+    startIndex.current = index;
+    dropIndex.current = index;
+    setDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function onPointerMove(event: PointerEvent<HTMLButtonElement>) {
+    if (pointerId.current !== event.pointerId) {
+      return;
+    }
+    let item = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>("[data-sortable-item]");
+    while (item && item.dataset.sortableGroup !== group) {
+      item =
+        item.parentElement?.closest<HTMLElement>("[data-sortable-item]") ??
+        null;
+    }
+    const target = Number(item?.dataset.sortableIndex);
+    if (item && Number.isInteger(target) && target !== dropIndex.current) {
+      dropIndex.current = target;
+      setAnnouncement(`Release to move ${label} to position ${target + 1}.`);
+    }
+  }
+
+  function endDrag(event: PointerEvent<HTMLButtonElement>, drop: boolean) {
+    if (pointerId.current !== event.pointerId) {
+      return;
+    }
+    pointerId.current = null;
+    setDragging(false);
+    const target = dropIndex.current;
+    if (drop && target !== startIndex.current) {
+      onMove(target);
+      setAnnouncement(`Moved ${label} to position ${target + 1}.`);
+    } else {
+      setAnnouncement("");
+    }
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (
+      !event.altKey ||
+      (event.key !== "ArrowUp" && event.key !== "ArrowDown")
+    ) {
+      return;
+    }
+    const target = index + (event.key === "ArrowUp" ? -1 : 1);
+    if (target < 0 || target >= count) {
+      return;
+    }
+    event.preventDefault();
+    onMove(target);
+    setAnnouncement(`Moved ${label} to position ${target + 1}.`);
+  }
+
+  return (
+    <Button
+      variant="secondary"
+      className="h-12 !w-12 shrink-0 cursor-grab touch-none border-0 px-0 py-0 select-none data-[dragging=true]:cursor-grabbing"
+      title={`Drag to reorder ${label}. Press Alt+Arrow Up or Alt+Arrow Down to move with the keyboard.`}
+      aria-label={`Reorder ${label}`}
+      aria-description="Drag this handle to reorder, or press Alt+ArrowUp or Alt+ArrowDown."
+      aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+      data-dragging={dragging}
+      onKeyDown={onKeyDown}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={(event) => endDrag(event, true)}
+      onPointerCancel={(event) => endDrag(event, false)}
+      onLostPointerCapture={(event) => endDrag(event, false)}
+    >
+      <GripVertical
+        aria-hidden="true"
+        className={dragging ? "size-6 cursor-grabbing" : "size-6 cursor-grab"}
+      />
+      <span className="sr-only" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </span>
+    </Button>
+  );
+}
+
+function RemoveItemButton({
+  label,
+  onRemove,
+}: Readonly<{ label: string; onRemove: () => void }>) {
+  return (
+    <Button
+      variant="secondary"
+      className="h-12 !w-12 shrink-0 border-0 px-0 py-0"
+      title={`Remove ${label}`}
+      onClick={onRemove}
+      aria-label={`Remove ${label}`}
+    >
+      <Trash2 aria-hidden="true" className="size-6" />
+    </Button>
+  );
+}
+
+function moved<T>(items: readonly T[], from: number, to: number): T[] {
+  if (to < 0 || to >= items.length || from === to) {
     return [...items];
   }
   const next = [...items];
-  const [item] = next.splice(index, 1);
-  next.splice(target, 0, item as T);
+  const [item] = next.splice(from, 1);
+  if (item === undefined) {
+    return [...items];
+  }
+  next.splice(to, 0, item);
   return next;
 }
 
 type EditorProps = Readonly<{
+  isNewDraft: boolean;
   csrfToken: string | undefined;
   identifierLabel: string;
   initial: AdminVoteDetail;
@@ -266,10 +386,19 @@ type EditorProps = Readonly<{
 }>;
 
 function localDeadline(detail: AdminVoteDetail): string {
-  return instantToLocalInput(detail.closesAt, detail.timezone ?? "UTC");
+  const timezone = detail.timezone;
+  if (detail.closesAt) {
+    return instantToLocalInput(detail.closesAt, timezone ?? "UTC", true);
+  }
+  return timezone ? defaultDraftClosingLocal(detail.createdAt, timezone) : "";
+}
+
+function savedLocalDeadline(detail: AdminVoteDetail): string {
+  return instantToLocalInput(detail.closesAt, detail.timezone ?? "UTC", true);
 }
 
 export function DraftEditor({
+  isNewDraft,
   csrfToken,
   identifierLabel,
   initial,
@@ -288,17 +417,22 @@ export function DraftEditor({
 
   const [server, setServer] = useState(initial);
   const [baseline, setBaseline] = useState(() =>
+    stateFromDetail(initial, savedLocalDeadline(initial)),
+  );
+  const [state, setState] = useState(() =>
     stateFromDetail(initial, localDeadline(initial)),
   );
-  const [state, setState] = useState(baseline);
   const [failure, setFailure] = useState<ApiFailure | null>(null);
   const [deadlineIssue, setDeadlineIssue] = useState<string | null>(null);
+  const [openingIssue, setOpeningIssue] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(flash ?? null);
   const [unchanged, setUnchanged] = useState(false);
   const [pending, setPending] = useState(false);
+  const [exitAction, setExitAction] = useState<
+    "discard" | "delete" | "rollback" | null
+  >(null);
   const [stale, setStale] = useState(false);
   const [mergeNotes, setMergeNotes] = useState<string[] | null>(null);
-  const [typeChange, setTypeChange] = useState<VotingType | null>(null);
   const [filter, setFilter] = useState("");
 
   const dirty = useMemo(
@@ -325,10 +459,11 @@ export function DraftEditor({
   };
 
   function adopt(detail: AdminVoteDetail) {
-    const next = stateFromDetail(detail, localDeadline(detail));
+    const saved = stateFromDetail(detail, savedLocalDeadline(detail));
+    const suggested = stateFromDetail(detail, localDeadline(detail));
     setServer(detail);
-    setBaseline(next);
-    setState(next);
+    setBaseline(saved);
+    setState(suggested);
   }
 
   async function save() {
@@ -337,14 +472,20 @@ export function DraftEditor({
     }
     setFailure(null);
     setDeadlineIssue(null);
+    setOpeningIssue(null);
     setSaved(null);
     setUnchanged(false);
     setStale(false);
 
     const result = buildPatch(baseline, state, timezone);
     if (!result.ok) {
-      setDeadlineIssue(DEADLINE_MESSAGES[result.deadline]);
-      document.getElementById("closesLocal")?.focus();
+      const message = DEADLINE_MESSAGES[result.deadline];
+      if (result.field === "opensLocal") {
+        setOpeningIssue(message);
+      } else {
+        setDeadlineIssue(message);
+      }
+      document.getElementById(result.field)?.focus();
       return;
     }
     if (result.changed.length === 0) {
@@ -401,7 +542,7 @@ export function DraftEditor({
       baseline,
       state,
       latest,
-      localDeadline(latest),
+      savedLocalDeadline(latest),
       terms,
     );
     setServer(latest);
@@ -428,44 +569,44 @@ export function DraftEditor({
     setSaved(`Loaded the latest version (version ${latest.draftRevision}).`);
   }
 
-  function requestType(next: VotingType) {
-    if (next === state.votingType) {
-      return;
+  function cancelEditing() {
+    if (isNewDraft && server.draftRevision === 1) {
+      setExitAction("rollback");
+    } else if (dirty) {
+      setExitAction("discard");
+    } else {
+      router.push("/admin/votes");
     }
-    const hasBallot =
-      state.votingType === "PRIVATE"
-        ? state.offices.length > 0
-        : state.options.length > 0;
-    if (hasBallot) {
-      setTypeChange(next);
-      return;
-    }
-    patch(
-      next === "PRIVATE"
-        ? {
-            votingType: next,
-            openSelectionMode: "SINGLE",
-            openSelectionLimit: 1,
-          }
-        : { votingType: next },
-    );
   }
 
-  function confirmTypeChange() {
-    if (typeChange) {
-      patch(
-        typeChange === "PRIVATE"
-          ? {
-              votingType: typeChange,
-              openSelectionMode: "SINGLE",
-              openSelectionLimit: 1,
-              offices: [],
-              options: [],
-            }
-          : { votingType: typeChange, offices: [], options: [] },
-      );
+  async function confirmExit() {
+    if (!exitAction || pending) {
+      return;
     }
-    setTypeChange(null);
+    if (exitAction === "discard") {
+      router.push("/admin/votes");
+      return;
+    }
+
+    setPending(true);
+    setFailure(null);
+    setStale(false);
+    const response = await apiRequest<boolean>(
+      `/api/admin/votes/${server.id}`,
+      {
+        method: "DELETE",
+        body: { expectedRevision: server.draftRevision, confirmed: true },
+        csrfToken,
+      },
+    );
+    setPending(false);
+    if (!response.ok) {
+      setExitAction(null);
+      setFailure(response);
+      setStale(response.code === "STALE_REVISION");
+      return;
+    }
+    router.push("/admin/votes");
   }
 
   const updateOffice = (
@@ -603,62 +744,15 @@ export function DraftEditor({
       />
 
       <fieldset disabled={pending} className="grid min-w-0 gap-8">
-        <section aria-labelledby="type-heading" className="grid gap-3">
-          <h2 id="type-heading" className="text-section font-semibold">
-            1. Voting type
-          </h2>
-          <div
-            className="grid gap-3"
-            role="radiogroup"
-            aria-labelledby="type-heading"
-          >
-            {(["PUBLIC", "PRIVATE"] as const).map((value) => (
-              <label
-                key={value}
-                htmlFor={`type-${value}`}
-                className="flex cursor-pointer items-start gap-3 rounded-card border border-control-border bg-surface p-4 has-[:checked]:border-accent has-[:checked]:bg-accent/5"
-              >
-                <input
-                  id={`type-${value}`}
-                  type="radio"
-                  name="votingType"
-                  checked={state.votingType === value}
-                  onChange={() => requestType(value)}
-                  className="mt-1 size-5 shrink-0 accent-accent"
-                />
-                <span className="grid gap-1">
-                  <span className="text-card-heading font-semibold">
-                    {VOTING_TYPE_LABELS[value]}
-                  </span>
-                  <span className="text-body">
-                    {typeDescriptions(terms)[value].summary}
-                  </span>
-                </span>
-              </label>
-            ))}
-          </div>
-          <p className="text-caption text-muted">
-            Changing the type removes the{" "}
-            {state.votingType === "PUBLIC"
-              ? "options"
-              : "offices and candidates"}{" "}
-            you have entered, because the other type uses a different ballot.
-          </p>
-        </section>
-
         <section aria-labelledby="details-heading" className="grid gap-4">
           <h2 id="details-heading" className="text-section font-semibold">
-            2. Details
+            1. Details
           </h2>
           <TextField
             id="title"
             name="title"
             label={state.votingType === "PUBLIC" ? "Question" : "Title"}
-            hint={
-              state.votingType === "PUBLIC"
-                ? "Question residents will answer."
-                : "Example: Managing committee election 2026."
-            }
+            inline={false}
             required
             maxLength={300}
             autoComplete="off"
@@ -675,11 +769,12 @@ export function DraftEditor({
                 : "Instructions for voters"
             }
             hint={
-              state.votingType === "PUBLIC"
-                ? "Optional context for residents."
-                : "Required before activation; plain text."
+              state.votingType === "PRIVATE"
+                ? "Required before activation; plain text."
+                : undefined
             }
             required={state.votingType === "PRIVATE"}
+            showOptional={state.votingType !== "PUBLIC"}
             maxLength={10000}
             value={state.instructions}
             onChange={(event) => patch({ instructions: event.target.value })}
@@ -689,7 +784,7 @@ export function DraftEditor({
 
         <section aria-labelledby="ballot-heading" className="grid gap-4">
           <h2 id="ballot-heading" className="text-section font-semibold">
-            3. Ballot
+            2. Ballot
           </h2>
           {state.votingType === "PUBLIC" ? (
             <>
@@ -701,38 +796,40 @@ export function DraftEditor({
                   Each {terms.household} submits one ballot. Choose whether that
                   ballot contains one option or several.
                 </p>
-                {(["SINGLE", "MULTIPLE"] as const).map((mode) => (
-                  <label
-                    key={mode}
-                    className="flex min-h-12 cursor-pointer items-center gap-3 rounded-control border border-border px-3 has-[:checked]:border-accent has-[:checked]:bg-accent/5"
-                  >
-                    <input
-                      type="radio"
-                      name="openSelectionMode"
-                      value={mode}
-                      checked={state.openSelectionMode === mode}
-                      onChange={() =>
-                        patch(
-                          mode === "SINGLE"
-                            ? {
-                                openSelectionMode: "SINGLE",
-                                openSelectionLimit: 1,
-                              }
-                            : {
-                                openSelectionMode: "MULTIPLE",
-                                openSelectionLimit: null,
-                              },
-                        )
-                      }
-                      className="size-5 shrink-0 accent-accent"
-                    />
-                    <span className="text-body">
-                      {mode === "SINGLE"
-                        ? "Select exactly one option"
-                        : "Select multiple options"}
-                    </span>
-                  </label>
-                ))}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {(["SINGLE", "MULTIPLE"] as const).map((mode) => (
+                    <label
+                      key={mode}
+                      className="flex min-h-12 min-w-0 cursor-pointer items-center gap-3 rounded-control border border-border px-3 has-[:checked]:border-accent has-[:checked]:bg-accent/5"
+                    >
+                      <input
+                        type="radio"
+                        name="openSelectionMode"
+                        value={mode}
+                        checked={state.openSelectionMode === mode}
+                        onChange={() =>
+                          patch(
+                            mode === "SINGLE"
+                              ? {
+                                  openSelectionMode: "SINGLE",
+                                  openSelectionLimit: 1,
+                                }
+                              : {
+                                  openSelectionMode: "MULTIPLE",
+                                  openSelectionLimit: null,
+                                },
+                          )
+                        }
+                        className="size-5 shrink-0 accent-accent"
+                      />
+                      <span className="text-body">
+                        {mode === "SINGLE"
+                          ? "Select exactly one option"
+                          : "Select multiple options"}
+                      </span>
+                    </label>
+                  ))}
+                </div>
                 {state.openSelectionMode === "MULTIPLE" ? (
                   <>
                     <CheckboxField
@@ -797,7 +894,7 @@ export function DraftEditor({
 
         <section aria-labelledby="electorate-heading" className="grid gap-4">
           <h2 id="electorate-heading" className="text-section font-semibold">
-            4. Electorate
+            3. Who Can Vote
           </h2>
           <p className="text-body text-muted">
             Choose the {terms.households} that may vote. Each {terms.household}{" "}
@@ -830,6 +927,7 @@ export function DraftEditor({
               <TextField
                 id="household-filter"
                 label={`Find a ${terms.household}`}
+                showOptional={false}
                 hint={`Search by ${identifierLabel.toLowerCase()} or representative.`}
                 autoComplete="off"
                 type="search"
@@ -878,9 +976,12 @@ export function DraftEditor({
                         hint={
                           !household.isEligible
                             ? "No longer eligible. Deselect it before activation."
-                            : !household.representativeEnabled
-                              ? "The representative's account is not enabled yet."
-                              : undefined
+                            : undefined
+                        }
+                        lockHint={
+                          !household.representativeEnabled
+                            ? "The representative's account is not enabled yet."
+                            : undefined
                         }
                         checked={selected.has(household.id)}
                         onChange={(event) =>
@@ -897,23 +998,40 @@ export function DraftEditor({
 
         <section aria-labelledby="deadline-heading" className="grid gap-4">
           <h2 id="deadline-heading" className="text-section font-semibold">
-            5. Deadline
+            4. Deadline
           </h2>
           {timezone ? (
             <>
-              <TextField
-                id="closesLocal"
-                name="closesLocal"
-                type="datetime-local"
-                label="Voting closes"
-                hint={`RWA time zone (${timezone}); submissions stop at this time.`}
-                value={state.closesLocal}
-                onChange={(event) => {
-                  setDeadlineIssue(null);
-                  patch({ closesLocal: event.target.value });
-                }}
-                error={deadlineIssue ?? errorAt("closesAt")}
-              />
+              <div className="grid gap-4">
+                <DateTimePicker
+                  id="opensLocal"
+                  name="opensLocal"
+                  label="Voting opens"
+                  hint={`RWA time zone (${timezone});\nConfirm scheduling from Preview.`}
+                  value={state.opensLocal}
+                  timeZone={timezone}
+                  onChange={(value) => {
+                    setOpeningIssue(null);
+                    setDeadlineIssue(null);
+                    patch({ opensLocal: value });
+                  }}
+                  error={openingIssue ?? errorAt("opensAt")}
+                />
+                <DateTimePicker
+                  id="closesLocal"
+                  name="closesLocal"
+                  label="Voting closes"
+                  hint={`RWA time zone (${timezone});\nSubmissions stop at this time.`}
+                  value={state.closesLocal}
+                  timeZone={timezone}
+                  onChange={(value) => {
+                    setDeadlineIssue(null);
+                    setOpeningIssue(null);
+                    patch({ closesLocal: value });
+                  }}
+                  error={deadlineIssue ?? errorAt("closesAt")}
+                />
+              </div>
               <p role="status" className="text-body">
                 {deadlineText
                   ? `Residents will see: ${deadlineText}.`
@@ -938,53 +1056,89 @@ export function DraftEditor({
         <Notice tone="info">There are no changes to save.</Notice>
       ) : null}
 
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <Button type="submit" loading={pending}>
-          <Save aria-hidden="true" className="size-5" />
-          Save Draft
-        </Button>
-        {dirty ? (
-          <Button variant="secondary" disabled>
-            <Eye aria-hidden="true" className="size-5" />
-            Save to Preview
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button type="submit" loading={pending}>
+            <Save aria-hidden="true" className="size-5" />
+            Save Draft
           </Button>
-        ) : (
-          <LinkButton
-            href={`/admin/votes/${server.id}/preview?revision=${server.draftRevision}`}
+          {dirty ? (
+            <Button variant="secondary" disabled>
+              <Eye aria-hidden="true" className="size-5" />
+              Save to Preview
+            </Button>
+          ) : (
+            <LinkButton
+              href={`/admin/votes/${server.id}/preview?revision=${server.draftRevision}`}
+              variant="secondary"
+            >
+              <Eye aria-hidden="true" className="size-5" />
+              Preview Ballot
+            </LinkButton>
+          )}
+          <Button
             variant="secondary"
+            disabled={pending}
+            onClick={cancelEditing}
           >
-            <Eye aria-hidden="true" className="size-5" />
-            Preview Ballot
-          </LinkButton>
-        )}
-        <LinkButton href="/admin/votes" variant="secondary">
-          Back to Votes
-        </LinkButton>
+            Cancel Vote
+          </Button>
+        </div>
+        {!isNewDraft || server.draftRevision > 1 ? (
+          <Button
+            variant="secondary"
+            className="h-12 !w-12 shrink-0 self-end border-transparent bg-transparent !p-0 !text-error hover:bg-error/10 sm:ml-auto"
+            aria-label="Delete saved draft"
+            title="Delete saved draft"
+            disabled={pending}
+            onClick={() => setExitAction("delete")}
+          >
+            <Trash2 aria-hidden="true" className="size-6 shrink-0" />
+          </Button>
+        ) : null}
       </div>
+      <ConfirmDialog
+        open={exitAction !== null}
+        title={
+          exitAction === "delete"
+            ? "Delete this saved draft?"
+            : exitAction === "rollback"
+              ? "Cancel this new vote?"
+              : "Discard unsaved changes?"
+        }
+        confirmLabel={
+          exitAction === "delete" || exitAction === "rollback"
+            ? "Delete Draft"
+            : "Discard Changes"
+        }
+        destructive={exitAction !== "discard"}
+        busy={pending}
+        onConfirm={() => void confirmExit()}
+        onCancel={() => setExitAction(null)}
+      >
+        {exitAction === "delete" ? (
+          <p>
+            This permanently deletes the saved draft and its ballot and
+            electorate setup. Any unsaved changes will also be lost. This cannot
+            be undone.
+          </p>
+        ) : exitAction === "rollback" ? (
+          <p>
+            This new draft has not been saved as an edited draft. Canceling
+            deletes it and all current edits. This cannot be undone.
+          </p>
+        ) : (
+          <p>
+            Your unsaved changes will be discarded. The last saved version will
+            remain a draft.
+          </p>
+        )}
+      </ConfirmDialog>
       {dirty ? (
         <p role="status" className="text-caption text-muted">
           You have unsaved changes. Save the draft before previewing.
         </p>
       ) : null}
-
-      <ConfirmDialog
-        open={typeChange !== null}
-        title={`Change to ${typeChange ? VOTING_TYPE_LABELS[typeChange] : ""}?`}
-        confirmLabel="Change Type"
-        destructive
-        onConfirm={confirmTypeChange}
-        onCancel={() => setTypeChange(null)}
-      >
-        <p>
-          This removes the{" "}
-          {state.votingType === "PRIVATE"
-            ? "offices and candidates"
-            : "options"}{" "}
-          you have entered. The title, instructions, deadline and selected{" "}
-          {terms.households} stay. The change is applied when you save the
-          draft.
-        </p>
-      </ConfirmDialog>
     </form>
   );
 }
@@ -1010,7 +1164,7 @@ function OptionsEditor({
       <p className="text-body text-muted">
         {options.length < 2
           ? "Add at least two different options."
-          : "Add or reorder the options residents can select."}
+          : "Drag options into the order residents should see."}
       </p>
       {options.length === 0 ? (
         <p className="text-body text-muted">No options yet.</p>
@@ -1018,11 +1172,16 @@ function OptionsEditor({
       {options.map((option, index) => (
         <div
           key={option.key}
+          data-sortable-item
+          data-sortable-group="options"
+          data-sortable-index={index}
           className="grid gap-2 rounded-card border border-border bg-surface p-3"
         >
           <TextField
             id={`option-${index}-label`}
             label={`Option ${index + 1}`}
+            hideLabel
+            inline={false}
             required
             maxLength={200}
             autoComplete="off"
@@ -1034,13 +1193,29 @@ function OptionsEditor({
               }))
             }
             error={errorAt(`options[${index}].label`)}
-          />
-          <ReorderControls
-            label={`option ${index + 1}`}
-            index={index}
-            count={options.length}
-            onMove={(delta) => onChange(moved(options, index, delta))}
-            onRemove={() => onChange(options.filter((_, i) => i !== index))}
+            leading={
+              <div className="flex shrink-0 items-center gap-2">
+                <ReorderHandle
+                  label={`option ${index + 1}`}
+                  index={index}
+                  count={options.length}
+                  group="options"
+                  onMove={(target) => onChange(moved(options, index, target))}
+                />
+                <span
+                  aria-hidden="true"
+                  className="shrink-0 text-body font-semibold"
+                >
+                  Opt {index + 1}
+                </span>
+              </div>
+            }
+            trailing={
+              <RemoveItemButton
+                label={`option ${index + 1}`}
+                onRemove={() => onChange(options.filter((_, i) => i !== index))}
+              />
+            }
           />
         </div>
       ))}
@@ -1127,6 +1302,9 @@ function OfficesEditor({
       {offices.map((office, officeIndex) => (
         <fieldset
           key={office.key}
+          data-sortable-item
+          data-sortable-group="offices"
+          data-sortable-index={officeIndex}
           className="grid gap-4 border-y border-border py-5"
         >
           <legend className="px-1 text-card-heading font-semibold">
@@ -1152,14 +1330,19 @@ function OfficesEditor({
               }))
             }
             error={errorAt(`offices[${officeIndex}].name`)}
-          />
-          <ReorderControls
-            label={`office ${officeIndex + 1}`}
-            index={officeIndex}
-            count={offices.length}
-            onMove={(delta) => onChange(moved(offices, officeIndex, delta))}
-            onRemove={() =>
-              onChange(offices.filter((_, i) => i !== officeIndex))
+            trailing={
+              <ReorderControls
+                label={`office ${officeIndex + 1}`}
+                index={officeIndex}
+                count={offices.length}
+                group="offices"
+                onMove={(target) =>
+                  onChange(moved(offices, officeIndex, target))
+                }
+                onRemove={() =>
+                  onChange(offices.filter((_, i) => i !== officeIndex))
+                }
+              />
             }
           />
 
@@ -1171,7 +1354,13 @@ function OfficesEditor({
               <p className="text-body text-muted">No candidates yet.</p>
             ) : null}
             {office.candidates.map((candidate, candidateIndex) => (
-              <div key={candidate.key} className="grid gap-2">
+              <div
+                key={candidate.key}
+                data-sortable-item
+                data-sortable-group={`candidates-${office.key}`}
+                data-sortable-index={candidateIndex}
+                className="grid gap-2"
+              >
                 <TextField
                   id={`office-${officeIndex}-candidate-${candidateIndex}-name`}
                   label={`Candidate ${candidateIndex + 1}`}
@@ -1192,28 +1381,31 @@ function OfficesEditor({
                   error={errorAt(
                     `offices[${officeIndex}].candidates[${candidateIndex}].name`,
                   )}
-                />
-                <ReorderControls
-                  label={`candidate ${candidateIndex + 1} of office ${officeIndex + 1}`}
-                  index={candidateIndex}
-                  count={office.candidates.length}
-                  onMove={(delta) =>
-                    onUpdate(officeIndex, (current) => ({
-                      ...current,
-                      candidates: moved(
-                        current.candidates,
-                        candidateIndex,
-                        delta,
-                      ),
-                    }))
-                  }
-                  onRemove={() =>
-                    onUpdate(officeIndex, (current) => ({
-                      ...current,
-                      candidates: current.candidates.filter(
-                        (_, i) => i !== candidateIndex,
-                      ),
-                    }))
+                  trailing={
+                    <ReorderControls
+                      label={`candidate ${candidateIndex + 1} of office ${officeIndex + 1}`}
+                      index={candidateIndex}
+                      count={office.candidates.length}
+                      group={`candidates-${office.key}`}
+                      onMove={(target) =>
+                        onUpdate(officeIndex, (current) => ({
+                          ...current,
+                          candidates: moved(
+                            current.candidates,
+                            candidateIndex,
+                            target,
+                          ),
+                        }))
+                      }
+                      onRemove={() =>
+                        onUpdate(officeIndex, (current) => ({
+                          ...current,
+                          candidates: current.candidates.filter(
+                            (_, i) => i !== candidateIndex,
+                          ),
+                        }))
+                      }
+                    />
                   }
                 />
               </div>

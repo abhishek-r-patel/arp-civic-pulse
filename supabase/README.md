@@ -50,6 +50,9 @@ at start-up, and never uses the migration credentials.
 | `20261118100000_audit_text_filters` | Adds bounded actor and combined Details/reason substring filters and matching numbered audit totals |
 | `20261119100000_admin_vote_table_controls` | Committee-only global Manage Votes table filters, sorting and exact page IDs; existing HTTP cursor list unchanged |
 | `20261120100000_admin_vote_turnout` | Adds page-bounded frozen-electorate and participation aggregates for Active/Completed Manage Votes rows only |
+| `20261121100000_vote_draft_opening` | Stores a planned opening time in a draft without scheduling or freezing it |
+| `20261121110000_draft_opening_public_private_types` | Keeps draft updates aligned with the PUBLIC/PRIVATE voting type values |
+| `20261122100000_delete_drafts` | Adds revision-checked, confirmed and audited draft deletion |
 
 The Source column requires `20261117100000` before its sort links are used.
 It passed local PostgreSQL tests and was applied with separate explicit
@@ -109,6 +112,12 @@ verified; anon/service-role execution is absent. The PostgreSQL integration
 suite was skipped because `INTEGRATION_DATABASE_URL` is unset. Staging and
 production remain untouched, and the existing duplicate migration-version
 blocker remains unresolved.
+
+The planned-opening migration `20261121100000` and its type-check correction
+`20261121110000` were applied only to the user-confirmed disposable project in
+separate TLS-verified transactions with their exact ledger entries. The
+correction keeps `update_draft` ballot validation aligned with PUBLIC/PRIVATE.
+No other pending migration was applied; staging and production remain untouched.
 
 The separately authorized numbered-pagination follow-up applied
 `20261114100000` to the same disposable project, now also used by the

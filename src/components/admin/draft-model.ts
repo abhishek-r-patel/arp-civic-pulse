@@ -4,7 +4,7 @@ import {
   type HouseholdTerms,
 } from "@/shared/contracts/household-terms";
 import type { VotingType } from "@/shared/contracts/voting";
-import { zonedLocalToInstant } from "@/shared/time/zoned";
+import { instantToLocalInput, zonedLocalToInstant } from "@/shared/time/zoned";
 
 /*
  * The draft editor's working state and the rules for turning it into a PATCH.
@@ -35,7 +35,9 @@ export interface DraftState {
   openSelectionLimit: number | null;
   title: string;
   instructions: string;
-  /** `YYYY-MM-DDTHH:mm` in the RWA time zone, as typed. */
+  /** `YYYY-MM-DDTHH:mm:ss` in the RWA time zone, in 24-hour form. */
+  opensLocal: string;
+  /** `YYYY-MM-DDTHH:mm:ss` in the RWA time zone, in 24-hour form. */
   closesLocal: string;
   offices: OfficeDraft[];
   options: OptionDraft[];
@@ -64,6 +66,11 @@ export function stateFromDetail(
     openSelectionLimit: detail.openSelectionLimit,
     title: detail.title,
     instructions: detail.instructions ?? "",
+    opensLocal: instantToLocalInput(
+      detail.opensAt ?? null,
+      detail.timezone ?? "UTC",
+      true,
+    ),
     closesLocal,
     offices: detail.offices.map((office) => ({
       key: office.id,
@@ -109,15 +116,20 @@ const sameSet = (left: readonly string[], right: readonly string[]) =>
   left.length === right.length &&
   [...left].sort().join("|") === [...right].sort().join("|");
 
-export type DeadlineIssue = "INVALID" | "NONEXISTENT" | "AMBIGUOUS";
+export type DeadlineIssue = "INVALID" | "NONEXISTENT" | "AMBIGUOUS" | "WINDOW";
 
 export type PatchResult =
   | { ok: true; patch: Record<string, unknown>; changed: string[] }
-  | { ok: false; deadline: DeadlineIssue };
+  | {
+      ok: false;
+      deadline: DeadlineIssue;
+      field: "opensLocal" | "closesLocal";
+    };
 
 /**
  * The minimal patch from `baseline` (what the server last confirmed) to
- * `current`. A deadline that cannot be converted unambiguously blocks saving.
+ * `current`. An opening or closing time that cannot be converted unambiguously
+ * blocks saving.
  */
 export function buildPatch(
   baseline: DraftState,
@@ -149,19 +161,52 @@ export function buildPatch(
       current.instructions.trim() === "" ? null : current.instructions;
     changed.push("instructions");
   }
+  if (current.opensLocal !== baseline.opensLocal) {
+    if (current.opensLocal === "") {
+      patch.opensAt = null;
+    } else if (timeZone === null) {
+      return { ok: false, deadline: "INVALID", field: "opensLocal" };
+    } else {
+      const converted = zonedLocalToInstant(current.opensLocal, timeZone);
+      if (!converted.ok) {
+        return {
+          ok: false,
+          deadline: converted.reason,
+          field: "opensLocal",
+        };
+      }
+      patch.opensAt = converted.instant;
+    }
+    changed.push("opening");
+  }
   if (current.closesLocal !== baseline.closesLocal) {
     if (current.closesLocal === "") {
       patch.closesAt = null;
     } else if (timeZone === null) {
-      return { ok: false, deadline: "INVALID" };
+      return { ok: false, deadline: "INVALID", field: "closesLocal" };
     } else {
       const converted = zonedLocalToInstant(current.closesLocal, timeZone);
       if (!converted.ok) {
-        return { ok: false, deadline: converted.reason };
+        return {
+          ok: false,
+          deadline: converted.reason,
+          field: "closesLocal",
+        };
       }
       patch.closesAt = converted.instant;
     }
     changed.push("deadline");
+  }
+  if (
+    current.opensLocal !== "" &&
+    current.closesLocal !== "" &&
+    current.opensLocal >= current.closesLocal
+  ) {
+    return {
+      ok: false,
+      deadline: "WINDOW",
+      field: "opensLocal",
+    };
   }
 
   // A type change already removes the other shape on the server, so a
@@ -320,6 +365,16 @@ export function mergeOnto(
     baseline.instructions,
   );
 
+  const opensLocal = same(mine.opensLocal, oldBaseline.opensLocal)
+    ? baseline.opensLocal
+    : mine.opensLocal;
+  bothChanged(
+    "opening time",
+    mine.opensLocal,
+    oldBaseline.opensLocal,
+    baseline.opensLocal,
+  );
+
   const closesLocal = same(mine.closesLocal, oldBaseline.closesLocal)
     ? baseline.closesLocal
     : mine.closesLocal;
@@ -416,6 +471,7 @@ export function mergeOnto(
       openSelectionLimit,
       title,
       instructions,
+      opensLocal,
       closesLocal,
       offices,
       options,
@@ -448,6 +504,7 @@ export function describeFieldPath(
   const labels: Record<string, string> = {
     title: "Title",
     instructions: "Instructions",
+    opensAt: "Voting opens",
     closesAt: "Deadline",
     eligibleHouseholdIds: `Eligible ${terms.Households}`,
     votingType: "Voting type",
@@ -474,5 +531,6 @@ export function fieldIdForPath(path: string): string {
   if (option) {
     return `option-${option[1]}-label`;
   }
+  if (path === "opensAt") return "opensLocal";
   return path === "closesAt" ? "closesLocal" : path;
 }

@@ -4,6 +4,7 @@ import {
   activateSchema,
   auditQuerySchema,
   createDraftSchema,
+  deleteDraftSchema,
   deadlineChangeSchema,
   describeDeadlineShift,
   draftPatchSchema,
@@ -238,6 +239,24 @@ describe("draft contracts", () => {
     );
   });
 
+  it("requires confirmation and a positive revision to delete a draft", () => {
+    expect(
+      deleteDraftSchema.safeParse({
+        expectedRevision: 1,
+        confirmed: true,
+      }).success,
+    ).toBe(true);
+    expect(deleteDraftSchema.safeParse({ expectedRevision: 1 }).success).toBe(
+      false,
+    );
+    expect(
+      deleteDraftSchema.safeParse({
+        expectedRevision: 0,
+        confirmed: true,
+      }).success,
+    ).toBe(false);
+  });
+
   it("requires a matching PUBLIC selection mode and limit", () => {
     expect(
       draftPatchSchema.safeParse({
@@ -275,6 +294,7 @@ describe("draft contracts", () => {
       expectedRevision: 2,
       title: "  ",
       instructions: null,
+      opensAt: null,
       closesAt: null,
     });
     expect(result.title).toBe("");
@@ -283,13 +303,26 @@ describe("draft contracts", () => {
     ).toBe(false);
   });
 
-  it("requires an offset-bearing deadline", () => {
+  it("requires offset-bearing opening and closing times", () => {
     expect(
       draftPatchSchema.safeParse({
         expectedRevision: 1,
         closesAt: "2030-01-01T00:00:00",
       }).success,
     ).toBe(false);
+    expect(
+      draftPatchSchema.safeParse({
+        expectedRevision: 1,
+        opensAt: "2030-01-01T00:00:00",
+      }).success,
+    ).toBe(false);
+    expect(
+      draftPatchSchema.safeParse({
+        expectedRevision: 1,
+        opensAt: "2030-01-01T00:00:00Z",
+        closesAt: "2030-01-02T00:00:00+00:00",
+      }).success,
+    ).toBe(true);
   });
 
   it("rejects duplicate households", () => {

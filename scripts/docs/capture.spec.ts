@@ -3,7 +3,6 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { instantToLocalInput } from "../../src/shared/time/zoned";
 import {
   activateVoteFor,
   asUser,
@@ -24,10 +23,12 @@ test.skip(
 );
 
 const images = join(process.cwd(), "docs", "images", "user-guide");
+const onlyScreenshot = process.env.DOC_SCREENSHOT_ONLY;
 type Persona = "voter" | "rwa-admin" | "rwa-readonly";
 const screenshotPersona = new WeakMap<Page, Persona>();
 
 async function capture(page: Page, name: string, dialogOnly = false, viewportOnly = false) {
+  if (onlyScreenshot && name !== onlyScreenshot) return;
   const persona = screenshotPersona.get(page) ?? "rwa-admin";
   const personaImages = join(images, persona);
   await mkdir(personaImages, { recursive: true });
@@ -312,20 +313,19 @@ test("capture bulk import and scheduled opening documentation", async ({ browser
       ).toBe(true);
     } finally { await mobileAdmin.close(); }
 
+    const opening = new Date(Date.now() + 86_400_000).toISOString();
     const draft = await asUser<{ id: string }>(admin.id, "public.create_draft('PUBLIC')");
     scheduledId = draft.id;
     await asUser(admin.id, "public.update_draft($1, 1, $2::jsonb)", [draft.id, JSON.stringify({
       title: "Should we repaint the clubhouse?", instructions: "Example poll. Review the proposal before choosing.",
       closesAt: new Date(Date.now() + 172_800_000).toISOString(),
+      opensAt: opening,
       options: [{ label: "Yes", position: 1 }, { label: "No", position: 2 }],
       eligibleHouseholdIds: [resident.householdId],
     })]);
     await a.goto(`/admin/votes/${draft.id}/preview`);
     await expect(a.getByText("No problems found in this version", { exact: true })).toBeVisible();
     await capture(a, "25-ready-preview");
-    const display = await asUser<{ timezone: string }>(admin.id, "public.get_rwa_display()");
-    const opening = new Date(Date.now() + 86_400_000).toISOString();
-    await a.getByLabel(/^Voting opens at/).fill(instantToLocalInput(opening, display.timezone));
     await a.getByRole("button", { name: "Schedule Vote", exact: true }).click();
     await expect(a.getByRole("dialog")).toBeVisible();
     await capture(a, "57-schedule-confirm", true);

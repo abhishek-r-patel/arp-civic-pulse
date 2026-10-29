@@ -102,6 +102,7 @@ export default async function VotePage({
           <ManagementFields canManage={deps.actor.isAdmin}>
             <DraftEditor
               csrfToken={deps.csrfToken}
+              isNewDraft={raw.new === "1"}
               identifierLabel={deps.identifierLabel}
               initial={vote}
               households={households}

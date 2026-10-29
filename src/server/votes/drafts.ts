@@ -323,6 +323,22 @@ export async function updateDraft(
   );
 }
 
+export async function deleteDraft(
+  deps: RegisterDeps,
+  id: string,
+  expectedRevision: number,
+): Promise<void> {
+  await assertCurrentAdmin(deps);
+  const deleted = await callRoutine<boolean>(deps.client, "delete_draft", {
+    p_vote_id: id,
+    p_expected_revision: expectedRevision,
+    p_confirmed: true,
+  });
+  if (!deleted) {
+    throw new ApiError("INTERNAL_ERROR");
+  }
+}
+
 export async function previewDraft(
   deps: RegisterDeps,
   id: string,

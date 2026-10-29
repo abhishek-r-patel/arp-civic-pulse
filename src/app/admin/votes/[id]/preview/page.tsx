@@ -163,7 +163,7 @@ export default async function PreviewPage({
 
       <section aria-labelledby="electorate-summary" className="grid gap-2">
         <h2 id="electorate-summary" className="text-section font-semibold">
-          Electorate
+          Who Can Vote
         </h2>
         <p className="text-body">
           {electorate.selected}{" "}
@@ -215,6 +215,7 @@ export default async function PreviewPage({
               revision={preview.revision}
               timezone={display.timezone}
               closesAt={vote.closesAt}
+              openingAt={vote.opensAt ?? null}
             />
           ) : null}
         </ManagementFields>

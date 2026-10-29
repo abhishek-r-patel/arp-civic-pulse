@@ -215,6 +215,7 @@ Each household has exactly one current representative; a profile represents at m
 | `status` | `text` | `DRAFT`, `SCHEDULED`, `ACTIVE`, `COMPLETED`, or `CANCELLED`; default `DRAFT`. |
 | `title` | `text` | Title/question; may be empty while drafting, required at activation. |
 | `instructions` | `text`, nullable | PUBLIC context or PRIVATE instructions; non-empty PRIVATE instructions required at activation. |
+| `planned_opens_at` | `timestamptz`, nullable | Optional opening plan; must be finite, future when set/changed and before a configured closing time. Scheduling copies it to `opens_at`; immediate activation clears it. |
 | `closes_at` | `timestamptz`, nullable | Required and strictly future at activation; afterwards changeable only by the guarded `change_vote_deadline` routine while `ACTIVE`. |
 | `draft_revision` | `integer` | Positive; increment on every draft edit, including child/electorate edits. |
 | `created_by_profile_id` | `uuid` | FK to `profiles.id`. |
@@ -452,6 +453,7 @@ erDiagram
         text status
         text title
         text instructions "nullable"
+        timestamptz planned_opens_at "nullable in draft"
         timestamptz closes_at "nullable in draft"
         integer draft_revision
         uuid created_by_profile_id FK
@@ -661,11 +663,14 @@ No runtime routine returns active PRIVATE candidate/NOTA counters; completed PRI
 
 **Draft routines (migration `20261024120000`).** `create_draft`, `get_admin_vote`, `update_draft`, `preview_draft` and `get_rwa_display` are `SECURITY DEFINER`, executable by `authenticated` only, and re-derive the caller from the JWT (current enabled administrator; `get_rwa_display` needs any enabled member).
 - `update_draft` locks the parent vote first, rejects non-drafts with `VOTE_FROZEN`, then checks the expected revision (`STALE_REVISION`). It validates every field itself (the database, not the web tier, is the authority), applies the change and its audit event in one transaction, and increments `draft_revision` exactly once. An empty change set is not an edit: no revision change, no audit event.
+- Migration `20261121100000` adds `planned_opens_at` and accepts `opensAt` in draft patches. Draft details expose the planned time as `opensAt`; `schedule_vote` separately confirms/freezes the chosen time and copies it to the lifecycle opening fields. Immediate activation clears the plan. The plan remains only in the guarded detail projection, not direct authenticated table reads.
+- Migration `20261121110000` keeps the updated draft routine's type checks aligned with the current `PUBLIC`/`PRIVATE` values while preserving planned-opening validation.
 - A supplied collection replaces the whole collection. Supplied child ids must already belong to this draft and, for candidates, to the same office; new children get server-generated ids. Normalised names/labels and positions must be distinct within their scope. A type change deletes the other shape's children in the same transaction; offices on a PUBLIC draft (or options on a PRIVATE one) are rejected, never reinterpreted.
 - The three `position` uniqueness constraints are `DEFERRABLE INITIALLY IMMEDIATE`, so reordering or swapping positions inside one atomic replace works. The routines defer them only for the duration of the replace and verify them again before returning.
 - Newly selected households must be eligible when added; a household that was already selected and later becomes ineligible may stay (preview flags it) so the administrator can see and fix the change. Draft electorate rows carry no representative snapshot; activation writes them.
 - `preview_draft` takes a share lock, requires the exact revision, never changes data, and returns readiness plus safe blocker codes/messages. It mirrors the structural activation guard and adds the register and settings checks that activation will re-read under lock; it is advice, not a guarantee.
 - `get_rwa_display` returns the RWA name and time zone to enabled members (never approvals or retention), because `rwa_settings` stays unreadable to every API role.
+- Migration `20261122100000` adds `delete_draft`, which requires a current enabled administrator, explicit confirmation and the exact draft revision. It locks and verifies the draft, removes its related data atomically under `cp.draft_delete`, and appends `DRAFT_DELETED`; the parent delete trigger rejects direct deletion without that marker. No routine permits deletion of a scheduled, active or terminal vote.
 
 **PUBLIC multi-select (migration `20261027100000`).** Existing votes remain single-select. Draft edits persist `open_selection_mode` and `open_selection_limit` together, and database constraints reject inconsistent values or multi-select configuration on PRIVATE elections. `open_responses` stores one row per selected option; `participation` remains one row per household. The guarded submission routes multi-select choices through the same vote-first lock/deadline checks, then replaces the whole response set atomically. Deferred invariants require every participating PUBLIC household to have at least one owned choice and enforce the configured maximum. Results count selections per option, use submitted households as the share denominator, and page completed named responses once per household with an array of choice labels.
 

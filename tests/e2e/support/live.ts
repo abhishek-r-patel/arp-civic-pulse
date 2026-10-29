@@ -347,6 +347,60 @@ export async function saveDraft(
   ).toBeVisible();
 }
 
+export async function setDateTime(
+  page: Page,
+  label: "Voting opens" | "Voting closes",
+  value: string,
+): Promise<void> {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/u.exec(
+    value,
+  );
+  expect(match, "A valid local date/time is required").not.toBeNull();
+  const [, year, month, day, hour, minute, second] = match ?? [];
+  const yearNumber = Number(year);
+  const monthNumber = Number(month);
+  const dayNumber = Number(day);
+  const monthName = new Intl.DateTimeFormat("en", {
+    month: "long",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(yearNumber, monthNumber - 1, 1)));
+  const fullDate = new Intl.DateTimeFormat("en", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(yearNumber, monthNumber - 1, dayNumber)));
+  const dialog = page.getByRole("dialog", {
+    name: `Choose ${label.toLowerCase()}`,
+  });
+
+  await page.getByRole("button", { name: label, exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await dialog
+    .getByRole("region", { name: "Calendar" })
+    .getByRole("button")
+    .nth(1)
+    .click();
+  await dialog.getByLabel("Year").fill(year ?? "");
+  await dialog.getByRole("button", { name: monthName, exact: true }).click();
+  await dialog.getByRole("button", { name: fullDate, exact: true }).click();
+  const hour24 = Number(hour);
+  const hour12 = hour24 % 12 || 12;
+  await dialog
+    .getByLabel("Hour", { exact: true })
+    .fill(String(hour12).padStart(2, "0"));
+  await dialog.getByLabel("Minute", { exact: true }).fill(minute ?? "");
+  await dialog.getByLabel("Second", { exact: true }).fill(second ?? "00");
+  await dialog
+    .getByRole("button", {
+      name: hour24 >= 12 ? "PM" : "AM",
+      exact: true,
+    })
+    .click();
+  await dialog.getByRole("button", { name: "Apply", exact: true }).click();
+}
+
 /** A saved PUBLIC draft that previews as ready (one eligible household, a deadline, two options). */
 export async function buildReadyOpenDraft(
   page: Page,
@@ -361,7 +415,7 @@ export async function buildReadyOpenDraft(
   await page
     .getByRole("checkbox", { name: new RegExp(household.identifier) })
     .check();
-  await page.getByLabel(/^Voting closes/).fill(closesLocal);
+  await setDateTime(page, "Voting closes", closesLocal);
   await saveDraft(page, 2);
   return editor;
 }

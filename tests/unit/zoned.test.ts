@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  defaultDraftClosingLocal,
   formatInZone,
   instantToLocalInput,
   zonedLocalToInstant,
@@ -13,6 +14,13 @@ describe("zonedLocalToInstant", () => {
     expect(zonedLocalToInstant("2026-11-02T18:00", KOLKATA)).toEqual({
       ok: true,
       instant: "2026-11-02T12:30:00.000Z",
+    });
+  });
+
+  it("preserves seconds when converting a wall-clock deadline", () => {
+    expect(zonedLocalToInstant("2026-11-05T23:59:59", KOLKATA)).toEqual({
+      ok: true,
+      instant: "2026-11-05T18:29:59.000Z",
     });
   });
 
@@ -45,7 +53,7 @@ describe("zonedLocalToInstant", () => {
     for (const value of [
       "",
       "2026-11-02",
-      "2026-11-02T18:00:00",
+      "2026-11-02T18:00:60",
       "2026-11-02T18:00Z",
       "2026-02-30T10:00",
       "2026-13-01T10:00",
@@ -70,6 +78,26 @@ describe("instantToLocalInput", () => {
 
   it("is empty when there is no deadline", () => {
     expect(instantToLocalInput(null, KOLKATA)).toBe("");
+  });
+
+  it("includes seconds when requested", () => {
+    expect(instantToLocalInput("2026-11-05T18:29:59.000Z", KOLKATA, true)).toBe(
+      "2026-11-05T23:59:59",
+    );
+  });
+});
+
+describe("defaultDraftClosingLocal", () => {
+  it("uses seven local calendar days after creation at 23:59:59", () => {
+    expect(defaultDraftClosingLocal("2026-10-29T15:00:00.000Z", KOLKATA)).toBe(
+      "2026-11-05T23:59:59",
+    );
+  });
+
+  it("uses the creation date in the RWA zone before adding calendar days", () => {
+    expect(defaultDraftClosingLocal("2026-10-29T23:30:00.000Z", KOLKATA)).toBe(
+      "2026-11-06T23:59:59",
+    );
   });
 });
 

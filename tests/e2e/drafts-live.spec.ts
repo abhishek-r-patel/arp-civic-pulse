@@ -6,6 +6,7 @@ import {
   provisionAdmin,
   saveDraft as save,
   seedHousehold,
+  setDateTime,
   signInThroughUi,
 } from "./support/live";
 import { chooseDropdownOption } from "./support/dropdown";
@@ -87,7 +88,7 @@ test.describe("setting up a PUBLIC vote", () => {
       .check();
     await expect(page.getByText("1 selected")).toBeVisible();
 
-    await page.getByLabel(/^Voting closes/).fill("2099-06-01T18:00");
+    await setDateTime(page, "Voting closes", "2099-06-01T18:00");
     await expect(
       page.getByText(/Residents will see: .* 1 Jun 2099, 6:00 PM IST\./),
     ).toBeVisible();
@@ -129,8 +130,19 @@ test.describe("setting up a PUBLIC vote", () => {
       await expect(radio).not.toBeChecked();
     }
 
-    // Electorate is summarised on the preview.
+    // Who Can Vote is summarised on the preview.
     await expect(page.getByText(/1 household selected/)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Schedule Opening" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "Set Voting opens in the draft's Deadline section, then save the draft to enable scheduling.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Schedule Vote" }),
+    ).toBeDisabled();
 
     // Previewing changed nothing: still version 2.
     await page.goto(editor);
@@ -138,9 +150,47 @@ test.describe("setting up a PUBLIC vote", () => {
     await expect(page.getByLabel(/^Question/)).toHaveValue(
       "Repaint the clubhouse?",
     );
-    await expect(page.getByLabel(/^Voting closes/)).toHaveValue(
-      "2099-06-01T18:00",
+    await expect(page.locator('input[name="closesLocal"]')).toHaveValue(
+      "2099-06-01T18:00:00",
     );
+  });
+
+  test("schedules using the opening time saved in the draft", async ({
+    page,
+  }) => {
+    const household = await seedHousehold();
+    await signedInAdmin(page);
+    await createDraft(page, "PUBLIC");
+    await addOpenBallot(page, "Schedule this vote?");
+    await page.getByLabel(/^Find a /).fill(household.identifier);
+    await page
+      .getByRole("checkbox", { name: new RegExp(household.identifier) })
+      .check();
+    await setDateTime(page, "Voting opens", "2099-06-01T17:00");
+    await setDateTime(page, "Voting closes", "2099-06-01T18:00");
+    await save(page, 2);
+
+    await page.getByRole("link", { name: "Preview Ballot" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Schedule Opening" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("textbox", { name: "Voting opens at" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText(
+        "Voting opens 1 Jun 2099, 5:00 PM IST and closes 1 Jun 2099, 6:00 PM IST.",
+      ),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Schedule Vote" }).click();
+    const confirmation = page.getByRole("dialog", {
+      name: "Schedule this vote?",
+    });
+    await expect(confirmation).toContainText(
+      "Voting opens 1 Jun 2099, 5:00 PM IST and closes 1 Jun 2099, 6:00 PM IST.",
+    );
+    await confirmation.getByRole("button", { name: "Cancel" }).click();
   });
 
   test("lists, filters and sorts votes from their column headings", async ({
@@ -149,7 +199,7 @@ test.describe("setting up a PUBLIC vote", () => {
     await signedInAdmin(page);
     await createDraft(page, "PUBLIC");
     await page.getByLabel(/^Question/).fill("Listed question");
-    await page.getByLabel(/^Voting closes/).fill("2099-07-04T09:30");
+    await setDateTime(page, "Voting closes", "2099-07-04T09:30");
     await save(page, 2);
 
     await page.goto("/admin/votes");
@@ -186,6 +236,103 @@ test.describe("setting up a PUBLIC vote", () => {
   });
 });
 
+test.describe("reordering and removing PUBLIC options", () => {
+  test("reorders by drag and removes with an adjacent icon button", async ({
+    page,
+  }) => {
+    await signedInAdmin(page);
+    await createDraft(page, "PUBLIC");
+    await addOpenBallot(page, "Reorder these options?");
+
+    const options = page.locator('[data-sortable-group="options"]');
+    const handle = page.getByRole("button", { name: "Reorder option 2" });
+    const optionLabel = page.getByText("Opt 2", { exact: true });
+    const optionInput = page.getByLabel(/^Option 2/);
+    const removeButton = page.getByRole("button", {
+      name: "Remove option 2",
+    });
+    const handleBox = await handle.boundingBox();
+    const targetBox = await options.nth(0).boundingBox();
+    const labelBox = await optionLabel.boundingBox();
+    const inputBox = await optionInput.boundingBox();
+    const removeBox = await removeButton.boundingBox();
+    expect(handleBox).not.toBeNull();
+    expect(targetBox).not.toBeNull();
+    expect(labelBox).not.toBeNull();
+    expect(inputBox).not.toBeNull();
+    expect(removeBox).not.toBeNull();
+    if (!handleBox || !targetBox || !labelBox || !inputBox || !removeBox) {
+      throw new Error("Could not locate the option drag handle and target.");
+    }
+    expect(handleBox.x).toBeLessThan(labelBox.x);
+    expect(labelBox.x).toBeLessThan(inputBox.x);
+    expect(inputBox.x).toBeLessThan(removeBox.x);
+
+    await page.mouse.move(
+      handleBox.x + handleBox.width / 2,
+      handleBox.y + handleBox.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      targetBox.x + targetBox.width / 2,
+      targetBox.y + targetBox.height / 2,
+      { steps: 8 },
+    );
+    await page.mouse.up();
+
+    await expect(page.getByLabel(/^Option 1/)).toHaveValue("No");
+    await expect(page.getByLabel(/^Option 2/)).toHaveValue("Yes");
+    await page.getByRole("button", { name: "Remove option 1" }).click();
+    await expect(page.getByLabel(/^Option/)).toHaveCount(1);
+  });
+});
+
+test.describe("reordering PRIVATE offices", () => {
+  test("moves offices by pointer drag", async ({ page }) => {
+    await signedInAdmin(page);
+    await createDraft(page, "PRIVATE");
+    await page.getByRole("button", { name: "Add Office" }).click();
+    await page
+      .getByLabel(/^Office name/)
+      .nth(0)
+      .fill("Chairperson");
+    await page.getByRole("button", { name: "Add Office" }).click();
+    await page
+      .getByLabel(/^Office name/)
+      .nth(1)
+      .fill("Treasurer");
+
+    const offices = page.locator('[data-sortable-group="offices"]');
+    const handle = page.getByRole("button", { name: "Reorder office 2" });
+    const handleBox = await handle.boundingBox();
+    const targetBox = await offices.nth(0).boundingBox();
+    expect(handleBox).not.toBeNull();
+    expect(targetBox).not.toBeNull();
+    if (!handleBox || !targetBox) {
+      throw new Error("Could not locate the office drag handle and target.");
+    }
+
+    await page.mouse.move(
+      handleBox.x + handleBox.width / 2,
+      handleBox.y + handleBox.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      targetBox.x + targetBox.width / 2,
+      targetBox.y + targetBox.height / 2,
+      { steps: 8 },
+    );
+    await page.mouse.up();
+
+    await expect(page.getByLabel(/^Office name/).nth(0)).toHaveValue(
+      "Treasurer",
+    );
+    await expect(page.getByLabel(/^Office name/).nth(1)).toHaveValue(
+      "Chairperson",
+    );
+  });
+});
+
 test.describe("setting up a PRIVATE vote", () => {
   test("builds offices and candidates, adds the built-in NOTA choice only in the preview", async ({
     page,
@@ -211,10 +358,10 @@ test.describe("setting up a PRIVATE vote", () => {
     // NOTA is built in: authors are told not to add it as a candidate.
     await expect(page.getByText(/NOTA is added automatically/)).toBeVisible();
 
-    // Reordering is explicit and keyboard-operable.
+    // The drag handle also supports keyboard reordering.
     await page
-      .getByRole("button", { name: "Move candidate 2 of office 1 up" })
-      .click();
+      .getByRole("button", { name: "Reorder candidate 2 of office 1" })
+      .press("Alt+ArrowUp");
     await expect(page.getByLabel(/^Candidate 1/)).toHaveValue("Ravi Iyer");
     await save(page, 2);
 
@@ -259,51 +406,67 @@ test.describe("setting up a PRIVATE vote", () => {
   });
 });
 
-test.describe("changing the voting type", () => {
-  test("asks first, cancels cleanly with Esc, and removes the other shape on confirm", async ({
+test.describe("draft voting type", () => {
+  test("is selected on New Vote and not repeated in the editor", async ({
     page,
   }) => {
     await signedInAdmin(page);
     await createDraft(page, "PUBLIC");
-    await addOpenBallot(page, "Type change question");
-    await save(page, 2);
+    await expect(
+      page.getByRole("heading", { level: 2, name: "1. Details" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("radiogroup", { name: "1. Voting type" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { level: 2, name: "2. Ballot" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "3. Who Can Vote" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "4. Deadline" }),
+    ).toBeVisible();
+    await expect(
+      page.getByLabel("Voting opens", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByLabel("Voting closes", { exact: true }),
+    ).toBeVisible();
+    await expect(page.locator('label[for="opensLocal"]')).toHaveText(
+      "Voting opens",
+    );
+    await expect(page.locator('label[for="closesLocal"]')).toHaveText(
+      "Voting closes",
+    );
 
-    // The radio stays on PUBLIC until confirmed, so click rather than check().
-    const closed = page.getByRole("radio", { name: /^PRIVATE Voting/ });
-    await closed.click();
-    const dialog = page.getByRole("dialog", {
-      name: "Change to PRIVATE Voting?",
+    await setDateTime(page, "Voting opens", "2099-06-01T00:01:02");
+    await setDateTime(page, "Voting closes", "2099-06-01T12:30:45");
+    await expect(page.locator('input[name="opensLocal"]')).toHaveValue(
+      "2099-06-01T00:01:02",
+    );
+    await expect(page.locator('input[name="closesLocal"]')).toHaveValue(
+      "2099-06-01T12:30:45",
+    );
+    await expect(
+      page.getByRole("button", { name: "Voting opens", exact: true }),
+    ).toContainText("12:01:02 AM");
+    await expect(
+      page.getByRole("button", { name: "Voting closes", exact: true }),
+    ).toContainText("12:30:45 PM");
+
+    await page.getByRole("button", { name: "Voting opens" }).click();
+    const picker = page.getByRole("dialog", {
+      name: "Choose voting opens",
     });
-    await expect(dialog).toBeVisible();
-    await expect(
-      dialog.getByText(/removes the options you have entered/),
-    ).toBeVisible();
-
+    await expect(picker).toBeVisible();
+    const pickerAxe = await new AxeBuilder({ page })
+      .include("dialog[open]")
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+      .analyze();
+    expect(pickerAxe.violations).toEqual([]);
     await page.keyboard.press("Escape");
-    await expect(dialog).toBeHidden();
-    await expect(
-      page.getByRole("radio", { name: /^PUBLIC Voting/ }),
-    ).toBeChecked();
-    await expect(page.getByLabel(/^Option 1/)).toHaveValue("Yes");
-
-    await closed.click();
-    await page
-      .getByRole("dialog")
-      .getByRole("button", { name: "Change Type" })
-      .click();
-    await expect(
-      page.getByRole("radio", { name: /^PRIVATE Voting/ }),
-    ).toBeChecked();
-    await expect(
-      page.getByRole("button", { name: "Add Office" }),
-    ).toBeVisible();
-    await save(page, 3);
-
-    await page.reload();
-    await expect(
-      page.getByRole("radio", { name: /^PRIVATE Voting/ }),
-    ).toBeChecked();
-    await expect(page.getByLabel(/^Option 1/)).toHaveCount(0);
+    await expect(picker).toBeHidden();
   });
 });
 
@@ -420,7 +583,7 @@ test.describe("responsive and accessible", () => {
     await page
       .getByRole("checkbox", { name: new RegExp(household.identifier) })
       .check();
-    await page.getByLabel(/^Voting closes/).fill("2099-06-01T18:00");
+    await setDateTime(page, "Voting closes", "2099-06-01T18:00");
     await save(page, 2);
 
     const paths = [

@@ -231,7 +231,7 @@ Each run, in bounded batches and using the **current** approved settings (a miss
 3. **Rate-limit buckets** expired for longer than `rate_limit_retention_days` (up to 5000). A bucket still inside its window is never touched.
 4. **Deleted profiles** older than `inactive_profile_retention_days` that nothing refers to (no household, electorate row, authored vote or audit event). The profile is removed; its **Auth identity is then an orphan**.
 
-Scheduled, active and draft votes are never deleted, and a deletion is re-checked row by row by the database guards, not only by the routine.
+Scheduled and active votes are never deleted. An enabled administrator may permanently delete a draft through the guarded `delete_draft` routine; it checks the draft status and expected revision, deletes its related data atomically, and leaves a `DRAFT_DELETED` audit event. Retention deletion remains restricted to eligible terminal votes and is re-checked row by row by the database guards.
 
 **Removing orphaned Auth identities (manual, periodic):**
 

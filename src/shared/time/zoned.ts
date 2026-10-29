@@ -4,7 +4,7 @@
  * the RWA's zone. A local time that happens twice (clocks going back) or never
  * (clocks going forward) is refused rather than guessed.
  */
-const LOCAL_INPUT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/u;
+const LOCAL_INPUT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/u;
 
 interface WallClock {
   year: number;
@@ -62,7 +62,7 @@ export type LocalConversion =
   | { ok: true; instant: string }
   | { ok: false; reason: "INVALID" | "NONEXISTENT" | "AMBIGUOUS" };
 
-/** Converts `YYYY-MM-DDTHH:mm` typed in `timeZone` to a UTC ISO instant. */
+/** Converts a local datetime typed in `timeZone` to a UTC ISO instant. */
 export function zonedLocalToInstant(
   local: string,
   timeZone: string,
@@ -71,21 +71,25 @@ export function zonedLocalToInstant(
   if (!match) {
     return { ok: false, reason: "INVALID" };
   }
-  const [year, month, day, hour, minute] = match.slice(1).map(Number) as [
+  const [year, month, day, hour, minute, second = 0] = match
+    .slice(1)
+    .map((value) => Number(value ?? 0)) as [
     number,
     number,
     number,
     number,
     number,
+    number?,
   ];
-  const wanted = Date.UTC(year, month - 1, day, hour, minute);
+  const wanted = Date.UTC(year, month - 1, day, hour, minute, second);
   const roundTrip = new Date(wanted);
   if (
     roundTrip.getUTCFullYear() !== year ||
     roundTrip.getUTCMonth() !== month - 1 ||
     roundTrip.getUTCDate() !== day ||
     roundTrip.getUTCHours() !== hour ||
-    roundTrip.getUTCMinutes() !== minute
+    roundTrip.getUTCMinutes() !== minute ||
+    roundTrip.getUTCSeconds() !== second
   ) {
     return { ok: false, reason: "INVALID" };
   }
@@ -118,13 +122,34 @@ export function zonedLocalToInstant(
 export function instantToLocalInput(
   instant: string | null,
   timeZone: string,
+  includeSeconds = false,
 ): string {
   if (!instant) {
     return "";
   }
   const clock = wallClock(new Date(instant).getTime(), timeZone);
   const two = (value: number) => String(value).padStart(2, "0");
-  return `${String(clock.year).padStart(4, "0")}-${two(clock.month)}-${two(clock.day)}T${two(clock.hour)}:${two(clock.minute)}`;
+  const base = `${String(clock.year).padStart(4, "0")}-${two(clock.month)}-${two(clock.day)}T${two(clock.hour)}:${two(clock.minute)}`;
+  return includeSeconds ? `${base}:${two(clock.second)}` : base;
+}
+
+/** Suggested draft deadline: seven local calendar days after creation, at day end. */
+export function defaultDraftClosingLocal(
+  createdAt: string,
+  timeZone: string,
+): string {
+  const parts = formatter(timeZone, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(createdAt));
+  const read = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value);
+  const date = new Date(
+    Date.UTC(read("year"), read("month") - 1, read("day") + 7),
+  );
+  const two = (value: number) => String(value).padStart(2, "0");
+  return `${String(date.getUTCFullYear()).padStart(4, "0")}-${two(date.getUTCMonth() + 1)}-${two(date.getUTCDate())}T23:59:59`;
 }
 
 /**

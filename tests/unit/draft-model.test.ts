@@ -121,11 +121,37 @@ describe("buildPatch", () => {
   });
 
   it("clears instructions with null and the deadline with null", () => {
-    const current = { ...base(), instructions: "   ", closesLocal: "" };
-    expect(buildPatch(base(), current, KOLKATA)).toEqual({
+    const planned = { ...base(), opensLocal: "2099-01-01T10:00" };
+    const current = {
+      ...planned,
+      instructions: "   ",
+      opensLocal: "",
+      closesLocal: "",
+    };
+    expect(buildPatch(planned, current, KOLKATA)).toEqual({
       ok: true,
-      patch: { instructions: null, closesAt: null },
-      changed: ["instructions", "deadline"],
+      patch: { instructions: null, opensAt: null, closesAt: null },
+      changed: ["instructions", "opening", "deadline"],
+    });
+  });
+
+  it("converts the planned opening in the RWA zone and prevents opening at or after closing", () => {
+    const current = { ...base(), opensLocal: "2099-01-01T10:00" };
+    expect(buildPatch(base(), current, KOLKATA)).toMatchObject({
+      ok: true,
+      patch: { opensAt: "2099-01-01T04:30:00.000Z" },
+      changed: ["opening"],
+    });
+    expect(
+      buildPatch(
+        base(),
+        { ...current, opensLocal: "2099-01-01T12:00" },
+        KOLKATA,
+      ),
+    ).toEqual({
+      ok: false,
+      deadline: "WINDOW",
+      field: "opensLocal",
     });
   });
 
@@ -142,6 +168,7 @@ describe("buildPatch", () => {
     expect(buildPatch(base(), current, "America/New_York")).toEqual({
       ok: false,
       deadline: "AMBIGUOUS",
+      field: "closesLocal",
     });
     expect(
       buildPatch(
@@ -149,7 +176,11 @@ describe("buildPatch", () => {
         { ...base(), closesLocal: "2026-03-08T02:30" },
         "America/New_York",
       ),
-    ).toEqual({ ok: false, deadline: "NONEXISTENT" });
+    ).toEqual({
+      ok: false,
+      deadline: "NONEXISTENT",
+      field: "closesLocal",
+    });
   });
 
   it("cannot set a deadline without a known time zone", () => {
@@ -157,6 +188,21 @@ describe("buildPatch", () => {
     expect(buildPatch(base(), current, null)).toEqual({
       ok: false,
       deadline: "INVALID",
+      field: "closesLocal",
+    });
+  });
+
+  it("refuses an ambiguous or non-existent local opening time", () => {
+    expect(
+      buildPatch(
+        { ...base(), opensLocal: "" },
+        { ...base(), opensLocal: "2026-11-01T01:30" },
+        "America/New_York",
+      ),
+    ).toEqual({
+      ok: false,
+      deadline: "AMBIGUOUS",
+      field: "opensLocal",
     });
   });
 
@@ -290,6 +336,19 @@ describe("rebaseOnto", () => {
     expect(JSON.stringify(result)).not.toContain(ID(10));
     expect(JSON.stringify(result)).not.toContain(ID(20));
   });
+
+  it("keeps opening and closing seconds when projecting saved deadlines", () => {
+    const saved = stateFromDetail(
+      detail({
+        opensAt: "2099-03-01T04:00:37.000Z",
+        closesAt: "2099-03-01T06:30:59.000Z",
+      }),
+      "2099-03-01T12:00:59",
+    );
+
+    expect(saved.opensLocal).toBe("2099-03-01T09:30:37");
+    expect(saved.closesLocal).toBe("2099-03-01T12:00:59");
+  });
 });
 
 describe("mergeOnto (stale-edit recovery)", () => {
@@ -300,10 +359,12 @@ describe("mergeOnto (stale-edit recovery)", () => {
       draftRevision: 4,
       instructions: "Their instructions.",
       closesAt: "2099-03-01T06:30:00.000Z",
+      opensAt: "2099-03-01T04:00:00.000Z",
     });
     const merged = mergeOnto(oldBase, mine, latest, "2099-03-01T12:00");
     expect(merged.state.title).toBe("My title");
     expect(merged.state.instructions).toBe("Their instructions.");
+    expect(merged.state.opensLocal).toBe("2099-03-01T09:30:00");
     expect(merged.state.closesLocal).toBe("2099-03-01T12:00");
     expect(merged.notes).toEqual([]);
     // Saving now only re-sends what is genuinely mine.
@@ -394,6 +455,7 @@ describe("field paths", () => {
     expect(fieldIdForPath("offices[0].name")).toBe("office-0-name");
     expect(fieldIdForPath("options[2].label")).toBe("option-2-label");
     expect(fieldIdForPath("closesAt")).toBe("closesLocal");
+    expect(fieldIdForPath("opensAt")).toBe("opensLocal");
     expect(fieldIdForPath("title")).toBe("title");
   });
 });

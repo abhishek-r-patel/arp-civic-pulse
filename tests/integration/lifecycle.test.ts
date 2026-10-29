@@ -17,6 +17,7 @@ interface Detail {
   votingType: "PUBLIC" | "PRIVATE";
   status: string;
   draftRevision: number;
+  opensAt?: string | null;
   closesAt: string | null;
   activatedAt: string | null;
   completedAt: string | null;
@@ -91,6 +92,8 @@ describe.skipIf(!hasDatabase)("activation and lifecycle routines", () => {
       revision,
       confirmed,
     ]);
+  const deleteDraft = (id: string, revision: number) =>
+    call<boolean>(admin(), "public.delete_draft($1, $2, true)", [id, revision]);
   const complete = (id: string, reason: string, confirmed = true) =>
     call<Outcome>(admin(), "public.complete_vote_early($1, $2, $3)", [
       id,
@@ -177,6 +180,15 @@ describe.skipIf(!hasDatabase)("activation and lifecycle routines", () => {
     );
 
   describe("authorization", () => {
+    it("refuses draft deletion after activation", async () => {
+      const draft = await readyDraft();
+      const active = await activate(draft.id, draft.draftRevision);
+      expect(
+        (await dbError(deleteDraft(active.id, active.draftRevision))).message,
+      ).toBe("VOTE_FROZEN");
+      expect(await read(active.id)).toMatchObject({ status: "ACTIVE" });
+    });
+
     it("requires a current enabled administrator for every lifecycle routine", async () => {
       const draft = await readyDraft();
       for (const sub of [world.alice.id, world.carol.id, UNKNOWN]) {
@@ -1135,6 +1147,38 @@ describe.skipIf(!hasDatabase)("activation and lifecycle routines", () => {
         );
       },
     );
+
+    it("uses the saved planned opening when scheduling and preserves it on withdrawal", async () => {
+      const draft = await readyDraft();
+      const plannedOpening = new Date(Date.now() + 120_000).toISOString();
+      const planned = await update(draft.id, draft.draftRevision, {
+        opensAt: plannedOpening,
+      });
+      expect(planned).toMatchObject({
+        status: "DRAFT",
+      });
+      expect(new Date(planned.opensAt ?? "").toISOString()).toBe(
+        plannedOpening,
+      );
+      const scheduled = await schedule(planned, plannedOpening);
+      expect(scheduled).toMatchObject({
+        status: "SCHEDULED",
+      });
+      expect(new Date(scheduled.opensAt ?? "").toISOString()).toBe(
+        plannedOpening,
+      );
+      const withdrawn = await call<Detail>(
+        admin(),
+        "public.withdraw_vote_schedule($1, true, 'Correct the opening')",
+        [draft.id],
+      );
+      expect(withdrawn).toMatchObject({
+        status: "DRAFT",
+      });
+      expect(new Date(withdrawn.opensAt ?? "").toISOString()).toBe(
+        plannedOpening,
+      );
+    });
 
     it("preserves frozen names and entitlement after register edits and accepts only after opening", async () => {
       const draft = await readyDraft();

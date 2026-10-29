@@ -205,6 +205,11 @@ The Turnout column also requires
 verified `civic-pulse-disposable` project after separate authorization; it is
 not applied to staging or production. Do not run the updated page against a
 database missing that routine shape.
+Saving a planned opening with ballot content requires
+`20261121100000_vote_draft_opening` and
+`20261121110000_draft_opening_public_private_types`. These two migrations were
+applied only to the confirmed disposable project in separate verified-TLS
+transactions; neither was applied to staging or production.
 Before any push, check `supabase migration list`: this checkout currently has
 two files sharing version `20261105100000`, which blocks the normal CLI push.
 See [migration status](../supabase/README.md); do not apply older scripts again
@@ -353,8 +358,9 @@ with the documented disposable-project opt-ins and verified CA configuration.
 For bulk onboarding, open **Residents -> Import CSV**, download the template,
 use synthetic names/emails and explicit `true`/`false` eligibility, then check
 and confirm ready rows. Review each imported resident before enabling sign-in. For
-scheduled opening, use **Schedule Vote** on a ready preview, enter an opening
-before closure in the configured RWA time zone, and confirm the immediate freeze.
+scheduled opening, set a future opening time before closure in the draft's
+Deadline section, then use **Schedule Vote** on its ready preview to review those
+saved opening and closing times and confirm the immediate freeze.
 Check the resident summary/countdown and pre-opening **Return to Draft** with a
 reason. These workflows require the reviewed `20261106100000` and
 `20261107100000` migrations; apply only to an independently verified disposable
@@ -437,6 +443,8 @@ For focused documentation capture, also set `DOC_SCREENSHOTS=1` and run
 Stop another dev server in the same checkout first. Use only a confirmed
 disposable project with reviewed migrations, synthetic data and image redaction;
 see the technical guide for capture details and cleanup boundaries.
+To rewrite only one image while still exercising the full workflow, set
+`DOC_SCREENSHOT_ONLY` to its capture name (for example, `25-ready-preview`).
 
 ```powershell
 $env:LIVE_AUTH = "1"

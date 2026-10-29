@@ -18,6 +18,7 @@ interface Detail {
   status: string;
   title: string;
   instructions: string | null;
+  opensAt?: string | null;
   closesAt: string | null;
   draftRevision: number;
   timezone: string | null;
@@ -87,6 +88,17 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
     call<Detail>(sub, "public.get_admin_vote($1)", [id]);
   const preview = (id: string, revision: number, sub = admin()) =>
     call<Preview>(sub, "public.preview_draft($1, $2)", [id, revision]);
+  const deleteDraft = (
+    id: string,
+    revision: number,
+    confirmed = true,
+    sub: string | null = admin(),
+  ) =>
+    call<boolean>(sub, "public.delete_draft($1, $2, $3)", [
+      id,
+      revision,
+      confirmed,
+    ]);
 
   const audit = async (id: string) =>
     (
@@ -146,6 +158,9 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
         expect((await dbError(preview(draft.id, 1, sub))).message).toBe(
           "FORBIDDEN",
         );
+        expect(
+          (await dbError(deleteDraft(draft.id, 1, true, sub))).message,
+        ).toBe("FORBIDDEN");
       }
     });
 
@@ -156,9 +171,52 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
         () => update(draft.id, 1, { title: "x" }, null),
         () => read(draft.id, null),
         () => call(null, "public.preview_draft($1, 1)", [draft.id]),
+        () => deleteDraft(draft.id, 1, true, null),
       ]) {
         expect((await dbError(sql())).code).toBe(PERMISSION_DENIED);
       }
+    });
+
+    it("deletes only the exact confirmed draft and retains a minimal audit event", async () => {
+      const draft = await create("PUBLIC");
+      const edited = await update(draft.id, 1, {
+        title: "Remove this draft",
+        options: [
+          { label: "Keep", position: 1 },
+          { label: "Change", position: 2 },
+        ],
+        eligibleHouseholdIds: households(world.alice),
+      });
+
+      expect(
+        (await dbError(deleteDraft(draft.id, edited.draftRevision, false)))
+          .message,
+      ).toBe("VALIDATION_FAILED");
+      expect((await dbError(deleteDraft(draft.id, 1))).message).toBe(
+        "STALE_REVISION",
+      );
+      expect(await read(draft.id)).toMatchObject({ status: "DRAFT" });
+      expect(await deleteDraft(draft.id, edited.draftRevision)).toBe(true);
+
+      for (const table of ["votes", "poll_options", "electorate", "offices"]) {
+        const key = table === "votes" ? "id" : "vote_id";
+        const rows = await db.asSuperuser((c) =>
+          c.query(`select 1 from public.${table} where ${key} = $1`, [
+            draft.id,
+          ]),
+        );
+        expect(rows.rows, table).toEqual([]);
+      }
+      expect(await audit(draft.id)).toContainEqual(
+        expect.objectContaining({
+          action: "DRAFT_DELETED",
+          details: {
+            votingType: "PUBLIC",
+            draftRevision: edited.draftRevision,
+          },
+        }),
+      );
+      expect((await dbError(read(draft.id))).message).toBe("NOT_FOUND");
     });
 
     it("keeps the helpers out of reach of API roles", async () => {
@@ -177,6 +235,59 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
       }
     });
 
+    it("requires the guarded routine to delete a draft", async () => {
+      const draft = await create("PUBLIC");
+      const error = await dbError(
+        db.asOwner((c) =>
+          c.query("delete from public.votes where id = $1", [draft.id]),
+        ),
+      );
+      expect(error.message).toBe("VOTE_FROZEN");
+      expect(await read(draft.id)).toMatchObject({ status: "DRAFT" });
+    });
+
+    it("deletes only the exact confirmed draft and retains a minimal audit event", async () => {
+      const draft = await create("PUBLIC");
+      const edited = await update(draft.id, 1, {
+        title: "Remove this draft",
+        options: [
+          { label: "Keep", position: 1 },
+          { label: "Change", position: 2 },
+        ],
+        eligibleHouseholdIds: households(world.alice),
+      });
+
+      expect(
+        (await dbError(deleteDraft(draft.id, edited.draftRevision, false)))
+          .message,
+      ).toBe("VALIDATION_FAILED");
+      expect((await dbError(deleteDraft(draft.id, 1))).message).toBe(
+        "STALE_REVISION",
+      );
+      expect(await read(draft.id)).toMatchObject({ status: "DRAFT" });
+      expect(await deleteDraft(draft.id, edited.draftRevision)).toBe(true);
+
+      for (const table of ["votes", "poll_options", "electorate", "offices"]) {
+        const key = table === "votes" ? "id" : "vote_id";
+        const rows = await db.asSuperuser((c) =>
+          c.query(`select 1 from public.${table} where ${key} = $1`, [
+            draft.id,
+          ]),
+        );
+        expect(rows.rows, table).toEqual([]);
+      }
+      expect(await audit(draft.id)).toContainEqual(
+        expect.objectContaining({
+          action: "DRAFT_DELETED",
+          details: {
+            votingType: "PUBLIC",
+            draftRevision: edited.draftRevision,
+          },
+        }),
+      );
+      expect((await dbError(read(draft.id))).message).toBe("NOT_FOUND");
+    });
+
     it("cannot be bypassed by writing the tables directly", async () => {
       const draft = await create("PUBLIC");
       const error = await dbError(
@@ -187,6 +298,14 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
         ),
       );
       expect(error.code).toBe(PERMISSION_DENIED);
+      const readError = await dbError(
+        db.asRole("authenticated", { sub: world.admin.id }, (c) =>
+          c.query("select planned_opens_at from public.votes where id = $1", [
+            draft.id,
+          ]),
+        ),
+      );
+      expect(readError.code).toBe(PERMISSION_DENIED);
     });
   });
 
@@ -199,6 +318,7 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
         title: "",
         draftRevision: 1,
         closesAt: null,
+        opensAt: null,
         timezone: "Asia/Kolkata",
         offices: [],
         options: [],
@@ -282,6 +402,34 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
       ]);
     });
 
+    it("stores and clears a planned opening without scheduling the draft", async () => {
+      const draft = await create("PUBLIC");
+      const opening = await update(draft.id, 1, {
+        opensAt: "2099-01-01T10:00:00+05:30",
+        options: [
+          { label: "Yes", position: 1 },
+          { label: "No", position: 2 },
+        ],
+      });
+      expect(opening).toMatchObject({
+        status: "DRAFT",
+        draftRevision: 2,
+      });
+      expect(opening.options.map((option) => option.label)).toEqual([
+        "Yes",
+        "No",
+      ]);
+      expect(new Date(opening.opensAt ?? "").toISOString()).toBe(
+        "2099-01-01T04:30:00.000Z",
+      );
+      const cleared = await update(draft.id, 2, { opensAt: null });
+      expect(cleared).toMatchObject({
+        status: "DRAFT",
+        opensAt: null,
+        draftRevision: 3,
+      });
+    });
+
     it("rejects a missing or malformed revision, and a stale one without changing anything", async () => {
       const draft = await create("PUBLIC");
       for (const revision of [null, 0, -1]) {
@@ -331,6 +479,8 @@ describe.skipIf(!hasDatabase)("draft routines", () => {
         { title: 5 },
         { closesAt: "2099-01-01T12:00:00" },
         { closesAt: "tomorrow" },
+        { opensAt: "2099-01-01T12:00:00" },
+        { opensAt: "2099-01-01T13:00:00+05:30", closesAt: FUTURE },
         { instructions: "" },
       ]) {
         expect((await dbError(update(draft.id, 1, changes))).message).toBe(

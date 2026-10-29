@@ -1,5 +1,5 @@
 // Theme-safe form controls with persistent labels, explicit errors and accessible touch targets.
-import { CircleAlert, Info } from "lucide-react";
+import { CircleAlert, Info, Lock } from "lucide-react";
 import type {
   InputHTMLAttributes,
   ReactNode,
@@ -85,7 +85,7 @@ export function Chrome({
     <div className="flex min-w-0 items-center justify-start gap-0.5">
       {labelElement}
       <FieldInfo label={label} id={`${id}-hint`}>
-        <p>{hint}</p>
+        <p className="whitespace-pre-line">{hint}</p>
       </FieldInfo>
     </div>
   ) : (
@@ -134,6 +134,8 @@ type TextFieldProps = Readonly<
     Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "required"> & {
       id?: string;
       ref?: Ref<HTMLInputElement>;
+      leading?: ReactNode;
+      trailing?: ReactNode;
     }
 >;
 
@@ -148,10 +150,28 @@ export function TextField({
   showOptional,
   className,
   ref,
+  leading,
+  trailing,
   ...rest
 }: TextFieldProps) {
   const generated = useId();
   const fieldId = id ?? generated;
+  const input = (
+    <input
+      ref={ref}
+      id={fieldId}
+      required={required}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={describedBy(fieldId, hint, error)}
+      className={cn(
+        controlClasses,
+        leading || trailing ? "min-w-0 flex-1" : undefined,
+        error ? "border-error" : "border-control-border",
+        className,
+      )}
+      {...rest}
+    />
+  );
 
   return (
     <Chrome
@@ -164,19 +184,15 @@ export function TextField({
       required={required}
       showOptional={showOptional}
     >
-      <input
-        ref={ref}
-        id={fieldId}
-        required={required}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy(fieldId, hint, error)}
-        className={cn(
-          controlClasses,
-          error ? "border-error" : "border-control-border",
-          className,
-        )}
-        {...rest}
-      />
+      {leading || trailing ? (
+        <div className="flex min-w-0 items-center gap-2">
+          {leading}
+          {input}
+          {trailing}
+        </div>
+      ) : (
+        input
+      )}
     </Chrome>
   );
 }
@@ -290,6 +306,7 @@ type CheckboxFieldProps = Readonly<
     id?: string;
     label: string;
     hint?: string;
+    lockHint?: string;
   }
 >;
 
@@ -344,6 +361,7 @@ export function CheckboxField({
   id,
   label,
   hint,
+  lockHint,
   className,
   ...rest
 }: CheckboxFieldProps) {
@@ -370,6 +388,17 @@ export function CheckboxField({
           <FieldInfo label={label} id={`${fieldId}-hint`}>
             <p>{hint}</p>
           </FieldInfo>
+        ) : null}
+        {lockHint ? (
+          <span
+            role="img"
+            aria-label={lockHint}
+            tabIndex={0}
+            title={lockHint}
+            className="flex size-12 shrink-0 items-center justify-center rounded-control text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            <Lock aria-hidden="true" className="size-5" />
+          </span>
         ) : null}
       </div>
     </div>

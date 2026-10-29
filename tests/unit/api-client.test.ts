@@ -138,4 +138,29 @@ describe("browser API response handling", () => {
       status: 502,
     });
   });
+
+  it("sends confirmed DELETE mutations with the CSRF token", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetch);
+    await expect(
+      apiRequest<void>("/api/admin/votes/vote-id", {
+        method: "DELETE",
+        body: { expectedRevision: 2, confirmed: true },
+        csrfToken: "csrf",
+      }),
+    ).resolves.toMatchObject({ ok: true, status: 204 });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/admin/votes/vote-id",
+      expect.objectContaining({
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": "csrf",
+        },
+        body: JSON.stringify({ expectedRevision: 2, confirmed: true }),
+      }),
+    );
+  });
 });

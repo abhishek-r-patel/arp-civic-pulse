@@ -86,6 +86,7 @@ export const draftPatchSchema = z
     openSelectionLimit: z.number().int().min(1).max(100).nullable().optional(),
     title: draftTitleText.optional(),
     instructions: longText.nullable().optional(),
+    opensAt: offsetInstant.nullable().optional(),
     closesAt: offsetInstant.nullable().optional(),
     eligibleHouseholdIds: z
       .array(uuid)
@@ -226,6 +227,11 @@ export const draftPatchSchema = z
       });
     }
   });
+
+export const deleteDraftSchema = z.strictObject({
+  expectedRevision: revision,
+  confirmed,
+});
 
 export const revisionOnlySchema = z.strictObject({
   expectedRevision: revision,

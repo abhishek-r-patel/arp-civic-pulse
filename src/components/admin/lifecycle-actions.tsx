@@ -28,29 +28,29 @@ export function ScheduleVote({
   revision,
   timezone,
   closesAt,
+  openingAt,
 }: Readonly<{
   csrfToken: string | undefined;
   voteId: string;
   revision: number;
   timezone: string;
   closesAt: string;
+  openingAt: string | null;
 }>) {
   const router = useRouter();
-  const [local, setLocal] = useState("");
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<ApiFailure | null>(null);
   const [error, setError] = useState<string>();
-  const converted = zonedLocalToInstant(local, timezone);
 
   function review() {
+    if (!openingAt) return;
     if (
-      !converted.ok ||
-      new Date(converted.instant).getTime() <= Date.now() ||
-      converted.instant >= closesAt
+      new Date(openingAt).getTime() <= Date.now() ||
+      new Date(openingAt).getTime() >= new Date(closesAt).getTime()
     ) {
       setError(
-        "Choose a future opening time before the closing deadline. Ambiguous or nonexistent local times are not accepted.",
+        "The opening time saved in the draft must be in the future and before the closing deadline.",
       );
       return;
     }
@@ -58,7 +58,7 @@ export function ScheduleVote({
     setOpen(true);
   }
   async function schedule() {
-    if (!converted.ok) return;
+    if (!openingAt) return;
     setPending(true);
     setFailure(null);
     const result = await apiRequest<AdminVoteDetail>(
@@ -69,7 +69,7 @@ export function ScheduleVote({
         body: {
           expectedRevision: revision,
           confirmed: true,
-          opensAt: converted.instant,
+          opensAt: openingAt,
         },
       },
     );
@@ -91,46 +91,51 @@ export function ScheduleVote({
       <h2 id="schedule-heading" className="text-section font-semibold">
         Schedule Opening
       </h2>
+      {openingAt ? (
+        <p className="text-body">
+          Voting opens {formatInZone(openingAt, timezone)} and closes{" "}
+          {formatInZone(closesAt, timezone)}.
+        </p>
+      ) : (
+        <p className="text-body">
+          Set Voting opens in the draft&apos;s Deadline section, then save the
+          draft to enable scheduling.
+        </p>
+      )}
       <ErrorSummary failure={failure} />
-      <TextField
-        id="scheduled-opening"
-        label="Voting opens at"
-        type="datetime-local"
-        hint={`RWA time zone (${timezone}); closes ${formatInZone(closesAt, timezone)}.`}
-        value={local}
-        onChange={(event) => {
-          setLocal(event.target.value);
-          setError(undefined);
-        }}
-        error={error}
-        disabled={pending}
-      />
+      {error ? <p role="alert">{error}</p> : null}
       <div>
-        <Button variant="secondary" onClick={review} disabled={pending}>
+        <Button
+          variant="secondary"
+          onClick={review}
+          disabled={pending || !openingAt}
+        >
           <CalendarClock className="size-5" aria-hidden="true" />
           Schedule Vote
         </Button>
       </div>
-      <ConfirmDialog
-        open={open}
-        title="Schedule this vote?"
-        confirmLabel="Freeze and Schedule"
-        busy={pending}
-        onCancel={() => setOpen(false)}
-        onConfirm={() => void schedule()}
-      >
-        <p>
-          Freeze version {revision}, its ballot, electorate and representatives
-          now. Voting opens{" "}
-          {converted.ok ? formatInZone(converted.instant, timezone) : ""} and
-          closes {formatInZone(closesAt, timezone)}.
-        </p>
-        <p>
-          Residents see only the summary and opening countdown until voting
-          starts. Before opening, an administrator can return this vote to draft
-          with a recorded reason.
-        </p>
-      </ConfirmDialog>
+      {openingAt ? (
+        <ConfirmDialog
+          open={open}
+          title="Schedule this vote?"
+          confirmLabel="Freeze and Schedule"
+          busy={pending}
+          onCancel={() => setOpen(false)}
+          onConfirm={() => void schedule()}
+        >
+          <p>
+            Freeze version {revision}, its ballot, electorate and
+            representatives now. Voting opens{" "}
+            {formatInZone(openingAt, timezone)} and closes{" "}
+            {formatInZone(closesAt, timezone)}.
+          </p>
+          <p>
+            Residents see only the summary and opening countdown until voting
+            starts. Before opening, an administrator can return this vote to
+            draft with a recorded reason.
+          </p>
+        </ConfirmDialog>
+      ) : null}
     </section>
   );
 }
