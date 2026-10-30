@@ -752,7 +752,7 @@ export async function renderResultsPdf(
     }
   } else {
     writer.heading("Results by office");
-    writer.paragraph(`${copy.PRIVATE} ${copy.CLOSED_LIMITS}`, {
+    writer.paragraph(copy.PRIVATE, {
       size: 8.5,
       color: MUTED,
     });

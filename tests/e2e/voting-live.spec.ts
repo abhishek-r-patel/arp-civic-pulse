@@ -289,10 +289,8 @@ test.describe("voting", () => {
     await signInResident(page, resident);
     await page.goto(`/votes/${vote.id}`);
 
-    await expect(page.getByText(/Your selections are private/)).toBeVisible();
-    await expect(
-      page.getByText(/not against privileged infrastructure access/),
-    ).toBeVisible();
+    await expect(page.getByText(/Your vote is private/)).toBeVisible();
+    await expect(page.getByText(/People who run the system/)).toHaveCount(0);
     for (const name of ["Asha", "Ravi", "NOTA (None of the Above)"]) {
       await expect(page.getByRole("radio", { name })).not.toBeChecked();
     }
@@ -649,7 +647,7 @@ test.describe("results and download", () => {
     await expect(
       page.getByText("Completed early by an administrator"),
     ).toBeVisible();
-    await expect(page.getByText(/not a signature/)).toBeVisible();
+    await expect(page.getByText(/not a signature/)).toHaveCount(0);
 
     // Screen.
     const optionRows = page
@@ -781,7 +779,9 @@ test.describe("results and download", () => {
 
     await signInResident(page, b);
     await page.goto(`/votes/${vote.id}/results`);
-    await expect(page.getByText("Totals only", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Your vote is private", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByText("Elected candidate")).toBeVisible();
     await expect(
       page.getByText(/NOTA.*cannot win.*even if NOTA receives more votes/),

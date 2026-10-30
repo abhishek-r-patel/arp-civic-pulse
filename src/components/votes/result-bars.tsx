@@ -25,14 +25,20 @@ export function ResultBars({
   rows,
   total,
   totalNoun,
+  fullWidth = false,
 }: Readonly<{
   label: string;
   rows: readonly ResultBarRow[];
   total: string;
   totalNoun: string;
+  /** Stretch to the container instead of the ballot reading width. */
+  fullWidth?: boolean;
 }>) {
   return (
-    <ul aria-label={label} className="grid max-w-ballot gap-5">
+    <ul
+      aria-label={label}
+      className={cn("grid gap-5", !fullWidth && "max-w-ballot")}
+    >
       {rows.map((row) => (
         <li
           key={row.id}

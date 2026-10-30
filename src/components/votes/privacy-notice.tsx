@@ -12,10 +12,7 @@ import type { VotingType } from "@/shared/contracts/voting";
 export function privacyCopy(terms: HouseholdTerms = DEFAULT_HOUSEHOLD_TERMS) {
   return {
     PUBLIC: `While voting is open, RWA members see only total counts. You can change your vote until voting closes. After that, RWA members can see your name, ${terms.identifierLabel.toLowerCase()} and final vote in results and downloads.`,
-    PRIVATE:
-      "Your selections are not shown to the Resident, RWA Admin or RWA ReadOnly personas through the app. Results show totals only.",
-    CLOSED_LIMITS:
-      "This protects choices within the app, not against privileged infrastructure access. Results from very small elections may allow people to infer choices.",
+    PRIVATE: "Only totals are shown, never who chose what.",
     FINAL:
       "Your PRIVATE election submission is final. You cannot change or withdraw it.",
   } as const;
@@ -46,10 +43,19 @@ export function PrivacyNotice({
       </Notice>
     );
   }
+  return <PrivateNotice tone="warning" />;
+}
+
+/** One-line PRIVATE notice: bold lead-in followed by the summary sentence. */
+export function PrivateNotice({
+  tone,
+}: Readonly<{ tone: "info" | "warning" }>) {
   return (
-    <Notice tone="warning" heading="Your selections are private">
-      <p>{copy.PRIVATE}</p>
-      <p className="pt-2">{copy.CLOSED_LIMITS}</p>
+    <Notice tone={tone}>
+      <p>
+        <strong className="font-semibold">Your vote is private</strong>.{" "}
+        {PRIVACY_COPY.PRIVATE}
+      </p>
     </Notice>
   );
 }

@@ -24,10 +24,9 @@ test.skip(
 const WIDTHS = [320, 375, 768, 1280];
 const OPEN_NOTICE =
   /While voting is open, RWA members see only total counts\. You can change your vote until voting closes\. After that, RWA members can see your name, .+ and final vote in results and downloads\./;
-const CLOSED_NOTICE =
-  "Your selections are not shown to the Resident, RWA Admin or RWA ReadOnly personas through the app. Results show totals only.";
+const CLOSED_NOTICE = "Only totals are shown, never who chose what.";
 const CLOSED_LIMITS =
-  "This protects choices within the app, not against privileged infrastructure access. Results from very small elections may allow people to infer choices.";
+  "People who run the system can still see the data. In very small votes, totals may reveal who chose what.";
 
 test.beforeEach(() => {
   test.setTimeout(300_000);
@@ -376,7 +375,7 @@ test.describe("setting up a PRIVATE vote", () => {
       ballot.getByText("PRIVATE Voting", { exact: true }),
     ).toBeVisible();
     await expect(ballot.getByText(CLOSED_NOTICE)).toBeVisible();
-    await expect(ballot.getByText(CLOSED_LIMITS)).toBeVisible();
+    await expect(ballot.getByText(CLOSED_LIMITS)).toHaveCount(0);
     const office = ballot.getByRole("group", { name: "Chairperson" });
     await expect(office.getByRole("radio")).toHaveCount(3);
     const names = await office.locator("label").allTextContents();

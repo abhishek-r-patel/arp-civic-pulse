@@ -471,7 +471,7 @@ The completed projection contains:
 - `eligibleCount` and `submittedCount` as nonnegative decimal strings.
 - `turnout`: explicit decimal-string numerator and denominator, and `percent`.
 - Type-specific options or offices/candidates with authoritative counts and explicit percentage denominators.
-- A clear record disclaimer: not a signature, legal certification, or spending authorization.
+- A clear record disclaimer: not a signature, legal certification, or spending authorization. The results screen does not display it; the CSV `NOTICE` row and the PDF do.
 
 `percent` is a whole-number decimal string (for example `"38"`, no decimals) rounded half-up by one shared policy, or `null` when the denominator is zero. Turnout uses eligible households. PRIVATE candidate/NOTA and PUBLIC option `percent` values use submitted households; each of those rows also has `eligiblePercent`, the same count as a share of eligible households, which the results page and PDF display beside `count/eligible`. The CSV keeps `percent` only. Multi-select PUBLIC option shares may sum above 100% because each household can select several options. Never emit `NaN`, infinity, or a fabricated percentage.
 

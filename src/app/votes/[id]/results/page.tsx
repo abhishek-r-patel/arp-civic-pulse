@@ -1,5 +1,7 @@
 // Protected live aggregate and completed-result projection.
-import { privateRecordMetadata } from "@/shared/metadata";
+import { cache } from "react";
+import type { Metadata } from "next";
+import { privateMetadata, privateRecordMetadata } from "@/shared/metadata";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
@@ -7,19 +9,43 @@ import { firstValues } from "@/components/admin/format";
 import { PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { ResultsView } from "@/components/votes/results-view";
+import { VoteInstructions } from "@/components/votes/vote-instructions";
 import { ApiError } from "@/server/http/errors";
 import { readPageNumber } from "@/server/http/numbered-page";
 import { memberPageContext } from "@/server/register/page-context";
 import { availableExportFormats } from "@/server/exports/formats";
-import { getResults } from "@/server/votes/member";
+import { getMemberVote, getResults } from "@/server/votes/member";
 import { listQuerySchema } from "@/shared/contracts/pagination";
 import { idParamsSchema } from "@/shared/contracts/register";
 
-export const generateMetadata = privateRecordMetadata(
-  "Results",
-  "View live poll aggregates, PRIVATE election turnout, or completed results.",
-  "/votes/[id]/results",
-);
+const DESCRIPTION =
+  "View live poll aggregates, PRIVATE election turnout, or completed results.";
+
+// Uses the member's own authorized vote read; unavailable votes keep the ID-based title.
+const loadVoteTitle = cache(async (id: string): Promise<string | null> => {
+  try {
+    const vote = await getMemberVote(await memberPageContext(), id);
+    return vote.title === "" ? "Untitled vote" : vote.title;
+  } catch (error) {
+    if (error instanceof ApiError) return null;
+    throw error;
+  }
+});
+
+export async function generateMetadata({
+  params,
+}: Readonly<{ params: Promise<{ id: string }> }>): Promise<Metadata> {
+  const base = await privateRecordMetadata(
+    "Results",
+    DESCRIPTION,
+    "/votes/[id]/results",
+  )({ params });
+  const parsed = idParamsSchema.safeParse(await params);
+  const title = parsed.success ? await loadVoteTitle(parsed.data.id) : null;
+  return title
+    ? { ...base, ...privateMetadata(`Results - ${title}`, DESCRIPTION) }
+    : base;
+}
 
 const querySchema = listQuerySchema({});
 
@@ -110,9 +136,10 @@ export default async function ResultsPage({
   return (
     <div className="grid gap-8">
       {back}
-      <PageHeader
-        title={`Results: ${data.vote.title}`}
-        description={`Held by ${data.vote.rwaName}.`}
+      <PageHeader title={`Results: ${data.vote.title}`} />
+      <VoteInstructions
+        instructions={data.vote.instructions}
+        votingType={data.vote.votingType}
       />
       <ResultsView
         results={data}

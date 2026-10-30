@@ -267,11 +267,12 @@ describe("renderResultsPdf", () => {
       "Ravi (Tied) 1/4 25%",
       "Meera 0/4 0%",
       "NOTA (None of the Above) 3/4 75%",
-      "Your selections are not shown to the Resident, RWA Admin or RWA ReadOnly personas through the app",
+      "Only totals are shown, never who chose what.",
     ]) {
       expect(text, expected).toContain(squash(expected));
     }
     expect(text).not.toContain("Who chose what");
+    expect(text).not.toContain("People who run the system");
     expect(text).not.toMatch(/H-\d{4}/u);
   });
 

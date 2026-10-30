@@ -1,18 +1,24 @@
 // Protected participation overview without disclosure of active choice totals.
-import { cache, type ReactNode } from "react";
+import { cache } from "react";
 import type { Metadata } from "next";
 import { privateMetadata, privateRecordMetadata } from "@/shared/metadata";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronDown, ChevronLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { firstValues } from "@/components/admin/format";
 import { ParticipationFilter } from "@/components/admin/participation-filter";
-import { ParticipationBadge, VoteStatusBadge } from "@/components/ui/badges";
+import {
+  ParticipationBadge,
+  VoteStatusBadge,
+  VotingTypeBadge,
+} from "@/components/ui/badges";
 import { LinkButton } from "@/components/ui/button";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { InfoTip } from "@/components/ui/info-tip";
 import { EmptyState, PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { Pagination } from "@/components/ui/pagination";
+import { VoteInstructions } from "@/components/votes/vote-instructions";
 import { ApiError } from "@/server/http/errors";
 import { readPageNumber } from "@/server/http/numbered-page";
 import { adminPageContext } from "@/server/register/page-context";
@@ -32,7 +38,7 @@ type VoteContext = Readonly<{
   votingType: "PUBLIC" | "PRIVATE";
 }>;
 
-// Shared by metadata and the page so the tab title and "About this vote" cost one read.
+// Shared by metadata and the page so the tab title and header cost one read.
 const loadVoteContext = cache(
   async (id: string): Promise<VoteContext | null> => {
     try {
@@ -67,41 +73,6 @@ export async function generateMetadata({
         ...privateMetadata(`Participation - ${vote.title}`, description),
       }
     : base;
-}
-
-function AboutVote({
-  vote,
-  children,
-}: Readonly<{ vote: VoteContext; children?: ReactNode }>) {
-  const isPublic = vote.votingType === "PUBLIC";
-  return (
-    <section
-      aria-label="About this vote"
-      className="grid gap-3 rounded-card border border-border bg-surface p-4 md:p-5"
-    >
-      <h2 className="text-card-heading font-semibold">
-        <span className="text-muted">{isPublic ? "Question" : "Title"}:</span>{" "}
-        {vote.title}
-      </h2>
-      {vote.instructions ? (
-        <details className="group">
-          <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 font-semibold text-accent underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
-            <ChevronDown
-              aria-hidden="true"
-              className="size-5 transition-transform group-open:rotate-180"
-            />
-            {isPublic ? "Background" : "Instructions for voters"}
-          </summary>
-          <p className="mt-2 max-w-ballot text-body whitespace-pre-line text-muted">
-            {vote.instructions}
-          </p>
-        </details>
-      ) : null}
-      {children ? (
-        <div className="border-t border-border pt-3">{children}</div>
-      ) : null}
-    </section>
-  );
 }
 
 type Row = ParticipationReport["rows"][number];
@@ -172,23 +143,28 @@ export default async function ParticipationPage({
     ? percentage(result.data.submittedCount, result.data.eligibleCount)
     : null;
   const summary = result ? (
-    <div className="grid gap-2">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="grid gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {vote ? <VotingTypeBadge type={vote.votingType} /> : null}
         <VoteStatusBadge status={result.data.status} />
-        <p className="text-body">
-          <span className="font-semibold">
-            {result.data.submittedCount} of {result.data.eligibleCount}
-          </span>{" "}
-          eligible {deps.terms.households} have submitted
-          {percent === null ? "." : ` (${percent}%).`}
-        </p>
       </div>
-      {result.data.status === "ACTIVE" ? (
-        <p className="text-caption text-muted">
-          The {deps.terms.households} list is for administrator follow-up and is
-          never shown to residents. Residents can see aggregate turnout only.
+      <InfoTip
+        heading={
+          <p className="text-body">
+            <span className="font-semibold">
+              {result.data.submittedCount} of {result.data.eligibleCount}
+            </span>{" "}
+            eligible {deps.terms.households} have submitted
+            {percent === null ? "." : ` (${percent}%).`}
+          </p>
+        }
+        label="About this list"
+      >
+        <p>
+          Which {deps.terms.households} have voted. Use it to remind those who
+          haven&apos;t. It never shows anyone&apos;s choices.
         </p>
-      ) : null}
+      </InfoTip>
     </div>
   ) : null;
 
@@ -202,10 +178,15 @@ export default async function ParticipationPage({
         Back to the vote
       </Link>
       <PageHeader
-        title="Participation"
-        description={`Which ${deps.terms.households} have submitted. During a live election, use this list for follow-up. It never shows what anyone chose, when they submitted, or their email.`}
+        title={vote ? `Participation: ${vote.title}` : "Participation"}
       />
-      {vote ? <AboutVote vote={vote}>{summary}</AboutVote> : summary}
+      {vote ? (
+        <VoteInstructions
+          instructions={vote.instructions}
+          votingType={vote.votingType}
+        />
+      ) : null}
+      {summary}
 
       {failure ? (
         failure.code === "LIFECYCLE_CONFLICT" ? (

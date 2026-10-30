@@ -3,7 +3,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Download } from "lucide-react";
+import { Download, Trophy } from "lucide-react";
 import { VoteStatusBadge, VotingTypeBadge } from "@/components/ui/badges";
 import { buttonClasses } from "@/components/ui/button";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -12,7 +12,7 @@ import { useHouseholdTerms } from "@/components/ui/household-terms";
 import { InfoTip } from "@/components/ui/info-tip";
 import { DeadlineCountdown } from "@/components/votes/deadline-countdown";
 import { Pagination } from "@/components/ui/pagination";
-import { privacyCopy } from "@/components/votes/privacy-notice";
+import { PrivateNotice, privacyCopy } from "@/components/votes/privacy-notice";
 import { ResultBars, type ResultBarRow } from "@/components/votes/result-bars";
 import type { PageInfo } from "@/shared/contracts/pagination";
 import type {
@@ -59,10 +59,31 @@ function Outcome({
       </Notice>
     );
   }
+  return <WinnerBanner label="Leading option" name={leaders[0] ?? ""} />;
+}
+
+/** Highlighted outcome card: trophy badge, small label and the winner's name. */
+function WinnerBanner({
+  label,
+  name,
+}: Readonly<{ label: string; name: string }>) {
   return (
-    <Notice tone="success" heading="Leading option">
-      <p>{leaders[0]}</p>
-    </Notice>
+    <div
+      role="status"
+      className="flex items-center gap-4 rounded-card border border-success/30 bg-success/5 p-4"
+    >
+      <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
+        <Trophy aria-hidden="true" className="size-6" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-caption font-semibold tracking-wide text-success uppercase">
+          {label}
+        </p>
+        <p className="text-card-heading font-semibold break-words text-primary">
+          {name}
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -116,10 +137,6 @@ function OpenSection({
         <h2 id="totals" className="text-section font-semibold">
           Totals
         </h2>
-        <p className="text-caption text-muted">
-          Votes for each option out of {results.eligibleCount} eligible{" "}
-          {eligibleNoun(results.eligibleCount, terms)}.
-        </p>
         <ResultBars
           label="Votes for each option"
           total={results.eligibleCount}
@@ -179,10 +196,7 @@ function ClosedSection({
 }>) {
   return (
     <>
-      <Notice tone="info" heading="Totals only">
-        <p>{privacyCopy(terms).PRIVATE}</p>
-        <p className="pt-2">{privacyCopy(terms).CLOSED_LIMITS}</p>
-      </Notice>
+      <PrivateNotice tone="info" />
       <InfoTip
         heading={<p className="text-body font-semibold">How NOTA is counted</p>}
         label="About NOTA counting"
@@ -194,77 +208,76 @@ function ClosedSection({
           candidate totals remain a tie.
         </p>
       </InfoTip>
-      {results.offices.map((office) => {
-        const leaders = office.candidates
-          .filter((c) => office.leaderCandidateIds.includes(c.id))
-          .map((c) => c.name);
-        const rows: ResultBarRow[] = [
-          ...office.candidates.map((c) => {
-            const leading =
-              office.outcome !== "NO_WINNER" &&
-              office.leaderCandidateIds.includes(c.id);
-            return {
-              id: c.id,
-              label: c.name,
-              count: c.count,
-              percent: c.eligiblePercent,
-              tone: leading ? ("leader" as const) : ("default" as const),
-              tag: leading
-                ? office.outcome === "TIE"
-                  ? "Tied"
-                  : "Elected"
-                : undefined,
-            };
-          }),
-          {
-            id: "nota",
-            label: "NOTA (None of the Above)",
-            count: office.nota.count,
-            percent: office.nota.eligiblePercent,
-            tone: "muted",
-          },
-        ];
-        return (
-          <section
-            key={office.id}
-            aria-labelledby={`office-${office.id}`}
-            className="grid gap-3"
-          >
-            <h2
-              id={`office-${office.id}`}
-              className="text-section font-semibold"
+      <div className="grid gap-4 md:grid-cols-2">
+        {results.offices.map((office) => {
+          const leaders = office.candidates
+            .filter((c) => office.leaderCandidateIds.includes(c.id))
+            .map((c) => c.name);
+          const rows: ResultBarRow[] = [
+            ...office.candidates.map((c) => {
+              const leading =
+                office.outcome !== "NO_WINNER" &&
+                office.leaderCandidateIds.includes(c.id);
+              return {
+                id: c.id,
+                label: c.name,
+                count: c.count,
+                percent: c.eligiblePercent,
+                tone: leading ? ("leader" as const) : ("default" as const),
+                tag: leading
+                  ? office.outcome === "TIE"
+                    ? "Tied"
+                    : "Elected"
+                  : undefined,
+              };
+            }),
+            {
+              id: "nota",
+              label: "NOTA (None of the Above)",
+              count: office.nota.count,
+              percent: office.nota.eligiblePercent,
+              tone: "muted",
+            },
+          ];
+          return (
+            <section
+              key={office.id}
+              aria-labelledby={`office-${office.id}`}
+              className="grid content-start gap-3 rounded-card border border-border bg-surface p-4 md:p-5"
             >
-              {office.name}
-            </h2>
-            {office.outcome === "LEADER" ? (
-              <Notice tone="success" heading="Elected candidate">
-                <p>{leaders[0]}</p>
-              </Notice>
-            ) : office.outcome === "TIE" ? (
-              <Notice tone="warning" heading="Tie">
-                <p>
-                  These candidates received the same highest count:{" "}
-                  {leaders.join(", ")}.
-                </p>
-              </Notice>
-            ) : (
-              <Notice tone="info" heading="No winner">
-                <p>No candidate received a vote for this office.</p>
-              </Notice>
-            )}
-            <p className="text-caption text-muted">
-              Votes out of {results.eligibleCount} eligible{" "}
-              {eligibleNoun(results.eligibleCount, terms)}.
-            </p>
-            <ResultBars
-              label={`Results for ${office.name}`}
-              total={results.eligibleCount}
-              totalNoun={`eligible ${terms.households}`}
-              rows={rows}
-            />
-          </section>
-        );
-      })}
+              <h2
+                id={`office-${office.id}`}
+                className="text-section font-semibold"
+              >
+                {office.name}
+              </h2>
+              {office.outcome === "LEADER" ? (
+                <WinnerBanner
+                  label="Elected candidate"
+                  name={leaders[0] ?? ""}
+                />
+              ) : office.outcome === "TIE" ? (
+                <Notice tone="warning" heading="Tie">
+                  <p>
+                    These candidates received the same highest count:{" "}
+                    {leaders.join(", ")}.
+                  </p>
+                </Notice>
+              ) : (
+                <Notice tone="info" heading="No winner">
+                  <p>No candidate received a vote for this office.</p>
+                </Notice>
+              )}
+              <ResultBars
+                label={`Results for ${office.name}`}
+                total={results.eligibleCount}
+                totalNoun={`eligible ${terms.households}`}
+                rows={rows}
+              />
+            </section>
+          );
+        })}
+      </div>
     </>
   );
 }
@@ -351,6 +364,7 @@ export function ResultsView({
         ) : (
           <ResultBars
             label="Turnout"
+            fullWidth
             total={results.turnout.denominator}
             totalNoun={`eligible ${terms.households} ${active ? "have " : ""}submitted ${results.votingType === "PRIVATE" ? "a ballot" : "a response"}`}
             rows={[
@@ -365,13 +379,23 @@ export function ResultsView({
           />
         )}
         {vote.status === "COMPLETED" && vote.completedAt ? (
-          <p className="text-caption text-muted">
-            Voting ended{" "}
-            <time dateTime={vote.completedAt}>
-              {formatInZone(vote.completedAt, vote.timezone)}
-            </time>
-            . Eligibility was fixed when the vote was activated.
-          </p>
+          <InfoTip
+            heading={
+              <p className="text-caption text-muted">
+                Voting ended{" "}
+                <time dateTime={vote.completedAt}>
+                  {formatInZone(vote.completedAt, vote.timezone)}
+                </time>
+                .
+              </p>
+            }
+            label="About eligibility"
+          >
+            <p>
+              Eligibility was fixed when the vote was activated. Turnout counts
+              only {terms.households} that were eligible at that time.
+            </p>
+          </InfoTip>
         ) : (
           <>
             <DeadlineCountdown deadline={vote.closesAt} />
@@ -399,10 +423,6 @@ export function ResultsView({
         <ClosedSection results={results} terms={terms} />
       )}
 
-      <Notice tone="info" heading="About this record">
-        <p>{results.disclaimer}</p>
-      </Notice>
-
       {vote.status === "COMPLETED" ? (
         <section
           aria-labelledby="download"
@@ -412,12 +432,11 @@ export function ResultsView({
             Download
           </h2>
           <p className="max-w-ballot text-body text-muted">
-            The downloads contain the same totals as this page
+            Same results as this page
             {results.votingType === "PUBLIC"
-              ? ", including every named response (not only this page)"
+              ? ", including every named response"
               : ""}
-            . The PDF is a printable A4 copy. A downloaded or printed copy
-            cannot be recalled or deleted by the RWA.
+            . Once downloaded, copies can&apos;t be recalled.
           </p>
           <div className="flex flex-col gap-3 sm:flex-row">
             {formats.map((format) => (
@@ -436,11 +455,4 @@ export function ResultsView({
       ) : null}
     </div>
   );
-}
-
-function eligibleNoun(
-  count: string | number,
-  terms: { household: string; households: string },
-) {
-  return String(count) === "1" ? terms.household : terms.households;
 }
