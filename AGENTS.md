@@ -18,12 +18,13 @@ rather than treating historical scaffold notes as current state.
 - Keep implementation, local tests, external verification and approvals distinct.
   Never turn an unconfigured integration or historical test result into a current
   production-readiness claim. Preserve unresolved launch gates.
-- When either Markdown guide changes, regenerate its existing HTML copy with
-  `node scripts/docs/render.mjs` and run
-  `node --test scripts/docs/render.test.mjs`. Check local links and anchors.
+- Guides are native app pages under `src/app/user-guide` and `src/app/tech-guide`,
+  with content under `src/components/guides`. Do not recreate retired Markdown/HTML
+  guide copies or renderer hooks. Run `node --test scripts/docs/check.test.mjs`
+  and relevant guide browser checks; verify links and section anchors.
 - When UI changes alter illustrated controls, content, navigation or workflow
   steps, refresh only affected guide screenshots using synthetic data, then
-  regenerate the HTML copies that embed them and run the documentation checks.
+  update the curated `public/guides` assets/dimensions and run documentation checks.
   Footer-only additions do not require screenshot updates. Preserve screenshot
   redaction and disposable-environment safeguards; report blocked captures honestly.
 - Run focused checks first and build/lint for code changes. Documentation-only

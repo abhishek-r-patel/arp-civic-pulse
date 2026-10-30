@@ -1,4 +1,4 @@
-// Browser verification; visual-only runs can preserve the user's deliberately frozen guide assets.
+// Browser verification; screenshot assets change only in the explicitly opted-in docs capture suite.
 import { defineConfig, devices } from "@playwright/test";
 
 // Optional local settings (ignored by Git), used by the LIVE_AUTH specs and the dev server.
@@ -39,10 +39,7 @@ export default defineConfig({
     { name: "webkit", use: { ...devices["Desktop Safari"] } },
   ],
   webServer: {
-    command:
-      process.env.PLAYWRIGHT_PRESERVE_GUIDE === "1"
-        ? `node node_modules/next/dist/bin/next dev --hostname ${host} --port ${port}`
-        : `npm run dev -- --hostname ${host} --port ${port}`,
+    command: `npm run dev -- --hostname ${host} --port ${port}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

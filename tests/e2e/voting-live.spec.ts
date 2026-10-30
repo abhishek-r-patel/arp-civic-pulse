@@ -1215,7 +1215,7 @@ test.describe("responsive and accessible", () => {
       const offenders = await page.evaluate(() => {
         const width = document.documentElement.clientWidth;
         // The Who chose what table scrolls inside its own region by design
-        // (docs/USER_GUIDE.md); only content outside such regions counts.
+        // (Resident Guide results section); only content outside such regions counts.
         const inScroller = (element: Element) => {
           for (let p = element.parentElement; p; p = p.parentElement) {
             const overflowX = getComputedStyle(p).overflowX;

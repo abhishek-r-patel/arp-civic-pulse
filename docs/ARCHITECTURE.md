@@ -134,15 +134,15 @@ API, cookie, migration or analytics dependency; PDF rendering remains unchanged.
 surfaces in explicit Light/Dark modes and phone widths, writes only temporary
 redacted test images, and performs synthetic PUBLIC/PRIVATE selection, review,
 acceptance, active results, completed results, lifecycle-dialog and participation
-checks. `PLAYWRIGHT_PRESERVE_GUIDE=1` makes the existing browser config start Next
-directly instead of invoking guide generation. Appearance controls expose a
+checks. Ordinary browser runs never regenerate guide assets. Appearance controls expose a
 hydration-readiness marker and disable mode radios until client state is ready.
 
-The current User Guide is persona-first and uses current application captures
-grouped under `docs/images/user-guide/voter`, `rwa-admin` and
-`rwa-readonly`; public/shared entry screens are grouped with the voter captures.
-`scripts/docs/render.mjs` regenerates both offline HTML and the public copy from
-the active Markdown and embedded assets.
+The User Guide is now native server-rendered app content at `/user-guide`,
+`/user-guide/resident` and `/user-guide/rwa-admin`, with stable contents anchors.
+Curated synthetic captures live in `public/guides/{resident,rwa-admin}`.
+The public developer guide is only directly discoverable at `/tech-guide`,
+unlinked and noindex/nofollow. Legacy standalone guide copies, old images and
+document-generation lifecycle hooks are removed.
 This is the migration target, not a description of already completed changes. Retain existing feature directories where practical; create helpers only when needed.
 
 ```text
@@ -278,7 +278,7 @@ remain anchored to their controls. Each dialog labels itself with its own
 
 Resident self-registration implementation map:
 
-- `src/app/register/page.tsx`, `src/components/access/self-registration-form.tsx`: public, `noindex` page (not in the sitemap) with name, email and RWA-worded household identifier plus a hidden honeypot. When Default Households are configured the identifier is chosen with `src/components/ui/combobox-field.tsx` (ARIA combobox/listbox: type to filter, arrow keys, Enter, Escape; only list entries can be submitted; at most 100 matches rendered); otherwise it is free text. If the list cannot be read the page shows an unavailability notice. Linked from `/sign-in` and the footer; a signed-in account is redirected home.
+- `src/app/register/page.tsx`, `src/components/access/self-registration-form.tsx`: public, `noindex` page (not in the sitemap) with name, email and RWA-worded household identifier plus a hidden honeypot. When Default Households are configured the identifier is chosen with `src/components/ui/combobox-field.tsx` (ARIA combobox/listbox: type to filter, arrow keys, Enter, Escape; only list entries can be submitted; at most 100 matches rendered); otherwise it is free text. If the list cannot be read, including when the server-only Supabase client is not configured (as in CI's browser step), the page still renders and shows an unavailability notice. Linked from `/sign-in` and the footer; a signed-in account is redirected home.
 - `src/app/api/register/route.ts`, `src/server/register/self-registration.ts`: CSRF/Origin-protected `POST /api/register`; per-email, per-household and global budgets; configured-list check (`UNKNOWN_HOUSEHOLD`) before the Auth stage; Auth identity first (so a repeated email is reported before a taken household), then the service-role routine; best-effort removal of an identity created by a failed request. Specific `DUPLICATE_EMAIL` / `DUPLICATE_IDENTIFIER` conflicts are returned as field errors. `selfRegistrationSchema` lives in `src/shared/contracts/register.ts`.
 - `supabase/migrations/20261109100000_resident_self_registration.sql`: `profiles.self_registered`, `PROFILE_SELF_REGISTERED` audit action, the service-role-only `get_self_registration_households` read and the `self_register_resident` routine creating a suspended profile plus ineligible household atomically (restricted to configured Default Households when any exist).
 - `src/app/admin/residents/page.tsx`, `src/components/admin/account-review-table.tsx`, `src/server/register/accounts.ts`: icon-only **Source** column immediately before Actions, with sorting and `selfRegistered` filtering instead of a top filter/name caption. `RegistrationSourceBadge` in `src/components/ui/badges.tsx` supplies accessible/hover/tap text; enabling and eligibility still use the existing review actions. Reset/mobile controls share the selection/bulk-action toolbar but remain outside management-disabled fieldsets for observer access.
@@ -294,11 +294,12 @@ Resident self-registration implementation map:
 - `supabase/migrations/20261121110000_draft_opening_public_private_types.sql`: keeps planned-opening draft updates compatible with PUBLIC/PRIVATE ballot options and offices; `tests/integration/drafts.test.ts` covers saving the opening with ballot content.
 - `supabase/migrations/20261122100000_delete_drafts.sql`: adds revision-checked, confirmed and audited draft deletion through a guarded administrator routine.
 - `supabase/migrations/20261123100000_enabled_rwa_admin_names.sql`: adds an authenticated, enabled-member-only name projection for the Contact page; App Support, anonymous and service-role callers are denied.
-- `scripts/docs/capture.spec.ts`: opted-in synthetic Resident, RWA Admin and RWA ReadOnly persona captures. Screenshots are written to `docs/images/user-guide/{voter,rwa-admin,rwa-readonly}` with email/code redaction. `tests/e2e/support/live.ts` uses the existing operational database helper for verified TLS with a provider CA, not a certificate-verification bypass.
+- `scripts/docs/capture.spec.ts`: opted-in synthetic screenshot journeys. The default docs configuration selects resident/admin onboarding, bulk review, import/scheduling and voting. Only the curated inventory is written to `public/guides/{resident,rwa-admin}`, with exact dimensions, email/code redaction and dialog-only confirmations. Requires `LIVE_AUTH=1`, `DOC_SCREENSHOTS=1`, `DOC_DISPOSABLE_CONFIRMED=1` and an authorised disposable project. `tests/e2e/support/live.ts` uses verified database TLS with a provider CA.
 
 ### Public discovery and contact additions
 
-The crawlable public surface is `/sign-in`, `/privacy` and `/contact`. These
+The crawlable public surface is `/sign-in`, `/privacy`, `/contact`, `/user-guide`,
+`/user-guide/resident` and `/user-guide/rwa-admin`. These
 pages use server rendering through the session-aware shell, not a client-only
 SPA. `/register` is public but deliberately `noindex` and outside the sitemap.
 Private routes inherit `noindex, nofollow`; robots and sitemap are not
@@ -320,18 +321,23 @@ authorization. Do not include register, ballot or results URLs in discovery.
 | `src/shared/contracts/contact.ts` | Strict, bounded support payload |
 | `src/app/api/contact/route.ts`, `src/server/contact.ts` | CSRF-protected, rate-limited Resend delivery; never an OTP or voting dependency |
 | `tests/unit/metadata.test.ts`, `tests/unit/contact.test.ts` | Discovery policy, contact protections and controlled transport tests |
-| `docs/USER_GUIDE.md` | Active Resident (`voter`), RWA Admin (`rwa-admin`) and RWA ReadOnly (`rwa-readonly`) procedures; screenshot navigation differences after rollback are explicitly noted |
-| `docs/images/user-guide/{voter,rwa-admin,rwa-readonly}` | Retained synthetic captures grouped by persona; affected Residents-tab images await an authorized recapture |
-| `public/user-guide.html` | Generated, no-index public user help with embedded synthetic screenshots and no repository-only links; linked from the app footer |
+| `src/app/user-guide/{page.tsx,resident/page.tsx,rwa-admin/page.tsx}` | Public persona index and complete resident/admin journeys; footer destination and crawlable public routes |
+| `src/app/tech-guide/page.tsx` | Public unlisted junior-developer reference; noindex/nofollow, outside sitemap and app navigation; not an authorization boundary |
+| `src/components/guides/guide.tsx` | Shared responsive contents sidebar, stable section anchors, text/steps/notes, exact-dimension lazy Next Image figures and source-file tables |
+| `src/components/guides/{resident-content,admin-content,technical-content}.tsx` | Owned end-to-end procedures, source/route maps, developer traces, deployment/tests and safe debugging |
+| `src/components/guides/diagrams.tsx` | Dependency-free textual flow diagrams and accessible SVG ERD with key/cardinality descriptions |
+| `src/shared/guides/screenshots.ts` | Curated referenced image paths, personas and captions, shared with the capture runner |
+| `public/guides/{resident,rwa-admin}`; `public/guides/dimensions.json` | Refreshed synthetic PNGs and generated true intrinsic sizes; no base64-embedded HTML bundle |
+| `scripts/docs/check.test.mjs`; `tests/e2e/guides.spec.ts` | Inventory/source/anchor checks plus public navigation, image delivery, discovery, axe and responsive browser checks |
 
-`scripts/docs/render.mjs` generates the web user guide alongside the existing
-offline guides. `predev` and `prebuild` run it automatically. The web guide is a
-standalone static HTML document with no application scripts or analytics, a
-return-to-app link, working contents anchors and lazy-decoded screenshots.
-It uses the same `/icon.svg` favicon as app pages; offline editions do not add
-that server-relative dependency.
-It does not expose the technical guide, source tree or a generic documentation
-file endpoint, and it is deliberately excluded from the crawlable sitemap.
+Guide pages use the normal app shell/theme/favicon with full-document public
+boundary navigation and lazy screenshots that open at full size in a new tab.
+Every page has contents links; section URLs are bookmarkable. Only Resident and
+RWA Admin get dedicated pages in this scope; ReadOnly remains an application role.
+There is no generic endpoint exposing repository files. Source paths are text in
+the public technical guide, not arbitrary file downloads. Analytics remains
+limited to consented privacy/contact visits, not guides. Normal dev/build no
+longer generates documents; captures are explicit synthetic test work.
 
 Public information links across the authentication boundary intentionally use
 full document navigation: removing Next.js Script from JSX does not unload a

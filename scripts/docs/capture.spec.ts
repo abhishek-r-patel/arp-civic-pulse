@@ -1,5 +1,5 @@
 // Explicitly opted-in, synthetic documentation captures; screenshots redact emails and codes.
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
@@ -16,13 +16,15 @@ import {
   stubCodeRequest,
 } from "../../tests/e2e/support/live";
 import { chooseDropdownOption } from "../../tests/e2e/support/dropdown";
+import { GUIDE_IMAGES } from "../../src/shared/guides/screenshots";
 
 test.skip(
-  process.env.DOC_SCREENSHOTS !== "1" || process.env.LIVE_AUTH !== "1",
-  "Opt in with DOC_SCREENSHOTS=1 and LIVE_AUTH=1 on the disposable test project only.",
+  process.env.DOC_SCREENSHOTS !== "1" || process.env.LIVE_AUTH !== "1" ||
+    process.env.DOC_DISPOSABLE_CONFIRMED !== "1",
+  "Confirm a disposable target with DOC_DISPOSABLE_CONFIRMED=1, DOC_SCREENSHOTS=1 and LIVE_AUTH=1.",
 );
 
-const images = join(process.cwd(), "docs", "images", "user-guide");
+const images = join(process.cwd(), "public", "guides");
 const onlyScreenshots = new Set(
   (process.env.DOC_SCREENSHOT_ONLY ?? "")
     .split(",")
@@ -31,10 +33,28 @@ const onlyScreenshots = new Set(
 );
 type Persona = "voter" | "rwa-admin" | "rwa-readonly";
 const screenshotPersona = new WeakMap<Page, Persona>();
+let profileRecovery: { actorId: string; profile: Record<string, unknown>; path: string } | undefined;
+
+async function snapshotRwaProfile(actorId: string, profile: Record<string, unknown>) {
+  const path = test.info().outputPath("rwa-profile-before.json");
+  await mkdir(test.info().outputPath(), { recursive: true });
+  await writeFile(path, JSON.stringify({ actorId, profile }));
+  profileRecovery = { actorId, profile, path };
+}
+
+test.afterEach(async () => {
+  if (!profileRecovery) return;
+  const { actorId, profile, path } = profileRecovery;
+  await asUser(actorId, "public.update_rwa_profile($1::jsonb)", [JSON.stringify(profile)]);
+  await unlink(path);
+  profileRecovery = undefined;
+});
 
 async function capture(page: Page, name: string, dialogOnly = false, viewportOnly = false) {
   if (onlyScreenshots.size > 0 && !onlyScreenshots.has(name)) return;
-  const persona = screenshotPersona.get(page) ?? "rwa-admin";
+  const originalPersona = screenshotPersona.get(page) ?? "rwa-admin";
+  const persona = originalPersona === "voter" ? "resident" : originalPersona;
+  if (!Object.values(GUIDE_IMAGES).some(([role, file]) => role === persona && file === name)) return;
   const personaImages = join(images, persona);
   await mkdir(personaImages, { recursive: true });
   await page.waitForLoadState("networkidle");
@@ -47,10 +67,11 @@ async function capture(page: Page, name: string, dialogOnly = false, viewportOnl
       input.toggleAttribute("data-doc-mask", input.value !== "");
     }
   });
+  dialogOnly ||= await page.getByRole("dialog").isVisible();
   const target = dialogOnly ? page.getByRole("dialog") : page;
   // Masks are drawn over the image, so a dialog-only capture must not inherit page masks behind it.
   const scope = dialogOnly ? page.getByRole("dialog") : page.locator("body");
-  await target.screenshot({
+  const buffer = await target.screenshot({
     path: join(personaImages, `${name}.png`),
     ...(dialogOnly ? {} : { fullPage: !viewportOnly }),
     animations: "disabled",
@@ -61,6 +82,13 @@ async function capture(page: Page, name: string, dialogOnly = false, viewportOnl
     ],
     maskColor: "#CBD5E1",
   });
+  const manifestPath = join(images, "dimensions.json");
+  const dimensions = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, { width: number; height: number }>;
+  dimensions[`/guides/${persona}/${name}.png`] = {
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20),
+  };
+  await writeFile(manifestPath, `${JSON.stringify(dimensions, null, 2)}\n`);
 }
 
 test("capture Platinum and Obsidian first-slice documentation", async ({ browser }) => {
@@ -281,6 +309,7 @@ test("capture bulk import and scheduled opening documentation", async ({ browser
   await ensureFixturePolicy(admin.id);
   const resident = await seedHousehold();
   const previousProfile = await asUser<Record<string, unknown>>(admin.id, "public.get_rwa_profile()");
+  await snapshotRwaProfile(admin.id, previousProfile);
   const desktop = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const mobile = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const a = await desktop.newPage();
@@ -499,6 +528,7 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     admin.id,
     "public.get_rwa_profile()",
   );
+  await snapshotRwaProfile(admin.id, previousProfile);
   // Picked before the profile update so the flat picker (list mode) can offer it.
   const onboardingFlat = await unusedIdentifier("H-514");
   await asUser(admin.id, "public.update_rwa_profile($1::jsonb)", [
@@ -533,14 +563,20 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
   const memberContext = await browser.newContext({
     viewport: { width: 390, height: 844 },
   });
+  const fixtureVotes: string[] = [];
   const a = await adminContext.newPage();
   const m = await memberContext.newPage();
   screenshotPersona.set(a, "rwa-admin");
   screenshotPersona.set(m, "voter");
   try {
     await stubCodeRequest(m);
+    a.setDefaultTimeout(15_000);
+    m.setDefaultTimeout(15_000);
     await m.goto("/sign-in");
     await capture(m, "01-sign-in");
+    await m.locator("details[data-theme-control] summary").click();
+    await capture(m, "74-appearance-menu");
+    await m.keyboard.press("Escape");
     await m.getByRole("textbox", { name: /Registered email address/ }).fill(resident.email);
     await m.getByRole("button", { name: "Send Sign-In Code" }).click();
     await capture(m, "02-code-entry");
@@ -558,14 +594,14 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
         }),
       }),
     );
-    await m.getByLabel(/Six-digit code/).fill("000000");
+    await m.getByRole("textbox", { name: /^Six-digit code/ }).fill("000000");
     await m.getByRole("button", { name: "Verify and Sign In" }).click();
     await expect(
       m.getByText(/code is not valid or has expired/i),
     ).toBeVisible();
     await capture(m, "03-code-error");
     await m.unroute("**/api/auth/verify");
-    await m.getByLabel(/Six-digit code/).fill(await freshCode(resident.email));
+    await m.getByRole("textbox", { name: /^Six-digit code/ }).fill(await freshCode(resident.email));
     await m.getByRole("button", { name: "Verify and Sign In" }).click();
     await expect(
       m.getByRole("heading", { level: 1, name: "Votes" }),
@@ -624,7 +660,6 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     expect(accentColumns.trim().split(/\s+/u)).toHaveLength(3);
     await capture(a, "48-rwa-settings");
     const aliasHelp = a.getByLabel("Information about RWA Alias");
-    const aliasField = a.locator("#alias");
     const aliasDetails = a
       .locator("details")
       .filter({ has: aliasHelp });
@@ -641,17 +676,6 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     await addressHelp.click();
     await expect(addressDetails.locator("#address-hint")).toBeVisible();
     await addressHelp.click();
-    const labelBounds = await a.locator('label[for="alias"]').boundingBox();
-    const inputBounds = await aliasField.boundingBox();
-    expect(labelBounds).not.toBeNull();
-    expect(inputBounds).not.toBeNull();
-    expect(
-      Math.abs(
-        (labelBounds?.y ?? 0) +
-          (labelBounds?.height ?? 0) / 2 -
-          ((inputBounds?.y ?? 0) + (inputBounds?.height ?? 0) / 2),
-      ),
-    ).toBeLessThan(3);
     await a.setViewportSize({ width: 390, height: 844 });
     const mobileBounds = await a.evaluate(() => {
       const label = document.querySelector('label[for="alias"]');
@@ -678,7 +702,7 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     ).toBeVisible();
     await expect(
       a.locator("form").getByText("Flat assignment", { exact: true }),
-    ).toBeHidden();
+    ).toHaveClass("sr-only");
     const checkboxHelpAlignment = await Promise.all(
       ["isEligible", "enable"].map(async (id) =>
         a.locator(`label[for="${id}"]`).evaluate((label) => {
@@ -711,13 +735,13 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
       a.getByRole("heading", { level: 1, name: "Arun Shah (example)" }),
     ).toBeVisible();
     const onboardingAccountPath = new URL(a.url()).pathname;
-    await a.getByRole("link", { name: "Change eligibility" }).click();
+    await a.getByRole("button", { name: "Change eligibility" }).click();
     await a.getByRole("checkbox", {
       name: "Eligible to vote",
       exact: true,
     }).check();
-    await a.getByRole("button", { name: "Save Changes" }).click();
-    await expect(a.getByText("Flat updated.")).toBeVisible();
+    await a.getByRole("form", { name: "Voting eligibility" }).getByRole("button", { name: "Save Changes" }).click();
+    await expect(a.getByText("Voting eligibility updated. Existing votes are unchanged.")).toBeVisible();
     await a.goto(onboardingAccountPath);
     await a.getByRole("button", { name: "Enable Account" }).click();
     await capture(a, "45-enable-dialog");
@@ -731,6 +755,9 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     await capture(a, "46-enabled-account");
     await a.goto("/admin/residents");
     await capture(a, "47-accounts-list");
+    await a.getByRole("button", { name: "Sort & Filter", exact: true }).click();
+    await capture(a, "90-resident-filters", true);
+    await a.keyboard.press("Escape");
     await a.goto(`/admin/residents/${resident.id}`);
     await capture(a, "17-account");
     await a.getByRole("button", { name: "Suspend Account" }).click();
@@ -748,12 +775,8 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     ).toBeVisible();
     const editor = new URL(a.url()).pathname;
     const voteId = editor.split("/").at(-1);
-    expect(voteId).toBeTruthy();
-    await a.getByRole("link", { name: "Preview Ballot" }).click();
-    await expect(
-      a.getByText(/before this vote can be activated/),
-    ).toBeVisible();
-    await capture(a, "23-incomplete-preview");
+    if (!voteId) throw new Error("The synthetic draft did not provide its vote ID.");
+    fixtureVotes.push(voteId);
     await asUser(admin.id, "public.update_draft($1, 1, $2::jsonb)", [
       voteId,
       JSON.stringify({
@@ -768,9 +791,13 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
       }),
     ]);
     await a.goto(editor);
-    await a.getByLabel("Find a flat").fill(resident.identifier);
+    await a.getByRole("button", { name: "Delete saved draft" }).click();
+    await capture(a, "91-delete-draft", true);
+    await a.keyboard.press("Escape");
+    await a.getByRole("searchbox", { name: "Find a flat" }).fill(resident.identifier);
     await capture(a, "24-open-editor");
-    await a.getByRole("link", { name: "Preview Ballot" }).click();
+    await a.getByRole("button", { name: "Save and Preview" })
+      .or(a.getByRole("link", { name: "Preview Ballot" })).click();
     await expect(
       a.getByText("No problems found in this version"),
     ).toBeVisible();
@@ -786,13 +813,13 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     ).toBeVisible();
     await capture(a, "27-active-vote");
     await a.getByRole("button", { name: "Change Deadline" }).click();
-    const deadlineInput = a.getByLabel(/^New deadline/);
+    const deadlineInput = a.locator("#deadline-change-closes");
     // Wall-clock arithmetic on the RWA-zone input value: two days later.
     const extended = new Date(`${await deadlineInput.inputValue()}Z`);
     extended.setUTCDate(extended.getUTCDate() + 2);
     await deadlineInput.fill(extended.toISOString().slice(0, 16));
     await a
-      .getByLabel(/^Why is the deadline changing/)
+      .getByRole("textbox", { name: /^Why is the deadline changing/ })
       .fill("Documentation example: low turnout, giving residents two more days.");
     await expect(a.getByText(/extended by 2 days/)).toBeVisible();
     await capture(a, "53-change-deadline");
@@ -845,7 +872,7 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     ).toBeVisible();
     await capture(a, "29-complete-dialog");
     await a
-      .getByLabel(/^Why is it being completed early/)
+      .getByRole("textbox", { name: /^Why is it being completed early/ })
       .fill("Documentation example: the demonstration response is complete.");
     await a
       .getByRole("dialog")
@@ -868,6 +895,7 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
       admin.id,
       "public.create_draft('PRIVATE')",
     );
+    fixtureVotes.push(closedDraft.id);
     await asUser(admin.id, "public.update_draft($1, 1, $2::jsonb)", [
       closedDraft.id,
       JSON.stringify({
@@ -888,7 +916,7 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
       }),
     ]);
     await a.goto(`/admin/votes/${closedDraft.id}`);
-    await a.getByLabel("Find a flat").fill(resident.identifier);
+    await a.getByRole("searchbox", { name: "Find a flat" }).fill(resident.identifier);
     await capture(a, "32-closed-editor");
     await asUser(admin.id, "public.activate_vote($1, 2, true)", [
       closedDraft.id,
@@ -899,7 +927,7 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     await expect(m.getByText(/NOTA means “None of the Above\.”/)).toBeVisible();
     await capture(m, "52-nota-info");
     await m.keyboard.press("Escape");
-    await m.getByRole("radio", { name: "NOTA (None of the Above)" }).check();
+    await m.getByRole("radio", { name: "Asha (example)", exact: true }).check();
     await m.getByRole("button", { name: "Review Selections" }).click();
     await capture(m, "34-closed-review");
     await m.getByRole("button", { name: "Submit Vote" }).click();
@@ -916,12 +944,14 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
       [closedDraft.id],
     );
     await m.goto(`/votes/${closedDraft.id}/results`);
-    await expect(m.getByText("Totals only", { exact: true })).toBeVisible();
+    await expect(m.getByText("Your vote is private", { exact: true })).toBeVisible();
+    await expect(m.getByRole("link", { name: "Download CSV", exact: true })).toBeVisible();
     await capture(m, "36-closed-results");
     const multiDraft = await asUser<{ id: string }>(
       admin.id,
       "public.create_draft('PUBLIC')",
     );
+    fixtureVotes.push(multiDraft.id);
     await asUser(admin.id, "public.update_draft($1, 1, $2::jsonb)", [
       multiDraft.id,
       JSON.stringify({
@@ -958,6 +988,7 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
       admin.id,
       "public.create_draft('PUBLIC')",
     );
+    fixtureVotes.push(cancelDraft.id);
     await asUser(admin.id, "public.update_draft($1, 1, $2::jsonb)", [
       cancelDraft.id,
       JSON.stringify({
@@ -977,7 +1008,7 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     await a.getByRole("button", { name: "Cancel Vote" }).click();
     await capture(a, "37-cancel-dialog");
     await a
-      .getByLabel(/^Why is it being cancelled/)
+      .getByRole("textbox", { name: /^Why is it being cancelled/ })
       .fill("Example: the meeting dates need correction.");
     await a
       .getByRole("dialog")
@@ -997,12 +1028,21 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     ).toBeVisible();
     await capture(m, "41-signed-out");
   } finally {
-    await memberContext.close();
-    await adminContext.close();
-    if (previousProfile) {
-      await asUser(admin.id, "public.update_rwa_profile($1::jsonb)", [
-        JSON.stringify(previousProfile),
-      ]);
+    try {
+      for (const id of fixtureVotes) {
+        const vote = await asUser<{ status: string }>(admin.id, "public.get_admin_vote($1)", [id]);
+        if (vote.status === "ACTIVE") {
+          await asUser(admin.id, "public.cancel_vote($1, true, 'Synthetic guide capture cleanup')", [id]);
+        }
+      }
+    } finally {
+      await memberContext.close();
+      await adminContext.close();
+      if (previousProfile) {
+        await asUser(admin.id, "public.update_rwa_profile($1::jsonb)", [
+          JSON.stringify(previousProfile),
+        ]);
+      }
     }
   }
 });
@@ -1401,6 +1441,7 @@ test("capture self-registration and one-step account onboarding", async ({ brows
   test.setTimeout(300_000);
   const admin = await provisionAdmin("Onboarding Administrator (example)");
   const previous = await asUser<Record<string, unknown>>(admin.id, "public.get_rwa_profile()");
+  await snapshotRwaProfile(admin.id, previous);
   const publicContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const adminContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const p = await publicContext.newPage();

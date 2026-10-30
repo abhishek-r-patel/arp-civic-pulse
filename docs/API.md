@@ -12,6 +12,7 @@
 - Voting types are `PUBLIC` and `PRIVATE`. Lifecycle states are independently `DRAFT`, `SCHEDULED`, `ACTIVE`, `COMPLETED`, and `CANCELLED`.
 - Public resident self-registration (`POST /api/register`, see [Public resident self-registration endpoint](#public-resident-self-registration-endpoint)) creates only a suspended, voting-ineligible account that an administrator must review and enable. There is no public results API, GraphQL API, separate API version, or API for retrieving PRIVATE selections. Browser application journeys go through Next.js, but assume callers can access the Supabase API directly: RLS, grants, and RPC checks must independently enforce the same boundaries.
 - No payments, resident messaging, reminders, attachments, signatures, external PDF rendering, or AI integration is required. The public launch additions provide support enquiries and optional opt-in public-page analytics only, never voting/authentication tracking.
+- Native public help at `/user-guide`, `/user-guide/resident`, `/user-guide/rwa-admin` and the unlisted noindex `/tech-guide` is server-rendered documentation, not a new data API or login bypass. Guide pages publish only explanatory content and synthetic screenshots; technical source paths are text, not arbitrary repository-file downloads. No voting, authorization or response contract changes are introduced.
 
 ## 2. Transport and common contracts
 

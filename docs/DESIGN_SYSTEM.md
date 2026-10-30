@@ -17,9 +17,9 @@ The approved appearance direction is **Platinum** (light) and **Obsidian** (dark
 using one consistent layout and Sora/Manrope typography. Following approval of
 the concept-aligned Votes screen, the user authorized rollout across all screen
 families. Top navigation, ballot rules, authorization, privacy and confirmations
-remain unchanged. The User Guide and its screenshots are explicitly excluded
-from this rollout; use temporary test captures for verification until that hold
-is lifted.
+remain unchanged. The former guide-screenshot hold has been lifted for the
+native-guide migration: refresh curated synthetic illustrations for the affected
+Resident/Admin journeys; ordinary visual tests still write only temporary images.
 
 This document is the visual and UX specification for [PRD.md](./PRD.md), implemented through the Supabase and Tailwind direction in [ARCHITECTURE.md](./ARCHITECTURE.md). It describes target behavior, not a claim that every component already exists.
 
@@ -77,7 +77,7 @@ gates; tinted/selected combinations also require rendered axe checks.
 	No new CSP permission is introduced; the small static bootstrap uses the existing
 	inline-script policy and accepts only known mode values.
 - Keep RWA accent selection independent. Print always uses light surfaces and
-	readable light accent variants; PDFs and the script-free offline/public guides
+	readable light accent variants; PDFs
 	keep their existing light presentation.
 
 - **Tints:** For badge and notice backgrounds, use a palette colour at 10% opacity on Surface. The text on it uses the full colour.
@@ -303,14 +303,26 @@ Use Lucide React. Line icons only, 1.5px stroke. Always label icons with text un
 | Contact | Public, labelled name/reply-email/message fields when configured; warning against sending choices/codes; clear unavailable, validation, pending, uncertain and provider-accepted states. Use short, plain-language guidance. Signed-in enabled RWA members (except App Support) also see enabled RWA Admin names only, with no email or household details; if that directory cannot load, show a simple warning and keep the rest of Contact usable. Keep sign-in and privacy-policy navigation in the shared footer rather than repeating it in page content. |
 
 The shared shell provides contextual breadcrumbs and footer links in this order:
-**Sign In**, **User Guide**, **Privacy Policy**, **Contact**. Footer labels and
+**Sign In**, **Register**, **User Guide**, **Privacy Policy**, **Contact**. Footer labels and
 the credit use title case. **Civic Pulse By Abhishek Patel** sits outside the
 navigation: it is centered on its own row below the tablet breakpoint, and
 right-aligned beside the links at tablet/desktop widths. Links wrap without
-overlap; a stacked credit is never right-aligned. The guide opens in the same tab,
-with working Contents links and **Back to Civic Pulse** navigation. It retains
-its existing offline/print layout and screenshots; this footer-only addition
-does not require screenshot recapture. Breadcrumb record labels are generic, not resident data.
+overlap; a stacked credit is never right-aligned. User Guide opens the native
+`/user-guide` persona index in the same tab. Resident and RWA Admin each have a
+public page with complete workflow steps and bookmarkable sections, a contents
+sidebar on large screens and in-flow contents on phones. Guide content uses a
+readable 1280px workspace cap, unlike full-width management tables. Use semantic
+headings/steps, stable fragment IDs, 48px contents targets, Back to contents links,
+lazy exact-dimension screenshots and full-size image links. Contents labels have
+no extra list numbering (section titles own any numbers). Keep meaningful
+captions and all essential instructions in text. Capture confirmations as the
+popup only; do not duplicate otherwise-identical screens for dropdown values.
+The native guides follow the current theme and shared shell, not a separate
+offline HTML design. Technical Guide is public only by direct `/tech-guide`,
+unlinked from app navigation and noindex/nofollow; include accessible local flow
+diagrams/ERD and text alternatives, with contained horizontal diagram/table
+scrolling on phones. Hidden navigation is not access protection.
+Breadcrumb record labels are generic, not resident data.
 Public-to-auth navigation intentionally loads a new document to prevent an
 executed tracker surviving into sign-in/voting. Optional public-page analytics
 uses an unchecked-by-default checkbox and supports withdrawal; it is not a

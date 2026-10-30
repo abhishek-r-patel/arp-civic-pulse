@@ -821,6 +821,28 @@ test("resident table controls preserve global query state and fit phone viewport
   );
 });
 
+test("registration explains review once before an administrator enables the account", async ({
+  page,
+}) => {
+  await page.goto("/register");
+  await expect(
+    page.getByText(
+      /^Create an account for .+ Voting App - Civic Pulse\. Each email address and .+ can be registered once\.$/u,
+    ),
+  ).not.toContainText("your Resident Welfare Association");
+  await expect(
+    page.getByText("Registration is temporarily unavailable", {
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  const reviewExplanation = page.getByText(
+    "Your account starts suspended. An RWA administrator will review your details, enable sign-in and set your voting eligibility.",
+    { exact: false },
+  );
+  await expect(reviewExplanation).toHaveCount(1);
+  await expect(reviewExplanation).toBeVisible();
+});
+
 test.describe("sign-in screen", () => {
   test("shows a generic acknowledgement for an unregistered address and no code is sent", async ({
     page,

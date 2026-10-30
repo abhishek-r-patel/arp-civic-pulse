@@ -172,9 +172,17 @@ above belong to the preceding code-change run, not a new application test run
 for these documentation edits. No production approvals or live integration
 results were changed.
 
-### Footer user guide follow-up
+### Footer user guide follow-up (historical standalone edition)
 
-The shared Information footer now links to `/user-guide.html` in the same tab.
+The implementation described in this historical evidence was later superseded:
+the footer now opens native `/user-guide` with `/user-guide/resident` and
+`/user-guide/rwa-admin` pages, contents anchors and refreshed synthetic images.
+The public unlisted developer reference is `/tech-guide`, noindex/nofollow and
+outside navigation/sitemap. Old standalone outputs, images and renderer hooks
+are removed. The verification counts below belong to the former edition, not
+proof that the new native routes were externally verified or approved.
+
+The former shared Information footer linked to `/user-guide.html` in the same tab.
 The documentation generator publishes `public/user-guide.html` from the existing
 user-guide Markdown and embedded synthetic screenshots. `predev` and `prebuild`
 regenerate it automatically along with the offline HTML guides. The web edition

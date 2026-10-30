@@ -281,22 +281,24 @@ Private detail titles use the URL's record reference rather than resident names
 or ballot content. Invalid identifiers receive no canonical tag. Keep existing
 private/no-store caching and do not publish private URLs in social metadata.
 Voting/access screens have no content images to convert or lazy-load. The public
-user guide reuses the existing embedded PNG/SVG documentation illustrations;
-screenshots are preserved without recapture/conversion for this footer-only
-change and use lazy loading/async decoding in the web edition. Future content images
+user guide serves curated current synthetic PNGs through lazy Next Image figures
+with exact intrinsic dimensions and full-size links. Guide PNGs remain unoptimized
+to preserve small control text and redaction masks. Other content images
 must use Next.js Image with meaningful alt text (empty only for genuinely
 decorative images), WebP/AVIF negotiation and default lazy loading below the fold;
 the share card is PNG for social crawler compatibility.
 
-The footer serves public help at `/user-guide.html`. The `predev`/`prebuild`
-lifecycle runs `node scripts/docs/render.mjs`, which regenerates both offline
-guides and `public/user-guide.html`. Keep the Markdown, guide images, scripts and
-locked development dependencies available during the build; do not deploy a
-hand-edited or stale public HTML copy. Only the user guide is published: repository
-links become non-clickable text, the technical guide/source are not exposed,
-and the web edition contains no tracking/scripts. It has `noindex, follow` and
-is intentionally absent from the sitemap. Smoke-test the footer link, Contents,
-embedded images, print layout and **Back to Civic Pulse** on the deployed host.
+The footer serves native public help at `/user-guide`, with separate
+`/user-guide/resident` and `/user-guide/rwa-admin` routes. They are in the public
+metadata/sitemap allowlist. `/tech-guide` is a public unlisted developer reference:
+no footer link, no sitemap entry, noindex/nofollow, but no access restriction.
+It contains source paths/diagrams, not repository-file downloads or secrets.
+Legacy guide copies/images and document-generation hooks are removed; standard
+`npm run build` bundles the native pages and `public/guides` assets normally.
+Analytics remains limited to privacy/contact. Smoke-test direct persona URLs,
+footer, contents/deep links, image loading/full-size links, mobile reflow and the
+technical guide's hidden navigation/noindex on the deployed host. Local build
+and screenshot capture do not prove this external deployed verification.
 
 ## 4. Production database and migrations
 
@@ -319,13 +321,15 @@ not itself approval to redesign layouts or close manual accessibility gates. The
 user subsequently approved the remaining screen rollout; that approval changes
 presentation scope only, not production readiness or voting guarantees.
 
-Guide updates are authorized and persona screenshots are kept in
-`docs/images/user-guide/voter`, `rwa-admin` and `rwa-readonly`. The normal
-`predev`/`prebuild` hooks regenerate current HTML from Markdown and images.
-Use `PLAYWRIGHT_PRESERVE_GUIDE=1` when a browser run should preserve already
-rendered guide output; use direct Next commands when intentionally avoiding the
-hooks. The capture suite uses only synthetic data on the approved disposable
-project and never on production.
+Native-guide screenshots are curated in `src/shared/guides/screenshots.ts` and
+served from `public/guides/{resident,rwa-admin}` with generated dimensions.
+Normal dev/build/browser runs do not alter them. Capture requires explicit
+`DOC_DISPOSABLE_CONFIRMED=1`, `DOC_SCREENSHOTS=1` and `LIVE_AUTH=1`, verified TLS
+and authorisation for the disposable target. It creates synthetic fixtures,
+restores temporary RWA settings and safely closes active examples where possible;
+historical fixture cleanup remains a separate disposable-project procedure.
+Never capture against production. Run `node --test scripts/docs/check.test.mjs`
+and the focused guide browser suite before deployment.
 
 Apply the complete ordered migration set from `20261024100000_core_schema.sql` through the current application-required migration. Migrations `20261109100000` and `20261110100000` add resident self-registration (`profiles.self_registered` and the service-role-only `self_register_resident` routine) and administrator account creation together with a household (`provision_profile_with_household`). Migration `20261111100000` supplies the existing security-invoker directory view; `20261115100000` adds the committee-only globally sorted/filtered page-ID/count routine required by the Residents table. Migration `20261116100000` adds identifier substring matching while retaining exact filters for older callers. Migration `20261118100000` adds bounded Audit History actor/Details filters and matching totals. Migration `20261119100000` adds the committee-only Manage Votes table routine, and `20261122100000` adds confirmed, revision-checked draft deletion. These changes, along with the Amber migration `20261124100000`, are present on the verified disposable project also used by the staging host. The Amber version was moved forward to avoid colliding with the already-applied `20261105100000_change_vote_deadline`; that remote history was not rewritten. The Contact admin-name RPC requires `20261123100000`. This database operation did not deploy the staging application and is not production approval. Deploy reviewed migrations before the corresponding application revision, outside voting windows. The Residents list depends on the directory view, table-window routine and current profile columns; Manage Votes depends on its table-window routine; Add Resident and `/register` depend on their provisioning routines; Contact’s enabled-member admin directory depends on `get_enabled_rwa_admin_names`. See [supabase/README.md](../supabase/README.md) and [DATABASE.md](./DATABASE.md). The app never migrates at startup or during the Vercel build.
 

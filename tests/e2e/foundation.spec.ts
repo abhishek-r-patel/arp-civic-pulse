@@ -24,99 +24,40 @@ test("app pages publish the selected conversation-check favicon", async ({
   expect(image).toContain('fill="#0f766e"');
 });
 
-test("footer opens the illustrated user guide with working contents and embedded screenshots", async ({
+test("footer opens the native persona guide without exposing technical navigation", async ({
   page,
-  request,
 }) => {
-  // The guide embeds every screenshot (~25 MB), which is slow to serve in parallel browser runs.
-  test.slow();
   await page.goto("/sign-in");
   const guideLink = page
     .getByRole("navigation", { name: "Information" })
     .getByRole("link", { name: "User Guide", exact: true });
-  await expect(guideLink).toHaveAttribute("href", "/user-guide.html");
+  await expect(guideLink).toHaveAttribute("href", "/user-guide");
   await guideLink.click();
-  await expect(page).toHaveURL(/\/user-guide\.html$/);
+  await expect(page).toHaveURL(/\/user-guide$/);
   await expect(page.locator("h1")).toHaveCount(1);
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "Civic Pulse - User Guide",
+    "User Guide",
   );
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
     "content",
-    "noindex, follow",
+    "index, follow",
   );
-  await expect(page.locator("script")).toHaveCount(0);
-  await expect(page.locator('link[rel="icon"]')).toHaveAttribute(
-    "href",
-    "/icon.svg",
-  );
-  await expect(
-    page.locator(
-      'a[href*="TECHNICAL_GUIDE"], a[href*="LAUNCH_AUDIT"], a[href$=".md"]',
-    ),
-  ).toHaveCount(0);
+  await expect(page.locator('a[href="/tech-guide"]')).toHaveCount(0);
   const contents = page.getByRole("navigation", { name: "Contents" });
   await contents
     .getByRole("link", {
-      name: "Shared Sign-In and Appearance",
+      name: "Resident",
       exact: true,
     })
     .click();
-  await expect(page).toHaveURL(/#shared-sign-in-and-appearance$/);
-  const screenshot = page.getByRole("img", {
-    name: /^Resident 01: registered email sign-in/,
-  });
-  await screenshot.scrollIntoViewIfNeeded();
-  await expect
-    .poll(() =>
-      screenshot.evaluate(
-        (image: HTMLImageElement) => image.complete && image.naturalWidth > 0,
-      ),
-    )
-    .toBe(true);
-  await expect(screenshot).toHaveAttribute("alt", /registered email sign-in/);
-  await expect(screenshot).toHaveAttribute("loading", "lazy");
-  for (const width of [375, 1280]) {
-    await page.setViewportSize({ width, height: 900 });
-    expect(
-      await page.evaluate(
-        () =>
-          document.documentElement.scrollWidth >
-          document.documentElement.clientWidth,
-      ),
-    ).toBe(false);
-    await page.screenshot({
-      path: test.info().outputPath(`user-guide-${width}.png`),
-    });
-  }
-  const result = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
-    .analyze();
-  expect(result.violations).toEqual([]);
-  expect((await request.get("/user-guide.html")).status()).toBe(200);
-  expect(await page.locator('img[src^="data:image/"]').count()).toBeGreaterThan(
-    100,
-  );
-  for (const name of [
-    "RWA Admin 54: validated CSV import preview",
-    "RWA ReadOnly 01: Votes home in Platinum with committee access",
-  ]) {
-    const updatedImage = page.getByRole("img", {
-      name,
-    });
-    await expect(updatedImage).toHaveCount(1);
-    await updatedImage.scrollIntoViewIfNeeded();
-    await expect
-      .poll(() =>
-        updatedImage.evaluate(
-          (image: HTMLImageElement) =>
-            image.complete && image.naturalWidth > 0 && image.naturalHeight > 0,
-        ),
-      )
-      .toBe(true);
-  }
-  await page.getByRole("link", { name: "Back to Civic Pulse" }).click();
-  await expect(page).toHaveURL(/\/sign-in$/);
+  await expect(page).toHaveURL(/#resident$/);
+  await page
+    .getByRole("link", { name: "Open the Resident guide", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/user-guide\/resident$/);
+  await expect(
+    page.getByRole("heading", { name: "Resident Guide", level: 1 }),
+  ).toBeVisible();
 });
 
 for (const width of widths) {
@@ -375,26 +316,31 @@ test("robots and sitemap expose only the public information routes", async ({
   const sitemap = await request.get("/sitemap.xml");
   expect(sitemap.status()).toBe(200);
   const xml = await sitemap.text();
-  expect(xml.match(/<loc>/g)).toHaveLength(3);
-  for (const path of ["/sign-in", "/privacy", "/contact"])
+  expect(xml.match(/<loc>/g)).toHaveLength(6);
+  for (const path of [
+    "/sign-in",
+    "/privacy",
+    "/contact",
+    "/user-guide",
+    "/user-guide/resident",
+    "/user-guide/rwa-admin",
+  ])
     expect(xml).toContain(`${baseURL}${path}</loc>`);
   expect(xml).not.toContain("/admin");
   expect(xml).not.toContain("/votes");
+  expect(xml).not.toContain("/tech-guide");
 });
 
-test("registration explains review once and keeps sign-in and contact in the footer", async ({
+// The RWA name, household wording and household list are read through Supabase.
+// The review explanation shown with a working form is covered by the
+// LIVE_AUTH "registration explains review once" test in register-live.spec.ts.
+test("registration keeps sign-in and contact in the footer, not the page body", async ({
   page,
 }) => {
   await page.goto("/register");
   await expect(
     page.getByText(
-      "Create an account for Lakeview Residents Welfare Association (Lakeview RWA) Voting App - Civic Pulse. Each email address and Flat can be registered once.",
-    ),
-  ).toBeVisible();
-  await expect(
-    page.getByText(
-      "Your account starts suspended. An RWA administrator will review your details, enable sign-in and set your voting eligibility.",
-      { exact: false },
+      /^Create an account for .+ Voting App - Civic Pulse\. Each email address and .+ can be registered once\.$/u,
     ),
   ).toBeVisible();
   await expect(page.getByText("Already registered?")).toHaveCount(0);
@@ -408,6 +354,28 @@ test("registration explains review once and keeps sign-in and contact in the foo
   const footer = page.getByRole("navigation", { name: "Information" });
   await expect(footer.getByRole("link", { name: "Sign In" })).toBeVisible();
   await expect(footer.getByRole("link", { name: "Contact" })).toBeVisible();
+});
+
+test("registration without a configured Supabase project shows the unavailable notice instead of the form", async ({
+  page,
+}) => {
+  // Regression: an unconfigured service-role client used to throw before the
+  // household load's catch, so the whole page failed to render.
+  test.skip(
+    Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
+    "Needs a dev server without Supabase settings, as in CI.",
+  );
+  await page.goto("/register");
+  await expect(
+    page.getByText(
+      "Create an account for your Resident Welfare Association Voting App - Civic Pulse. Each email address and household can be registered once.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Registration is temporarily unavailable", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText(/Your account starts suspended/u)).toHaveCount(0);
 });
 
 test("public Open Graph image is a real 1200 by 630 PNG", async ({

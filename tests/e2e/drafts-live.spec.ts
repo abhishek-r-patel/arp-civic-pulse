@@ -71,7 +71,7 @@ test.describe("creating a draft", () => {
       page.getByRole("heading", { level: 1, name: "Untitled draft" }),
     ).toBeVisible();
     await expect(page.getByText(/Draft created\./)).toBeVisible();
-    // The editor does not repeat the type selector (docs/USER_GUIDE.md).
+    // The editor does not repeat the type selector shown on New Vote.
     await expect(page.getByRole("radio", { name: /Voting/ })).toHaveCount(0);
   });
 });

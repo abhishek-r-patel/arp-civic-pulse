@@ -16,11 +16,14 @@ behavior, not inbox delivery or Google property ownership. Provider settings,
 privacy approval and real external verification remain open as recorded in the
 [20-item audit](./LAUNCH_AUDIT.md#public-site-checklist-26-october-2026).
 
-The subsequent footer-help addition publishes the existing illustrated user
-guide at `/user-guide.html`. Development/build lifecycle hooks regenerate the
-public HTML from the same Markdown/assets as the offline copy; no new screenshot
-capture, database migration or technical-document endpoint is needed. The help
-copy is no-indexed, has no scripts/analytics and removes repository-only links.
+The footer-help implementation has since migrated to native public routes:
+`/user-guide`, `/user-guide/resident` and `/user-guide/rwa-admin`, with contents
+anchors, curated refreshed synthetic images and complete persona workflows.
+`/tech-guide` is a public unlisted, noindex/nofollow developer reference with
+file/route traces, diagrams, ERD and debugging. It has no footer link or sitemap
+entry. Old standalone guide copies/images and generation hooks are removed;
+normal dev/build does not capture images. No database/API voting changes or
+new production-readiness approval are introduced.
 
 ### Governing references
 

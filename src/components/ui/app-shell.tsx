@@ -181,7 +181,7 @@ export async function AppShell({
                 Register
               </a>
               <a
-                href="/user-guide.html"
+                href="/user-guide"
                 className="inline-flex touch-target items-center text-accent underline"
               >
                 User Guide

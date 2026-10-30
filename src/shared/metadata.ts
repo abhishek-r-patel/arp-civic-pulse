@@ -20,6 +20,24 @@ export const PUBLIC_PAGES = [
     description:
       "Contact the Civic Pulse administrator for account, privacy and service enquiries. Never send voting selections or sign-in codes.",
   },
+  {
+    path: "/user-guide",
+    title: "User Guide",
+    description:
+      "Choose an illustrated Resident or RWA Admin guide for Civic Pulse registration, voting, management and results.",
+  },
+  {
+    path: "/user-guide/resident",
+    title: "Resident Guide",
+    description:
+      "Learn how to register, sign in, vote in PUBLIC polls and PRIVATE elections, recover safely and view results.",
+  },
+  {
+    path: "/user-guide/rwa-admin",
+    title: "RWA Admin Guide",
+    description:
+      "Set up your RWA, manage residents and eligibility, prepare and monitor votes, and review results and audit history.",
+  },
 ] as const;
 
 export function siteOrigin(): string {

@@ -27,7 +27,12 @@ export default async function RegisterPage() {
   const [identity, terms, households] = await Promise.all([
     loadPublicRwaIdentity(),
     loadHouseholdTerms(),
-    loadSelfRegistrationHouseholds(createAdminClient()).catch(() => null),
+    // createAdminClient throws synchronously when Supabase is not configured;
+    // keep it inside the promise so the page shows the unavailable notice
+    // instead of failing to render.
+    Promise.resolve()
+      .then(() => loadSelfRegistrationHouseholds(createAdminClient()))
+      .catch(() => null),
   ]);
   const organisation = identity
     ? `${identity.fullName} (${identity.alias})`

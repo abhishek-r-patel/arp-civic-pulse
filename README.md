@@ -68,7 +68,7 @@ voting. A confirmed, reasoned **Return to Draft** is allowed only before opening
 Apply the reviewed `20261106100000`, `20261107100000` and
 `20261108100000` migrations to a verified disposable/staging environment
 before exercising these flows; the app never migrates at startup. The latest
-migration adds the committee read-only role. See the [user guide](./docs/USER_GUIDE.md).
+migration adds the committee read-only role. See the in-app User Guide at `/user-guide`.
 
 Residents can also onboard themselves at `/register` (linked from sign-in and the
 footer) with their name, email and household identifier, chosen from the
@@ -103,16 +103,15 @@ vote setup/preview/lifecycle/participation, settings/audit and public access/inf
 screens following approval of Votes and Accounts. Existing top navigation, voting
 logic, permissions, exports and recovery flows are retained.
 
-The User Guide is organized by Voter, `rwa-admin` and `rwa-readonly` persona.
-Current screenshots are captured from the themed application in matching
-`docs/images/user-guide/<persona>/` folders. The public and printable copies are
-generated from the current Markdown guide.
+The native User Guide has separate Resident and RWA Admin pages with
+end-to-end instructions, contents anchors and current synthetic illustrations.
+Only curated referenced screenshots are published in `public/guides/`.
 
 The Votes correction now follows the approved concept: compact logo/alias branding,
 three own-entitlement totals, status navigation, a compact type menu and history
 action, richer vote cards with real turnout, and an upcoming-vote row. Guide
-screenshots **05, 68, 69 and 72** are captures of the actual application, not the
-original mockup. Active/Scheduled/Your Responses totals span the signed-in user's
+screenshots are captures of the actual application, not the original mockup.
+Active/Scheduled/Your Responses totals span the signed-in user's
 frozen entitlements across pages/filters; administrators do not receive association-
 wide counts by role. Unavailable data is labelled, never replaced with sample totals.
 
@@ -131,17 +130,16 @@ wide counts by role. Unavailable data is labelled, never replaced with sample to
 
 ## Learning and user documentation
 
-- [Junior-developer technical guide](./docs/TECHNICAL_GUIDE.md) — architecture, source map, authentication, database invariants, feature walkthroughs, tests and deployment boundaries. [Printable/offline HTML](./docs/TECHNICAL_GUIDE.html).
-- [Illustrated persona guide](./docs/USER_GUIDE.md) — separate Voter, `rwa-admin` and `rwa-readonly` capabilities, restrictions and current synthetic screenshots. [Printable/offline HTML](./docs/USER_GUIDE.html).
+- Open `/tech-guide` directly on the app host for the public junior-developer guide: file/route map, feature traces, ERD, invariants, deployment, tests and safe debugging. It is intentionally unlinked from app navigation, noindex/nofollow and outside the sitemap; an unlisted URL is not access control.
+- Open `/user-guide` from the footer, then `/user-guide/resident` or `/user-guide/rwa-admin`. Each public page has a table of contents and bookmarkable sections, including registration-to-results and RWA-setup-to-audit workflows. Dedicated ReadOnly pages are outside this migration's selected scope; the role remains supported by the app.
 - Developers/operators can run `npm run ops -- config-check` to inspect RWA configuration without an app login. This is a local, read-only database report, **not an unauthenticated web entry**. It requires the separately protected `CONFIG_DATABASE_URL`; see [operator setup and report limits](./docs/OPERATIONS.md#read-only-rwa-configuration-inspection).
 - For live, in-app developer help, an RWA Admin can turn **App Support Access** on or off from RWA Settings. When on, the server-only `APP_SUPPORT_EMAIL` identity gets household-free, read-only (`rwa-readonly`) access through the normal email OTP flow; it cannot vote, is RWA-controlled and audited, and is **not** a hidden login or default administrator. See [App Support Access](./docs/OPERATIONS.md#app-support-access-developer-help-rwa-controlled).
-- HTML copies embed their images, require no CDN/JavaScript, and support browser Print / Save as PDF. Supporting source/document links require the repository layout.
-- The application footer opens `/user-guide.html`, a self-contained public copy generated at `public/user-guide.html`. It embeds the same synthetic screenshots, disables repository-only links and includes a return-to-app link. `npm run dev` and `npm run build` regenerate guides first; footer-only changes do not require new screenshots.
-- Regenerate HTML with `node scripts\docs\render.mjs`; test the small renderer with `node --test scripts\docs\render.test.mjs`.
-- Screenshot capture is deliberately separate from normal tests: set `LIVE_AUTH=1` and `DOC_SCREENSHOTS=1`, then run `npx playwright test -c playwright.docs.config.ts`. Use **only a disposable fixture project**: the run creates synthetic accounts, households, votes and submissions and supplies test-only policy settings. Do not use a production project. Captures are assigned to the persona folder for the authenticated page; public entry-page captures are included with the shared voter material.
+- Legacy Markdown/HTML guides, embedded-image outputs and old screenshots have been removed. Guides are server-rendered app pages; `npm run dev`/`npm run build` no longer generate documents. User-guide pages are included in public discovery; the technical guide is not. Analytics stays restricted to consented privacy/contact visits.
+- Run `node --test scripts\docs\check.test.mjs` for native-guide assets/source references and `npx playwright test tests/e2e/guides.spec.ts --project=chromium` for browser navigation, images, accessibility and layout.
+- Screenshot capture is separate from ordinary tests: confirm the disposable target, set `LIVE_AUTH=1`, `DOC_SCREENSHOTS=1` and `DOC_DISPOSABLE_CONFIRMED=1`, then run `npx playwright test -c playwright.docs.config.ts`. It creates synthetic accounts, households, votes and submissions and supplies fixture-only policies. Never use production. The curated inventory is `src/shared/guides/screenshots.ts`; only referenced Resident/Admin images and their intrinsic dimensions are published. Emails/codes are masked; confirmations are dialog-only, and unchanged dropdown variants are omitted.
 - To refresh only import/scheduling pictures, add `--grep "bulk import and scheduled opening"`. The shared browser fixture database helper now verifies TLS using the approved provider CA in `PGSSLROOTCERT`; it never disables certificate/hostname checks. The user-confirmed disposable project received the two new migrations for the 27 October capture, not a production deployment.
 - To refresh only account-review pictures, use `--grep "bulk account review"` with the same disposable-project safeguards. This checks separate eligibility and multi-account enablement, explicit administrator inclusion and a controlled failed request.
-- Appearance review captures use `--grep "Platinum and Obsidian"`, refreshing the affected overviews and adding redacted Votes/Accounts desktop/mobile examples in both modes. Normal theme browser tests are separate: `npx playwright test tests/e2e/theme.spec.ts --project=chromium`.
+- Temporary RWA profile changes are restored and active examples are safely cancelled during cleanup. Historical synthetic fixture records remain for the disposable-project cleanup procedure; the capture does not reset a shared database. Screenshots do not prove SMTP delivery, scheduled Cron execution or production readiness. Normal theme tests remain separate: `npx playwright test tests/e2e/theme.spec.ts --project=chromium`.
 
 ## Stack
 
@@ -213,7 +211,7 @@ and [activation steps](./docs/DEPLOYMENT.md#public-site-integrations).
 ```text
 src/app            Routes, route group (access), admin, api handlers
 				   privacy/contact/register pages; robots.ts, sitemap.ts, opengraph-image.tsx, icon.svg
-src/components     ui (shared primitives), votes, admin
+src/components     ui (shared primitives), votes, admin, guides
 				   access/contact-form.tsx, access/self-registration-form.tsx; ui public metadata/analytics/navigation
 src/server         Server-only modules: config, auth, db, results, audit, ...
 				   contact.ts (support email only); register/self-registration.ts
@@ -222,7 +220,12 @@ src/shared         Browser-safe contracts and validation
 src/styles         Tailwind theme and design tokens (globals.css)
 supabase           config.toml and migrations (reviewed, versioned SQL)
 tests              unit, integration, e2e, fixtures
-public/user-guide.html Generated public user help; do not edit separately from the Markdown guide
+src/app/user-guide Native public index and Resident/RWA Admin guide pages
+src/app/tech-guide Unlisted public developer reference
+src/components/guides Native content, contents navigation, screenshots and diagrams
+src/shared/guides/screenshots.ts Curated synthetic screenshot inventory
+public/guides      Current referenced PNGs and generated dimensions.json
+scripts/docs       Opted-in captures and native-guide checks; no HTML renderer
 ```
 
 Real voting requires approval of PRD assumptions A1–A7, providers, region, retention and recovery objectives. Follow the [deployment runbook](./docs/DEPLOYMENT.md); a successful build or configuration check alone does not establish production readiness.

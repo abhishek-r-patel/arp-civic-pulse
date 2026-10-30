@@ -201,9 +201,15 @@ support access, not a hidden login or standing default administrator.
 
 The health probe checks the database, **not** Resend, inbox receipt, Google
 collection/ownership or policy approval. Periodically check the public privacy
-and contact pages, the footer's `/user-guide.html` link and its embedded images,
+and contact pages, the footer's `/user-guide` index, both persona pages and their
+lazy/full-size screenshot links, contents anchors and phone reflow,
 canonical `APP_ORIGIN`, robots/sitemap and the share image on
 the approved deployment. Do not add private record URLs to crawler checks.
+Check `/tech-guide` directly for the developer reference; it must stay unlinked
+from the footer, noindex/nofollow and outside the sitemap. It is intentionally
+public, not a protected operator console. Ordinary deployments do not recapture
+images. Never run the opted-in screenshot suite against production: it creates
+synthetic Auth/voting/policy fixtures and temporarily changes RWA display settings.
 
 When contact is enabled, verify a synthetic enquiry reaches the approved test
 inbox and Reply-To works; a `202` only proves provider acceptance. Watch provider

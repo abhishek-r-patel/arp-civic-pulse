@@ -136,12 +136,13 @@ The public `/sign-in`, `/privacy` and `/contact` pages are server-rendered.
 `/register` (resident self-registration) is also public but `noindex` and not in
 the sitemap; it needs the `20261109100000` migration and creates only suspended,
 ineligible records.
-The footer's **User Guide** opens `/user-guide.html` without sign-in. The guide
-generator runs before `npm run dev` and `npm run build`, publishing a standalone
-HTML copy with embedded synthetic screenshots. Edit the Markdown guide rather
-than the generated public file; run `node scripts/docs/render.mjs` to regenerate
-it while a development server is already running. The technical guide remains
-repository-only. This help page is no-indexed and is not part of the sitemap.
+The footer's **User Guide** opens `/user-guide` without sign-in. Its Resident and
+RWA Admin pages are `/user-guide/resident` and `/user-guide/rwa-admin`, with
+contents/deep links and lazy synthetic screenshots. Edit their native content in
+`src/components/guides`; no standalone guide renderer or dev/build hook remains.
+Open `/tech-guide` directly for the public junior-developer guide, source map,
+flows, ERD and debugging. It is intentionally unlinked, noindex/nofollow and outside
+the sitemap, not password-protected. User guides are included in public discovery.
 `/robots.txt`, `/sitemap.xml` and `/opengraph-image` use `APP_ORIGIN`; verify that
 their canonical URLs match your local address. Member and admin routes remain
 no-indexed and are not listed in the sitemap.
@@ -322,13 +323,27 @@ If port 3000 is busy, either stop whatever uses it or run `npm run dev -- --port
 ### 9.2 A guided first walkthrough
 
 The approved visual style now covers all screen families, with unchanged actions
-and voting rules. For this rollout the User Guide/images/HTML are intentionally
-frozen: run a direct Next build/dev command rather than npm's guide-regeneration
-hooks. Set `PLAYWRIGHT_PRESERVE_GUIDE=1` and run
+and voting rules. Ordinary development/browser runs leave guide assets unchanged. Run
 `npx playwright test tests/e2e/visual-rollout.spec.ts --project=chromium --workers=1`
 for public checks; add the existing `LIVE_AUTH=1` disposable-project opt-in and
 verified CA setup for admin/resident journeys. This test writes only to temporary
-`test-results/` output, not `docs/images` or published guide files.
+`test-results/` output, not published guide images.
+
+For guide changes, run `node --test scripts/docs/check.test.mjs` and
+`npx playwright test tests/e2e/guides.spec.ts --project=chromium --workers=1`.
+To recapture affected images, first verify and authorise the disposable project,
+set `LIVE_AUTH=1`, `DOC_SCREENSHOTS=1`, `DOC_DISPOSABLE_CONFIRMED=1` plus the
+Node/provider CA settings above, then run
+`npx playwright test -c playwright.docs.config.ts`. `DOC_SCREENSHOT_ONLY` accepts
+comma-separated existing capture names, but still runs the selected fixture
+journey. The curated inventory publishes only referenced Resident/Admin images;
+confirmation popups are cropped, email/code values masked, and true dimensions
+updated automatically. RWA display settings are snapshotted to an ignored
+`test-results` recovery file before mutation and restored in a separate after-test
+hook even when a browser action fails; successful restoration removes that file.
+If the worker is forcibly terminated, preserve and review that snapshot before
+another capture instead of guessing the old values. Retained synthetic history
+requires the separately authorised disposable-project cleanup procedure.
 
 Votes now follows the approved concept. Verify the three totals against the
 signed-in fixture's own entitlements (not the whole RWA); filter cards and confirm
@@ -380,7 +395,7 @@ Follow this to see every built feature:
 3. Repeat steps 1-2 for a few residents.
 5. **Manage Votes → New Vote.** Choose **PUBLIC** (a question with options) or **PRIVATE** (an election with offices and candidates) and **Create Draft**.
 6. In the editor fill in the five sections: voting type, details, ballot, electorate (search and tick households), and deadline (entered in your RWA's time zone; you see how residents will read it). **Save Draft.**
-7. Choose **Preview Ballot** to see exactly what residents will see: the privacy notice, the deadline with its time zone, and the unselected choices (PRIVATE votes show built-in **NOTA (None of the Above)** per office). The preview lists anything still blocking activation, with a link to fix each.
+7. Choose **Preview Ballot** (or **Save and Preview** when edits remain) to see exactly what residents will see: the privacy notice, the deadline with its time zone, and the unselected choices (PRIVATE votes show built-in **NOTA (None of the Above)** per office). Save and Preview saves first and stays on the editor if saving fails. The preview lists anything still blocking activation, with a link to fix each.
 8. Try editing the same draft in two browser tabs and saving in both: the second save is refused with "Someone saved a newer version of this draft", and you can keep your changes on top of the latest version without losing either person's work.
 9. **Activate it** (needs step 7.3, a complete draft, at least one eligible household with an enabled representative, and a future deadline). On a ready preview, choose **Activate Vote** and confirm. Type, ballot, electorate and representatives are now frozen (only the deadline can still be moved, see step 12): the editor is gone and the vote page shows its lifecycle (activated time, deadline).
 10. **Vote as a resident.** Sign out, then sign in as one of the residents in the electorate (with Option B in section 8 you get their code from the Auth admin API). **Votes** lists the vote with its deadline in the RWA's time zone and a **Not voted** badge. Open it, read the privacy notice, choose an option (nothing is pre-selected; a PRIVATE vote has **NOTA (None of the Above)** for every office), choose **Review Selections**, check the summary (use **Back** to change it), then **Submit Vote**. PUBLIC choices can be changed again until closure; PRIVATE submissions remain final. Choices are not kept in the page after acknowledgement, the address or browser storage.

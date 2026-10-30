@@ -1,0 +1,214 @@
+{
+  "/guides/rwa-admin/47-accounts-list.png": {
+    "width": 1280,
+    "height": 900
+  },
+  "/guides/rwa-admin/64-make-eligible.png": {
+    "width": 512,
+    "height": 402
+  },
+  "/guides/rwa-admin/65-enable-selected.png": {
+    "width": 512,
+    "height": 472
+  },
+  "/guides/rwa-admin/54-import-preview.png": {
+    "width": 1280,
+    "height": 1366
+  },
+  "/guides/rwa-admin/55-import-confirm.png": {
+    "width": 512,
+    "height": 260
+  },
+  "/guides/rwa-admin/56-import-result.png": {
+    "width": 1280,
+    "height": 1418
+  },
+  "/guides/rwa-admin/25-ready-preview.png": {
+    "width": 1280,
+    "height": 1454
+  },
+  "/guides/rwa-admin/57-schedule-confirm.png": {
+    "width": 512,
+    "height": 320
+  },
+  "/guides/rwa-admin/58-scheduled-admin.png": {
+    "width": 1280,
+    "height": 2073
+  },
+  "/guides/resident/59-scheduled-member.png": {
+    "width": 390,
+    "height": 1123
+  },
+  "/guides/rwa-admin/60-withdraw-schedule.png": {
+    "width": 512,
+    "height": 432
+  },
+  "/guides/resident/01-sign-in.png": {
+    "width": 390,
+    "height": 952
+  },
+  "/guides/resident/02-code-entry.png": {
+    "width": 390,
+    "height": 1316
+  },
+  "/guides/resident/77-register.png": {
+    "width": 390,
+    "height": 1060
+  },
+  "/guides/resident/78-register-received.png": {
+    "width": 390,
+    "height": 844
+  },
+  "/guides/rwa-admin/82-account-created-with-flat.png": {
+    "width": 1280,
+    "height": 1609
+  },
+  "/guides/rwa-admin/83-move-flat-dialog.png": {
+    "width": 512,
+    "height": 236
+  },
+  "/guides/rwa-admin/84-self-registered-accounts.png": {
+    "width": 1280,
+    "height": 900
+  },
+  "/guides/resident/03-code-error.png": {
+    "width": 390,
+    "height": 1366
+  },
+  "/guides/rwa-admin/48-rwa-settings.png": {
+    "width": 1280,
+    "height": 2754
+  },
+  "/guides/rwa-admin/16-create-account.png": {
+    "width": 1280,
+    "height": 1289
+  },
+  "/guides/resident/74-appearance-menu.png": {
+    "width": 390,
+    "height": 952
+  },
+  "/guides/rwa-admin/90-resident-filters.png": {
+    "width": 321,
+    "height": 630
+  },
+  "/guides/rwa-admin/17-account.png": {
+    "width": 1280,
+    "height": 1491
+  },
+  "/guides/rwa-admin/18-suspend-dialog.png": {
+    "width": 512,
+    "height": 236
+  },
+  "/guides/rwa-admin/19-delete-dialog.png": {
+    "width": 512,
+    "height": 618
+  },
+  "/guides/rwa-admin/22-voting-types.png": {
+    "width": 1280,
+    "height": 1426
+  },
+  "/guides/rwa-admin/91-delete-draft.png": {
+    "width": 512,
+    "height": 236
+  },
+  "/guides/rwa-admin/24-open-editor.png": {
+    "width": 1280,
+    "height": 2290
+  },
+  "/guides/rwa-admin/26-activate-dialog.png": {
+    "width": 512,
+    "height": 404
+  },
+  "/guides/rwa-admin/27-active-vote.png": {
+    "width": 1280,
+    "height": 2553
+  },
+  "/guides/rwa-admin/53-change-deadline.png": {
+    "width": 512,
+    "height": 482
+  },
+  "/guides/resident/05-vote-list.png": {
+    "width": 390,
+    "height": 1438
+  },
+  "/guides/resident/06-open-ballot.png": {
+    "width": 390,
+    "height": 1722
+  },
+  "/guides/resident/08-review.png": {
+    "width": 390,
+    "height": 1580
+  },
+  "/guides/resident/09-outcome-unknown.png": {
+    "width": 390,
+    "height": 1521
+  },
+  "/guides/resident/10-not-recorded.png": {
+    "width": 390,
+    "height": 1452
+  },
+  "/guides/resident/11-submitted.png": {
+    "width": 390,
+    "height": 1317
+  },
+  "/guides/resident/12-results-not-ready.png": {
+    "width": 390,
+    "height": 1461
+  },
+  "/guides/rwa-admin/28-participation.png": {
+    "width": 1280,
+    "height": 1212
+  },
+  "/guides/rwa-admin/29-complete-dialog.png": {
+    "width": 512,
+    "height": 438
+  },
+  "/guides/resident/13-open-results.png": {
+    "width": 390,
+    "height": 2317
+  },
+  "/guides/rwa-admin/14-desktop-results.png": {
+    "width": 1280,
+    "height": 1976
+  },
+  "/guides/rwa-admin/32-closed-editor.png": {
+    "width": 1280,
+    "height": 2469
+  },
+  "/guides/resident/33-closed-ballot.png": {
+    "width": 390,
+    "height": 1774
+  },
+  "/guides/resident/34-closed-review.png": {
+    "width": 390,
+    "height": 1558
+  },
+  "/guides/resident/35-closed-submitted.png": {
+    "width": 390,
+    "height": 1291
+  },
+  "/guides/resident/49-closed-live-turnout.png": {
+    "width": 390,
+    "height": 1424
+  },
+  "/guides/resident/36-closed-results.png": {
+    "width": 390,
+    "height": 2069
+  },
+  "/guides/resident/50-multi-select-ballot.png": {
+    "width": 390,
+    "height": 1857
+  },
+  "/guides/rwa-admin/37-cancel-dialog.png": {
+    "width": 512,
+    "height": 408
+  },
+  "/guides/resident/38-cancelled-member.png": {
+    "width": 390,
+    "height": 1546
+  },
+  "/guides/rwa-admin/39-audit.png": {
+    "width": 1280,
+    "height": 3013
+  }
+}

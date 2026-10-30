@@ -59,6 +59,9 @@ describe("launch metadata", () => {
       "/sign-in",
       "/privacy",
       "/contact",
+      "/user-guide",
+      "/user-guide/resident",
+      "/user-guide/rwa-admin",
     ]);
     expect(privateMetadata("Votes", "Your household votes.").robots).toEqual({
       index: false,

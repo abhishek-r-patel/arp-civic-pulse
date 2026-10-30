@@ -112,10 +112,14 @@ still require approval and external evidence. See the
 [launch checklist](./LAUNCH_AUDIT.md#public-site-checklist-26-october-2026).
 
 Residents and administrators can open the illustrated **User Guide** from the
-footer without signing in. `/user-guide.html` is a generated, no-index help
-document with embedded synthetic screenshots, Contents navigation and a return
-link to the app. It does not expose technical/source documents or collect
-analytics. Existing screenshots need not change for a footer-only addition.
+footer without signing in. `/user-guide` links to separate Resident and RWA Admin
+pages with complete persona journeys, refreshed synthetic screenshots and
+bookmarkable contents sections. Only materially different screen states need
+separate images; confirmations show only the popup. These public user pages
+participate in discovery but not analytics. The junior-developer reference is
+public only by direct `/tech-guide` URL, unlinked and noindex/nofollow, with
+source/route maps, flow diagrams, ERD and safe debugging guidance. An unlisted
+URL is not access protection. Standalone guide copies and old images are retired.
 
 ### Out of scope
 - Multiple RWAs or societies; native iOS/Android apps.

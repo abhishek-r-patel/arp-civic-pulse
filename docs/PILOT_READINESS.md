@@ -321,11 +321,19 @@ ballot-review, result and settings images were visually inspected.
 One native appearance-disclosure `open` hydration warning remained in automation
 despite the readiness wait; it was not hidden with additional hydration-warning
 suppression and remains a follow-up console finding. This does not turn manual
-device/accessibility or production gates into passes. Guide assets must match
-their pre-rollout content hash. Tests use `PLAYWRIGHT_PRESERVE_GUIDE=1` and direct
-Next startup, with temporary screenshots only; technical documentation is updated
+device/accessibility or production gates into passes. At that historical rollout,
+guide assets had to match their pre-rollout content hash and tests used direct
+Next startup with a preserve-guide switch and temporary screenshots only; technical documentation was updated
 separately. Final build/lint/format and exclusion-hash results are recorded below
 when executed, not inferred from historical runs.
+
+The later native-guide migration explicitly lifts that screenshot hold:
+`/user-guide` now links to Resident and RWA Admin pages with fresh curated
+synthetic captures; `/tech-guide` is public/unlisted/noindex, with diagrams and
+ERD. Old standalone guide outputs/images and renderer hooks are removed.
+Normal dev/build/browser checks no longer write guide assets. The historical
+hash/renderer results below are not current native-guide evidence, deployed-host
+verification, SMTP/Cron proof or production approval; unresolved gates stay open.
 
 Final rollout gates: direct Next production build and TypeScript, lint and
 repository formatting passed; all 460 unit tests, both new visual-matrix tests,
