@@ -1,8 +1,8 @@
-// Protected administrator preview of draft ballot content.
+// Protected administrator preview: ballot beside a sticky readiness summary and start actions.
 import { privateRecordMetadata } from "@/shared/metadata";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronDown, ChevronLeft } from "lucide-react";
 import { firstValues } from "@/components/admin/format";
 import {
   ActivateVote,
@@ -19,6 +19,7 @@ import { getRwaDisplay, getVote, previewDraft } from "@/server/votes/drafts";
 import type { BlockerSection } from "@/shared/contracts/drafts";
 import { idParamsSchema } from "@/shared/contracts/register";
 import { revision as revisionSchema } from "@/shared/validation/primitives";
+import { formatInZone } from "@/shared/time/zoned";
 
 export const generateMetadata = privateRecordMetadata(
   "Preview Ballot",
@@ -117,109 +118,150 @@ export default async function PreviewPage({
   }
 
   const { blockers, readyToActivate, electorate, vote } = preview;
-  const display = readyToActivate ? await getRwaDisplay(deps) : null;
+  // Settings problems are reported as blockers; they must not hide the preview.
+  const display = await getRwaDisplay(deps).catch((error: unknown) => {
+    if (error instanceof ApiError) return null;
+    throw error;
+  });
+  const timezone = display?.timezone;
+  const when = (instant: string | null | undefined, unset: string) =>
+    instant && timezone ? formatInZone(instant, timezone) : unset;
+  const householdWord =
+    electorate.selected === 1 ? deps.terms.household : deps.terms.households;
 
   return (
-    <div data-form-page className="mx-auto grid w-full max-w-ballot gap-8">
+    <div data-form-page className="mx-auto grid w-full max-w-6xl gap-6">
       {back}
       <PageHeader
         title="Preview Ballot"
-        description={`You are previewing version ${preview.revision} of this draft, exactly as residents will see it. Previewing changes nothing and is not saved.`}
+        description={`You are previewing version ${preview.revision}, exactly as residents will see it. Previewing changes nothing.`}
       />
 
-      {readyToActivate ? (
-        <Notice tone="success" heading="No problems found in this version">
-          <p>
-            This is a check, not a guarantee: eligibility, approvals and the
-            deadline are checked again at the moment of activation.
-          </p>
-        </Notice>
-      ) : (
-        <Notice
-          tone="warning"
-          heading={`Fix ${blockers.length} ${blockers.length === 1 ? "thing" : "things"} before this vote can be activated`}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
+        {/* Below lg the panel's cards join the page grid so actions follow the ballot. */}
+        <div
+          role="complementary"
+          aria-label="Preview summary and actions"
+          className="max-lg:contents lg:sticky lg:top-6 lg:order-2 lg:grid lg:gap-4"
         >
-          <ul className="list-disc pl-5">
-            {blockers.map((blocker) => {
-              const anchor = SECTION_ANCHORS[blocker.section];
-              return (
-                <li key={blocker.code}>
-                  {blocker.message}{" "}
-                  {anchor ? (
-                    <Link
-                      href={`/admin/votes/${id}#${anchor}`}
-                      aria-label={`Fix this: ${blocker.message}`}
-                      className="inline-flex touch-target items-center font-semibold text-accent underline underline-offset-2"
-                    >
-                      Fix this
-                    </Link>
+          <section
+            aria-labelledby="preview-summary"
+            className="order-1 grid gap-4 form-panel"
+          >
+            <h2 id="preview-summary" className="text-section font-semibold">
+              Summary
+            </h2>
+            {readyToActivate ? (
+              <Notice
+                tone="success"
+                heading="No problems found in this version"
+              >
+                <p className="text-caption">
+                  Eligibility, approvals and the deadline are checked again when
+                  you activate or schedule.
+                </p>
+              </Notice>
+            ) : (
+              <Notice
+                tone="warning"
+                heading={`Fix ${blockers.length} ${blockers.length === 1 ? "thing" : "things"} before starting`}
+              >
+                <ul className="list-disc pl-5">
+                  {blockers.map((blocker) => {
+                    const anchor = SECTION_ANCHORS[blocker.section];
+                    return (
+                      <li key={blocker.code}>
+                        {blocker.message}{" "}
+                        {anchor ? (
+                          <Link
+                            href={`/admin/votes/${id}#${anchor}`}
+                            aria-label={`Fix this: ${blocker.message}`}
+                            className="inline-flex touch-target items-center font-semibold text-accent underline underline-offset-2"
+                          >
+                            Fix this
+                          </Link>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Notice>
+            )}
+            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-body">
+              <dt className="text-muted">Who can vote</dt>
+              <dd>
+                {electorate.selected} {householdWord} selected;{" "}
+                {electorate.eligibleWithEnabledRepresentative} ready to vote
+              </dd>
+              <dt className="text-muted">Voting opens</dt>
+              <dd>{when(vote.opensAt, "When activated")}</dd>
+              <dt className="text-muted">Voting closes</dt>
+              <dd>{when(vote.closesAt, "Not set")}</dd>
+            </dl>
+            <p className="text-caption text-muted">
+              Activating or scheduling freezes the voting type, ballot,
+              electorate and each {deps.terms.household}&apos;s representative.
+              A scheduled vote can return to draft before opening; once active,
+              only the deadline can move.
+            </p>
+          </section>
+
+          {readyToActivate ? (
+            <section
+              aria-labelledby="start-heading"
+              className="order-3 grid gap-4 form-panel"
+            >
+              <h2 id="start-heading" className="text-section font-semibold">
+                Ready to start
+              </h2>
+              <p className="text-caption text-muted">
+                Activate opens voting now. Schedule opens it automatically at
+                the saved time.
+              </p>
+              <ManagementFields canManage={deps.actor.isAdmin}>
+                <div className="flex flex-wrap items-start gap-3">
+                  <ActivateVote
+                    csrfToken={deps.csrfToken}
+                    voteId={id}
+                    revision={preview.revision}
+                  />
+                  {vote.closesAt && timezone ? (
+                    <ScheduleVote
+                      csrfToken={deps.csrfToken}
+                      voteId={id}
+                      revision={preview.revision}
+                      timezone={timezone}
+                      closesAt={vote.closesAt}
+                      openingAt={vote.opensAt ?? null}
+                    />
                   ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        </Notice>
-      )}
-
-      <section aria-labelledby="electorate-summary" className="grid gap-2">
-        <h2 id="electorate-summary" className="text-section font-semibold">
-          Who Can Vote
-        </h2>
-        <p className="text-body">
-          {electorate.selected}{" "}
-          {electorate.selected === 1
-            ? deps.terms.household
-            : deps.terms.households}{" "}
-          selected; {electorate.eligibleWithEnabledRepresentative} currently{" "}
-          {electorate.eligibleWithEnabledRepresentative === 1 ? "has" : "have"}{" "}
-          an eligible register entry and an enabled representative.
-        </p>
-      </section>
-
-      <Notice tone="info" heading="What freezes when activated or scheduled">
-        <p>
-          The voting type, ballot content, electorate, each{" "}
-          {deps.terms.household}&apos;s representative freeze at confirmation. A
-          scheduled vote can return to draft before opening. Once active, only
-          the deadline can be moved through the audited deadline action.
-        </p>
-      </Notice>
-
-      <section aria-labelledby="resident-view" className="grid gap-3">
-        <h2 id="resident-view" className="text-section font-semibold">
-          What residents will see
-        </h2>
-        <p className="text-body text-muted">
-          This is read-only. Nothing on it can be selected or submitted.
-        </p>
-        <BallotPreview vote={vote} terms={deps.terms} />
-      </section>
-
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <LinkButton href={`/admin/votes/${id}`} variant="secondary">
-          Back to Editing
-        </LinkButton>
-      </div>
-
-      {readyToActivate ? (
-        <ManagementFields canManage={deps.actor.isAdmin}>
-          <ActivateVote
-            csrfToken={deps.csrfToken}
-            voteId={id}
-            revision={preview.revision}
-          />
-          {vote.closesAt && display?.timezone ? (
-            <ScheduleVote
-              csrfToken={deps.csrfToken}
-              voteId={id}
-              revision={preview.revision}
-              timezone={display.timezone}
-              closesAt={vote.closesAt}
-              openingAt={vote.opensAt ?? null}
-            />
+                </div>
+              </ManagementFields>
+            </section>
           ) : null}
-        </ManagementFields>
-      ) : null}
+        </div>
+
+        <details
+          open
+          className="group order-2 grid gap-3 lg:order-1 [&[open]>summary]:mb-3"
+        >
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-control border border-border bg-surface px-4 py-2 hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
+            <span className="grid">
+              <span className="text-section font-semibold">
+                What residents will see
+              </span>
+              <span className="text-caption text-muted">
+                Read-only. Nothing can be selected or submitted.
+              </span>
+            </span>
+            <ChevronDown
+              aria-hidden="true"
+              className="size-5 shrink-0 text-accent transition-transform group-open:rotate-180"
+            />
+          </summary>
+          <BallotPreview vote={vote} terms={deps.terms} />
+        </details>
+      </div>
     </div>
   );
 }

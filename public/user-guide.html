@@ -1767,7 +1767,9 @@
         <strong>Cancel Vote</strong> rolls back a just-created draft; otherwise
         it discards unsaved edits and returns to Manage Votes, keeping the last
         saved version as a draft. Use the right-aligned trash icon to
-        permanently delete a saved draft after confirmation.
+        permanently delete a saved draft after confirmation. With unsaved edits,
+        <strong>Save and Preview</strong> saves the draft and opens its preview
+        in one step; if saving fails, you stay on the editor to fix the problem.
       </p>
       <p>
         In <strong>Details</strong>, the PUBLIC <strong>Question</strong> and
@@ -1893,15 +1895,20 @@
         calendar days after the draft was created; save the draft to persist
         that suggestion or adjust it first. Leave the opening time blank for
         immediate activation, or save a planned opening time. The plan does not
-        schedule or freeze the vote. On the ready preview,
-        <strong>Schedule Vote</strong> uses the saved opening time and shows it
-        with the closing time for confirmation; no second opening-time field is
-        needed. If no opening time is saved, the preview explains that
-        scheduling needs one and disables <strong>Schedule Vote</strong>.
-        Scheduling freezes ballot/type, electorate, representative snapshots and
-        deadline immediately. Activate immediately only after review. Before
-        opening, <strong>Return to Draft</strong> requires a reason. At/after
-        opening, withdrawal is refused.
+        schedule or freeze the vote. On the preview, the
+        <strong>Summary</strong> card shows readiness, the Who can vote count,
+        the saved opening and closing times and what freezes. Collapse
+        <strong>What residents will see</strong> to shorten the page. On wide
+        screens, the summary and <strong>Ready to start</strong> actions stay
+        beside the ballot while you scroll. <strong>Schedule Vote</strong> uses
+        the saved opening time; no second opening-time field is needed. If no
+        opening time is saved, the summary shows
+        <strong>When activated</strong>, and <strong>Schedule Vote</strong> is
+        disabled with guidance. Scheduling freezes ballot/type, electorate,
+        representative snapshots and deadline immediately. Activate immediately
+        only after review. Before opening,
+        <strong>Return to Draft</strong> requires a reason. At/after opening,
+        withdrawal is refused.
       </p>
       <p>
         Both opening and closure use database time. A delayed scheduled job
@@ -1965,15 +1972,23 @@
       <h3 id="monitor-finish-and-audit">Monitor, finish and audit</h3>
       <p>
         The active vote page provides lifecycle controls, deadline change, and
-        participation follow-up. Participation reveals frozen household/name and
-        submitted status, never choices. Active PUBLIC pages show aggregate
-        counts; active PRIVATE pages show aggregate turnout only. PRIVATE
-        candidate/NOTA totals are hidden until completion. Deadline changes
-        require a reason, must be at least five minutes in the future, and are
-        allowed only while the vote is active and before its current deadline.
-        There is no maximum extension or limit on how many changes can be made.
-        The reason and old/new deadlines are audited; residents are not notified
-        and see the new time on their next load or refresh.
+        participation follow-up. Participation shows an
+        <strong>About this vote</strong> card with
+        <strong>Question:</strong> (or PRIVATE <strong>Title:</strong>) beside
+        the vote&#39;s title, a collapsible <strong>Background</strong> (or
+        voter instructions), closed by default, and the status and turnout line;
+        the title also appears in the browser tab. The list reveals frozen
+        household/name and submitted status, never choices. Choosing an option
+        in <strong>Show</strong> (all, submitted, not submitted) updates the
+        list immediately; <strong>Clear</strong> returns to all. Active PUBLIC
+        pages show aggregate counts; active PRIVATE pages show aggregate turnout
+        only. PRIVATE candidate/NOTA totals are hidden until completion.
+        Deadline changes require a reason, must be at least five minutes in the
+        future, and are allowed only while the vote is active and before its
+        current deadline. There is no maximum extension or limit on how many
+        changes can be made. The reason and old/new deadlines are audited;
+        residents are not notified and see the new time on their next load or
+        refresh.
       </p>
       <figure class="wide">
         <img

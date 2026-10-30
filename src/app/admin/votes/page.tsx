@@ -10,8 +10,8 @@ import {
   VoteColumnHeader,
   VoteTableToolbar,
   type VoteTableState,
-  voteTableClearFiltersHref,
 } from "@/components/admin/vote-table-controls";
+import { voteTableClearFiltersHref } from "@/components/admin/vote-table-urls";
 import { VoteStatusBadge, VotingTypeBadge } from "@/components/ui/badges";
 import { LinkButton } from "@/components/ui/button";
 import { DataTable, type Column } from "@/components/ui/data-table";

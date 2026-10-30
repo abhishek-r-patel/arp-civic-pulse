@@ -466,9 +466,10 @@ export function DraftEditor({
     setState(suggested);
   }
 
-  async function save() {
+  // Resolves to the saved (or already-current) draft, or null when nothing was saved.
+  async function save(): Promise<AdminVoteDetail | null> {
     if (pending) {
-      return;
+      return null;
     }
     setFailure(null);
     setDeadlineIssue(null);
@@ -486,11 +487,11 @@ export function DraftEditor({
         setDeadlineIssue(message);
       }
       document.getElementById(result.field)?.focus();
-      return;
+      return null;
     }
     if (result.changed.length === 0) {
       setUnchanged(true);
-      return;
+      return server;
     }
 
     setPending(true);
@@ -508,11 +509,21 @@ export function DraftEditor({
       // Everything typed stays on screen; a stale save offers recovery.
       setFailure(response);
       setStale(response.code === "STALE_REVISION");
-      return;
+      return null;
     }
     setMergeNotes(null);
     adopt(response.data);
     setSaved(`Draft saved as version ${response.data.draftRevision}.`);
+    return response.data;
+  }
+
+  async function saveAndPreview() {
+    const detail = await save();
+    if (detail) {
+      router.push(
+        `/admin/votes/${detail.id}/preview?revision=${detail.draftRevision}`,
+      );
+    }
   }
 
   async function fetchLatest(): Promise<AdminVoteDetail | null> {
@@ -1058,19 +1069,23 @@ export function DraftEditor({
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Button type="submit" loading={pending}>
+          <Button type="submit" variant="secondary" loading={pending}>
             <Save aria-hidden="true" className="size-5" />
             Save Draft
           </Button>
+          {/* The happy path continues to preview, so it carries the primary style. */}
           {dirty ? (
-            <Button variant="secondary" disabled>
+            <Button
+              type="button"
+              disabled={pending}
+              onClick={() => void saveAndPreview()}
+            >
               <Eye aria-hidden="true" className="size-5" />
-              Save to Preview
+              Save and Preview
             </Button>
           ) : (
             <LinkButton
               href={`/admin/votes/${server.id}/preview?revision=${server.draftRevision}`}
-              variant="secondary"
             >
               <Eye aria-hidden="true" className="size-5" />
               Preview Ballot
@@ -1136,7 +1151,7 @@ export function DraftEditor({
       </ConfirmDialog>
       {dirty ? (
         <p role="status" className="text-caption text-muted">
-          You have unsaved changes. Save the draft before previewing.
+          You have unsaved changes. Save and Preview saves them first.
         </p>
       ) : null}
     </form>

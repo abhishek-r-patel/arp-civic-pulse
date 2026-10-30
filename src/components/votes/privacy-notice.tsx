@@ -11,7 +11,7 @@ import type { VotingType } from "@/shared/contracts/voting";
  */
 export function privacyCopy(terms: HouseholdTerms = DEFAULT_HOUSEHOLD_TERMS) {
   return {
-    PUBLIC: `While voting is open, eligible members, RWA Admins and RWA ReadOnly observers can see aggregate counts only. You can change your selection until voting closes. After it ends, your name, ${terms.identifierLabel.toLowerCase()} and final selections are visible in authorized results and downloads.`,
+    PUBLIC: `While voting is open, RWA members see only total counts. You can change your vote until voting closes. After that, RWA members can see your name, ${terms.identifierLabel.toLowerCase()} and final vote in results and downloads.`,
     PRIVATE:
       "Your selections are not shown to the Resident, RWA Admin or RWA ReadOnly personas through the app. Results show totals only.",
     CLOSED_LIMITS:
@@ -35,7 +35,7 @@ export function PrivacyNotice({
   const copy = privacyCopy(terms);
   if (type === "PUBLIC") {
     return (
-      <Notice tone="warning" heading="Your selections are not private">
+      <Notice tone="warning" heading="Your vote is not private">
         <p>{copy.PUBLIC}</p>
         {openSelectionMode === "MULTIPLE" ? (
           <p className="pt-2">

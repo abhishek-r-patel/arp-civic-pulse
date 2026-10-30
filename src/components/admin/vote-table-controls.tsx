@@ -16,17 +16,15 @@ import {
 } from "@/shared/contracts/voting";
 import { instantToLocalInput, zonedLocalToInstant } from "@/shared/time/zoned";
 import { VOTE_TABLE_SORT_KEYS } from "@/shared/contracts/admin-votes";
+import {
+  VOTE_FILTER_FIELDS as allFields,
+  voteTableClearFiltersHref,
+  voteTableHref,
+  type VoteFilterField,
+} from "@/components/admin/vote-table-urls";
 
 type VoteSortKey = (typeof VOTE_TABLE_SORT_KEYS)[number];
 type VoteFilterColumn = VoteSortKey;
-type VoteFilterField =
-  | "titleContains"
-  | "status"
-  | "votingType"
-  | "deadlineFrom"
-  | "deadlineTo"
-  | "changedFrom"
-  | "changedTo";
 
 export type VoteTableState = Readonly<{
   params: Readonly<Record<string, string | undefined>>;
@@ -41,44 +39,9 @@ const fields: Record<VoteFilterColumn, readonly VoteFilterField[]> = {
   deadline: ["deadlineFrom", "deadlineTo"],
   updated: ["changedFrom", "changedTo"],
 };
-const allFields: readonly VoteFilterField[] = [
-  "titleContains",
-  "votingType",
-  "status",
-  "deadlineFrom",
-  "deadlineTo",
-  "changedFrom",
-  "changedTo",
-];
 const subscribe = () => () => {};
 const localZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 const serverZone = () => null;
-const clearFilterParams = Object.fromEntries(
-  allFields.map((field) => [field, ""]),
-);
-
-export function voteTableHref(
-  params: VoteTableState["params"],
-  changes: Readonly<Record<string, string>>,
-): string {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && !["page", "cursor", "notice"].includes(key)) {
-      search.set(key, value);
-    }
-  }
-  for (const [key, value] of Object.entries(changes)) {
-    if (value) search.set(key, value);
-    else search.delete(key);
-  }
-  return `/admin/votes?${search}`;
-}
-
-export function voteTableClearFiltersHref(
-  params: VoteTableState["params"],
-): string {
-  return voteTableHref(params, clearFilterParams);
-}
 
 function FilterForm({
   state,

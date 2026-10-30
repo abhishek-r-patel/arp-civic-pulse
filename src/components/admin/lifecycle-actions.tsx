@@ -83,25 +83,9 @@ export function ScheduleVote({
     router.push(`/admin/votes/${voteId}?notice=vote-scheduled`);
     router.refresh();
   }
+  // Compact control: the preview summary already shows both saved times.
   return (
-    <section
-      className="grid max-w-ballot gap-4 form-panel"
-      aria-labelledby="schedule-heading"
-    >
-      <h2 id="schedule-heading" className="text-section font-semibold">
-        Schedule Opening
-      </h2>
-      {openingAt ? (
-        <p className="text-body">
-          Voting opens {formatInZone(openingAt, timezone)} and closes{" "}
-          {formatInZone(closesAt, timezone)}.
-        </p>
-      ) : (
-        <p className="text-body">
-          Set Voting opens in the draft&apos;s Deadline section, then save the
-          draft to enable scheduling.
-        </p>
-      )}
+    <div className="grid content-start gap-2">
       <ErrorSummary failure={failure} />
       {error ? <p role="alert">{error}</p> : null}
       <div>
@@ -114,6 +98,12 @@ export function ScheduleVote({
           Schedule Vote
         </Button>
       </div>
+      {openingAt ? null : (
+        <p className="text-caption text-muted">
+          Set Voting opens in the draft&apos;s Deadline section, then save the
+          draft to enable scheduling.
+        </p>
+      )}
       {openingAt ? (
         <ConfirmDialog
           open={open}
@@ -136,7 +126,7 @@ export function ScheduleVote({
           </p>
         </ConfirmDialog>
       ) : null}
-    </section>
+    </div>
   );
 }
 
@@ -246,7 +236,6 @@ export function ActivateVote({
   revision,
 }: ActionProps & Readonly<{ revision: number }>) {
   const router = useRouter();
-  const terms = useHouseholdTerms();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<ApiFailure | null>(null);
@@ -275,14 +264,9 @@ export function ActivateVote({
     router.push(`/admin/votes/${voteId}?notice=vote-activated`);
   }
 
+  // Compact control: the preview summary explains what activation freezes.
   return (
-    <section
-      aria-labelledby="activate-heading"
-      className="grid gap-4 form-panel"
-    >
-      <h2 id="activate-heading" className="text-section font-semibold">
-        Activate this vote
-      </h2>
+    <div className="grid content-start gap-2">
       <ErrorSummary failure={failure} />
       {failure?.code === "ACTIVATION_BLOCKED" ? (
         <Notice tone="warning" heading="Something changed since this preview">
@@ -292,11 +276,6 @@ export function ActivateVote({
           </p>
         </Notice>
       ) : null}
-      <p className="max-w-ballot text-body text-muted">
-        Activating freezes the voting type, ballot content, electorate and each{" "}
-        {terms.household}&apos;s representative. It cannot be undone. The
-        deadline can still be moved while voting is open.
-      </p>
       <div>
         <Button onClick={() => setOpen(true)} disabled={pending}>
           <CirclePlay aria-hidden="true" className="size-5" />
@@ -332,7 +311,7 @@ export function ActivateVote({
           if something changed since the preview.
         </p>
       </ConfirmDialog>
-    </section>
+    </div>
   );
 }
 

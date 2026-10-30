@@ -107,7 +107,9 @@ export function Pagination({ basePath, params, page }: PaginationProps) {
                   aria-current="page"
                   aria-live="polite"
                 >
-                  Page {currentPage} of {totalPages} · {totalCount} results
+                  {`Page ${currentPage} of ${totalPages} · ${totalCount} ${
+                    Number(totalCount) === 1 ? "result" : "results"
+                  }`}
                 </p>
               ) : null}
               {disabled ? (

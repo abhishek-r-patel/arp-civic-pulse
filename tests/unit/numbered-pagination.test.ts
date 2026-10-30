@@ -141,6 +141,7 @@ describe("full pagination controls", () => {
     expect(render(6)).toMatch(/aria-disabled="true" aria-label="Next page"/u);
     const empty = render(1, "0", 1);
     expect(empty).toContain("Page 1 of 1 · 0 results");
+    expect(render(1, "1", 1)).toContain("Page 1 of 1 · 1 result<");
     expect(empty).toContain("Page 1 of 1");
     expect(empty).toContain("Per page");
   });

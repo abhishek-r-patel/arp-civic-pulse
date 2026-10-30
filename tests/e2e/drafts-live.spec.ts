@@ -23,7 +23,7 @@ test.skip(
 
 const WIDTHS = [320, 375, 768, 1280];
 const OPEN_NOTICE =
-  /While voting is open, eligible members, RWA Admins and RWA ReadOnly observers can see aggregate counts only\. You can change your selection until voting closes\. After it ends, your name, .+ and final selections are visible in authorized results and downloads\./;
+  /While voting is open, RWA members see only total counts\. You can change your vote until voting closes\. After that, RWA members can see your name, .+ and final vote in results and downloads\./;
 const CLOSED_NOTICE =
   "Your selections are not shown to the Resident, RWA Admin or RWA ReadOnly personas through the app. Results show totals only.";
 const CLOSED_LIMITS =
@@ -93,13 +93,8 @@ test.describe("setting up a PUBLIC vote", () => {
       page.getByText(/Residents will see: .* 1 Jun 2099, 6:00 PM IST\./),
     ).toBeVisible();
 
-    // Unsaved edits cannot be previewed as if they were the saved draft.
-    await expect(
-      page.getByRole("button", { name: "Save to Preview" }),
-    ).toBeDisabled();
-    await save(page, 2);
-
-    await page.getByRole("link", { name: "Preview Ballot" }).click();
+    // One click saves the edits, then previews exactly the new saved version.
+    await page.getByRole("button", { name: "Save and Preview" }).click();
     await expect(page).toHaveURL(/\/preview\?revision=2$/u);
     await expect(
       page.getByRole("heading", { level: 1, name: "Preview Ballot" }),
@@ -117,7 +112,7 @@ test.describe("setting up a PUBLIC vote", () => {
     await expect(ballot.getByText("Draft", { exact: true })).toBeVisible();
     await expect(ballot.getByText(OPEN_NOTICE)).toBeVisible();
     await expect(
-      ballot.getByText(/You can change your selection until voting closes/),
+      ballot.getByText(/You can change your vote until voting closes/),
     ).toBeVisible();
     await expect(
       ballot.getByText(/Voting closes .* 1 Jun 2099, 6:00 PM IST/),
@@ -133,8 +128,11 @@ test.describe("setting up a PUBLIC vote", () => {
     // Who Can Vote is summarised on the preview.
     await expect(page.getByText(/1 household selected/)).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Schedule Opening" }),
+      page.getByRole("heading", { name: "Ready to start" }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Back to Editing" }),
+    ).toHaveCount(1);
     await expect(
       page.getByText(
         "Set Voting opens in the draft's Deadline section, then save the draft to enable scheduling.",
@@ -172,15 +170,22 @@ test.describe("setting up a PUBLIC vote", () => {
 
     await page.getByRole("link", { name: "Preview Ballot" }).click();
     await expect(
-      page.getByRole("heading", { name: "Schedule Opening" }),
+      page.getByRole("heading", { name: "Ready to start" }),
     ).toBeVisible();
     await expect(
       page.getByRole("textbox", { name: "Voting opens at" }),
     ).toHaveCount(0);
+    const summary = page.getByRole("complementary", {
+      name: "Preview summary and actions",
+    });
+    await expect(summary).toContainText("Voting opens1 Jun 2099, 5:00 PM IST");
+    await expect(summary).toContainText("Voting closes1 Jun 2099, 6:00 PM IST");
+
+    // The resident view collapses without affecting the start actions.
+    await page.getByText("What residents will see").click();
+    await expect(page.getByRole("article")).toBeHidden();
     await expect(
-      page.getByText(
-        "Voting opens 1 Jun 2099, 5:00 PM IST and closes 1 Jun 2099, 6:00 PM IST.",
-      ),
+      page.getByRole("button", { name: "Activate Vote" }),
     ).toBeVisible();
 
     await page.getByRole("button", { name: "Schedule Vote" }).click();
