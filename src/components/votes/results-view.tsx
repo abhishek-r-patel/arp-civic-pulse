@@ -121,10 +121,10 @@ function OpenSection({
 
   return (
     <>
-      <div className="mx-auto grid w-full max-w-5xl gap-4">
+      <div className="mx-auto grid w-full gap-4">
         <section
           aria-labelledby="totals"
-          className="grid w-full min-w-0 content-start gap-3 rounded-card border border-border bg-surface p-4 md:p-5"
+          className="mx-auto grid w-full min-w-0 content-start gap-3 rounded-card border border-border bg-surface p-4 md:p-5 lg:w-[calc(50%_-_0.5rem)]"
         >
           <h2 id="totals" className="text-section font-semibold">
             Totals
@@ -170,14 +170,12 @@ function OpenSection({
       {results.vote.status === "COMPLETED" ? (
         <section
           aria-labelledby="named"
-          className="mx-auto grid w-full max-w-5xl min-w-0 gap-3"
+          className="mx-auto grid w-full min-w-0 gap-3"
         >
           <h2 id="named" className="text-section font-semibold">
             Who chose what
           </h2>
-          <p className="text-body text-muted">
-            {privacyCopy(terms).PUBLIC}
-          </p>
+          <p className="text-body text-muted">{privacyCopy(terms).PUBLIC}</p>
           {results.namedResponses.length === 0 ? (
             <p className="text-body">No responses to list.</p>
           ) : (
@@ -220,16 +218,14 @@ function ClosedSection({
           candidate totals remain a tie.
         </p>
       </InfoTip>
-      <div
-        className={cn(
-          "mx-auto grid w-full max-w-5xl gap-4",
-          results.offices.length > 1 && "md:grid-cols-2",
-        )}
-      >
-        {results.offices.map((office) => {
+      <div className="mx-auto grid w-full gap-4 lg:grid-cols-2">
+        {results.offices.map((office, index) => {
           const leaders = office.candidates
             .filter((c) => office.leaderCandidateIds.includes(c.id))
             .map((c) => c.name);
+          const centerLastCard =
+            results.offices.length % 2 === 1 &&
+            index === results.offices.length - 1;
           const rows: ResultBarRow[] = [
             ...office.candidates.map((c) => {
               const leading =
@@ -260,7 +256,11 @@ function ClosedSection({
             <section
               key={office.id}
               aria-labelledby={`office-${office.id}`}
-              className="grid content-start gap-3 rounded-card border border-border bg-surface p-4 md:p-5"
+              className={cn(
+                "grid content-start gap-3 rounded-card border border-border bg-surface p-4 md:p-5",
+                centerLastCard &&
+                  "lg:col-span-2 lg:w-[calc(50%_-_0.5rem)] lg:justify-self-center",
+              )}
             >
               <h2
                 id={`office-${office.id}`}
