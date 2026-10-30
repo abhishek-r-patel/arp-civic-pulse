@@ -720,7 +720,7 @@ No runtime routine returns active PRIVATE candidate/NOTA counters; completed PRI
 
 **Suggestion lists (migration `20261104100000`).** `rwa_settings` gains `default_households` and `rwa_positions` (above), validated by `app_private.is_valid_settings_list(items, max_items, max_length)` check constraints. `get_rwa_profile()` returns `defaultHouseholds` and `rwaPositions`; `update_rwa_profile(settings)` requires both keys (arrays of strings, unique after `normalize_key`) and audits them by field name only. `get_rwa_branding()` and `get_public_rwa_identity()` deliberately do not expose them.
 
-**Amber accent palette (migration `20261105100000`).** `rwa_settings.accent_palette` and the administrator-only `update_rwa_profile(settings)` validation accept `AMBER` in addition to the five existing contrast-checked choices.
+**Amber accent palette (migration `20261124100000`).** `rwa_settings.accent_palette` and the administrator-only `update_rwa_profile(settings)` validation accept `AMBER` in addition to the five existing contrast-checked choices.
 
 **PUBLIC/PRIVATE voting types (migration `20261103100000`).** The voting types formerly stored as `OPEN` and `CLOSED` are renamed to `PUBLIC` and `PRIVATE`. The migration rewrites existing `votes.voting_type` values with user triggers briefly disabled, recreates the type check and the PRIVATE single-select check (`votes_private_single_select`), and replaces every routine that compared the old values. Internal column and routine names (`open_selection_mode`, `guard_open_response`, `guard_closed_tally`, `cast_open_vote_multiple`), error codes such as `VOTING_CLOSED`, and historical audit details are unchanged; the audit page displays old `OPEN`/`CLOSED` details as PUBLIC/PRIVATE.
 

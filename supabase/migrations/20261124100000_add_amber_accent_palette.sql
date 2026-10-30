@@ -24,3 +24,5 @@ begin
   execute pg_catalog.replace(v_definition, v_old_palette_list, v_new_palette_list);
 end;
 $migration$;
+
+reset role;

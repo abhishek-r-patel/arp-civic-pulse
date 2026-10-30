@@ -200,10 +200,12 @@ production were not changed.
   screen. A PRIVATE Type filter applied and cleared successfully, restoring the
   default table view. This is disposable-browser verification, not production
   or general hosted verification.
-- The normal CLI dry run remains blocked by the duplicate `20261105100000`
-  local migration and the missing `20261118100000` remote record. Neither was
-  changed or applied; `--include-all` was not used. Future full CLI pushes still
-  need that migration-history blocker resolved.
+- The migration-history blocker was resolved forward-only: the Amber migration
+  now has version `20261124100000`, while the existing deadline migration
+  history remains unchanged. The audit-filter and draft-deletion migrations
+  were applied to the verified disposable project, and the Amber migration was
+  applied through the normal CLI. This did not deploy the staging application
+  or change a separate production database.
 - User Guide HTML copies were regenerated; guide screenshots were not changed.
   Accessibility, hosted rollout and all existing launch gates remain open.
 

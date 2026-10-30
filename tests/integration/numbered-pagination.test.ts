@@ -233,7 +233,7 @@ describe.skipIf(!hasDatabase)("numbered pagination", () => {
 
     await api.cast(world.alice.id, vote.id, {
       confirmed: true,
-      optionIds: [vote.options[0]?.id],
+      optionId: vote.options[0]?.id,
     });
     await api.call(world.admin.id, "public.complete_vote_early($1, true, $2)", [
       vote.id,

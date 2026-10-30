@@ -21,7 +21,7 @@ application and local browser verification are not hosted application verificati
 to the verified disposable database after explicit authorization. Its CLI dry run
 found duplicate local version `20261105100000`; a separately approved transaction
 applied only the new routine and its ledger entry. See
-[migration status](../supabase/README.md) for the unresolved duplicate-file issue.
+[migration status](../supabase/README.md) for the later forward-only reconciliation.
 Local Chromium table/phone/observer checks are not a hosted application rollout.
 
 **Manage Votes table-control follow-up:** the UI revision adds the read-only
@@ -31,10 +31,9 @@ using one verified-TLS transaction for the exact SQL file, its migration-ledger
 entry and PostgREST schema notification; function ownership and grants were
 verified. This is the disposable project also used by the staging host; no
 separate production database was touched and no staging app deployment
-occurred. The CLI dry run remains blocked because the older
-`20261105100000_change_vote_deadline.sql` would have to be inserted before the
-remote migration history, and `20261118100000` remains unapplied. No
-`--include-all` was used. This is not production approval.
+occurred. The old version collision was later resolved by assigning the
+unapplied Amber migration a unique forward version; the existing deadline
+history was not rewritten. This is not production approval.
 
 **Manage Votes turnout follow-up:** the approved Turnout column adds
 `20261120100000_admin_vote_turnout.sql`, extending the existing table-page RPC
@@ -45,8 +44,8 @@ schema notification. Function ownership and authenticated-only execution were
 verified; anon/service-role execution is absent. Local PostgreSQL integration
 coverage passed. This is the disposable project also used by the staging host;
 no separate production database was touched and no staging app deployment
-occurred. The duplicate migration-version blocker and missing
-`20261118100000` remote record remain unresolved.
+occurred. The audit-filter migration was subsequently applied to the same
+disposable project; this is not production approval.
 
 **Contact admin-name follow-up:** after separate authorization,
 `20261123100000_enabled_rwa_admin_names.sql` was applied only to the confirmed
@@ -57,9 +56,9 @@ were verified; anon and service-role execution are absent. The local
 RWA-profile/security integration tests passed (28 tests), and the signed-in
 Contact page loaded the directory. This database is also used by the staging
 host; no separate production database was changed and no staging application
-deployment was performed. The CLI dry run remains blocked by the duplicate
-`20261105100000` version and missing remote entries `20261118100000` and
-`20261122100000`. Neither those migrations nor `--include-all` were used.
+deployment was performed. The audit-filter and draft-deletion migrations were
+subsequently applied, and the Amber migration version collision was resolved
+forward-only. No `--include-all` or migration-history rewrite was used.
 
 - Canonical URL and Production `APP_ORIGIN`:
   <https://arp-civic-pulse-staging.vercel.app>, without a trailing slash in the
@@ -328,7 +327,7 @@ rendered guide output; use direct Next commands when intentionally avoiding the
 hooks. The capture suite uses only synthetic data on the approved disposable
 project and never on production.
 
-Apply the complete ordered migration set from `20261024100000_core_schema.sql` through the current application-required migration. Migrations `20261109100000` and `20261110100000` add resident self-registration (`profiles.self_registered` and the service-role-only `self_register_resident` routine) and administrator account creation together with a household (`provision_profile_with_household`). Migration `20261111100000` supplies the existing security-invoker directory view; `20261115100000` adds the committee-only globally sorted/filtered page-ID/count routine required by the new Residents table. Migration `20261116100000` adds identifier substring matching while retaining exact filters for older callers. Migration `20261119100000` adds the committee-only Manage Votes table routine; these table-control migrations are applied to the separately authorized disposable project, which is also used by the staging host. Migration `20261118100000` remains unrecorded remotely. The Contact admin-name RPC requires `20261123100000`, now applied to that project; migration `20261122100000` is still missing remotely. Resolve the duplicate local migration-version issue before relying on a complete CLI push; the dry run reports `20261105100000_change_vote_deadline.sql`, `20261118100000_audit_text_filters.sql` and `20261122100000_delete_drafts.sql` as older missing entries. Do not use `--include-all`, drop the view or rewrite applied history without separate review and authorization. Migrations `20261112100000` and `20261113100000` preserve App Support Access and household-free management-role enablement. This database operation did not deploy the staging application and is not production approval. Deploy reviewed migrations before the corresponding application revision, outside voting windows. The Residents list depends on the directory view, table-window routine and current profile columns; Manage Votes depends on its table-window routine; Add Resident and `/register` depend on their provisioning routines; Contact’s enabled-member admin directory depends on `get_enabled_rwa_admin_names`. See [supabase/README.md](../supabase/README.md) and [DATABASE.md](./DATABASE.md). The app never migrates at startup or during the Vercel build.
+Apply the complete ordered migration set from `20261024100000_core_schema.sql` through the current application-required migration. Migrations `20261109100000` and `20261110100000` add resident self-registration (`profiles.self_registered` and the service-role-only `self_register_resident` routine) and administrator account creation together with a household (`provision_profile_with_household`). Migration `20261111100000` supplies the existing security-invoker directory view; `20261115100000` adds the committee-only globally sorted/filtered page-ID/count routine required by the Residents table. Migration `20261116100000` adds identifier substring matching while retaining exact filters for older callers. Migration `20261118100000` adds bounded Audit History actor/Details filters and matching totals. Migration `20261119100000` adds the committee-only Manage Votes table routine, and `20261122100000` adds confirmed, revision-checked draft deletion. These changes, along with the Amber migration `20261124100000`, are present on the verified disposable project also used by the staging host. The Amber version was moved forward to avoid colliding with the already-applied `20261105100000_change_vote_deadline`; that remote history was not rewritten. The Contact admin-name RPC requires `20261123100000`. This database operation did not deploy the staging application and is not production approval. Deploy reviewed migrations before the corresponding application revision, outside voting windows. The Residents list depends on the directory view, table-window routine and current profile columns; Manage Votes depends on its table-window routine; Add Resident and `/register` depend on their provisioning routines; Contact’s enabled-member admin directory depends on `get_enabled_rwa_admin_names`. See [supabase/README.md](../supabase/README.md) and [DATABASE.md](./DATABASE.md). The app never migrates at startup or during the Vercel build.
 
 Before rollout, verify a 500-row synthetic import's Auth-provider quota behavior,
 partial-failure/retry handling and suspended-account review. Verify scheduled

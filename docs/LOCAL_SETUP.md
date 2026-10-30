@@ -186,10 +186,10 @@ npx supabase db push --db-url $env:LIVE_DATABASE_URL --yes
 ```
 
 With a clean migration history, a successful push ends with
-`Finished supabase db push.` This checkout's normal CLI dry run is currently
-blocked: it reports that `20261105100000_change_vote_deadline.sql` would have to
-be inserted before the remote migration history. Do not use `--include-all` to
-work around that blocker.
+`Finished supabase db push.` The migration history for the verified disposable
+project has been reconciled; confirm the target with `supabase migration list`
+and run a dry run before applying any future migration. Do not use
+`--include-all` to work around migration ordering issues.
 Numbered list pages require `20261114100000_numbered_pagination.sql`; apply it
 before running this app revision. Existing cursor API contracts are unchanged.
 Residents column sorting/filtering additionally needs `20261115100000`.
@@ -198,8 +198,8 @@ Audit History's Who/Details text filters need `20261118100000` before
 running this revision.
 Manage Votes table sorting and filters need
 `20261119100000_admin_vote_table_controls` before running this revision.
-That routine is applied only to the verified disposable project; the pending
-audit-text migration and the duplicate-history blocker remain unresolved.
+That routine is applied only to the verified disposable project; the audit-text
+migration was subsequently applied to that project.
 The Turnout column also requires
 `20261120100000_admin_vote_turnout`. This follow-up was applied only to the
 verified `civic-pulse-disposable` project after separate authorization. That
@@ -215,10 +215,12 @@ The Contact admin-name directory requires
 `20261123100000_enabled_rwa_admin_names`; it was separately authorized and
 applied to that project with its migration ledger entry and schema reload. The
 staging application itself was not deployed.
-Before any push, check `supabase migration list`: this checkout currently has
-two files sharing version `20261105100000`, which blocks the normal CLI push.
-See [migration status](../supabase/README.md); do not apply older scripts again
-or repair history without investigating and obtaining authorization.
+Migration `20261122100000_delete_drafts` was also applied to the disposable
+project, and the Amber migration was renumbered to
+`20261124100000_add_amber_accent_palette.sql` and applied through the normal CLI.
+The existing `20261105100000_change_vote_deadline` history was not rewritten.
+See [migration status](../supabase/README.md). These database updates did not
+deploy the staging application or modify a separate production database.
 The lifecycle migration also schedules a Supabase Cron job
 (`civic-pulse-complete-due-votes`, once a minute) when `pg_cron` is available,
 which it is on Supabase.

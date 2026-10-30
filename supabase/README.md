@@ -54,42 +54,26 @@ at start-up, and never uses the migration credentials.
 | `20261121110000_draft_opening_public_private_types` | Keeps draft updates aligned with the PUBLIC/PRIVATE voting type values |
 | `20261122100000_delete_drafts` | Adds revision-checked, confirmed and audited draft deletion |
 | `20261123100000_enabled_rwa_admin_names` | Adds an enabled-member-only, names-only RWA Admin directory projection for Contact |
+| `20261124100000_add_amber_accent_palette` | Adds the Amber accent to the RWA settings constraint and guarded update validation |
+
+The Amber palette migration was originally named with the already-applied
+`20261105100000` version. It was assigned the unused forward version
+`20261124100000`; the already-applied deadline migration and remote history were
+left unchanged. The new migration was applied by the normal Supabase CLI after
+a dry run showed it as the only pending migration.
+
+The separately authorized audit-filter migration `20261118100000` and draft
+deletion migration `20261122100000` were applied to the verified
+`civic-pulse-disposable` project in one verified-TLS transaction with matching
+ledger entries and a PostgREST schema reload. The same disposable project is
+used by the staging host. These database changes did not deploy the staging
+application and did not change a separate production database.
 
 The Source column requires `20261117100000` before its sort links are used.
 It passed local PostgreSQL tests and was applied with separate explicit
-authorization only to the verified `civic-pulse-disposable` project, together
-with its ledger entry in one verified-TLS transaction and a PostgREST schema
-reload. Authenticated execute is present; anon/service-role execute is absent.
-The duplicate historical version blocker below remains. No production approval.
-
-The latest migrations are deployment inputs, not automatically applied by the
-application. `20261109100000` and `20261110100000` were applied on 27 October 2026
-only to the user-confirmed disposable project (dry run first, `--skip-vault`), not
-staging or production. Apply only after independently verifying the target and reviewing
-pending changes, outside voting windows. Local integration tests create/drop
-their own disposable databases; they do not migrate your configured hosted project.
-
-The Residents column-control upgrade additionally requires `20261115100000`.
-It passed local disposable PostgreSQL tests and was applied only to the verified
-`civic-pulse-disposable` project with explicit authorization. The CLI dry run was
-blocked by two pre-existing local files sharing version `20261105100000`
-(`add_amber_accent_palette` and `change_vote_deadline`). With separate approval,
-only `20261115100000` and its migration-ledger entry were committed atomically
-over verified TLS, followed by a schema-cache notification and grant checks.
-The duplicate-file issue remains unresolved; do not use `--include-all` or
-repair/rewrite migration history blindly. No other migration was applied.
-
-The separately authorized substring-search follow-up applied only
-`20261116100000` and its ledger entry in one TLS-verified transaction to that same
-verified disposable project, then notified PostgREST to reload its schema.
-Authenticated execution and absence of anon/service-role execution were checked.
-Historical migrations and the duplicate-file issue were left untouched.
-
-Audit History's Who/Details filter migration `20261118100000` is a new
-deployment input and has not been applied to any hosted database. Review and
-apply only after independently verifying a disposable target and resolving the
-existing duplicate migration-version blocker; the UI expects the migration's
-RPC signatures when these filters are used.
+authorization only to the verified disposable project, together with its
+ledger entry in one verified-TLS transaction and a PostgREST schema reload.
+Authenticated execute is present; anon/service-role execute is absent.
 
 Manage Votes table controls migration `20261119100000` adds a guarded,
 authenticated-only page-ID routine. After separate authorization, it was applied
@@ -98,11 +82,9 @@ transaction that executed the exact migration, recorded its ledger entry and
 notified PostgREST to reload the schema. Function ownership and authenticated
 execution were verified; anon/service-role execution is absent. This is the
 disposable project also used by the staging host; no separate production
-database was touched and no staging app deployment occurred. The ordinary CLI dry run remains blocked because
-`20261105100000_change_vote_deadline.sql` would have to be inserted before the
-remote history, and migration `20261118100000` remains unrecorded remotely.
-Neither was applied, and `--include-all` was not used; resolve the blocker only
-through a separately reviewed and authorized procedure.
+database was touched and no staging app deployment occurred. The old version
+collision was later resolved by assigning the unapplied Amber migration a unique
+forward version; the existing deadline history was not rewritten.
 
 The Manage Votes Turnout column adds follow-up migration `20261120100000`,
 which replaces only the already-guarded table-page routine and returns
@@ -113,7 +95,7 @@ notification. Function ownership and authenticated-only execution were
 verified; anon/service-role execution is absent. Local PostgreSQL integration
 coverage passed. This is the disposable project also used by the staging host;
 no separate production database was touched and no staging app deployment
-occurred. The existing duplicate migration-version blocker remains unresolved.
+occurred. The later migration-history reconciliation is recorded below.
 
 The planned-opening migration `20261121100000` and its type-check correction
 `20261121110000` were applied only to the user-confirmed disposable project in
@@ -131,11 +113,8 @@ path and authenticated-only execution were verified; anon and service-role
 execution are absent. The local RWA-profile and security integration suites
 passed (28 tests), and the signed-in Contact page loaded the admin directory.
 No separate production database was changed and no staging application
-deployment was performed. The ordinary CLI dry run remains blocked by the
-duplicate `20261105100000` local version and missing remote entries
-`20261118100000` and `20261122100000`; none of those migrations was applied.
-Do not use `--include-all` or repair migration history without separate review
-and authorization.
+deployment was performed. The audit-filter and draft-deletion migrations were
+subsequently applied as recorded above.
 
 The separately authorized numbered-pagination follow-up applied
 `20261114100000` to the same disposable project, now also used by the
