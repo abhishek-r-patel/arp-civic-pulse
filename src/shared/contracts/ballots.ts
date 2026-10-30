@@ -49,9 +49,4 @@ export const submissionSchema = z.union([
   closedSubmissionSchema,
 ]);
 
-export type OpenSubmission = z.infer<typeof openSubmissionSchema>;
-export type OpenMultipleSubmission = z.infer<
-  typeof openMultipleSubmissionSchema
->;
-export type ClosedSubmission = z.infer<typeof closedSubmissionSchema>;
 export type Submission = z.infer<typeof submissionSchema>;

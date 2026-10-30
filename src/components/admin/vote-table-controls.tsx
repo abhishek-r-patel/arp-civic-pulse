@@ -267,7 +267,12 @@ export function VoteTableToolbar({
         active={active}
         icon={<SortFilterIcon />}
       >
-        <FilterForm state={state} />
+        {/* Remount on URL changes (for example Clear filters) so the
+            uncontrolled fields never keep and re-apply stale filters. */}
+        <FilterForm
+          key={JSON.stringify([state.params, state.sort, state.direction])}
+          state={state}
+        />
       </TableFilterPopover>
       <Link
         href={voteTableClearFiltersHref(state.params)}

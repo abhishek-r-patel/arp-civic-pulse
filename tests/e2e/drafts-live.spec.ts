@@ -8,6 +8,7 @@ import {
   seedHousehold,
   setDateTime,
   signInThroughUi,
+  openPreview,
 } from "./support/live";
 import { chooseDropdownOption } from "./support/dropdown";
 
@@ -45,10 +46,18 @@ test.describe("creating a draft", () => {
     await signedInAdmin(page);
     await page.goto("/admin/votes/new");
 
-    // Nothing is preselected, and each type is explained with its resident notice.
+    // Nothing is preselected, and each type explains its privacy and results.
     await expect(page.getByRole("radio", { checked: true })).toHaveCount(0);
-    await expect(page.getByText(OPEN_NOTICE)).toBeVisible();
-    await expect(page.getByText(CLOSED_NOTICE)).toBeVisible();
+    await expect(
+      page.getByRole("radio", {
+        name: /^PUBLIC Voting .*Privacy and results: While open, eligible voters, RWA Admins, and read-only RWA observers see totals only\. Voters can change their choice until closing\./,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("radio", {
+        name: /^PRIVATE Voting .*Privacy and results: While open, Civic Pulse shows only how many people voted\. After closing, results show totals, never an individual's choices\./,
+      }),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: "Create Draft" }).click();
     await expect(
@@ -62,9 +71,8 @@ test.describe("creating a draft", () => {
       page.getByRole("heading", { level: 1, name: "Untitled draft" }),
     ).toBeVisible();
     await expect(page.getByText(/Draft created\./)).toBeVisible();
-    await expect(
-      page.getByRole("radio", { name: /^PRIVATE Voting/ }),
-    ).toBeChecked();
+    // The editor does not repeat the type selector (docs/USER_GUIDE.md).
+    await expect(page.getByRole("radio", { name: /Voting/ })).toHaveCount(0);
   });
 });
 
@@ -83,7 +91,9 @@ test.describe("setting up a PUBLIC vote", () => {
 
     await page.getByLabel(/^Find a /).fill(household.identifier);
     await page
-      .getByRole("checkbox", { name: new RegExp(household.identifier) })
+      .getByRole("checkbox", {
+        name: new RegExp(`^${household.identifier}\\b`, "u"),
+      })
       .check();
     await expect(page.getByText("1 selected")).toBeVisible();
 
@@ -124,8 +134,8 @@ test.describe("setting up a PUBLIC vote", () => {
       await expect(radio).not.toBeChecked();
     }
 
-    // Who Can Vote is summarised on the preview.
-    await expect(page.getByText(/1 household selected/)).toBeVisible();
+    // Who Can Vote is summarised on the preview, in the RWA's own household term.
+    await expect(page.getByText(/1 \w+ selected/)).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Ready to start" }),
     ).toBeVisible();
@@ -161,13 +171,15 @@ test.describe("setting up a PUBLIC vote", () => {
     await addOpenBallot(page, "Schedule this vote?");
     await page.getByLabel(/^Find a /).fill(household.identifier);
     await page
-      .getByRole("checkbox", { name: new RegExp(household.identifier) })
+      .getByRole("checkbox", {
+        name: new RegExp(`^${household.identifier}\\b`, "u"),
+      })
       .check();
     await setDateTime(page, "Voting opens", "2099-06-01T17:00");
     await setDateTime(page, "Voting closes", "2099-06-01T18:00");
     await save(page, 2);
 
-    await page.getByRole("link", { name: "Preview Ballot" }).click();
+    await openPreview(page);
     await expect(
       page.getByRole("heading", { name: "Ready to start" }),
     ).toBeVisible();
@@ -177,8 +189,12 @@ test.describe("setting up a PUBLIC vote", () => {
     const summary = page.getByRole("complementary", {
       name: "Preview summary and actions",
     });
-    await expect(summary).toContainText("Voting opens1 Jun 2099, 5:00 PM IST");
-    await expect(summary).toContainText("Voting closes1 Jun 2099, 6:00 PM IST");
+    await expect(summary).toContainText(
+      /Voting opens(?:\w{3} )?1 Jun 2099, 5:00 PM IST/u,
+    );
+    await expect(summary).toContainText(
+      /Voting closes(?:\w{3} )?1 Jun 2099, 6:00 PM IST/u,
+    );
 
     // The resident view collapses without affecting the start actions.
     await page.getByText("What residents will see").click();
@@ -192,7 +208,7 @@ test.describe("setting up a PUBLIC vote", () => {
       name: "Schedule this vote?",
     });
     await expect(confirmation).toContainText(
-      "Voting opens 1 Jun 2099, 5:00 PM IST and closes 1 Jun 2099, 6:00 PM IST.",
+      /Voting opens (?:\w{3} )?1 Jun 2099, 5:00 PM IST and closes (?:\w{3} )?1 Jun 2099, 6:00 PM IST\./u,
     );
     await confirmation.getByRole("button", { name: "Cancel" }).click();
   });
@@ -261,9 +277,12 @@ test.describe("setting up a PUBLIC vote", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     const voteTable = page.locator("[data-vote-table-view] [data-data-table]");
+    // Clearing filters shows every vote on the page, so compare per row.
+    const rowCount = await voteTable.locator("tbody tr").count();
+    expect(rowCount).toBeGreaterThan(0);
     await expect(
       voteTable.locator('tbody [data-column-key="title"]'),
-    ).toHaveCount(1);
+    ).toHaveCount(rowCount);
     await expect(
       voteTable.locator('tbody [data-column-key="type"]'),
     ).toHaveCount(0);
@@ -281,7 +300,7 @@ test.describe("setting up a PUBLIC vote", () => {
     for (const key of ["type", "deadline", "updated"]) {
       await expect(
         voteTable.locator(`tbody [data-column-key="${key}"]`),
-      ).toHaveCount(1);
+      ).toHaveCount(rowCount);
     }
     await page.reload();
     for (const key of ["type", "deadline", "updated"]) {
@@ -289,14 +308,14 @@ test.describe("setting up a PUBLIC vote", () => {
         page.locator(
           `[data-vote-table-view] [data-data-table] tbody [data-column-key="${key}"]`,
         ),
-      ).toHaveCount(1);
+      ).toHaveCount(rowCount);
     }
     await page.setViewportSize({ width: 1280, height: 900 });
     await expect(
       page.locator(
         '[data-vote-table-view] [data-data-table] tbody [data-column-key="deadline"]',
       ),
-    ).toHaveCount(1);
+    ).toHaveCount(rowCount);
   });
 });
 
@@ -429,7 +448,7 @@ test.describe("setting up a PRIVATE vote", () => {
     await expect(page.getByLabel(/^Candidate 1/)).toHaveValue("Ravi Iyer");
     await save(page, 2);
 
-    await page.getByRole("link", { name: "Preview Ballot" }).click();
+    await openPreview(page);
     const ballot = page.getByRole("article");
     await expect(
       ballot.getByText("PRIVATE Voting", { exact: true }),
@@ -453,11 +472,13 @@ test.describe("setting up a PRIVATE vote", () => {
     page,
   }) => {
     await signedInAdmin(page);
-    await createDraft(page, "PRIVATE");
-    await page.getByRole("link", { name: "Preview Ballot" }).click();
+    // Preview the saved revision 1 directly: "Save and Preview" would also
+    // save the editor's prefilled deadline and hide the deadline blocker.
+    const editor = await createDraft(page, "PRIVATE");
+    await page.goto(`${editor}/preview?revision=1`);
 
     await expect(
-      page.getByText(/before this vote can be activated/),
+      page.getByText(/^Fix \d+ things? before starting$/),
     ).toBeVisible();
     await expect(page.getByText("Add a title.")).toBeVisible();
     await expect(page.getByText("Add at least one office.")).toBeVisible();
@@ -643,9 +664,11 @@ test.describe("responsive and accessible", () => {
       .getByRole("button", { name: "Add Candidate to Office 1" })
       .click();
     await page.getByLabel(/^Candidate 1/).fill("Asha Rao");
-    await page.getByLabel("Find a household").fill(household.identifier);
+    await page.getByLabel(/^Find a /).fill(household.identifier);
     await page
-      .getByRole("checkbox", { name: new RegExp(household.identifier) })
+      .getByRole("checkbox", {
+        name: new RegExp(`^${household.identifier}\\b`, "u"),
+      })
       .check();
     await setDateTime(page, "Voting closes", "2099-06-01T18:00");
     await save(page, 2);

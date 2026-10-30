@@ -313,7 +313,13 @@ export function ResidentTableToolbar({
         active={active}
         icon={<SortFilterIcon />}
       >
-        <FilterForm state={state} all />
+        {/* Remount on URL changes (for example Clear filters) so the
+            uncontrolled fields never keep and re-apply stale filters. */}
+        <FilterForm
+          key={JSON.stringify([state.params, state.sort, state.direction])}
+          state={state}
+          all
+        />
       </TableFilterPopover>
       <Link
         href={residentTableClearFiltersHref(state.params)}

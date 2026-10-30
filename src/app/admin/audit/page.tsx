@@ -133,8 +133,10 @@ function Details({
   return (
     <dl className="grid gap-0.5 text-caption">
       {entries.map(([key, value]) => {
+        // Each group must be a direct <div> child of the <dl>; an extra
+        // wrapper breaks the definition-list structure for assistive tech.
         const entry = (
-          <div className="flex flex-wrap gap-x-2">
+          <div key={key} className="flex flex-wrap gap-x-2">
             <dt className="font-semibold text-muted">
               {detailLabel(key, terms)}:
             </dt>
@@ -152,7 +154,7 @@ function Details({
             {entry}
           </AuditDetailTime>
         ) : (
-          <div key={key}>{entry}</div>
+          entry
         );
       })}
     </dl>

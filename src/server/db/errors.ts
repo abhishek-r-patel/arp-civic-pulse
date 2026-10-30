@@ -86,18 +86,3 @@ export function toApiError(failure: DatabaseFailure): ApiError {
   }
   return new ApiError("INTERNAL_ERROR");
 }
-
-/** Throws the mapped ApiError when a Supabase response carries an error. */
-export function unwrap<T>(result: {
-  data: T | null;
-  error: { code?: string; message?: string; details?: string | null } | null;
-  status?: number;
-}): T {
-  if (result.error) {
-    throw toApiError({ ...result.error, status: result.status });
-  }
-  if (result.data === null) {
-    throw new ApiError("INTERNAL_ERROR");
-  }
-  return result.data;
-}

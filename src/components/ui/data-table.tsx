@@ -42,8 +42,10 @@ export function DataTable<Row>({
       role="region"
       aria-label={`${caption} table`}
       tabIndex={0}
+      // Positioned so absolutely positioned descendants (such as sr-only text)
+      // stay clipped by this scroller rather than widening the page.
       className={cn(
-        "min-w-0 overflow-x-auto",
+        "relative min-w-0 overflow-x-auto",
         framed && "rounded-card border border-border bg-surface shadow-panel",
       )}
     >

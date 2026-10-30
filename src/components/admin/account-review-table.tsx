@@ -493,14 +493,19 @@ export function AccountReviewTable({
         data-resident-toolbar
         className="grid gap-3 border-b border-border pb-5"
       >
+        {/* Wraps only when enlarged text would squeeze the scrolling controls
+            below 8rem; the Columns menu then drops to its own line. The
+            scroller is positioned so absolutely positioned descendants
+            (screen-reader text, icon layers) are clipped with it instead of
+            widening the page. */}
         <div
           role="group"
           aria-label="Resident selection and display controls"
-          className="flex min-w-0 flex-nowrap items-center gap-1"
+          className="flex min-w-0 flex-wrap items-center gap-1"
         >
           <div
             tabIndex={0}
-            className="flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="relative flex min-w-0 flex-[1_1_8rem] flex-nowrap items-center gap-1 overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             <div className="shrink-0">
               <ManagementFields canManage={canManage}>

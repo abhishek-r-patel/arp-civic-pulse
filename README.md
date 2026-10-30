@@ -211,7 +211,7 @@ See the [launch checklist audit](./docs/LAUNCH_AUDIT.md#public-site-checklist-26
 and [activation steps](./docs/DEPLOYMENT.md#public-site-integrations).
 
 ```text
-src/app            Routes, route groups ((access), (member)), admin, api handlers
+src/app            Routes, route group (access), admin, api handlers
 				   privacy/contact/register pages; robots.ts, sitemap.ts, opengraph-image.tsx, icon.svg
 src/components     ui (shared primitives), votes, admin
 				   access/contact-form.tsx, access/self-registration-form.tsx; ui public metadata/analytics/navigation

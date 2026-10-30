@@ -227,17 +227,21 @@ describe.skipIf(!hasDatabase)(
         );
       }
 
-      // A second attempt by every user is refused, still under contention, and changes nothing.
+      // PUBLIC responses are replaceable while ACTIVE: concurrent replacements are
+      // accepted but never add a participation record or a second current response.
       await inFlight(people.slice(0, 100), CONCURRENCY, async (person) => {
-        const second = await request<{ accepted: boolean; reason?: string }>(
-          "repeat ballot",
+        const second = await request<{ accepted: boolean }>(
+          "replace response",
           person.id,
           "public.cast_vote($1, $2::jsonb)",
           [vote.id, JSON.stringify({ confirmed: true, optionId: options[0] })],
-        ).catch((error: Error) => ({ accepted: false, reason: error.message }));
-        expect(second.accepted).toBe(false);
+        );
+        expect(second.accepted).toBe(true);
       });
-      expect((await api.counts(vote.id)).participation).toBe(HOUSEHOLDS);
+      expect(await api.counts(vote.id)).toMatchObject({
+        participation: HOUSEHOLDS,
+        openResponses: HOUSEHOLDS,
+      });
 
       // Results, exports and monitoring after completion, with 100 requests in flight.
       await api.call(
@@ -263,7 +267,7 @@ describe.skipIf(!hasDatabase)(
         );
       });
       report([
-        "repeat ballot",
+        "replace response",
         "results page (50 named)",
         "results for export (all 500)",
       ]);

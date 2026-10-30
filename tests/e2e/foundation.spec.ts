@@ -28,6 +28,8 @@ test("footer opens the illustrated user guide with working contents and embedded
   page,
   request,
 }) => {
+  // The guide embeds every screenshot (~25 MB), which is slow to serve in parallel browser runs.
+  test.slow();
   await page.goto("/sign-in");
   const guideLink = page
     .getByRole("navigation", { name: "Information" })
@@ -127,7 +129,9 @@ for (const width of widths) {
     await expect(
       page.getByRole("heading", { level: 1, name: "Sign in" }),
     ).toBeVisible();
-    await expect(page.getByLabel(/Registered email address/)).toBeVisible();
+    await expect(
+      page.getByRole("textbox", { name: /Registered email address/ }),
+    ).toBeVisible();
 
     const footer = page.getByRole("contentinfo");
     await expect(

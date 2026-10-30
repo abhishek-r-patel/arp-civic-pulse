@@ -15,7 +15,7 @@ describe("page header", () => {
     );
 
     expect(html).toMatch(
-      /<div class="flex min-w-0 flex-wrap items-start justify-between gap-3 sm:items-center"><h1[^>]*>Manage Votes<\/h1><div class="ml-auto flex shrink-0 flex-wrap justify-end gap-3"><button>New Vote<\/button><\/div><\/div><p class="w-full text-body text-muted">A full-width description\.<\/p>/,
+      /<div class="flex min-w-0 flex-wrap items-start justify-between gap-3 sm:items-center"><h1[^>]*>Manage Votes<\/h1><div class="ml-auto flex max-w-full min-w-0 flex-wrap justify-end gap-3"><button>New Vote<\/button><\/div><\/div><p class="w-full text-body text-muted">A full-width description\.<\/p>/,
     );
   });
 });

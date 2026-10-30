@@ -292,10 +292,15 @@ test("form-focused pages center their heading and controls while directories sta
           overflow: document.documentElement.scrollWidth > innerWidth,
         };
       });
-      expect(layout.width).toBe(
-        Math.min(640, layout.viewport - (width < 768 ? 32 : 48)),
+      // The draft preview uses a wider two-column layout with a sticky summary.
+      const maxWidth = path.endsWith("/preview") ? 1152 : 640;
+      expect(layout.width, `${path} at ${width}px`).toBe(
+        Math.min(maxWidth, layout.viewport - (width < 768 ? 32 : 48)),
       );
-      expect(Math.abs(layout.center - layout.viewport / 2)).toBeLessThan(1);
+      expect(
+        Math.abs(layout.center - layout.viewport / 2),
+        `${path} at ${width}px`,
+      ).toBeLessThan(1);
       expect(layout.overflow).toBe(false);
       if (path === "/admin/residents/import" && width === 1280) {
         await page.getByLabel("Register CSV").setInputFiles({
@@ -419,6 +424,7 @@ test("form-focused pages center their heading and controls while directories sta
               actionLeft: first.left,
               contentLeft:
                 formRect.left +
+                form.clientLeft +
                 Number.parseFloat(getComputedStyle(form).paddingLeft),
             };
           });
@@ -821,7 +827,7 @@ test.describe("sign-in screen", () => {
   }) => {
     await page.goto("/sign-in");
     await page
-      .getByLabel(/Registered email address/)
+      .getByRole("textbox", { name: /Registered email address/ })
       .fill(plusEmail().replace("+cp", "+unknown"));
     await page.getByRole("button", { name: "Send Sign-In Code" }).click();
 
@@ -839,11 +845,11 @@ test.describe("sign-in screen", () => {
     await stubCodeRequest(page);
     await page.goto("/sign-in");
     await page
-      .getByLabel(/Registered email address/)
+      .getByRole("textbox", { name: /Registered email address/ })
       .fill("someone@example.com");
     await page.getByRole("button", { name: "Send Sign-In Code" }).click();
 
-    const code = page.getByLabel(/Six-digit code/);
+    const code = page.getByRole("textbox", { name: /Six-digit code/ });
     await expect(code).toBeFocused();
     await expect(code).toHaveAttribute("autocomplete", "one-time-code");
     await expect(code).toHaveAttribute("inputmode", "numeric");
@@ -865,14 +871,17 @@ test.describe("sign-in screen", () => {
     await stubCodeRequest(page);
     await page.goto("/sign-in");
     await page
-      .getByLabel(/Registered email address/)
+      .getByRole("textbox", { name: /Registered email address/ })
       .fill("someone@example.com");
     await page.getByRole("button", { name: "Send Sign-In Code" }).click();
-    await page.getByLabel(/Six-digit code/).fill("000000");
+    await page.getByRole("textbox", { name: /Six-digit code/ }).fill("000000");
     await page.getByRole("button", { name: "Verify and Sign In" }).click();
 
     await expect(page.getByText(/not valid or has expired/)).toBeVisible();
-    await expect(page.getByText(/Sent to someone@example.com/)).toBeVisible();
+    // The hint sits behind the field's info tip but still describes the code field.
+    await expect(
+      page.getByRole("textbox", { name: /Six-digit code/ }),
+    ).toHaveAccessibleDescription(/Sent to someone@example.com/);
     await expect(
       page.getByRole("button", { name: "Send a New Code" }),
     ).toBeDisabled();
@@ -1027,8 +1036,12 @@ test.describe("register screens", () => {
     // Create an account.
     await page.goto("/admin/residents/new");
     const residentEmail = plusEmail();
-    await page.getByLabel(/Email address/).fill(residentEmail);
-    await page.getByLabel(/Resident name/).fill("Browser Resident");
+    await page
+      .getByRole("textbox", { name: /Email address/ })
+      .fill(residentEmail);
+    await page
+      .getByRole("textbox", { name: /Resident name/ })
+      .fill("Browser Resident");
     await page.getByRole("button", { name: "Create Resident" }).click();
     await expect(page.getByText(/before creating a resident/)).toBeVisible();
     await expect(page).toHaveURL(/\/admin\/residents\/new$/u);
@@ -1055,13 +1068,29 @@ test.describe("register screens", () => {
     await expect(page.getByText(identifier, { exact: true })).toBeVisible();
 
     await page.goto(accountPath);
-    await page.getByRole("link", { name: "Change eligibility" }).click();
-    await page.getByLabel("Eligible to vote").check();
-    await page.getByRole("button", { name: "Save Changes" }).click();
-    await expect(page).toHaveURL(
-      /\/admin\/residents\?notice=household-updated/u,
-    );
-    await page.goto(accountPath);
+    // Eligibility is edited inline on the resident page.
+    const household = page.locator("#household");
+    await household
+      .getByRole("button", { name: "Change eligibility", exact: true })
+      .click();
+    const eligibilityEditor = household.getByRole("form", {
+      name: "Voting eligibility",
+      exact: true,
+    });
+    await eligibilityEditor
+      .getByRole("checkbox", { name: "Eligible to vote", exact: true })
+      .check();
+    await eligibilityEditor
+      .getByRole("button", { name: "Save Changes", exact: true })
+      .click();
+    await expect(
+      household.getByText(
+        "Voting eligibility updated. Existing votes are unchanged.",
+      ),
+    ).toBeVisible();
+    await expect(
+      household.getByText("Eligible", { exact: true }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Enable Account" }).click();
     await page
       .getByRole("dialog")
@@ -1075,11 +1104,15 @@ test.describe("register screens", () => {
     // One step: account, household, eligibility and access together.
     const combined = `BC-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
     await page.goto("/admin/residents/new");
-    await page.getByLabel(/Email address/).fill(plusEmail());
-    await page.getByLabel(/Resident name/).fill("Combined Resident");
+    await page
+      .getByRole("textbox", { name: /Email address/ })
+      .fill(plusEmail());
+    await page
+      .getByRole("textbox", { name: /Resident name/ })
+      .fill("Combined Resident");
     await page.locator('[id="household.identifier"]').fill(combined);
-    await page.getByLabel("Eligible to vote").check();
-    await page.getByLabel("Enable account now").check();
+    await page.getByRole("checkbox", { name: "Eligible to vote" }).check();
+    await page.getByRole("checkbox", { name: "Enable account now" }).check();
     await page.getByRole("button", { name: "Create Resident" }).click();
     await expect(page.getByText("Account created and enabled.")).toBeVisible();
     await expect(page.getByText(combined, { exact: true })).toBeVisible();
@@ -1094,8 +1127,12 @@ test.describe("register screens", () => {
 
     for (const attempt of [1, 2]) {
       await page.goto("/admin/residents/new");
-      await page.getByLabel(/Email address/).fill(plusEmail());
-      await page.getByLabel(/Resident name/).fill(`Dup Resident ${attempt}`);
+      await page
+        .getByRole("textbox", { name: /Email address/ })
+        .fill(plusEmail());
+      await page
+        .getByRole("textbox", { name: /Resident name/ })
+        .fill(`Dup Resident ${attempt}`);
       await page
         .locator('[id="household.identifier"]')
         .fill(attempt === 1 ? identifier : ` ${identifier.toLowerCase()} `);
@@ -1251,10 +1288,14 @@ test.describe("confirmation dialog", () => {
     const { email, code } = await provisionAdmin();
     await signInThroughUi(page, email, code);
     await page.goto("/admin/residents/new");
-    await page.getByLabel(/Email address/).fill(plusEmail());
-    await page.getByLabel(/Resident name/).fill("Focus Subject");
+    await page
+      .getByRole("textbox", { name: /Email address/ })
+      .fill(plusEmail());
+    await page
+      .getByRole("textbox", { name: /Resident name/ })
+      .fill("Focus Subject");
     await chooseDropdownOption(page, "Role", "RWA ReadOnly");
-    await page.getByLabel("Enable account now").check();
+    await page.getByRole("checkbox", { name: "Enable account now" }).check();
     await page.getByRole("button", { name: "Create Resident" }).click();
     await expect(page.getByText("Account created and enabled.")).toBeVisible();
     await page.getByRole("button", { name: "Delete Account" }).click();
@@ -1290,9 +1331,11 @@ test.describe("responsive and accessible", () => {
     await signInThroughUi(page, email, code);
 
     await page.goto("/admin/residents/new");
-    await page.getByLabel(/Email address/).fill(plusEmail());
     await page
-      .getByLabel(/Resident name/)
+      .getByRole("textbox", { name: /Email address/ })
+      .fill(plusEmail());
+    await page
+      .getByRole("textbox", { name: /Resident name/ })
       .fill("Layout Subject With A Rather Long Name That Must Wrap Not Clip");
     await chooseDropdownOption(page, "Role", "RWA ReadOnly");
     await page.getByRole("button", { name: "Create Resident" }).click();
@@ -1338,8 +1381,12 @@ test.describe("responsive and accessible", () => {
         ]
           .filter((element) => {
             const box = element.getBoundingClientRect();
+            // checkVisibility() skips controls inside closed menus such as the theme <details>.
             const visible =
-              box.width > 0 && box.height > 0 && !element.closest(".sr-only");
+              box.width > 0 &&
+              box.height > 0 &&
+              element.checkVisibility() &&
+              !element.closest(".sr-only");
             return visible && (box.height < 47.5 || box.width < 47.5);
           })
           .map(
@@ -1365,11 +1412,21 @@ test.describe("responsive and accessible", () => {
     ).toBeVisible();
     const overflowing = await page.evaluate(() => {
       const width = document.documentElement.clientWidth;
+      // The resident toolbar and tables scroll sideways by design
+      // (docs/DESIGN_SYSTEM.md); only content outside such regions counts.
+      const inScroller = (element: Element) => {
+        for (let p = element.parentElement; p; p = p.parentElement) {
+          const overflowX = getComputedStyle(p).overflowX;
+          if (overflowX === "auto" || overflowX === "scroll") return true;
+        }
+        return false;
+      };
       const offenders = [
         ...document.querySelectorAll<HTMLElement>("body *"),
       ].filter(
         (element) =>
           !element.closest('[class*="sr-only"]') &&
+          !inScroller(element) &&
           element.getBoundingClientRect().right > width + 1,
       );
       // Report the innermost elements: ancestors overflow only because of them.

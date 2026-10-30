@@ -192,15 +192,19 @@ test.describe("voting", () => {
     await signInResident(page, resident);
 
     // Discovery: the vote is listed with its state and a deadline in the RWA zone.
-    await expect(page.getByText("Not voted")).toBeVisible();
+    await expect(page.getByText("Not submitted")).toBeVisible();
     await expect(page.getByText(/Closes .*IST/)).toBeVisible();
-    await page.getByRole("link", { name: /Submission API vote/ }).click();
+    await page
+      .getByRole("link", { name: "Submission API vote", exact: true })
+      .click();
     await expect(
       page.getByRole("heading", { level: 1, name: "Submission API vote" }),
     ).toBeVisible();
-    await expect(page.getByText(/Your choice is not private/)).toBeVisible();
     await expect(
-      page.getByText(/You can change your choice until voting closes/),
+      page.getByText("Your vote is not private", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/You can change your vote until voting closes/),
     ).toBeVisible();
     await expect(page.getByRole("timer")).toBeVisible();
 
@@ -271,9 +275,13 @@ test.describe("voting", () => {
       [vote.id],
     );
     expect(current?.option_id).toBe(vote.options[1]?.id);
-    expect(await page.content()).not.toContain(vote.options[0]?.id ?? "x");
+    // The rendered ballot carries every option id, so the earlier choice must not be singled out.
+    const html = await page.content();
+    expect(
+      new Set(vote.options.map((option) => html.includes(option.id))).size,
+    ).toBe(1);
     await page.goto("/");
-    await expect(page.getByText("Submitted", { exact: true })).toBeVisible();
+    await expect(page.getByText("Response recorded")).toBeVisible();
   });
 
   test("a PRIVATE vote: NOTA, review and a private submission", async ({
@@ -367,7 +375,7 @@ test.describe("voting", () => {
         }),
       });
     });
-    await page.getByRole("button", { name: "Submit Vote" }).click();
+    await page.getByRole("button", { name: "Update Vote" }).click();
     await expect(
       page.getByRole("heading", {
         name: "We could not confirm your vote change",
@@ -549,9 +557,7 @@ test.describe("results and download", () => {
       page.getByRole("list", { name: "Turnout" }).getByRole("listitem"),
     ).toContainText("1/3");
     await expect(
-      page.getByRole("heading", {
-        name: "Turnout only while voting is open",
-      }),
+      page.getByText("Turnout only while voting is open", { exact: true }),
     ).toBeVisible();
     await expect(page.getByRole("list", { name: /Results for/ })).toHaveCount(
       0,
@@ -564,11 +570,12 @@ test.describe("results and download", () => {
       vote: { status: "ACTIVE", votingType: "PRIVATE" },
       eligibleCount: "3",
       submittedCount: "1",
-      options: [],
       offices: [],
-      namedResponses: null,
-      namedPage: null,
     });
+    // Live PRIVATE results omit option totals and named responses entirely.
+    expect(json.data.options ?? []).toEqual([]);
+    expect(json.data.namedResponses ?? null).toBeNull();
+    expect(json.data.namedPage ?? null).toBeNull();
     expect(JSON.stringify(json)).not.toContain(a.name);
     expect(JSON.stringify(json)).not.toContain(a.identifier);
     expect(
@@ -678,7 +685,10 @@ test.describe("results and download", () => {
           turnout: { percent: string };
           options: { label: string; count: string; percent: string }[];
           outcome: string;
-          namedResponses: { representativeName: string; optionLabel: string }[];
+          namedResponses: {
+            representativeName: string;
+            optionLabels: string[];
+          }[];
         };
       }
     ).data;
@@ -717,7 +727,7 @@ test.describe("results and download", () => {
       .sort();
     expect(named).toEqual(
       api.namedResponses
-        .map((n) => `${n.representativeName}|${n.optionLabel}`)
+        .map((n) => `${n.representativeName}|${n.optionLabels.join("; ")}`)
         .sort(),
     );
     expect(csv.every((r) => r.length === header.length)).toBe(true);
@@ -735,11 +745,12 @@ test.describe("results and download", () => {
       /^civic-pulse-results-\d{4}-\d{2}-\d{2}-[0-9a-f]{8}\.pdf$/u,
     );
     const pdf = await pdfText(await readFile(await pdfDownload.path()));
-    expect(pdf).toContain("3of4eligiblehouseholds");
-    expect(pdf).toContain("(75%)");
-    for (const option of api.options) {
-      expect(pdf).toContain(`${option.label}${option.count}${option.percent}%`);
-    }
+    expect(pdf).toContain(
+      `voted${api.submittedCount}/${api.eligibleCount}${api.turnout.percent}%`,
+    );
+    // Like the screen, the PDF shows each option against all eligible flats.
+    expect(pdf).toContain("Yes(Leading)2/450%");
+    expect(pdf).toContain("No1/425%");
     for (const resident of [a, b, c]) {
       expect(pdf).toContain(resident.name.replace(/\s+/gu, ""));
     }
@@ -783,6 +794,8 @@ test.describe("results and download", () => {
       page.getByText("Your vote is private", { exact: true }),
     ).toBeVisible();
     await expect(page.getByText("Elected candidate")).toBeVisible();
+    // The NOTA rule sits behind a click-to-open info tip.
+    await page.getByRole("button", { name: "About NOTA counting" }).click();
     await expect(
       page.getByText(/NOTA.*cannot win.*even if NOTA receives more votes/),
     ).toBeVisible();
@@ -800,7 +813,9 @@ test.describe("results and download", () => {
       outcome: "LEADER",
       leaderCandidateIds: [office?.candidates[0]?.id],
     });
-    await expect(page.getByText("Who chose what")).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "Who chose what" }),
+    ).toHaveCount(0);
     const main = await page.locator("#main-content").innerText();
     for (const resident of [a, b, c]) {
       expect(main).not.toContain(resident.name);
@@ -898,7 +913,7 @@ test.describe("administrator monitoring", () => {
       page.getByRole("heading", { level: 1, name: "Participation" }),
     ).toBeVisible();
     await expect(page.getByText(/1 of 2/)).toBeVisible();
-    const table = page.getByRole("table", { name: "Household participation" });
+    const table = page.getByRole("table", { name: / participation$/ });
     await expect(
       table.getByRole("row", { name: new RegExp(a.identifier) }),
     ).toContainText("Submitted");
@@ -907,7 +922,8 @@ test.describe("administrator monitoring", () => {
     ).toContainText("Not voted");
 
     await chooseDropdownOption(page, "Show", "Not submitted");
-    await page.getByRole("button", { name: "Apply Filter" }).click();
+    // The filter applies as soon as an option is chosen.
+    await expect(page).toHaveURL(/submitted=false/u);
     await expect(page.getByText(b.identifier, { exact: true })).toBeVisible();
     await expect(page.getByText(a.identifier, { exact: true })).toHaveCount(0);
 
@@ -943,7 +959,12 @@ test.describe("administrator monitoring", () => {
       page.getByRole("dialog", { name: "Filter Action" }),
     ).toBeVisible();
     const events = page.getByRole("table", { name: "Audit events" });
-    await expect(events.getByText("Vote activated").first()).toBeVisible();
+    // Column filter dialogs render inside the table header, so match event cells only.
+    // Stacked mobile rows prefix each cell with its column name.
+    const activatedCell = events
+      .getByRole("cell", { name: /^(?:Action )?Vote activated$/u })
+      .first();
+    await expect(activatedCell).toBeVisible();
     await expect(events.getByRole("columnheader").nth(2)).toContainText(
       "Target",
     );
@@ -956,7 +977,9 @@ test.describe("administrator monitoring", () => {
     await expect(showTargetIds).not.toBeChecked();
     await expect(events.getByText(vote.id, { exact: true })).toHaveCount(0);
     await showTargetIds.check();
-    await expect(events.getByText(vote.id, { exact: true })).toBeVisible();
+    await expect(
+      events.getByText(vote.id, { exact: true }).first(),
+    ).toBeVisible();
     await showTargetIds.uncheck();
     await expect(events.getByText(vote.id, { exact: true })).toHaveCount(0);
     const showEffectiveTimes = page.getByRole("checkbox", {
@@ -996,9 +1019,12 @@ test.describe("administrator monitoring", () => {
     await expect(
       events.getByText("Processed time:", { exact: true }),
     ).toHaveCount(0);
-    const cancelledRow = events.getByRole("row").filter({
-      hasText: "Vote cancelled",
-    });
+    // Audit history is shared with earlier runs; it lists newest first, so take this test's row.
+    const cancelledRow = events
+      .getByRole("row")
+      .filter({ hasText: "Vote cancelled" })
+      .filter({ hasText: "Audit reason display" })
+      .first();
     await expect(cancelledRow).toContainText("Reason:");
     await expect(cancelledRow).toContainText("Audit reason display");
     await expect(
@@ -1012,10 +1038,11 @@ test.describe("administrator monitoring", () => {
       `Your time zone: ${timezone}`,
     );
     await page.getByRole("button", { name: "Filter When" }).click();
-    await expect(page.getByLabel("From (local time)")).toBeVisible();
+    const whenDialog = page.getByRole("dialog", { name: "Filter When" });
     await expect(
-      page.getByRole("dialog", { name: "Filter When" }),
-    ).toContainText(timezone);
+      whenDialog.getByLabel("From (local time)", { exact: true }),
+    ).toBeVisible();
+    await expect(whenDialog).toContainText(timezone);
     await page.keyboard.press("Escape");
     for (const column of ["Who", "Details"]) {
       await expect(
@@ -1023,30 +1050,46 @@ test.describe("administrator monitoring", () => {
       ).toBeVisible();
     }
     await page.getByRole("button", { name: "Filter Details" }).click();
-    await page.getByLabel("Details").fill("Audit reason display");
-    await page.getByRole("button", { name: "Apply Filters" }).click();
+    const detailsDialog = page.getByRole("dialog", { name: "Filter Details" });
+    await detailsDialog
+      .getByLabel("Details", { exact: true })
+      .fill("Audit reason display");
+    await detailsDialog.getByRole("button", { name: "Apply Filters" }).click();
     await expect(cancelledRow).toBeVisible();
-    await expect(events.getByText("Vote activated").first()).toHaveCount(0);
+    await expect(activatedCell).toHaveCount(0);
     await page.getByRole("link", { name: "Clear filters" }).click();
-    await expect(events.getByText("Vote activated").first()).toBeVisible();
+    await expect(activatedCell).toBeVisible();
 
+    await page.getByRole("button", { name: "Filter Action" }).click();
     await chooseDropdownOption(page, "Action", "Vote activated");
-    await page.getByRole("button", { name: "Apply Filters" }).click();
-    await expect(events.getByText("Vote activated").first()).toBeVisible();
+    await page
+      .getByRole("dialog", { name: "Filter Action" })
+      .getByRole("button", { name: "Apply Filters" })
+      .click();
+    await expect(activatedCell).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(
       page.getByRole("button", { name: "Filter Audit History" }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Filter Audit History" }).click();
+    const allFilters = page.getByRole("dialog", {
+      name: "Filter Audit History",
+    });
+    await expect(allFilters).toBeVisible();
+    // Action is a custom dropdown: check the shown choice and the submitted value.
     await expect(
-      page.getByRole("dialog", { name: "Filter Audit History" }),
+      allFilters.getByRole("combobox", { name: "Action", exact: true }),
+    ).toContainText("Vote activated");
+    await expect(allFilters.locator('input[name="action"]')).toHaveValue(
+      "VOTE_ACTIVATED",
+    );
+    await expect(allFilters.getByLabel("Who", { exact: true })).toBeVisible();
+    await expect(
+      allFilters.getByLabel("Details", { exact: true }),
     ).toBeVisible();
-    await expect(page.getByLabel("Action")).toHaveValue("VOTE_ACTIVATED");
-    await expect(page.getByLabel("Who", { exact: true })).toBeVisible();
-    await expect(page.getByLabel("Details", { exact: true })).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(events.getByText("Vote activated").first()).toBeVisible();
+    await expect(activatedCell).toBeVisible();
     const auditText = await page.locator("#main-content").innerText();
     expect(auditText).not.toMatch(/optionId|\botp\b|ballot:/iu);
   });
@@ -1171,10 +1214,20 @@ test.describe("responsive and accessible", () => {
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       const offenders = await page.evaluate(() => {
         const width = document.documentElement.clientWidth;
+        // The Who chose what table scrolls inside its own region by design
+        // (docs/USER_GUIDE.md); only content outside such regions counts.
+        const inScroller = (element: Element) => {
+          for (let p = element.parentElement; p; p = p.parentElement) {
+            const overflowX = getComputedStyle(p).overflowX;
+            if (overflowX === "auto" || overflowX === "scroll") return true;
+          }
+          return false;
+        };
         return [...document.querySelectorAll<HTMLElement>("body *")]
           .filter(
             (el) =>
               !el.closest('[class*="sr-only"]') &&
+              !inScroller(el) &&
               el.getBoundingClientRect().right > width + 1,
           )
           .slice(0, 6)
@@ -1184,6 +1237,7 @@ test.describe("responsive and accessible", () => {
           );
       });
       expect(offenders, `${path} at 200% text`).toEqual([]);
+      expect(await overflows(page), `${path} page scroll at 200%`).toBe(false);
     }
   });
 

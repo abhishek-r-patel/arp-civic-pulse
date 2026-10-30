@@ -17,7 +17,7 @@ export function ParticipationFilter({
 }>) {
   const router = useRouter();
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex max-w-full min-w-0 flex-wrap items-center gap-3">
       <label
         htmlFor="participation-submitted"
         className="text-body font-semibold whitespace-nowrap text-primary"
@@ -29,7 +29,7 @@ export function ParticipationFilter({
         name="submitted"
         label="Show"
         defaultValue={value}
-        className="w-48"
+        className="w-48 max-w-full"
         options={[
           { value: "", label: `All ${households}` },
           { value: "true", label: "Submitted" },

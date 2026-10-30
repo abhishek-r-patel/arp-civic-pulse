@@ -51,7 +51,6 @@ export const multilineText = (maxLength: number) =>
   plainText(maxLength, true, false);
 
 export const nameText = singleLineText(FIELD_LIMITS.name);
-export const titleText = singleLineText(FIELD_LIMITS.title);
 // Drafts may have an empty title; activation validation requires one.
 export const draftTitleText = plainText(FIELD_LIMITS.title, false, true);
 // Optional plain-text paragraphs (for example a welcome message) may be empty.

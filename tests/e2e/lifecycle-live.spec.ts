@@ -4,6 +4,7 @@ import {
   buildReadyOpenDraft,
   provisionAdmin,
   signInThroughUi,
+  openPreview,
 } from "./support/live";
 
 /*
@@ -30,7 +31,7 @@ async function readyAndActivated(
   const admin = await provisionAdmin();
   await signInThroughUi(page, admin.email, admin.code);
   const editor = await buildReadyOpenDraft(page, admin.id, closesLocal);
-  await page.getByRole("link", { name: "Preview Ballot" }).click();
+  await openPreview(page);
   await expect(
     page.getByText("No problems found in this version"),
   ).toBeVisible();
@@ -56,9 +57,9 @@ test.describe("activation", () => {
     await page.goto("/admin/votes/new");
     await page.getByRole("radio", { name: /^PUBLIC Voting/ }).check();
     await page.getByRole("button", { name: "Create Draft" }).click();
-    await page.getByRole("link", { name: "Preview Ballot" }).click();
+    await openPreview(page);
     await expect(
-      page.getByText(/before this vote can be activated/),
+      page.getByText(/^Fix \d+ things? before starting$/),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Activate Vote" }),
@@ -66,7 +67,7 @@ test.describe("activation", () => {
 
     // A ready draft can be activated, after an explicit confirmation.
     const editor = await buildReadyOpenDraft(page, admin.id);
-    await page.getByRole("link", { name: "Preview Ballot" }).click();
+    await openPreview(page);
     await expect(
       page.getByText("No problems found in this version"),
     ).toBeVisible();
@@ -86,7 +87,7 @@ test.describe("activation", () => {
       page.getByRole("button", { name: "Save Draft" }),
     ).toBeVisible();
 
-    await page.getByRole("link", { name: "Preview Ballot" }).click();
+    await openPreview(page);
     await page.getByRole("button", { name: "Activate Vote" }).click();
     await page
       .getByRole("dialog")
@@ -130,7 +131,7 @@ test.describe("activation", () => {
     const admin = await provisionAdmin();
     await signInThroughUi(page, admin.email, admin.code);
     const editor = await buildReadyOpenDraft(page, admin.id);
-    await page.getByRole("link", { name: "Preview Ballot" }).click();
+    await openPreview(page);
     await expect(
       page.getByText("No problems found in this version"),
     ).toBeVisible();
@@ -234,6 +235,9 @@ test.describe("ending a vote", () => {
       .toLocaleString("sv-SE", { timeZone: "Asia/Kolkata" })
       .replace(" ", "T")
       .slice(0, 16);
+    // The page refreshes itself when its countdown reaches zero; freezing the
+    // browser clock keeps it stale so the server's refusal is what is tested.
+    await page.clock.setFixedTime(new Date());
     await readyAndActivated(page, local);
 
     // Wait until the deadline has certainly passed WITHOUT reloading, so the page

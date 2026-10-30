@@ -5,7 +5,7 @@ import {
   officeProjection,
   optionProjection,
 } from "@/shared/contracts/drafts";
-import { listQuerySchema, queryBoolean } from "@/shared/contracts/pagination";
+import { listQuerySchema } from "@/shared/contracts/pagination";
 import { VOTING_TYPES } from "@/shared/contracts/voting";
 
 /*
@@ -124,10 +124,6 @@ export type MemberVoteDetail = z.output<typeof memberVoteDetailSchema>;
 export type MemberVoteDetailResponse = MemberVoteDetail & {
   privacyNotice: "PUBLIC" | "PRIVATE";
 };
-
-export const participationMonitorQuerySchema = listQuerySchema({
-  submitted: queryBoolean.optional(),
-});
 
 export const participationMonitorSchema = z.object({
   voteId: z.uuid(),

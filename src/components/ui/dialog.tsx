@@ -1,7 +1,7 @@
 // Deliberate lifecycle/account confirmations with native focus containment and theme-safe surfaces.
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Button } from "./button";
 import { cn } from "./cn";
 
@@ -37,6 +37,8 @@ export function ConfirmDialog({
   children,
 }: ConfirmDialogProps) {
   const dialog = useRef<HTMLDialogElement>(null);
+  // Pages render several dialogs, so each needs its own title id for its name.
+  const titleId = useId();
 
   useEffect(() => {
     const element = dialog.current;
@@ -53,7 +55,7 @@ export function ConfirmDialog({
   return (
     <dialog
       ref={dialog}
-      aria-labelledby="confirm-dialog-title"
+      aria-labelledby={titleId}
       onCancel={(event) => {
         // Esc: let the parent decide, so state and the dialog never disagree.
         event.preventDefault();
@@ -69,7 +71,7 @@ export function ConfirmDialog({
     >
       <div className="grid gap-4 p-4 sm:p-6">
         <h2
-          id="confirm-dialog-title"
+          id={titleId}
           className="font-heading text-section font-semibold sm:text-section-lg"
         >
           {title}

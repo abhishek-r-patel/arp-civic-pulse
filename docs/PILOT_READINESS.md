@@ -491,7 +491,7 @@ Targets (provisional, from the plan): p95 under **2 s** for pages and API calls,
 | Submit a PRIVATE ballot (5 offices, shared counters) | 341 ms | 457 ms | Every office's counters add up to exactly 500            |
 | Open ballot / own status / list votes        | 51–58 ms | 85–232 ms |                                                         |
 | Administrator participation (during the burst) | 77 ms  | 159 ms   |                                                          |
-| Repeat submission (refused)                  | 26 ms    | 44 ms    | Nothing changes                                          |
+| Replace a PUBLIC response (100 at once)      | 86 ms    | 139 ms   | All accepted; still 500 participations and 500 current responses (re-measured 2026-10-30) |
 | Results page (50 named) / all 500 for export | 84 / 27 ms | 92 / 31 ms |                                                      |
 | CSV render, 500 names                        | 2 ms     |          |                                                          |
 | PDF render, 500 names (17 pages)             | about 1 s |         | Single-threaded CPU; two renders at a time, others queue |
@@ -501,7 +501,7 @@ Targets (provisional, from the plan): p95 under **2 s** for pages and API calls,
 | Operation                                       | n  | p50      | p95      |
 | ----------------------------------------------- | -- | -------- | -------- |
 | Submit a ballot (24 at the same moment, plus background reads) | 24 | 1613 ms | 1657 ms |
-| Repeat submission (refused, 409)                | 24 | 446 ms   | 532 ms   |
+| Repeat submission (refused, 409; historical — PUBLIC responses are now replaceable, so the spec now measures `POST replace response` and this row has not been re-measured) | 24 | 446 ms   | 532 ms   |
 | Vote list / ballot (warm)                       | 72 | 1096 ms  | 1165 ms  |
 | Vote list / ballot (**cold** first pass)        | 72 | 2153 ms  | 2250 ms  |
 | Own participation status (during the burst)     | 72 | 1394 ms  | 1463 ms  |

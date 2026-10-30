@@ -317,7 +317,7 @@ export async function createDraftThroughUi(
 ): Promise<string> {
   await page.goto("/admin/votes/new");
   await page
-    .getByRole("radio", { name: new RegExp(`^${type} voting`) })
+    .getByRole("radio", { name: new RegExp(`^${type} Voting`) })
     .check();
   await page.getByRole("button", { name: "Create Draft" }).click();
   await expect(
@@ -345,6 +345,19 @@ export async function saveDraft(
   await expect(
     page.getByText(`Draft saved as version ${expectedVersion}.`),
   ).toBeVisible();
+}
+
+/**
+ * Opens the preview from the editor. A draft with unsaved edits (including a
+ * just-created draft's prefilled deadline) offers "Save and Preview" instead
+ * of the "Preview Ballot" link.
+ */
+export async function openPreview(page: Page): Promise<void> {
+  await page
+    .getByRole("link", { name: "Preview Ballot" })
+    .or(page.getByRole("button", { name: "Save and Preview" }))
+    .click();
+  await expect(page).toHaveURL(/\/preview(?:\?|$)/u);
 }
 
 export async function setDateTime(
@@ -411,9 +424,11 @@ export async function buildReadyOpenDraft(
   const household = await seedHousehold();
   const editor = await createDraftThroughUi(page, "PUBLIC");
   await addOpenBallot(page, "Lifecycle question");
-  await page.getByLabel("Find a household").fill(household.identifier);
+  await page.getByLabel(/^Find a /).fill(household.identifier);
   await page
-    .getByRole("checkbox", { name: new RegExp(household.identifier) })
+    .getByRole("checkbox", {
+      name: new RegExp(`^${household.identifier}\\b`, "u"),
+    })
     .check();
   await setDateTime(page, "Voting closes", closesLocal);
   await saveDraft(page, 2);

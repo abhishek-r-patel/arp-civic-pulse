@@ -149,7 +149,6 @@ This is the migration target, not a description of already completed changes. Re
 src\
   app\
     (access)\
-    (member)\
     admin\
     api\
       auth\
@@ -165,9 +164,7 @@ src\
     authorization\
     register\
     votes\
-    results\
     exports\
-    audit\
     db\
     observability\
     config\
@@ -253,11 +250,12 @@ assignment, bulk review/import, ballot editing and vote lifecycle actions. It is
 fixed and centred in both viewport axes at every breakpoint, with phone gutters
 and internal scrolling for content taller than 90dvh. Native focus containment,
 Escape cancellation and return focus are preserved; menus and combobox lists
-remain anchored to their controls.
+remain anchored to their controls. Each dialog labels itself with its own
+`useId` title id, so pages rendering several dialogs announce the right title.
 
 - `src/components/ui/date-time-picker.tsx`: accessible themed calendar modal and 12-hour AM/PM editor for draft opening/closing deadlines; displays `hh:mm:ss AM/PM` and returns second-precision local values for conversion in the configured RWA timezone.
 - `src/app/admin/residents/page.tsx`: unified people/assignment directory, defaulting to Voters, with global column sorting, role/status/source/identifier/eligibility (including no assignment), name and profile-changed-time filters, plus independent access/eligibility review actions. `listResidentTable` in `src/server/register/accounts.ts` validates bounded ordered IDs and exact metadata from `get_resident_table_page`, then uses shared page-scoped profile/household/Auth enrichment, preserving App Support flags. Account API paths, ID ordering, response shapes and the older `listResidents` cursor service remain unchanged.
-- `src/components/admin/resident-table-controls.tsx`, `resident-identifier-filter.tsx` and shared `src/components/ui/data-table.tsx`: URL-backed sortable column headers with `aria-sort`, native top-layer filter popovers, Settings-backed identifier picker/manual fallback, Source column controls and mobile Sort & Filter controls. Data-table headers/cells expose their column keys, and responsive table views filter columns by the same keys before rendering headers and values. Dropdown lists expand in flow inside scrolling panels. The Clear filters link removes filter state while preserving sort, direction and page size. Controls remain usable for observers outside management-disabled fields; selections clear on ordering/filter/page/size changes.
+- `src/components/admin/resident-table-controls.tsx`, `resident-identifier-filter.tsx` and shared `src/components/ui/data-table.tsx`: URL-backed sortable column headers with `aria-sort`, native top-layer filter popovers, Settings-backed identifier picker/manual fallback, Source column controls and mobile Sort & Filter controls. Data-table headers/cells expose their column keys, and responsive table views filter columns by the same keys before rendering headers and values. Dropdown lists expand in flow inside scrolling panels. The Clear filters link removes filter state while preserving sort, direction and page size. The uncontrolled filter forms here, in Manage Votes (`vote-table-controls.tsx`) and in Audit History are keyed by the URL state, so they remount after any URL change and never re-apply cleared values. Controls remain usable for observers outside management-disabled fields; selections clear on ordering/filter/page/size changes.
 - `src/components/admin/audit-table-controls.tsx` and `src/components/ui/table-filter-popover.tsx`: Audit History's URL-backed browser-local date-range, Who, Action, Target and combined Details/reason filters, including its mobile combined filter toolbar; the shared viewport-aware native popover is also used by Residents. Clearing filters preserves page size; audit pagination remains newest-first and timestamps display in the viewer's time zone.
 - `src/app/admin/votes/[id]/participation/page.tsx` and `src/components/admin/participation-filter.tsx`: participation follow-up page. It mirrors the results header: **Participation: {title}** heading, collapsible background or instructions, then type/status badges and the turnout line with an (i) "About this list" explanation in place of a header subtitle (vote read once per request via React `cache`; the title also appears in the browser tab title); the Show filter applies on selection and preserves page size.
 - `src/components/votes/vote-instructions.tsx`: shared collapsed **Background** (PUBLIC) / **Instructions for voters** (PRIVATE) disclosure placed under the results and participation page headers; renders nothing when the vote has no text.
@@ -316,6 +314,7 @@ authorization. Do not include register, ballot or results URLs in discovery.
 | `src/server/settings/rwa-profile.ts` | Server-side validation of member branding, profile and the names-only Contact directory projections |
 | `src/components/ui/public-structured-data.tsx` | Escaped Organization and public BreadcrumbList JSON-LD |
 | `src/components/ui/breadcrumbs.tsx` | Contextual navigation using generic record labels |
+| `src/components/ui/field-info.tsx` | Client click-to-open (i) field help; shifts an opened panel to stay inside the viewport. Re-exported from `field.tsx` |
 | `src/components/ui/public-analytics.tsx` | Optional, opt-in GA4 on privacy/contact only; sanitized path-based views |
 | `src/components/access/contact-form.tsx` | Accessible support form, validation and uncertain-send recovery |
 | `src/shared/contracts/contact.ts` | Strict, bounded support payload |

@@ -1,5 +1,5 @@
 // Theme-safe form controls with persistent labels, explicit errors and accessible touch targets.
-import { CircleAlert, Info, Lock } from "lucide-react";
+import { CircleAlert, Lock } from "lucide-react";
 import type {
   InputHTMLAttributes,
   ReactNode,
@@ -9,7 +9,10 @@ import type {
 import { Children, isValidElement, useId } from "react";
 import { cn } from "./cn";
 import { controlClasses } from "./field-classes";
+import { FieldInfo } from "./field-info";
 import { SelectMenu, type SelectMenuOption } from "./select-menu";
+
+export { FieldInfo };
 
 /*
  * Form controls (docs/DESIGN_SYSTEM.md sections 06 and 11): a persistent visible
@@ -17,28 +20,6 @@ import { SelectMenu, type SelectMenuOption } from "./select-menu";
  * targets, at least 16px text and non-colour error cues. Placeholders are
  * never the label.
  */
-export function FieldInfo({
-  label,
-  id,
-  children,
-}: Readonly<{ label: string; id: string; children: ReactNode }>) {
-  return (
-    <details className="relative shrink-0">
-      <summary
-        aria-label={`Information about ${label}`}
-        className="flex size-12 cursor-pointer list-none items-center justify-center rounded-control text-accent hover:bg-accent/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden"
-      >
-        <Info aria-hidden="true" className="size-5" />
-      </summary>
-      <div
-        id={id}
-        className="absolute top-full left-0 z-30 mt-1 w-[min(24rem,calc(100vw_-_2rem))] rounded-card border border-accent/40 bg-surface p-4 text-body text-primary shadow-lg"
-      >
-        {children}
-      </div>
-    </details>
-  );
-}
 
 type FieldChrome = Readonly<{
   label: string;

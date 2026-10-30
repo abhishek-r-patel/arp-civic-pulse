@@ -343,7 +343,11 @@ export function AuditColumnFilter({
         {title}
       </span>
       <TableFilterPopover label={`Filter ${title}`} active={active}>
-        <AuditFilterForm state={state} column={column} />
+        <AuditFilterForm
+          key={JSON.stringify(state.params)}
+          state={state}
+          column={column}
+        />
       </TableFilterPopover>
     </div>
   );
@@ -397,13 +401,19 @@ export function AuditTableToolbar({
       <div className="flex items-center md:hidden">
         <span className="text-caption">Filter</span>
         <TableFilterPopover label="Filter Audit History" active={active}>
-          <AuditFilterForm state={state} all />
+          {/* Remount on URL changes (for example Clear filters) so the
+              uncontrolled fields never keep and re-apply stale filters. */}
+          <AuditFilterForm
+            key={JSON.stringify(state.params)}
+            state={state}
+            all
+          />
         </TableFilterPopover>
       </div>
       {active ? (
         <Link
           href={auditTableClearFiltersHref(state.params)}
-          className="inline-flex min-h-12 items-center font-semibold text-accent underline"
+          className="inline-flex touch-target items-center font-semibold text-accent underline"
         >
           Clear filters
         </Link>

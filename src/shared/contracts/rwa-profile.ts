@@ -37,7 +37,6 @@ export const RWA_ACCENT_PALETTE_LABELS: Record<RwaAccentPalette, string> = {
   AMBER: "Amber",
 };
 
-export const DEFAULT_RWA_ACCENT_PALETTE: RwaAccentPalette = "TEAL";
 export const WELCOME_MESSAGE_MAX_LENGTH = 300;
 
 const rwaAliasSchema = singleLineText(80);

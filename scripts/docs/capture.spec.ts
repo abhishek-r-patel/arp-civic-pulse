@@ -318,8 +318,6 @@ test("capture bulk import and scheduled opening documentation", async ({ browser
     await a.getByRole("link", { name: "Review Resident", exact: true }).click();
     await expect(a.getByRole("heading", { level: 1, name: "Arun Shah (example)" })).toBeVisible();
     await expect(a.getByRole("button", { name: "Enable Account", exact: true })).toBeVisible();
-    await a.goto(`/admin/residents?identifier=${encodeURIComponent(identifier)}`);
-    await capture(a, "44-household-created");
     const mobileAdmin = await browser.newContext({ viewport: { width: 390, height: 844 }, storageState: await desktop.storageState() });
     try {
       const upload = await mobileAdmin.newPage();
@@ -543,7 +541,7 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     await stubCodeRequest(m);
     await m.goto("/sign-in");
     await capture(m, "01-sign-in");
-    await m.getByLabel(/Registered email address/).fill(resident.email);
+    await m.getByRole("textbox", { name: /Registered email address/ }).fill(resident.email);
     await m.getByRole("button", { name: "Send Sign-In Code" }).click();
     await capture(m, "02-code-entry");
     await m.route("**/api/auth/verify", (route) =>
@@ -705,7 +703,6 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     await a.getByRole("textbox", { name: /^Resident name/ }).fill("Arun Shah (example)");
     await a.getByRole("button", { name: "Create Resident" }).click();
     await expect(a.getByText(/before creating a resident/)).toBeVisible();
-    await capture(a, "43-household-required");
     const newIdentifier = onboardingFlat;
     await a.locator('[id="household.identifier"]').fill(newIdentifier);
     await a.keyboard.press("Tab");
@@ -714,7 +711,6 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
       a.getByRole("heading", { level: 1, name: "Arun Shah (example)" }),
     ).toBeVisible();
     const onboardingAccountPath = new URL(a.url()).pathname;
-    await capture(a, "42-created-suspended");
     await a.getByRole("link", { name: "Change eligibility" }).click();
     await a.getByRole("checkbox", {
       name: "Eligible to vote",
@@ -722,10 +718,6 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     }).check();
     await a.getByRole("button", { name: "Save Changes" }).click();
     await expect(a.getByText("Flat updated.")).toBeVisible();
-    await a.goto(
-      `/admin/residents?identifier=${encodeURIComponent(newIdentifier)}`,
-    );
-    await capture(a, "44-household-created");
     await a.goto(onboardingAccountPath);
     await a.getByRole("button", { name: "Enable Account" }).click();
     await capture(a, "45-enable-dialog");
@@ -747,14 +739,9 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     await a.getByRole("button", { name: "Delete Account" }).click();
     await capture(a, "19-delete-dialog");
     await a.keyboard.press("Escape");
-    await a.goto("/admin/residents/new");
-    await a.getByRole("textbox", { name: /^Email address/ }).fill(plusEmail());
-    await a.getByRole("textbox", { name: /^Resident name/ }).fill("Meera Iyer (example)");
-    await a.locator('[id="household.identifier"]').click();
-    await capture(a, "20-add-household");
     await a.goto("/admin/votes/new");
     await capture(a, "22-voting-types");
-    await a.getByRole("radio", { name: /^PUBLIC voting/ }).check();
+    await a.getByRole("radio", { name: /^PUBLIC Voting/ }).check();
     await a.getByRole("button", { name: "Create Draft" }).click();
     await expect(
       a.getByRole("heading", { level: 1, name: "Untitled draft" }),
@@ -1201,7 +1188,7 @@ test("capture the RWA ReadOnly persona", async ({ browser }) => {
     );
     await capture(page, "12-vote-list-read");
     await page.goto("/admin/votes/new");
-    await expect(page.getByRole("radio", { name: /^PUBLIC voting/ })).toBeDisabled();
+    await expect(page.getByRole("radio", { name: /^PUBLIC Voting/ })).toBeDisabled();
     await capture(page, "13-new-vote-disabled");
     await page.goto(`/admin/votes/${draft.id}`);
     await expect(page.getByRole("button", { name: "Save Draft" })).toBeDisabled();

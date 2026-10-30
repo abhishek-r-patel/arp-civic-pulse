@@ -46,7 +46,7 @@ export function Breadcrumbs({
             href={
               parts[0] === "admin" || parts[0] === "votes" ? "/" : "/sign-in"
             }
-            className="inline-flex min-h-12 items-center text-accent underline"
+            className="inline-flex touch-target items-center text-accent underline"
           >
             {homeLabel}
           </a>
@@ -63,7 +63,7 @@ export function Breadcrumbs({
                     ? "/"
                     : `/${parts.slice(0, index + 1).join("/")}`
                 }
-                className="inline-flex min-h-12 items-center text-accent underline"
+                className="inline-flex touch-target items-center text-accent underline"
               >
                 {labels[part] ?? "Details"}
               </Link>

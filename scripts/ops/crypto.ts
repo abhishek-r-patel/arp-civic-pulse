@@ -93,10 +93,6 @@ export async function encryptStream(
   }
 }
 
-export function encryptFile(source: string, destination: string, key: Buffer) {
-  return encryptStream(createReadStream(source), destination, key);
-}
-
 export async function encryptBytes(
   data: Buffer,
   destination: string,

@@ -214,7 +214,7 @@ export default async function HomePage({
               key={item.value ?? "all"}
               href={filterHref(item.value)}
               aria-current={query.status === item.value ? "page" : undefined}
-              className={`inline-flex min-h-12 shrink-0 items-center border-b-2 text-caption font-semibold ${query.status === item.value ? "border-accent text-accent" : "border-transparent text-muted hover:text-primary"}`}
+              className={`inline-flex touch-target shrink-0 items-center border-b-2 text-caption font-semibold ${query.status === item.value ? "border-accent text-accent" : "border-transparent text-muted hover:text-primary"}`}
             >
               {item.label}
             </Link>

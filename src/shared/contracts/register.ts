@@ -61,7 +61,6 @@ export const createAccountSchema = z
 export const accountHouseholdSchema = z.strictObject({
   identifier: householdIdentifier,
 });
-export type AccountHouseholdInput = z.output<typeof accountHouseholdSchema>;
 
 export interface AccountHousehold {
   id: string;

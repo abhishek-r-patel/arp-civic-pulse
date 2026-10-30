@@ -115,7 +115,7 @@ export async function AppShell({
             </div>
 
             {account ? (
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <nav
                   aria-label="Main"
                   className="flex min-w-0 flex-1 flex-wrap gap-1"
@@ -128,7 +128,7 @@ export async function AppShell({
                     </>
                   ) : null}
                 </nav>
-                <div className="flex shrink-0 items-center gap-1">
+                <div className="flex max-w-full flex-wrap items-center gap-1">
                   {canViewAdministration(account) ? (
                     <>
                       <NavLink
@@ -170,31 +170,31 @@ export async function AppShell({
             >
               <a
                 href="/sign-in"
-                className="inline-flex min-h-12 items-center text-accent underline"
+                className="inline-flex touch-target items-center text-accent underline"
               >
                 Sign In
               </a>
               <a
                 href="/register"
-                className="inline-flex min-h-12 items-center text-accent underline"
+                className="inline-flex touch-target items-center text-accent underline"
               >
                 Register
               </a>
               <a
                 href="/user-guide.html"
-                className="inline-flex min-h-12 items-center text-accent underline"
+                className="inline-flex touch-target items-center text-accent underline"
               >
                 User Guide
               </a>
               <a
                 href="/privacy"
-                className="inline-flex min-h-12 items-center text-accent underline"
+                className="inline-flex touch-target items-center text-accent underline"
               >
                 Privacy Policy
               </a>
               <a
                 href="/contact"
-                className="inline-flex min-h-12 items-center text-accent underline"
+                className="inline-flex touch-target items-center text-accent underline"
               >
                 Contact
               </a>

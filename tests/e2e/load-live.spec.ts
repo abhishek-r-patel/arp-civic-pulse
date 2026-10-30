@@ -193,16 +193,13 @@ test("100 requests in flight: reads, a submission burst, results and exports mee
   );
   await Promise.all([burst, background]);
 
-  // A second attempt by everyone is refused and changes nothing.
+  // PUBLIC responses are replaceable while ACTIVE; replacements never add participation.
   await inFlight(members, MEMBERS, async (m) =>
-    timed(
-      "POST repeat submission (409)",
-      async () =>
-        m.api.post(`/api/votes/${vote.id}/submission`, {
-          headers: { origin: ORIGIN, "x-csrf-token": await token(m.api) },
-          data: { confirmed: true, optionId: options[0] },
-        }),
-      [409],
+    timed("POST replace response", async () =>
+      m.api.post(`/api/votes/${vote.id}/submission`, {
+        headers: { origin: ORIGIN, "x-csrf-token": await token(m.api) },
+        data: { confirmed: true, optionId: options[0] },
+      }),
     ),
   );
 

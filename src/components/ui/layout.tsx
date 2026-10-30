@@ -70,7 +70,8 @@ export function PageHeader({
           {title}
         </h1>
         {actions ? (
-          <div className="ml-auto flex shrink-0 flex-wrap justify-end gap-3">
+          // Allowed to shrink and wrap so long or enlarged labels never widen the page.
+          <div className="ml-auto flex max-w-full min-w-0 flex-wrap justify-end gap-3">
             {actions}
           </div>
         ) : null}

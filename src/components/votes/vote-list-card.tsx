@@ -44,7 +44,7 @@ export function VoteListCard({
           <h2 className="text-body font-semibold">
             <Link
               href={`/votes/${vote.id}`}
-              className="inline-flex min-h-12 items-center text-primary underline-offset-4 hover:text-accent hover:underline"
+              className="inline-flex touch-target items-center text-primary underline-offset-4 hover:text-accent hover:underline"
             >
               {vote.title}
             </Link>
@@ -109,7 +109,7 @@ export function VoteListCard({
         <h2 className="font-heading text-lg leading-snug font-semibold">
           <Link
             href={`/votes/${vote.id}`}
-            className="inline-flex min-h-12 items-center text-primary underline-offset-4 hover:text-accent hover:underline"
+            className="inline-flex touch-target items-center text-primary underline-offset-4 hover:text-accent hover:underline"
           >
             {vote.title}
           </Link>

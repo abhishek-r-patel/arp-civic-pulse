@@ -72,7 +72,7 @@ export function Pagination({ basePath, params, page }: PaginationProps) {
       className="grid gap-4 border-t border-border pt-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+        <div className="flex max-w-full min-w-0 flex-wrap items-center gap-3">
           <label
             htmlFor="pagination-limit"
             className="text-body font-semibold whitespace-nowrap text-primary"
@@ -84,7 +84,7 @@ export function Pagination({ basePath, params, page }: PaginationProps) {
             name="limit"
             label="Per page"
             defaultValue={String(limit)}
-            className="w-24"
+            className="w-24 max-w-full"
             options={[...new Set([10, 25, 50, 100, limit])]
               .sort((a, b) => a - b)
               .map((size) => ({ value: String(size), label: String(size) }))}
