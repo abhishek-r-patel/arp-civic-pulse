@@ -295,6 +295,7 @@ Resident self-registration implementation map:
 - `supabase/migrations/20261121100000_vote_draft_opening.sql`: persists an optional planned opening in a draft and exposes it only through the guarded draft projection; scheduling still requires the confirmed freeze routine.
 - `supabase/migrations/20261121110000_draft_opening_public_private_types.sql`: keeps planned-opening draft updates compatible with PUBLIC/PRIVATE ballot options and offices; `tests/integration/drafts.test.ts` covers saving the opening with ballot content.
 - `supabase/migrations/20261122100000_delete_drafts.sql`: adds revision-checked, confirmed and audited draft deletion through a guarded administrator routine.
+- `supabase/migrations/20261123100000_enabled_rwa_admin_names.sql`: adds an authenticated, enabled-member-only name projection for the Contact page; App Support, anonymous and service-role callers are denied.
 - `scripts/docs/capture.spec.ts`: opted-in synthetic Resident, RWA Admin and RWA ReadOnly persona captures. Screenshots are written to `docs/images/user-guide/{voter,rwa-admin,rwa-readonly}` with email/code redaction. `tests/e2e/support/live.ts` uses the existing operational database helper for verified TLS with a provider CA, not a certificate-verification bypass.
 
 ### Public discovery and contact additions
@@ -311,7 +312,8 @@ authorization. Do not include register, ballot or results URLs in discovery.
 | `src/app/robots.ts`, `src/app/sitemap.ts` | Public discovery, derived from the allowlist |
 | `src/app/opengraph-image.tsx` | Public 1200 by 630 PNG share artwork, without resident information |
 | `src/app/icon.svg` | Selected F/Open Conversation favicon; Next.js automatically emits the app icon link and serves the scalable SVG at `/icon.svg` |
-| `src/app/privacy/page.tsx`, `src/app/contact/page.tsx` | Public privacy notice and support entry point |
+| `src/app/privacy/page.tsx`, `src/app/contact/page.tsx` | Public privacy notice and support entry point; Contact conditionally renders the guarded enabled-RWA-Admin name projection to enabled RWA members only |
+| `src/server/settings/rwa-profile.ts` | Server-side validation of member branding, profile and the names-only Contact directory projections |
 | `src/components/ui/public-structured-data.tsx` | Escaped Organization and public BreadcrumbList JSON-LD |
 | `src/components/ui/breadcrumbs.tsx` | Contextual navigation using generic record labels |
 | `src/components/ui/public-analytics.tsx` | Optional, opt-in GA4 on privacy/contact only; sanitized path-based views |

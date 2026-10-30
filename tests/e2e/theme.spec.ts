@@ -38,10 +38,10 @@ async function choose(page: Page, mode: "Light" | "Dark" | "System") {
   await page.keyboard.press("Escape");
 }
 
-test("public forms and information pages retain centered readable content", async ({
+test("public forms and information pages retain centered responsive content", async ({
   page,
 }) => {
-  for (const width of [320, 1920]) {
+  for (const width of [320, 768, 1280, 1920]) {
     await page.setViewportSize({ width, height: 900 });
     for (const path of ["/sign-in", "/register", "/contact", "/privacy"]) {
       await page.goto(path);
@@ -55,15 +55,16 @@ test("public forms and information pages retain centered readable content", asyn
             viewport: document.documentElement.clientWidth,
           };
         });
+      const maxWidth = path === "/privacy" && width >= 1024 ? 896 : 640;
       expect(layout.width).toBe(
-        Math.min(640, layout.viewport - (width < 768 ? 32 : 48)),
+        Math.min(maxWidth, layout.viewport - (width < 768 ? 32 : 48)),
       );
       expect(Math.abs(layout.center - layout.viewport / 2)).toBeLessThan(1);
       if (path !== "/privacy") {
         const panel = page.locator("main form").first();
         if (path === "/contact" && (await panel.count()) === 0) {
           await expect(
-            page.getByText("Online contact is not available yet", {
+            page.getByText("Online contact is unavailable", {
               exact: true,
             }),
           ).toBeVisible();

@@ -93,6 +93,42 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
     }
   });
 
+  it("shows enabled RWA Admin names only to enabled RWA members", async () => {
+    const memberNames = await db.asRole(
+      "authenticated",
+      { sub: world.alice.id },
+      (client) =>
+        client.query<{ representative_name: string }>(
+          "select * from public.get_enabled_rwa_admin_names()",
+        ),
+    );
+    expect(memberNames.rows).toEqual([{ representative_name: "Asha Admin" }]);
+
+    const adminNames = await db.asRole(
+      "authenticated",
+      { sub: world.admin.id },
+      (client) =>
+        client.query<{ representative_name: string }>(
+          "select * from public.get_enabled_rwa_admin_names()",
+        ),
+    );
+    expect(adminNames.rows).toEqual([{ representative_name: "Asha Admin" }]);
+
+    const anonymous = await dbError(
+      db.asRole("anon", { role: "anon" }, (client) =>
+        client.query("select * from public.get_enabled_rwa_admin_names()"),
+      ),
+    );
+    expect(anonymous.code).toBe("42501");
+
+    const suspended = await dbError(
+      db.asRole("authenticated", { sub: world.carol.id }, (client) =>
+        client.query("select * from public.get_enabled_rwa_admin_names()"),
+      ),
+    );
+    expect(suspended.code).toBe("42501");
+  });
+
   it("lets admins update the profile and audits field names without values", async () => {
     const initial = await db.asRole(
       "authenticated",

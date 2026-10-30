@@ -27,11 +27,11 @@ There is no application password. Use the email address already registered for y
 
 ### Register yourself as a new resident
 
-If your RWA has not created an account for you, open **Register** from the sign-in page (**New resident? Register**) or the footer. Enter your full name, the email address you will sign in with, and your household identifier (for example your **Flat Number**). If your RWA has set up its list of flats, start typing or open the list with the arrow, then choose your flat; only entries from the list are accepted, and if yours is missing ask your administrator to add it. Otherwise type it exactly as your RWA uses it. Then select **Register**. **Registration received** means your details were stored: your account stays **suspended** and your household is **not yet eligible to vote** until an RWA administrator checks and enables them. You cannot sign in until then; ask your administrator if it takes too long.
+If your RWA has not created an account for you, open **Register** from the sign-in page (**New resident? Register**) or the footer. Enter your full name, the email address you will sign in with, and your household identifier (for example your **Flat Number**). Each email address and household can be registered once. If your RWA has set up its list of flats, choose your flat from the list; if it is missing, ask your administrator to add it. Otherwise, enter it exactly as your RWA uses it. Select **Register** to submit your details. Your account starts suspended. An RWA administrator reviews your details, enables sign-in and sets your voting eligibility. You cannot sign in until your account is enabled.
 
-Each email address and each household can be registered only once. If you see **This email address is already registered**, you already have an account (it may still be waiting for review): sign in, or contact your administrator. If the household identifier is already registered to another resident, contact your administrator rather than registering a variation of it.
+If you see **This email address is already registered**, you already have an account (it may still be waiting for review): sign in, or contact your administrator. If your household identifier is already registered to another resident, contact your administrator rather than entering a variation.
 
-![Resident 77: registration form with a typed Flat Number (no list configured)](./images/user-guide/voter/77-register.png)
+![Resident 77: self-registration form with one account-review notice](./images/user-guide/voter/77-register.png)
 
 ![Resident 80: choosing a flat from the RWA's list while typing](./images/user-guide/voter/80-register-flat-picker.png)
 
@@ -49,7 +49,11 @@ The header's **Appearance** control offers **Light** (Platinum), **Dark** (Obsid
 
 ![Resident 74: appearance menu with Light, Dark and System](./images/user-guide/voter/74-appearance-menu.png)
 
-Before or after sign-in, the footer links to **Sign In**, **Register**, **User Guide**, **Privacy Policy** and **Contact**. Contact may be unavailable if the RWA has not configured support email. When enabled, enter a reply address and short message; **Message accepted** means the mail service accepted it, not that it reached the administrator. Do not include ballot choices, codes, passwords or identity documents. Optional Google Analytics is consent-gated on public information pages only and is off until allowed; consent can be withdrawn from the same privacy/contact control.
+Before or after sign-in, the footer links to **Sign In**, **Register**, **User Guide**, **Privacy Policy** and **Contact**. The Contact page keeps these links in the footer instead of repeating them in the page. Signed-in enabled RWA members can see the names of enabled RWA Admins; visitors and App Support cannot. No contact details are shown. If the names are unavailable, contact your RWA administrator directly. Online contact may be unavailable if the RWA has not set it up. When available, enter a reply email and message. **Message accepted** means the mail service accepted it, not that it reached the administrator. Do not include ballot choices, codes, passwords or identity documents. Optional Google Analytics is used only on public information pages after you allow it. You can turn it off from the same privacy/contact control.
+
+The public Privacy Policy groups information into clear sections: what is
+collected and why, how voting privacy works, cookies and browser storage,
+sharing, retention, security and privacy requests.
 
 ![Shared 75: public Privacy Policy](./images/user-guide/voter/75-privacy-public.png)
 

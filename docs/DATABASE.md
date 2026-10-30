@@ -81,6 +81,14 @@ option/candidate totals or individual participation records. Draft, Scheduled
 and Cancelled rows have no turnout entry. The application keeps this
 table-specific projection separate from the existing HTTP vote-list contract.
 
+Migration `20261123100000_enabled_rwa_admin_names` adds
+`public.get_enabled_rwa_admin_names()`, a `cp_owner`-owned, fixed-empty-search-path
+projection executable only by `authenticated`. It rechecks enabled membership,
+denies the household-free App Support identity, and returns only names of
+currently enabled RWA Admin profiles. Anonymous and service-role execution is
+revoked; this does not grant direct profile reads or expose names on public
+pages. The Contact page invokes it only for signed-in enabled RWA members.
+
 The Votes concept overview reads exact counts from frozen `electorate` joined to
 vote status and, for responses, its `participation` row. Every query uses the
 verified user's client and explicitly filters the representative profile ID, even

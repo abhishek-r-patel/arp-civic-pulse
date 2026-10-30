@@ -15,7 +15,7 @@ import { privateMetadata } from "@/shared/metadata";
 
 export const metadata = privateMetadata(
   "Register",
-  "Register as a resident. Your account stays suspended until your RWA administrator enables it.",
+  "Create an account for your RWA. An administrator must enable it before you can sign in.",
 );
 
 export default async function RegisterPage() {
@@ -37,7 +37,7 @@ export default async function RegisterPage() {
     <div className="mx-auto grid w-full max-w-ballot gap-8">
       <PageHeader
         title="Register"
-        description={`Register as a resident of ${organisation}. One account per email address and one per ${terms.household}. Your account stays suspended until your RWA administrator reviews and enables it.`}
+        description={`Create an account for ${organisation} Voting App - Civic Pulse. Each email address and ${terms.household} can be registered once.`}
       />
       {households ? (
         <SelfRegistrationForm
@@ -54,17 +54,6 @@ export default async function RegisterPage() {
           administrator.
         </Notice>
       )}
-      <p className="text-body text-muted">
-        Already registered?{" "}
-        <a href="/sign-in" className="text-accent underline">
-          Sign in
-        </a>
-        . Questions?{" "}
-        <a href="/contact" className="text-accent underline">
-          Contact us
-        </a>
-        .
-      </p>
       {csrfToken === undefined ? (
         <Notice tone="error" heading="This page could not be prepared">
           Reload the page. If this keeps happening, contact your RWA

@@ -53,6 +53,7 @@ at start-up, and never uses the migration credentials.
 | `20261121100000_vote_draft_opening` | Stores a planned opening time in a draft without scheduling or freezing it |
 | `20261121110000_draft_opening_public_private_types` | Keeps draft updates aligned with the PUBLIC/PRIVATE voting type values |
 | `20261122100000_delete_drafts` | Adds revision-checked, confirmed and audited draft deletion |
+| `20261123100000_enabled_rwa_admin_names` | Adds an enabled-member-only, names-only RWA Admin directory projection for Contact |
 
 The Source column requires `20261117100000` before its sort links are used.
 It passed local PostgreSQL tests and was applied with separate explicit
@@ -95,8 +96,9 @@ authenticated-only page-ID routine. After separate authorization, it was applied
 only to the verified `civic-pulse-disposable` project in one verified-TLS
 transaction that executed the exact migration, recorded its ledger entry and
 notified PostgREST to reload the schema. Function ownership and authenticated
-execution were verified; anon/service-role execution is absent. Staging and
-production are untouched. The ordinary CLI dry run remains blocked because
+execution were verified; anon/service-role execution is absent. This is the
+disposable project also used by the staging host; no separate production
+database was touched and no staging app deployment occurred. The ordinary CLI dry run remains blocked because
 `20261105100000_change_vote_deadline.sql` would have to be inserted before the
 remote history, and migration `20261118100000` remains unrecorded remotely.
 Neither was applied, and `--include-all` was not used; resolve the blocker only
@@ -108,16 +110,32 @@ aggregate counts for Active/Completed page rows. After separate authorization,
 it was applied only to the verified `civic-pulse-disposable` project in one
 verified-TLS transaction with its exact ledger entry and a PostgREST schema
 notification. Function ownership and authenticated-only execution were
-verified; anon/service-role execution is absent. The PostgreSQL integration
-suite was skipped because `INTEGRATION_DATABASE_URL` is unset. Staging and
-production remain untouched, and the existing duplicate migration-version
-blocker remains unresolved.
+verified; anon/service-role execution is absent. Local PostgreSQL integration
+coverage passed. This is the disposable project also used by the staging host;
+no separate production database was touched and no staging app deployment
+occurred. The existing duplicate migration-version blocker remains unresolved.
 
 The planned-opening migration `20261121100000` and its type-check correction
 `20261121110000` were applied only to the user-confirmed disposable project in
 separate TLS-verified transactions with their exact ledger entries. The
 correction keeps `update_draft` ballot validation aligned with PUBLIC/PRIVATE.
-No other pending migration was applied; staging and production remain untouched.
+The same project is used by the staging host; no separate production database
+was changed and no staging application deployment was performed.
+
+The Contact admin-name migration `20261123100000` was separately authorized
+and applied only to the confirmed `civic-pulse-disposable` project (also used by
+the staging host). Its exact SQL and matching ledger entry were committed in
+one verified-TLS transaction, followed by a PostgREST schema reload. The
+preflight found no active or scheduled votes. Function ownership, fixed search
+path and authenticated-only execution were verified; anon and service-role
+execution are absent. The local RWA-profile and security integration suites
+passed (28 tests), and the signed-in Contact page loaded the admin directory.
+No separate production database was changed and no staging application
+deployment was performed. The ordinary CLI dry run remains blocked by the
+duplicate `20261105100000` local version and missing remote entries
+`20261118100000` and `20261122100000`; none of those migrations was applied.
+Do not use `--include-all` or repair migration history without separate review
+and authorization.
 
 The separately authorized numbered-pagination follow-up applied
 `20261114100000` to the same disposable project, now also used by the

@@ -333,6 +333,31 @@ test("public pages render unique crawlable metadata, one H1, schema and canonica
   }
 });
 
+test("privacy policy uses plain-language sections and preserves key disclosures", async ({
+  page,
+}) => {
+  await page.goto("/privacy");
+  await expect(page.locator("h2")).toHaveText([
+    "Who is responsible?",
+    "Information we collect",
+    "How we use your information",
+    "How voting privacy works",
+    "Cookies and browser storage",
+    "How we share information",
+    "How long we keep information",
+    "Security and your requests",
+    "Questions or requests?",
+  ]);
+  const policy = await page.locator("main > article").innerText();
+  expect(policy).toContain("not a promise of complete anonymity");
+  expect(policy).toContain("Choice totals are hidden while voting is open.");
+  expect(policy).toContain("not form messages, email addresses");
+  expect(policy).toContain(
+    "Contact messages are not saved in the Civic Pulse database.",
+  );
+  expect(policy).toContain("applicable requirements");
+});
+
 test("robots and sitemap expose only the public information routes", async ({
   request,
   baseURL,
@@ -351,6 +376,34 @@ test("robots and sitemap expose only the public information routes", async ({
     expect(xml).toContain(`${baseURL}${path}</loc>`);
   expect(xml).not.toContain("/admin");
   expect(xml).not.toContain("/votes");
+});
+
+test("registration explains review once and keeps sign-in and contact in the footer", async ({
+  page,
+}) => {
+  await page.goto("/register");
+  await expect(
+    page.getByText(
+      "Create an account for Lakeview Residents Welfare Association (Lakeview RWA) Voting App - Civic Pulse. Each email address and Flat can be registered once.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "Your account starts suspended. An RWA administrator will review your details, enable sign-in and set your voting eligibility.",
+      { exact: false },
+    ),
+  ).toBeVisible();
+  await expect(page.getByText("Already registered?")).toHaveCount(0);
+  await expect(page.getByText("Questions?")).toHaveCount(0);
+  await expect(
+    page.locator("main").getByRole("link", { name: "Sign in" }),
+  ).toHaveCount(0);
+  await expect(
+    page.locator("main").getByRole("link", { name: "Contact us" }),
+  ).toHaveCount(0);
+  const footer = page.getByRole("navigation", { name: "Information" });
+  await expect(footer.getByRole("link", { name: "Sign In" })).toBeVisible();
+  await expect(footer.getByRole("link", { name: "Contact" })).toBeVisible();
 });
 
 test("public Open Graph image is a real 1200 by 630 PNG", async ({
@@ -395,7 +448,14 @@ test("contact form preserves failed enquiries and acknowledges only accepted sen
   page,
 }) => {
   await page.goto("/contact");
-  if (await page.getByText("Online contact is not available yet").isVisible()) {
+  await expect(page.getByRole("heading", { name: "RWA Admins" })).toHaveCount(
+    0,
+  );
+  await expect(page.getByText("Already registered?")).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Privacy Policy" }),
+  ).toBeVisible();
+  if (await page.getByText("Online contact is unavailable").isVisible()) {
     await expect(
       page.getByRole("button", { name: "Send Message" }),
     ).toHaveCount(0);

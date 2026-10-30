@@ -2,6 +2,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cache } from "react";
+import { z } from "zod";
 import { getSessionState } from "@/server/authorization/account";
 import { createAdminClient, createUserClient } from "@/server/db/clients";
 import { ApiError } from "@/server/http/errors";
@@ -61,6 +62,21 @@ export async function getRwaBranding(
     rwaBrandingSchema,
     await callRoutine<unknown>(client, "get_rwa_branding", {}),
   );
+}
+
+/** Names only, for the enabled-member Contact page directory. */
+export async function getEnabledRwaAdminNames(
+  client: SupabaseClient,
+): Promise<string[]> {
+  const rows = parseProjection(
+    z.array(
+      z.strictObject({
+        representative_name: z.string().min(1).max(200),
+      }),
+    ),
+    await callRoutine<unknown>(client, "get_enabled_rwa_admin_names", {}),
+  );
+  return rows.map((row) => row.representative_name);
 }
 
 /** One read per request for the shell and the page that renders inside it. */

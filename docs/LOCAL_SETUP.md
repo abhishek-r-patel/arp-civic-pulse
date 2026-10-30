@@ -202,14 +202,19 @@ That routine is applied only to the verified disposable project; the pending
 audit-text migration and the duplicate-history blocker remain unresolved.
 The Turnout column also requires
 `20261120100000_admin_vote_turnout`. This follow-up was applied only to the
-verified `civic-pulse-disposable` project after separate authorization; it is
-not applied to staging or production. Do not run the updated page against a
-database missing that routine shape.
+verified `civic-pulse-disposable` project after separate authorization. That
+project is also used by the staging host; no separate production database was
+changed and no staging app deployment was performed. Do not run the updated
+page against a database missing that routine shape.
 Saving a planned opening with ballot content requires
 `20261121100000_vote_draft_opening` and
 `20261121110000_draft_opening_public_private_types`. These two migrations were
 applied only to the confirmed disposable project in separate verified-TLS
-transactions; neither was applied to staging or production.
+transactions; the same project is used by the staging host.
+The Contact admin-name directory requires
+`20261123100000_enabled_rwa_admin_names`; it was separately authorized and
+applied to that project with its migration ledger entry and schema reload. The
+staging application itself was not deployed.
 Before any push, check `supabase migration list`: this checkout currently has
 two files sharing version `20261105100000`, which blocks the normal CLI push.
 See [migration status](../supabase/README.md); do not apply older scripts again

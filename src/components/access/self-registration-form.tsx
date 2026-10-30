@@ -146,9 +146,8 @@ export function SelfRegistrationForm({
         />
       </div>
       <p className="text-caption text-muted">
-        Your account starts suspended. Your RWA administrator checks your
-        details, then enables your account and decides your voting eligibility.
-        Read our{" "}
+        Your account starts suspended. An RWA administrator will review your
+        details, enable sign-in and set your voting eligibility. Read our{" "}
         <Link href="/privacy" className="text-accent underline">
           privacy policy
         </Link>

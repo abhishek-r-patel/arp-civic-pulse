@@ -150,7 +150,7 @@ browser font requests never contact Google.
 | [src/components/votes](../src/components/votes)     | Resident ballots, privacy notices, active deadline countdowns and results.                                               |
 | [src/server](../src/server)                         | Server-only services. Do not import these into client components.                                                       |
 | [src/server/settings](../src/server/settings) | Guarded RWA settings services and member-safe projections. |
-| [src/server/settings/rwa-profile.ts](../src/server/settings/rwa-profile.ts) | Admin/ReadOnly full-profile reads, admin-only updates, enabled-member branding projection, service-role public identity read and server household wording. |
+| [src/server/settings/rwa-profile.ts](../src/server/settings/rwa-profile.ts) | Admin/ReadOnly full-profile reads, admin-only updates, enabled-member branding and Contact admin-name projections, service-role public identity read and server household wording. |
 | [src/shared/contracts/household-terms.ts](../src/shared/contracts/household-terms.ts) | Household label and Number/ID identifier-kind contracts, suggestions, and `buildHouseholdTerms` (singular, plural, sentence-case and identifier wording). |
 | [src/components/ui/household-terms.tsx](../src/components/ui/household-terms.tsx) | Client provider and `useHouseholdTerms()` hook; the app shell supplies the current terms. |
 | [src/shared/contracts/rwa-profile.ts](../src/shared/contracts/rwa-profile.ts) | Strict RWA profile, member branding and public identity projections, palette list and telephone link helper. |
