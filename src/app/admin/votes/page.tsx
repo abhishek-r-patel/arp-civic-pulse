@@ -1,32 +1,21 @@
 // Protected administrator vote inventory.
-import Link from "next/link";
 import { Vote } from "lucide-react";
+import { flashNotices, firstValues } from "@/components/admin/format";
 import {
-  flashNotices,
-  firstValues,
-  formatInstant,
-} from "@/components/admin/format";
-import {
-  VoteColumnHeader,
   VoteTableToolbar,
   type VoteTableState,
 } from "@/components/admin/vote-table-controls";
+import { VoteTableView } from "@/components/admin/vote-table-view";
 import { voteTableClearFiltersHref } from "@/components/admin/vote-table-urls";
-import { VoteStatusBadge, VotingTypeBadge } from "@/components/ui/badges";
 import { LinkButton } from "@/components/ui/button";
-import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState, PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { Pagination } from "@/components/ui/pagination";
-import { DeadlineCountdown } from "@/components/votes/deadline-countdown";
 import { ApiError } from "@/server/http/errors";
 import { readPageNumber } from "@/server/http/numbered-page";
 import { adminPageContext } from "@/server/register/page-context";
 import { listVoteTable } from "@/server/votes/drafts";
 import { voteTableQuerySchema } from "@/shared/contracts/admin-votes";
-import type { AdminVoteTableSummary } from "@/shared/contracts/drafts";
-import { formatInZone } from "@/shared/time/zoned";
-
 export const metadata = {
   title: "Manage Votes",
   description:
@@ -35,132 +24,6 @@ export const metadata = {
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
-
-const columns = (state: VoteTableState): Column<AdminVoteTableSummary>[] => [
-  {
-    key: "title",
-    header: "Vote",
-    sortDirection:
-      state.sort === "title"
-        ? state.direction === "asc"
-          ? "ascending"
-          : "descending"
-        : undefined,
-    headerContent: (
-      <VoteColumnHeader state={state} column="title" title="Vote" />
-    ),
-    cell: (vote) => (
-      <Link
-        href={`/admin/votes/${vote.id}`}
-        className="inline-flex touch-target items-center font-semibold text-accent underline underline-offset-2"
-      >
-        {vote.title === "" ? "Untitled draft" : vote.title}
-        <span className="sr-only"> (open)</span>
-      </Link>
-    ),
-  },
-  {
-    key: "type",
-    header: "Type",
-    sortDirection:
-      state.sort === "type"
-        ? state.direction === "asc"
-          ? "ascending"
-          : "descending"
-        : undefined,
-    headerContent: (
-      <VoteColumnHeader state={state} column="type" title="Type" />
-    ),
-    cell: (vote) => <VotingTypeBadge type={vote.votingType} />,
-  },
-  {
-    key: "status",
-    header: "Status",
-    sortDirection:
-      state.sort === "status"
-        ? state.direction === "asc"
-          ? "ascending"
-          : "descending"
-        : undefined,
-    headerContent: (
-      <VoteColumnHeader state={state} column="status" title="Status" />
-    ),
-    cell: (vote) => <VoteStatusBadge status={vote.status} />,
-  },
-  {
-    key: "deadline",
-    header: "Deadline",
-    sortDirection:
-      state.sort === "deadline"
-        ? state.direction === "asc"
-          ? "ascending"
-          : "descending"
-        : undefined,
-    headerContent: (
-      <VoteColumnHeader state={state} column="deadline" title="Deadline" />
-    ),
-    cell: (vote) => (
-      <div className="grid gap-1">
-        {vote.status === "SCHEDULED" && vote.opensAt ? (
-          <>
-            <span>
-              Opens {formatInZone(vote.opensAt, vote.timezone ?? "UTC")}
-            </span>
-            <DeadlineCountdown deadline={vote.opensAt} opening />
-          </>
-        ) : null}
-        <span>
-          {vote.closesAt
-            ? vote.timezone
-              ? formatInZone(vote.closesAt, vote.timezone)
-              : formatInstant(vote.closesAt)
-            : "Not set"}
-        </span>
-        {vote.status === "ACTIVE" && vote.closesAt ? (
-          <DeadlineCountdown deadline={vote.closesAt} />
-        ) : null}
-      </div>
-    ),
-  },
-  {
-    key: "updated",
-    header: "Last Changed",
-    sortDirection:
-      state.sort === "updated"
-        ? state.direction === "asc"
-          ? "ascending"
-          : "descending"
-        : undefined,
-    headerContent: (
-      <VoteColumnHeader state={state} column="updated" title="Last Changed" />
-    ),
-    cell: (vote) =>
-      vote.timezone
-        ? formatInZone(vote.updatedAt, vote.timezone)
-        : formatInstant(vote.updatedAt),
-  },
-  {
-    key: "turnout",
-    header: "Turnout",
-    cell: (vote) => {
-      if (vote.status === "DRAFT" || vote.status === "SCHEDULED") {
-        return "Not open";
-      }
-      if (vote.status === "CANCELLED") return "Not available";
-      if (!vote.turnout) return "Turnout unavailable";
-
-      const { eligibleCount, submittedCount, percent } = vote.turnout;
-      return (
-        <span
-          className="tabular-nums"
-          aria-label={`${submittedCount} of ${eligibleCount} eligible; ${percent}% turnout`}
-        >
-          {submittedCount} / {eligibleCount} ({percent}%)
-        </span>
-      );
-    },
-  },
-];
 
 export default async function VotesPage({
   searchParams,
@@ -253,11 +116,9 @@ export default async function VotesPage({
       ) : null}
       {filtersInvalid ? (
         <Notice tone="warning" heading="Some filters were not valid">
-          They were ignored. Choose filters in the table headings to try again.
+          They were ignored. Choose filters in Sort &amp; Filter to try again.
         </Notice>
       ) : null}
-
-      <VoteTableToolbar state={tableState} />
 
       {loadError ? (
         <Notice tone="error" heading="Votes could not be loaded">
@@ -265,46 +126,44 @@ export default async function VotesPage({
           to support: {loadError.code}.
         </Notice>
       ) : result && result.data.length === 0 ? (
-        filtersActive ? (
-          <EmptyState
-            title="No votes match these filters"
-            action={
-              <LinkButton
-                href={voteTableClearFiltersHref(tableState.params)}
-                variant="secondary"
-              >
-                Clear Filters
-              </LinkButton>
-            }
-          >
-            <p>Try different filter criteria.</p>
-          </EmptyState>
-        ) : (
-          <EmptyState
-            title="There are no votes yet"
-            action={
-              <LinkButton
-                href="/admin/votes/new"
-                disabled={!deps.actor.isAdmin}
-              >
-                Create a Vote
-              </LinkButton>
-            }
-          >
-            <p>
-              Start with a draft. Nothing is visible to residents until you
-              activate it.
-            </p>
-          </EmptyState>
-        )
+        <div className="grid gap-8">
+          <VoteTableToolbar state={tableState} />
+          {filtersActive ? (
+            <EmptyState
+              title="No votes match these filters"
+              action={
+                <LinkButton
+                  href={voteTableClearFiltersHref(tableState.params)}
+                  variant="secondary"
+                >
+                  Clear Filters
+                </LinkButton>
+              }
+            >
+              <p>Try different filter criteria.</p>
+            </EmptyState>
+          ) : (
+            <EmptyState
+              title="There are no votes yet"
+              action={
+                <LinkButton
+                  href="/admin/votes/new"
+                  disabled={!deps.actor.isAdmin}
+                >
+                  Create a Vote
+                </LinkButton>
+              }
+            >
+              <p>
+                Start with a draft. Nothing is visible to residents until you
+                activate it.
+              </p>
+            </EmptyState>
+          )}
+        </div>
       ) : result ? (
         <>
-          <DataTable
-            caption="Votes"
-            columns={columns(tableState)}
-            rows={result.data}
-            rowKey={(vote) => vote.id}
-          />
+          <VoteTableView state={tableState} votes={result.data} />
           <Pagination
             basePath="/admin/votes"
             params={paginationParams}

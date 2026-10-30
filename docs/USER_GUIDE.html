@@ -1333,16 +1333,16 @@
         import, eligibility, Settings, vote setup/detail, ballot preview and
         voting. Sign-in, registration and contact already follow this layout.
         Text remains left-aligned within the centered column; tables and results
-        workspaces retain the wider layout. Page descriptions also expand beside
-        the action buttons instead of staying in a narrow column; on phones the
-        actions stack below. Status uses a check, pause or ban icon for Enabled,
-        Suspended or Deleted. Hover for its name, or tap/click the icon
-        (Enter/Space with keyboard focus) to reveal the label; screen readers
-        retain the full name. In <strong>Actions</strong>, select the
-        person/edit icon to manage that resident. Hover for
-        <strong>Manage [resident name]</strong>; keyboard and screen-reader
-        navigation retain the same named link. ReadOnly observers can open it to
-        inspect details without editing.
+        workspaces retain the wider layout. When a page has a top action, it
+        sits to the right of the title. The description appears below that row
+        and uses the available page width, wrapping to fit the screen. Status
+        uses a check, pause or ban icon for Enabled, Suspended or Deleted. Hover
+        for its name, or tap/click the icon (Enter/Space with keyboard focus) to
+        reveal the label; screen readers retain the full name. In
+        <strong>Actions</strong>, select the person/edit icon to manage that
+        resident. Hover for <strong>Manage [resident name]</strong>; keyboard
+        and screen-reader navigation retain the same named link. ReadOnly
+        observers can open it to inspect details without editing.
       </p>
       <p>
         After selecting residents, <strong>Enable Selected</strong> turns on
@@ -1671,15 +1671,21 @@
         screens and stack on narrow screens.
       </p>
       <p>
-        The Manage Votes list has sortable columns for Vote, Type, Status,
-        Deadline and Last Changed, with filters beside each heading. Vote title
-        matching is literal and case-insensitive; Type and Status match selected
-        options. Deadline date ranges match the closing deadline only, including
+        The Manage Votes list has plain column headings for Vote, Type, Status,
+        Deadline and Last Changed. Use the
+        <strong>Sort &amp; Filter</strong> button for title, type, status and
+        date filters and to choose <strong>Sort By</strong> and
+        <strong>Sort Direction</strong>. The matching funnel-with-circled-X
+        <strong>Clear filters</strong> icon sits beside it. Vote title matching
+        is literal and case-insensitive; Type and Status match selected options.
+        Deadline date ranges match the closing deadline only, including
         scheduled votes that also show an opening time. Date ranges use your
         browser&#39;s local time zone, include <strong>From</strong>, and
-        exclude <strong>Before</strong>. On a phone, use
-        <strong>Filter Votes</strong>. Sorting and filters apply across the full
-        list before pagination; the default is newest Last Changed first.
+        exclude <strong>Before</strong>. Sorting and filters apply across the
+        full list before pagination; the default is newest Last Changed first.
+        The screenshot below predates the shared toolbar and compact
+        <strong>Columns</strong> chooser; use the written steps above for the
+        current controls.
       </p>
       <p>
         The final <strong>Turnout</strong> column shows
@@ -1689,6 +1695,13 @@
         votes show <strong>Not available</strong>. These are aggregate
         participation figures only: the column never shows candidate or option
         counts.
+      </p>
+      <p>
+        On phones and other narrow screens, <strong>Vote</strong>,
+        <strong>Status</strong> and <strong>Turnout</strong> stay visible. Use
+        <strong>Columns</strong> to show or hide <strong>Type</strong>,
+        <strong>Deadline</strong> and <strong>Last Changed</strong>. Your choice
+        is saved in this browser; wider screens always show all columns.
       </p>
       <p>
         A PUBLIC poll needs at least two distinct options. A PRIVATE election

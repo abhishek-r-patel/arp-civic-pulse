@@ -9,9 +9,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ArrowDown, ArrowUp, Circle, Funnel, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Circle, Filter, Funnel, X } from "lucide-react";
 
-export function ResidentSortFilterIcon() {
+export function SortFilterIcon() {
   return (
     <span aria-hidden="true" className="relative block size-5">
       <Funnel className="absolute bottom-0 left-0 size-4" />
@@ -21,7 +21,7 @@ export function ResidentSortFilterIcon() {
   );
 }
 
-export function ResidentClearFiltersIcon() {
+export function ClearFiltersIcon() {
   return (
     <span aria-hidden="true" className="relative block size-5">
       <Funnel className="absolute bottom-0 left-0 size-4" />
@@ -34,10 +34,12 @@ export function ResidentClearFiltersIcon() {
 export function TableFilterPopover({
   label,
   active,
+  icon,
   children,
 }: Readonly<{
   label: string;
   active?: boolean;
+  icon?: ReactNode;
   children: ReactNode;
 }>) {
   const id = useId();
@@ -78,7 +80,7 @@ export function TableFilterPopover({
         className={`inline-flex size-12 shrink-0 items-center justify-center rounded-control hover:bg-accent/10 ${active ? "text-accent" : "text-muted"}`}
         onClick={place}
       >
-        <ResidentSortFilterIcon />
+        {icon ?? <Filter aria-hidden="true" className="size-4" />}
         {active ? (
           <span aria-hidden="true" className="text-caption">
             *

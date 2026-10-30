@@ -3,7 +3,7 @@ import Link from "next/link";
 import { History, ListFilter } from "lucide-react";
 import { Button, LinkButton } from "@/components/ui/button";
 import { SelectMenu } from "@/components/ui/select-menu";
-import { EmptyState } from "@/components/ui/layout";
+import { EmptyState, PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { WelcomeMessage } from "@/components/ui/rwa-branding";
 import { Pagination } from "@/components/ui/pagination";
@@ -99,27 +99,25 @@ export default async function HomePage({
 
   return (
     <div data-votes-dashboard className="mx-auto grid max-w-4xl gap-5 md:gap-6">
-      <header className="grid gap-2">
+      <div className="grid gap-2">
         <p className="text-xs font-semibold text-muted uppercase">
           {deps.branding.alias} / Community decisions
         </p>
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="font-heading text-page-title font-semibold md:text-page-title-lg">
-            Votes
-          </h1>
-          <Link
-            href={filterHref("COMPLETED")}
-            aria-label="Vote history"
-            title="Vote history"
-            className="inline-flex touch-target shrink-0 items-center justify-center rounded-control border border-border bg-surface px-3 text-primary hover:bg-primary/5"
-          >
-            <History aria-hidden="true" className="size-5" />
-          </Link>
-        </div>
-        <p className="text-body text-muted">
-          Review the decisions open to your {deps.terms.household}.
-        </p>
-      </header>
+        <PageHeader
+          title="Votes"
+          description={`Review the decisions open to your ${deps.terms.household}.`}
+          actions={
+            <Link
+              href={filterHref("COMPLETED")}
+              aria-label="Vote history"
+              title="Vote history"
+              className="inline-flex touch-target shrink-0 items-center justify-center rounded-control border border-border bg-surface px-3 text-primary hover:bg-primary/5"
+            >
+              <History aria-hidden="true" className="size-5" />
+            </Link>
+          }
+        />
+      </div>
       <WelcomeMessage message={deps.branding.welcomeMessage} />
 
       {result ? (

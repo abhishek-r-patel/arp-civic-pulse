@@ -197,7 +197,7 @@ test.describe("setting up a PUBLIC vote", () => {
     await confirmation.getByRole("button", { name: "Cancel" }).click();
   });
 
-  test("lists, filters and sorts votes from their column headings", async ({
+  test("lists, filters and sorts votes from the shared toolbar", async ({
     page,
   }) => {
     await signedInAdmin(page);
@@ -213,9 +213,15 @@ test.describe("setting up a PUBLIC vote", () => {
     const row = page.getByRole("link", { name: /Listed question/ }).first();
     await expect(row).toBeVisible();
 
-    await page.getByRole("button", { name: "Filter Type" }).click();
+    await page
+      .getByRole("button", { name: "Sort & Filter", exact: true })
+      .click();
+    const filterDialog = page.getByRole("dialog", {
+      name: "Sort & Filter",
+      exact: true,
+    });
     await chooseDropdownOption(page, "Voting Type", "PRIVATE Voting");
-    await page.getByRole("button", { name: "Apply Filter" }).click();
+    await filterDialog.getByRole("button", { name: "Apply Filters" }).click();
     await expect(
       page.getByRole("link", { name: /Listed question/ }),
     ).toHaveCount(0);
@@ -224,19 +230,73 @@ test.describe("setting up a PUBLIC vote", () => {
     await expect(
       page.getByRole("link", { name: /Listed question/ }).first(),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Filter Vote" }).click();
-    await page.getByLabel("Vote title").fill("Listed question");
-    await page.getByRole("button", { name: "Apply Filter" }).click();
+    await page
+      .getByRole("button", { name: "Sort & Filter", exact: true })
+      .click();
+    const titleDialog = page.getByRole("dialog", {
+      name: "Sort & Filter",
+      exact: true,
+    });
+    await titleDialog.getByLabel("Vote title").fill("Listed question");
+    await titleDialog.getByRole("button", { name: "Apply Filters" }).click();
     await expect(
       page.getByRole("link", { name: /Listed question/ }),
     ).toBeVisible();
 
     await page.getByRole("link", { name: "Clear filters" }).click();
-    await page.getByRole("link", { name: "Sort Vote ascending" }).click();
+    await page
+      .getByRole("button", { name: "Sort & Filter", exact: true })
+      .click();
+    const sortDialog = page.getByRole("dialog", {
+      name: "Sort & Filter",
+      exact: true,
+    });
+    await chooseDropdownOption(page, "Sort By", "Vote");
+    await chooseDropdownOption(page, "Sort Direction", "Ascending");
+    await sortDialog.getByRole("button", { name: "Apply Filters" }).click();
     await expect(page).toHaveURL(/sort=title&direction=asc/u);
     await expect(
       page.getByRole("columnheader", { name: "Vote" }),
     ).toHaveAttribute("aria-sort", "ascending");
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const voteTable = page.locator("[data-vote-table-view] [data-data-table]");
+    await expect(
+      voteTable.locator('tbody [data-column-key="title"]'),
+    ).toHaveCount(1);
+    await expect(
+      voteTable.locator('tbody [data-column-key="type"]'),
+    ).toHaveCount(0);
+    await expect(
+      voteTable.locator('tbody [data-column-key="deadline"]'),
+    ).toHaveCount(0);
+    await expect(
+      voteTable.locator('tbody [data-column-key="updated"]'),
+    ).toHaveCount(0);
+
+    await page.getByText("Columns", { exact: true }).click();
+    for (const column of ["Type", "Deadline", "Last Changed"]) {
+      await page.getByRole("checkbox", { name: column }).check();
+    }
+    for (const key of ["type", "deadline", "updated"]) {
+      await expect(
+        voteTable.locator(`tbody [data-column-key="${key}"]`),
+      ).toHaveCount(1);
+    }
+    await page.reload();
+    for (const key of ["type", "deadline", "updated"]) {
+      await expect(
+        page.locator(
+          `[data-vote-table-view] [data-data-table] tbody [data-column-key="${key}"]`,
+        ),
+      ).toHaveCount(1);
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(
+      page.locator(
+        '[data-vote-table-view] [data-data-table] tbody [data-column-key="deadline"]',
+      ),
+    ).toHaveCount(1);
   });
 });
 

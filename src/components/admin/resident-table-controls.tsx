@@ -7,7 +7,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { SelectField, TextField } from "@/components/ui/field";
 import {
-  ResidentClearFiltersIcon,
+  ClearFiltersIcon,
+  SortFilterIcon,
   TableFilterPopover,
 } from "@/components/ui/table-filter-popover";
 import { ResidentIdentifierFilter } from "./resident-identifier-filter";
@@ -307,7 +308,11 @@ export function ResidentTableToolbar({
     );
   return (
     <div className="flex shrink-0 items-center gap-1">
-      <TableFilterPopover label="Sort & Filter" active={active}>
+      <TableFilterPopover
+        label="Sort & Filter"
+        active={active}
+        icon={<SortFilterIcon />}
+      >
         <FilterForm state={state} all />
       </TableFilterPopover>
       <Link
@@ -316,7 +321,7 @@ export function ResidentTableToolbar({
         title="Clear filters"
         className="inline-flex size-12 shrink-0 items-center justify-center rounded-control text-accent hover:bg-accent/10"
       >
-        <ResidentClearFiltersIcon />
+        <ClearFiltersIcon />
       </Link>
     </div>
   );

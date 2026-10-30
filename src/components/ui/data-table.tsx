@@ -67,6 +67,7 @@ export function DataTable<Row>({
             {columns.map((column) => (
               <th
                 key={column.key}
+                data-column-key={column.key}
                 role="columnheader"
                 scope="col"
                 aria-label={column.headerContent ? column.header : undefined}
@@ -99,6 +100,7 @@ export function DataTable<Row>({
               {columns.map((column) => (
                 <td
                   key={column.key}
+                  data-column-key={column.key}
                   role="cell"
                   className={cn(
                     "break-words",

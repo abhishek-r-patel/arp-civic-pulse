@@ -301,8 +301,9 @@ together in a readable column: Add/Manage Resident, CSV import, eligibility,
 Settings, vote setup/detail, ballot preview and voting. Sign-in, registration
 and contact already follow this layout. Text remains left-aligned within the
 centered column; tables and results workspaces retain the wider layout.
-Page descriptions also expand beside the action buttons instead of staying in
-a narrow column; on phones the actions stack below.
+When a page has a top action, it sits to the right of the title. The description
+appears below that row and uses the available page width, wrapping to fit the
+screen.
 Status uses a check, pause or ban icon for Enabled, Suspended or Deleted. Hover for its name, or tap/click the icon (Enter/Space with keyboard focus) to reveal the label; screen readers retain the full name.
 In **Actions**, select the person/edit icon to manage that resident. Hover for
 **Manage [resident name]**; keyboard and screen-reader navigation retain the same
@@ -398,9 +399,24 @@ In **Details**, the PUBLIC **Question** and PRIVATE **Title** fields use a full-
 
 The PUBLIC **Background** field is optional; its label omits an optional marker and help icon. In the PUBLIC ballot, **Select exactly one option** and **Select multiple options** sit side by side on wider screens and stack on narrow screens.
 
-The Manage Votes list has sortable columns for Vote, Type, Status, Deadline and Last Changed, with filters beside each heading. Vote title matching is literal and case-insensitive; Type and Status match selected options. Deadline date ranges match the closing deadline only, including scheduled votes that also show an opening time. Date ranges use your browser's local time zone, include **From**, and exclude **Before**. On a phone, use **Filter Votes**. Sorting and filters apply across the full list before pagination; the default is newest Last Changed first.
+The Manage Votes list has plain column headings for Vote, Type, Status, Deadline
+and Last Changed. Use the **Sort & Filter** button for title, type, status and
+date filters and to choose **Sort By** and **Sort Direction**. The matching
+funnel-with-circled-X **Clear filters** icon sits beside it. Vote title matching
+is literal and case-insensitive; Type and Status match selected options.
+Deadline date ranges match the closing deadline only, including scheduled votes
+that also show an opening time. Date ranges use your browser's local time zone,
+include **From**, and exclude **Before**. Sorting and filters apply across the
+full list before pagination; the default is newest Last Changed first.
+The screenshot below predates the shared toolbar and compact **Columns**
+chooser; use the written steps above for the current controls.
 
 The final **Turnout** column shows **submitted / eligible (percent)** for Active and Completed votes. Eligible is the frozen electorate, not the current register. Draft and Scheduled votes show **Not open**; Cancelled votes show **Not available**. These are aggregate participation figures only: the column never shows candidate or option counts.
+
+On phones and other narrow screens, **Vote**, **Status** and **Turnout** stay
+visible. Use **Columns** to show or hide **Type**, **Deadline** and **Last
+Changed**. Your choice is saved in this browser; wider screens always show all
+columns.
 
 A PUBLIC poll needs at least two distinct options. A PRIVATE election needs at least one office and at least one named candidate per office; unopposed offices are allowed. NOTA is supplied automatically and must not be added as a candidate.
 

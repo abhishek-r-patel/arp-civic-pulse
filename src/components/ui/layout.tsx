@@ -63,18 +63,20 @@ export function PageHeader({
   return (
     <header
       data-page-header
-      className="flex min-w-0 flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-start sm:justify-between md:pb-6"
+      className="grid min-w-0 gap-2 border-b border-border pb-5 md:pb-6"
     >
-      <div className="grid min-w-0 flex-1 gap-2">
-        <h1 className="font-heading text-page-title font-semibold md:text-page-title-lg">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3 sm:items-center">
+        <h1 className="min-w-0 flex-1 font-heading text-page-title font-semibold md:text-page-title-lg">
           {title}
         </h1>
-        {description ? (
-          <p className="text-body text-muted">{description}</p>
+        {actions ? (
+          <div className="ml-auto flex shrink-0 flex-wrap justify-end gap-3">
+            {actions}
+          </div>
         ) : null}
       </div>
-      {actions ? (
-        <div className="flex shrink-0 flex-wrap gap-3">{actions}</div>
+      {description ? (
+        <p className="w-full text-body text-muted">{description}</p>
       ) : null}
     </header>
   );

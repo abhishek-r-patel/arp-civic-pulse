@@ -1,13 +1,16 @@
-// URL-backed sorting and column filters for the administrator vote inventory.
+// URL-backed sorting and filters for the administrator vote inventory.
 "use client";
 
 import { useId, useState, useSyncExternalStore, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SelectField, TextField } from "@/components/ui/field";
-import { TableFilterPopover } from "@/components/ui/table-filter-popover";
+import {
+  ClearFiltersIcon,
+  SortFilterIcon,
+  TableFilterPopover,
+} from "@/components/ui/table-filter-popover";
 import {
   VOTE_STATUSES,
   VOTE_STATUS_LABELS,
@@ -19,46 +22,27 @@ import { VOTE_TABLE_SORT_KEYS } from "@/shared/contracts/admin-votes";
 import {
   VOTE_FILTER_FIELDS as allFields,
   voteTableClearFiltersHref,
-  voteTableHref,
   type VoteFilterField,
 } from "@/components/admin/vote-table-urls";
 
 type VoteSortKey = (typeof VOTE_TABLE_SORT_KEYS)[number];
-type VoteFilterColumn = VoteSortKey;
-
 export type VoteTableState = Readonly<{
   params: Readonly<Record<string, string | undefined>>;
   sort: VoteSortKey;
   direction: "asc" | "desc";
 }>;
 
-const fields: Record<VoteFilterColumn, readonly VoteFilterField[]> = {
-  title: ["titleContains"],
-  type: ["votingType"],
-  status: ["status"],
-  deadline: ["deadlineFrom", "deadlineTo"],
-  updated: ["changedFrom", "changedTo"],
-};
 const subscribe = () => () => {};
 const localZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 const serverZone = () => null;
 
-function FilterForm({
-  state,
-  column,
-  all = false,
-}: Readonly<{
-  state: VoteTableState;
-  column?: VoteFilterColumn;
-  all?: boolean;
-}>) {
+function FilterForm({ state }: Readonly<{ state: VoteTableState }>) {
   const id = useId();
   const router = useRouter();
   const timezone = useSyncExternalStore(subscribe, localZone, serverZone);
   const [error, setError] = useState("");
-  const keys = all ? allFields : column ? fields[column] : [];
-  const includes = (key: VoteFilterField) =>
-    all || (column !== undefined && fields[column].includes(key));
+  const keys = [...allFields, "sort", "direction"];
+  const includes = (key: VoteFilterField) => allFields.includes(key);
   const value = (key: string) => state.params[key] ?? "";
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -112,7 +96,7 @@ function FilterForm({
   const common = {
     inline: false,
     showOptional: false,
-    hideLabel: !all && column !== "deadline" && column !== "updated",
+    hideLabel: false,
   };
   return (
     <form
@@ -237,47 +221,38 @@ function FilterForm({
           />
         </>
       ) : null}
+      <SelectField
+        menuInFlow
+        {...common}
+        id={`${id}-sort`}
+        name="sort"
+        label="Sort By"
+        defaultValue={state.sort}
+      >
+        <option value="title">Vote</option>
+        <option value="type">Type</option>
+        <option value="status">Status</option>
+        <option value="deadline">Deadline</option>
+        <option value="updated">Last Changed</option>
+      </SelectField>
+      <SelectField
+        menuInFlow
+        {...common}
+        id={`${id}-direction`}
+        name="direction"
+        label="Sort Direction"
+        defaultValue={state.direction}
+      >
+        <option value="asc">Ascending</option>
+        <option value="desc">Descending</option>
+      </SelectField>
       {error ? (
         <p role="alert" className="text-error">
           {error}
         </p>
       ) : null}
-      <Button type="submit">{all ? "Apply Filters" : "Apply Filter"}</Button>
+      <Button type="submit">Apply Filters</Button>
     </form>
-  );
-}
-
-export function VoteColumnHeader({
-  state,
-  column,
-  title,
-}: Readonly<{
-  state: VoteTableState;
-  column: VoteFilterColumn;
-  title: string;
-}>) {
-  const selected = state.sort === column;
-  const direction = selected && state.direction === "asc" ? "desc" : "asc";
-  const Icon = selected
-    ? state.direction === "asc"
-      ? ArrowUp
-      : ArrowDown
-    : ArrowUpDown;
-  const active = fields[column].some((field) => Boolean(state.params[field]));
-  return (
-    <div className="flex items-center">
-      <Link
-        href={voteTableHref(state.params, { sort: column, direction })}
-        aria-label={`Sort ${title} ${direction === "asc" ? "ascending" : "descending"}`}
-        className="inline-flex min-h-12 items-center gap-1 wrap-normal text-primary"
-      >
-        {title}
-        <Icon aria-hidden="true" className="size-4 shrink-0" />
-      </Link>
-      <TableFilterPopover label={`Filter ${title}`} active={active}>
-        <FilterForm state={state} column={column} />
-      </TableFilterPopover>
-    </div>
   );
 }
 
@@ -286,21 +261,22 @@ export function VoteTableToolbar({
 }: Readonly<{ state: VoteTableState }>) {
   const active = allFields.some((field) => Boolean(state.params[field]));
   return (
-    <div className="flex flex-wrap items-center justify-end gap-3">
-      <div className="flex items-center md:hidden">
-        <span className="text-caption">Filter</span>
-        <TableFilterPopover label="Filter Votes" active={active}>
-          <FilterForm state={state} all />
-        </TableFilterPopover>
-      </div>
-      {active ? (
-        <Link
-          href={voteTableClearFiltersHref(state.params)}
-          className="inline-flex min-h-12 items-center font-semibold text-accent underline"
-        >
-          Clear filters
-        </Link>
-      ) : null}
+    <div className="flex min-w-0 items-center justify-end gap-1">
+      <TableFilterPopover
+        label="Sort & Filter"
+        active={active}
+        icon={<SortFilterIcon />}
+      >
+        <FilterForm state={state} />
+      </TableFilterPopover>
+      <Link
+        href={voteTableClearFiltersHref(state.params)}
+        aria-label="Clear filters"
+        title="Clear filters"
+        className="inline-flex size-12 shrink-0 items-center justify-center rounded-control text-accent hover:bg-accent/10"
+      >
+        <ClearFiltersIcon />
+      </Link>
     </div>
   );
 }
