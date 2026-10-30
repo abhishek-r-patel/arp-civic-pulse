@@ -907,9 +907,11 @@
         activation, and a short note in the <strong>Download</strong> section
         says the files match the page and cannot be recalled once downloaded.
         The downloaded CSV and PDF state that the record is not a signature,
-        legal certification or spending authorization. Completed PRIVATE
-        election results show each office in its own card: one column on phones,
-        two cards side by side on wider screens.
+        legal certification or spending authorization. PUBLIC totals and
+        completed PRIVATE office cards use the same two-column desktop grid,
+        card padding and result-bar width; phones show one full-width card.
+        PRIVATE offices retain their existing two-column desktop layout,
+        including when there is only one office.
       </p>
       <p>
         For an active PUBLIC poll, <strong>View Live Results</strong> shows
@@ -950,17 +952,23 @@
         </figcaption>
       </figure>
       <p>
-        Completed PUBLIC results include totals and authorized named household
-        responses. Follow pagination when present; downloads contain the
-        complete authorized result, not only the visible page. Completed PRIVATE
-        results contain aggregate totals only. CSV is for spreadsheet use; PDF
-        is a printable copy and may be disabled. PUBLIC downloads contain named
-        household choices; share them only with authorized people. Downloads are
-        ordinary browser links with no separate progress panel or guaranteed
-        inline retry message. Avoid repeatedly starting a download; return to
-        results and retry later. Downloads are not backups or legal signatures,
-        and saved copies cannot be recalled. If PDF is unavailable or cannot
-        print a character, use CSV.
+        Completed PUBLIC results group the outcome and option totals in one
+        centered, full-width card, like a single PRIVATE office result card,
+        followed by unframed authorized named household responses. The
+        <strong>Who chose what</strong> description spans the same width as its
+        table, which stays in table format on phones and larger screens. Its
+        contained area can scroll horizontally on narrow screens. Multiple
+        PRIVATE offices appear in two columns on wider screens. Follow
+        pagination when present; downloads contain the complete authorized
+        result, not only the visible page. Completed PRIVATE results contain
+        aggregate totals only. CSV is for spreadsheet use; PDF is a printable
+        copy and may be disabled. PUBLIC downloads contain named household
+        choices; share them only with authorized people. Downloads are ordinary
+        browser links with no separate progress panel or guaranteed inline retry
+        message. Avoid repeatedly starting a download; return to results and
+        retry later. Downloads are not backups or legal signatures, and saved
+        copies cannot be recalled. If PDF is unavailable or cannot print a
+        character, use CSV.
       </p>
       <p>
         Each result row reads like <strong>Yes 2/4 50%</strong>: count, frozen
@@ -1608,18 +1616,15 @@
       <p>
         Settings also has an <strong>App Support Access</strong> control. When
         your deployment is set up with a developer/support contact
-        (<code>APP_SUPPORT_EMAIL</code>), you can turn this on if you would like
-        the developer to look at your configuration from inside the app while
-        you get started, and turn it off again whenever you no longer need the
-        help. While it is on, the support contact signs in with their own email
-        code and gets the same read-only view as an RWA ReadOnly observer: they
-        can look at settings, accounts, households, participation and audit
-        history, but they have no household, so they can never vote, change data
-        or assign themselves anything. The control shows whether access is on,
-        the configured support email, and a single On/Off button; both turning
-        it on and off are recorded in Audit History. If no support contact is
-        configured, the control explains that and no access is granted.
-        Residents (choose All Roles) lists the support identity with an
+        (<code>APP_SUPPORT_EMAIL</code>), you can turn this on to let the
+        developer check your setup, then turn it off when help is no longer
+        needed. Support signs in with its own email code and can view settings,
+        the register, votes, participation, results and audit history. It cannot
+        change anything or vote, has no household, and cannot see PRIVATE ballot
+        choices. Turning access on or off is recorded in Audit History. The
+        control shows the support email and whether access is on. If no support
+        contact is configured, access is unavailable. Residents (choose All
+        Roles) lists the support identity with an
         <strong>App Support (ReadOnly)</strong> badge and shows that it is
         managed from this control rather than the account editor.
       </p>
@@ -1635,11 +1640,13 @@
         not production approval. Drafts are not visible to voters.
       </p>
       <p>
-        On <strong>New Vote</strong>, each type shows its description and
-        example on separate lines. Choose <strong>PUBLIC Voting</strong> for a
-        community poll, such as
-        <strong>“Should we repaint the clubhouse?” — Yes or No</strong>. While
-        open, eligible voters, RWA Admins and read-only RWA observers see
+        On <strong>New Vote</strong>, the blue
+        <strong>PUBLIC Voting</strong> and dark
+        <strong>PRIVATE Voting</strong> cards use matching colours to help
+        distinguish the types. Each shows its description, example and privacy
+        summary. Choose <strong>PUBLIC Voting</strong> for a community poll,
+        such as <strong>“Should we repaint the clubhouse?” — Yes or No</strong>.
+        While open, eligible voters, RWA Admins and read-only RWA observers see
         totals; voters can change their choice until closing. After closing,
         authorized results may show who voted and their final choices. Choose
         <strong>PRIVATE Voting</strong> for an RWA role election, such as
@@ -1653,7 +1660,7 @@
         selector. If you chose the wrong type,
         <strong>Cancel Vote</strong> rolls back a just-created draft; otherwise
         it discards unsaved edits and returns to Manage Votes, keeping the last
-        saved version as a draft. Use the right-aligned trash icon to
+        saved version as a draft. Use the right-aligned bin-with-X icon to
         permanently delete a saved draft after confirmation. With unsaved edits,
         <strong>Save and Preview</strong> saves the draft and opens its preview
         in one step; if saving fails, you stay on the editor to fix the problem.

@@ -20,6 +20,7 @@ import {
   Save,
   Trash2,
   Vote,
+  X,
 } from "lucide-react";
 import {
   buildPatch,
@@ -154,7 +155,11 @@ export function NewDraftForm({ csrfToken }: NewDraftProps) {
           <label
             key={value}
             htmlFor={`type-${value}`}
-            className="flex cursor-pointer items-start gap-3 rounded-card border border-control-border bg-surface p-4 has-[:checked]:border-accent has-[:checked]:bg-accent/5"
+            className={`flex cursor-pointer items-start gap-3 rounded-card border p-4 ${
+              value === "PUBLIC"
+                ? "border-secondary/40 bg-secondary/5 has-[:checked]:border-secondary has-[:checked]:bg-secondary/15"
+                : "border-primary/40 bg-primary/5 has-[:checked]:border-primary has-[:checked]:bg-primary/10"
+            }`}
           >
             <input
               id={`type-${value}`}
@@ -1108,7 +1113,13 @@ export function DraftEditor({
             disabled={pending}
             onClick={() => setExitAction("delete")}
           >
-            <Trash2 aria-hidden="true" className="size-6 shrink-0" />
+            <span className="relative inline-flex size-6 shrink-0 items-center justify-center">
+              <Trash2 aria-hidden="true" className="size-6" />
+              <X
+                aria-hidden="true"
+                className="absolute top-[11px] left-1/2 size-2.5 -translate-x-1/2 bg-surface stroke-[3]"
+              />
+            </span>
           </Button>
         ) : null}
       </div>

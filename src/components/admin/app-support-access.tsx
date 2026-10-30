@@ -49,12 +49,11 @@ export function AppSupportAccessControl({
         App Support Access
       </h2>
       <p className="text-body">
-        Lets the Civic Pulse app developer sign in with read-only RWA ReadOnly
-        access to help you check your setup. Support can view the register,
-        settings, votes, participation, results and audit history, but cannot
-        change anything, has no household and cannot vote. Ballot choices in
-        PRIVATE votes stay secret. Turning it on or off is recorded in the audit
-        history; turn it off when you no longer need help.
+        Let the Civic Pulse developer sign in to help check your setup. Support
+        can view the register, settings, votes, participation, results and audit
+        history, but cannot change anything or vote. Support has no household.
+        PRIVATE vote choices stay secret. Turning access on or off is recorded
+        in the audit history. Turn it off when you no longer need help.
       </p>
       <ErrorSummary failure={failure} />
       {status.configured ? (

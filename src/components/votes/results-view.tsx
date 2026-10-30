@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Download, Trophy } from "lucide-react";
 import { VoteStatusBadge, VotingTypeBadge } from "@/components/ui/badges";
 import { buttonClasses } from "@/components/ui/button";
+import { cn } from "@/components/ui/cn";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Notice } from "@/components/ui/notice";
 import { useHouseholdTerms } from "@/components/ui/household-terms";
@@ -70,7 +71,7 @@ function WinnerBanner({
   return (
     <div
       role="status"
-      className="flex items-center gap-4 rounded-card border border-success/30 bg-success/5 p-4"
+      className="flex items-center gap-4 rounded-card border border-success/50 bg-success/10 p-4 shadow-panel"
     >
       <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
         <Trophy aria-hidden="true" className="size-6" />
@@ -120,52 +121,61 @@ function OpenSection({
 
   return (
     <>
-      <Outcome results={results} terms={terms} />
-      {results.vote.openSelectionMode === "MULTIPLE" ? (
-        <Notice
-          tone="info"
-          heading={`${terms.Households} could select multiple options`}
+      <div className="mx-auto grid w-full max-w-5xl gap-4">
+        <section
+          aria-labelledby="totals"
+          className="grid w-full min-w-0 content-start gap-3 rounded-card border border-border bg-surface p-4 md:p-5"
         >
-          <p>
-            Option percentages are shares of eligible {terms.households} and can
-            add up to more than 100%. Each {terms.household} is counted once in
-            turnout.
-          </p>
-        </Notice>
-      ) : null}
-      <section aria-labelledby="totals" className="grid gap-3">
-        <h2 id="totals" className="text-section font-semibold">
-          Totals
-        </h2>
-        <ResultBars
-          label="Votes for each option"
-          total={results.eligibleCount}
-          totalNoun={`eligible ${terms.households}`}
-          rows={results.options.map((o) => {
-            const leading =
-              results.outcome !== "NO_VOTES" &&
-              results.leaderOptionIds.includes(o.id);
-            return {
-              id: o.id,
-              label: o.label,
-              count: o.count,
-              percent: o.eligiblePercent,
-              tone: leading ? "leader" : "default",
-              tag: leading
-                ? results.outcome === "TIE"
-                  ? "Tied"
-                  : "Leading"
-                : undefined,
-            };
-          })}
-        />
-      </section>
+          <h2 id="totals" className="text-section font-semibold">
+            Totals
+          </h2>
+          <Outcome results={results} terms={terms} />
+          {results.vote.openSelectionMode === "MULTIPLE" ? (
+            <Notice
+              tone="info"
+              heading={`${terms.Households} could select multiple options`}
+            >
+              <p>
+                Option percentages are shares of eligible {terms.households} and
+                can add up to more than 100%. Each {terms.household} is counted
+                once in turnout.
+              </p>
+            </Notice>
+          ) : null}
+          <ResultBars
+            label="Votes for each option"
+            total={results.eligibleCount}
+            totalNoun={`eligible ${terms.households}`}
+            fullWidth
+            rows={results.options.map((o) => {
+              const leading =
+                results.outcome !== "NO_VOTES" &&
+                results.leaderOptionIds.includes(o.id);
+              return {
+                id: o.id,
+                label: o.label,
+                count: o.count,
+                percent: o.eligiblePercent,
+                tone: leading ? "leader" : "default",
+                tag: leading
+                  ? results.outcome === "TIE"
+                    ? "Tied"
+                    : "Leading"
+                  : undefined,
+              };
+            })}
+          />
+        </section>
+      </div>
       {results.vote.status === "COMPLETED" ? (
-        <section aria-labelledby="named" className="grid gap-3">
+        <section
+          aria-labelledby="named"
+          className="mx-auto grid w-full max-w-5xl min-w-0 gap-3"
+        >
           <h2 id="named" className="text-section font-semibold">
             Who chose what
           </h2>
-          <p className="max-w-ballot text-body text-muted">
+          <p className="text-body text-muted">
             {privacyCopy(terms).PUBLIC}
           </p>
           {results.namedResponses.length === 0 ? (
@@ -176,6 +186,8 @@ function OpenSection({
               columns={namedColumns}
               rows={results.namedResponses}
               rowKey={(n) => n.householdIdentifier}
+              stackOnMobile={false}
+              framed={false}
             />
           )}
           {page ? (
@@ -208,7 +220,12 @@ function ClosedSection({
           candidate totals remain a tie.
         </p>
       </InfoTip>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div
+        className={cn(
+          "mx-auto grid w-full max-w-5xl gap-4",
+          results.offices.length > 1 && "md:grid-cols-2",
+        )}
+      >
         {results.offices.map((office) => {
           const leaders = office.candidates
             .filter((c) => office.leaderCandidateIds.includes(c.id))
@@ -272,6 +289,7 @@ function ClosedSection({
                 label={`Results for ${office.name}`}
                 total={results.eligibleCount}
                 totalNoun={`eligible ${terms.households}`}
+                fullWidth
                 rows={rows}
               />
             </section>

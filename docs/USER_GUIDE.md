@@ -161,7 +161,7 @@ A connection failure does not prove that a ballot was rejected. Keep the page op
 
 ### View results and downloads
 
-The results page and browser tab show the vote title. When the vote has background (PUBLIC) or instructions for voters (PRIVATE), a collapsed **Background** or **Instructions for voters** link under the heading reveals it. On completed results, the (i) beside **Voting ended** explains that eligibility was fixed at activation, and a short note in the **Download** section says the files match the page and cannot be recalled once downloaded. The downloaded CSV and PDF state that the record is not a signature, legal certification or spending authorization. Completed PRIVATE election results show each office in its own card: one column on phones, two cards side by side on wider screens.
+The results page and browser tab show the vote title. When the vote has background (PUBLIC) or instructions for voters (PRIVATE), a collapsed **Background** or **Instructions for voters** link under the heading reveals it. On completed results, the (i) beside **Voting ended** explains that eligibility was fixed at activation, and a short note in the **Download** section says the files match the page and cannot be recalled once downloaded. The downloaded CSV and PDF state that the record is not a signature, legal certification or spending authorization. PUBLIC totals and completed PRIVATE office cards use the same two-column desktop grid, card padding and result-bar width; phones show one full-width card. PRIVATE offices retain their existing two-column desktop layout, including when there is only one office.
 
 For an active PUBLIC poll, **View Live Results** shows aggregate option counts and turnout whether or not you have voted. A row such as **Yes 2/4 50%** means two selected households out of four eligible; the leading option is marked **Leading** or **Tied**. Multi-select percentages are shares of eligible households and may add up to more than 100%. For an active PRIVATE election, **View Live Turnout** shows aggregate turnout only. Results refresh about every ten seconds; they never show active choices.
 
@@ -171,7 +171,7 @@ For an active PUBLIC poll, **View Live Results** shows aggregate option counts a
 
 ![Resident 49: PRIVATE live turnout without candidate or NOTA totals](./images/user-guide/voter/49-closed-live-turnout.png)
 
-Completed PUBLIC results include totals and authorized named household responses. Follow pagination when present; downloads contain the complete authorized result, not only the visible page. Completed PRIVATE results contain aggregate totals only. CSV is for spreadsheet use; PDF is a printable copy and may be disabled. PUBLIC downloads contain named household choices; share them only with authorized people. Downloads are ordinary browser links with no separate progress panel or guaranteed inline retry message. Avoid repeatedly starting a download; return to results and retry later. Downloads are not backups or legal signatures, and saved copies cannot be recalled. If PDF is unavailable or cannot print a character, use CSV.
+Completed PUBLIC results group the outcome and option totals in one centered, full-width card, like a single PRIVATE office result card, followed by unframed authorized named household responses. The **Who chose what** description spans the same width as its table, which stays in table format on phones and larger screens. Its contained area can scroll horizontally on narrow screens. Multiple PRIVATE offices appear in two columns on wider screens. Follow pagination when present; downloads contain the complete authorized result, not only the visible page. Completed PRIVATE results contain aggregate totals only. CSV is for spreadsheet use; PDF is a printable copy and may be disabled. PUBLIC downloads contain named household choices; share them only with authorized people. Downloads are ordinary browser links with no separate progress panel or guaranteed inline retry message. Avoid repeatedly starting a download; return to results and retry later. Downloads are not backups or legal signatures, and saved copies cannot be recalled. If PDF is unavailable or cannot print a character, use CSV.
 
 Each result row reads like **Yes 2/4 50%**: count, frozen eligible-household denominator and whole-number percentage. A zero denominator has no meaningful percentage. Candidate ties remain ties; NOTA never wins. PUBLIC multi-select option percentages can sum to more than 100%. The result page labels leaders/elected candidates explicitly. The PDF uses the same totals and bars. If PDF cannot represent a character used in a record, download CSV instead; text is not silently discarded.
 
@@ -375,25 +375,23 @@ More specifically, the alias appears below the compact Civic Pulse brand and in 
 
 Settings also has an **App Support Access** control. When your deployment is
 set up with a developer/support contact (`APP_SUPPORT_EMAIL`), you can turn this
-on if you would like the developer to look at your configuration from inside the
-app while you get started, and turn it off again whenever you no longer need the
-help. While it is on, the support contact signs in with their own email code and
-gets the same read-only view as an RWA ReadOnly observer: they can look at
-settings, accounts, households, participation and audit history, but they have no
-household, so they can never vote, change data or assign themselves anything. The
-control shows whether access is on, the configured support email, and a single
-On/Off button; both turning it on and off are recorded in Audit History. If no
-support contact is configured, the control explains that and no access is granted.
-Residents (choose All Roles) lists the support identity with an **App Support (ReadOnly)** badge and
-shows that it is managed from this control rather than the account editor.
+on to let the developer check your setup, then turn it off when help is no longer
+needed. Support signs in with its own email code and can view settings, the
+register, votes, participation, results and audit history. It cannot change
+anything or vote, has no household, and cannot see PRIVATE ballot choices.
+Turning access on or off is recorded in Audit History. The control shows the
+support email and whether access is on. If no support contact is configured,
+access is unavailable. Residents (choose All Roles) lists the support identity
+with an **App Support (ReadOnly)** badge and shows that it is managed from this
+control rather than the account editor.
 
 ### Prepare, preview and open a vote
 
 Under **Manage Votes**, create a PUBLIC poll or PRIVATE election. PUBLIC ballots use options and may be single- or multi-select. PRIVATE ballots use offices/candidates and the built-in NOTA choice. Select the intended currently eligible households, set a future deadline in the RWA time zone, save, then preview. A ready preview is a check, not production approval. Drafts are not visible to voters.
 
-On **New Vote**, each type shows its description and example on separate lines. Choose **PUBLIC Voting** for a community poll, such as **“Should we repaint the clubhouse?” — Yes or No**. While open, eligible voters, RWA Admins and read-only RWA observers see totals; voters can change their choice until closing. After closing, authorized results may show who voted and their final choices. Choose **PRIVATE Voting** for an RWA role election, such as **“Who should be chair?”** While open, Civic Pulse shows how many people voted; after closing, results show totals, never how an individual voted.
+On **New Vote**, the blue **PUBLIC Voting** and dark **PRIVATE Voting** cards use matching colours to help distinguish the types. Each shows its description, example and privacy summary. Choose **PUBLIC Voting** for a community poll, such as **“Should we repaint the clubhouse?” — Yes or No**. While open, eligible voters, RWA Admins and read-only RWA observers see totals; voters can change their choice until closing. After closing, authorized results may show who voted and their final choices. Choose **PRIVATE Voting** for an RWA role election, such as **“Who should be chair?”** While open, Civic Pulse shows how many people voted; after closing, results show totals, never how an individual voted.
 
-Choose the voting type on **New Vote**. The draft editor begins with **1. Details** and does not repeat the type selector. If you chose the wrong type, **Cancel Vote** rolls back a just-created draft; otherwise it discards unsaved edits and returns to Manage Votes, keeping the last saved version as a draft. Use the right-aligned trash icon to permanently delete a saved draft after confirmation. With unsaved edits, **Save and Preview** saves the draft and opens its preview in one step; if saving fails, you stay on the editor to fix the problem.
+Choose the voting type on **New Vote**. The draft editor begins with **1. Details** and does not repeat the type selector. If you chose the wrong type, **Cancel Vote** rolls back a just-created draft; otherwise it discards unsaved edits and returns to Manage Votes, keeping the last saved version as a draft. Use the right-aligned bin-with-X icon to permanently delete a saved draft after confirmation. With unsaved edits, **Save and Preview** saves the draft and opens its preview in one step; if saving fails, you stay on the editor to fix the problem.
 
 In **Details**, the PUBLIC **Question** and PRIVATE **Title** fields use a full-width input below the label, without an extra (i) help popover.
 

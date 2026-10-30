@@ -22,7 +22,7 @@ export default async function RwaSettingsPage() {
     <div data-form-page className="mx-auto grid w-full max-w-ballot gap-8">
       <PageHeader
         title="Settings"
-        description="Personalize how your RWA appears in Civic Pulse. Administrators can edit; committee observers have read-only access. Fields marked * are required; leave any other field blank to hide it everywhere."
+        description="Choose how your RWA appears in Civic Pulse. Administrators can edit these settings; committee observers can only view them. Fields marked * are required. Leave optional fields blank to hide them."
       />
       <details className="group rounded-control border border-accent/30 bg-accent/5">
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-control px-4 py-3 text-body font-semibold text-primary hover:bg-accent/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">

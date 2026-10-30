@@ -25,6 +25,7 @@ type DataTableProps<Row> = Readonly<{
   rows: readonly Row[];
   rowKey: (row: Row) => string;
   stackOnMobile?: boolean;
+  framed?: boolean;
 }>;
 
 export function DataTable<Row>({
@@ -33,6 +34,7 @@ export function DataTable<Row>({
   rows,
   rowKey,
   stackOnMobile = true,
+  framed = true,
 }: DataTableProps<Row>) {
   return (
     <div
@@ -40,13 +42,17 @@ export function DataTable<Row>({
       role="region"
       aria-label={`${caption} table`}
       tabIndex={0}
-      className="min-w-0 overflow-x-auto rounded-card border border-border bg-surface shadow-panel"
+      className={cn(
+        "min-w-0 overflow-x-auto",
+        framed && "rounded-card border border-border bg-surface shadow-panel",
+      )}
     >
       <table
         role="table"
         className={cn(
           "w-full text-left text-body tabular-nums",
           stackOnMobile && "max-md:block",
+          !stackOnMobile && "min-w-[36rem]",
         )}
       >
         <caption className="sr-only">{caption}</caption>
