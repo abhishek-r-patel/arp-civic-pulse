@@ -1,13 +1,15 @@
-// Global URL-backed directory sorting and column filters, with a mobile toolbar.
+// URL-backed Residents sorting and filters in one responsive toolbar.
 "use client";
 
 import { useId, useState, useSyncExternalStore, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SelectField, TextField } from "@/components/ui/field";
-import { TableFilterPopover } from "@/components/ui/table-filter-popover";
+import {
+  ResidentClearFiltersIcon,
+  TableFilterPopover,
+} from "@/components/ui/table-filter-popover";
 import { ResidentIdentifierFilter } from "./resident-identifier-filter";
 import { instantToLocalInput, zonedLocalToInstant } from "@/shared/time/zoned";
 import { RESIDENT_SORT_KEYS } from "@/shared/contracts/admin-votes";
@@ -293,62 +295,28 @@ function FilterForm({
   );
 }
 
-export function ResidentColumnHeader({
-  state,
-  column,
-  title,
-}: Readonly<{
-  state: ResidentTableState;
-  column: SortKey;
-  title: string;
-}>) {
-  const selected = state.sort === column;
-  const direction = selected && state.direction === "asc" ? "desc" : "asc";
-  const Icon = selected
-    ? state.direction === "asc"
-      ? ArrowUp
-      : ArrowDown
-    : ArrowUpDown;
-  return (
-    <div className="flex items-center">
-      <Link
-        href={residentTableHref(state.params, { sort: column, direction })}
-        aria-label={`Sort ${title} ${direction === "asc" ? "ascending" : "descending"}`}
-        className="inline-flex min-h-12 items-center gap-1 wrap-normal text-primary"
-      >
-        {title}
-        <Icon aria-hidden="true" className="size-4 shrink-0" />
-      </Link>
-      <TableFilterPopover
-        label={`Filter ${title}`}
-        active={fields[column].some(
-          (key) =>
-            Boolean(state.params[key]) &&
-            !(key === "isAdmin" && state.params[key] === "all"),
-        )}
-      >
-        <FilterForm state={state} column={column} />
-      </TableFilterPopover>
-    </div>
-  );
-}
-
 export function ResidentTableToolbar({
   state,
 }: Readonly<{ state: ResidentTableState }>) {
+  const active = Object.values(fields)
+    .flat()
+    .some(
+      (key) =>
+        Boolean(state.params[key]) &&
+        !(key === "isAdmin" && state.params[key] === "all"),
+    );
   return (
-    <div className="flex flex-wrap items-center justify-end gap-3">
-      <div className="flex items-center md:hidden">
-        <span className="text-caption">Sort &amp; Filter</span>
-        <TableFilterPopover label="Sort & Filter">
-          <FilterForm state={state} all />
-        </TableFilterPopover>
-      </div>
+    <div className="flex shrink-0 items-center gap-1">
+      <TableFilterPopover label="Sort & Filter" active={active}>
+        <FilterForm state={state} all />
+      </TableFilterPopover>
       <Link
         href={residentTableClearFiltersHref(state.params)}
-        className="inline-flex min-h-12 items-center font-semibold text-accent underline"
+        aria-label="Clear filters"
+        title="Clear filters"
+        className="inline-flex size-12 shrink-0 items-center justify-center rounded-control text-accent hover:bg-accent/10"
       >
-        Clear filters
+        <ResidentClearFiltersIcon />
       </Link>
     </div>
   );

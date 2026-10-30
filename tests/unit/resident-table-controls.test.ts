@@ -1,4 +1,4 @@
-// URL state and shared table-header semantics for the directory's global controls.
+// URL state, toolbar semantics and shared table behavior for Residents.
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -8,6 +8,8 @@ import { SelectField } from "@/components/ui/field";
 import {
   residentTableClearFiltersHref,
   residentTableHref,
+  ResidentTableToolbar,
+  type ResidentTableState,
 } from "@/components/admin/resident-table-controls";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -77,6 +79,43 @@ describe("resident table controls", () => {
       sort: "source",
       direction: "desc",
     });
+  });
+  it("uses accessible icon-only controls for sorting, filtering, and clearing", () => {
+    const html = renderToStaticMarkup(
+      createElement(ResidentTableToolbar, {
+        state: {
+          params: {},
+          identifiers: [],
+          sort: "representative",
+          direction: "asc",
+        },
+      }),
+    );
+    expect(html).toContain('aria-label="Sort &amp; Filter"');
+    expect(html).toContain('aria-label="Clear filters"');
+    expect(html).toContain('title="Clear filters"');
+    expect(html).toContain("lucide-arrow-up");
+    expect(html).toContain("lucide-arrow-down");
+    expect(html).toContain("lucide-circle");
+    expect(html).toContain("lucide-x");
+    expect(html.match(/relative block size-5/g)).toHaveLength(2);
+    expect(html).not.toContain(">Clear filters</a>");
+    expect(html).not.toContain(">Sort &amp; Filter</span>");
+  });
+  it("announces when filters are active but not for the all-roles default", () => {
+    const renderToolbar = (params: ResidentTableState["params"]) =>
+      renderToStaticMarkup(
+        createElement(ResidentTableToolbar, {
+          state: {
+            params,
+            identifiers: [],
+            sort: "representative",
+            direction: "asc",
+          },
+        }),
+      );
+    expect(renderToolbar({ isAdmin: "all" })).not.toContain("Filter applied");
+    expect(renderToolbar({ status: "SUSPENDED" })).toContain("Filter applied");
   });
   it("keeps cursor-list defaults separate and validates table-only state", () => {
     expect(residentTableQuerySchema.parse({})).toMatchObject({

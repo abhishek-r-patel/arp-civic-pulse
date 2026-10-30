@@ -24,6 +24,7 @@ type DataTableProps<Row> = Readonly<{
   columns: readonly Column<Row>[];
   rows: readonly Row[];
   rowKey: (row: Row) => string;
+  stackOnMobile?: boolean;
 }>;
 
 export function DataTable<Row>({
@@ -31,6 +32,7 @@ export function DataTable<Row>({
   columns,
   rows,
   rowKey,
+  stackOnMobile = true,
 }: DataTableProps<Row>) {
   return (
     <div
@@ -42,15 +44,20 @@ export function DataTable<Row>({
     >
       <table
         role="table"
-        className="w-full text-left text-body tabular-nums max-md:block"
+        className={cn(
+          "w-full text-left text-body tabular-nums",
+          stackOnMobile && "max-md:block",
+        )}
       >
         <caption className="sr-only">{caption}</caption>
         <thead
           role="rowgroup"
           className={
-            columns.some((column) => column.headerContent)
-              ? "max-md:hidden"
-              : "max-md:sr-only"
+            stackOnMobile
+              ? columns.some((column) => column.headerContent)
+                ? "max-md:hidden"
+                : "max-md:sr-only"
+              : undefined
           }
         >
           <tr
@@ -74,27 +81,41 @@ export function DataTable<Row>({
             ))}
           </tr>
         </thead>
-        <tbody role="rowgroup" className="max-md:block">
+        <tbody
+          role="rowgroup"
+          className={stackOnMobile ? "max-md:block" : undefined}
+        >
           {rows.map((row) => (
             <tr
               key={rowKey(row)}
               role="row"
-              className="transition-colors hover:bg-primary/5 max-md:block max-md:border-b max-md:border-border max-md:p-4 md:border-b md:border-border md:last:border-b-0"
+              className={cn(
+                "transition-colors hover:bg-primary/5",
+                stackOnMobile
+                  ? "max-md:block max-md:border-b max-md:border-border max-md:p-4 md:border-b md:border-border md:last:border-b-0"
+                  : "border-b border-border last:border-b-0",
+              )}
             >
               {columns.map((column) => (
                 <td
                   key={column.key}
                   role="cell"
                   className={cn(
-                    "break-words md:px-4 md:py-3",
-                    "max-md:flex max-md:flex-wrap max-md:items-baseline max-md:gap-x-3 max-md:py-1",
-                    column.numeric && "md:text-right md:tabular-nums",
+                    "break-words",
+                    stackOnMobile
+                      ? "max-md:flex max-md:flex-wrap max-md:items-baseline max-md:gap-x-3 max-md:py-1 md:px-4 md:py-3"
+                      : "px-4 py-3",
+                    column.numeric &&
+                      stackOnMobile &&
+                      "md:text-right md:tabular-nums",
                     column.className,
                   )}
                 >
-                  <span className="text-caption font-semibold text-muted md:hidden">
-                    {column.header}
-                  </span>
+                  {stackOnMobile ? (
+                    <span className="text-caption font-semibold text-muted md:hidden">
+                      {column.header}
+                    </span>
+                  ) : null}
                   <span className="min-w-0">{column.cell(row)}</span>
                 </td>
               ))}

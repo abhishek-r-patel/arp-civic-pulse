@@ -106,7 +106,7 @@ test("resident eligibility edits inline with cancel, failure and persistent save
   await expect(panel.getByText("Eligible", { exact: true })).toBeVisible();
 });
 
-test("Source is an icon column with global sorting and its own filter", async ({
+test("Source is an icon column with global sorting and filtering", async ({
   page,
 }) => {
   const admin = await provisionAdmin();
@@ -120,7 +120,16 @@ test("Source is an icon column with global sorting and its own filter", async ({
       .getByRole("link", { name: "Clear filters", exact: true }),
   ).toBeVisible();
   await page
-    .getByRole("link", { name: "Sort Source ascending", exact: true })
+    .getByRole("button", { name: "Sort & Filter", exact: true })
+    .click();
+  const controls = page.getByRole("dialog", {
+    name: "Sort & Filter",
+    exact: true,
+  });
+  await chooseDropdownOption(page, "Sort By", "Source");
+  await chooseDropdownOption(page, "Sort Direction", "Ascending");
+  await controls
+    .getByRole("button", { name: "Apply Filters", exact: true })
     .click();
   await expect(page).toHaveURL(/sort=source/);
   await expect(page).not.toHaveURL(/[?&]page=/);
@@ -131,7 +140,7 @@ test("Source is an icon column with global sorting and its own filter", async ({
   await expect(header).toHaveAttribute("aria-sort", "ascending");
   await expect(
     page.getByRole("button", { name: "Filter Source", exact: true }),
-  ).toHaveCount(1);
+  ).toHaveCount(0);
   const icon = page
     .locator("tbody details summary[title='Admin-registered']")
     .first();
@@ -141,7 +150,16 @@ test("Source is an icon column with global sorting and its own filter", async ({
   await expect(icon.locator("..")).toHaveAttribute("open");
   await icon.click();
   await page
-    .getByRole("link", { name: "Sort Source descending", exact: true })
+    .getByRole("button", { name: "Sort & Filter", exact: true })
+    .click();
+  const descending = page.getByRole("dialog", {
+    name: "Sort & Filter",
+    exact: true,
+  });
+  await chooseDropdownOption(page, "Sort By", "Source");
+  await chooseDropdownOption(page, "Sort Direction", "Descending");
+  await descending
+    .getByRole("button", { name: "Apply Filters", exact: true })
     .click();
   await expect(header).toHaveAttribute("aria-sort", "descending");
   for (const [label, value] of [
@@ -149,10 +167,10 @@ test("Source is an icon column with global sorting and its own filter", async ({
     ["Admin-registered", "false"],
   ] as const) {
     await page
-      .getByRole("button", { name: "Filter Source", exact: true })
+      .getByRole("button", { name: "Sort & Filter", exact: true })
       .click();
     const panel = page.getByRole("dialog", {
-      name: "Filter Source",
+      name: "Sort & Filter",
       exact: true,
     });
     await panel.getByRole("combobox", { name: "Source", exact: true }).click();
@@ -521,21 +539,23 @@ test("resident role options show names without internal codes", async ({
         })
         .getByRole("columnheader");
       await expect(headers).toHaveCount(9);
-      for (const [index, title] of [
-        [1, "Representative"],
-        [3, "Status"],
-        [4, "Role"],
-        [5, "Voting Eligibility"],
-        [6, "Last Changed"],
-        [7, "Source"],
-      ] as const) {
-        await expect(headers.nth(index)).toHaveAttribute("aria-label", title);
-      }
+      await expect(headers).toHaveText([
+        "Select",
+        "Representative",
+        "Flat",
+        "Status",
+        "Role",
+        "Voting Eligibility",
+        "Last Changed",
+        "Source",
+        "Actions",
+      ]);
       await page
-        .getByRole("button", { name: "Filter Role", exact: true })
+        .getByRole("button", { name: "Sort & Filter", exact: true })
         .click();
-      const filters = page.locator("form").filter({
-        has: page.getByRole("button", { name: "Apply Filters", exact: true }),
+      const filters = page.getByRole("dialog", {
+        name: "Sort & Filter",
+        exact: true,
       });
       await expect(
         filters.getByText("(optional)", { exact: true }),
@@ -578,7 +598,16 @@ test("resident table controls preserve global query state and fit phone viewport
   await expect(manage).toHaveText("");
   await expect(manage.locator("svg")).toBeVisible();
   await page
-    .getByRole("link", { name: "Sort Representative ascending", exact: true })
+    .getByRole("button", { name: "Sort & Filter", exact: true })
+    .click();
+  let filters = page.getByRole("dialog", {
+    name: "Sort & Filter",
+    exact: true,
+  });
+  await chooseDropdownOption(page, "Sort By", "Representative");
+  await chooseDropdownOption(page, "Sort Direction", "Ascending");
+  await filters
+    .getByRole("button", { name: "Apply Filters", exact: true })
     .click();
   await expect(
     page.getByRole("columnheader", { name: "Representative", exact: true }),
@@ -586,8 +615,12 @@ test("resident table controls preserve global query state and fit phone viewport
   await expect(page).not.toHaveURL(/[?&]page=/);
   await expect(page).toHaveURL(/[?&]limit=10/);
   await page
-    .getByRole("button", { name: "Filter Last Changed", exact: true })
+    .getByRole("button", { name: "Sort & Filter", exact: true })
     .click();
+  filters = page.getByRole("dialog", {
+    name: "Sort & Filter",
+    exact: true,
+  });
   await page
     .getByRole("textbox", { name: "Changed From", exact: true })
     .fill("2000-01-01T00:00");
@@ -598,7 +631,9 @@ test("resident table controls preserve global query state and fit phone viewport
     .getByRole("button", { name: "Apply Filters", exact: true })
     .click();
   await expect(page).toHaveURL(/changedTo=/);
-  await page.getByRole("button", { name: "Filter Role", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Sort & Filter", exact: true })
+    .click();
   await chooseDropdownOption(page, "Role", "All roles");
   await page
     .getByRole("button", { name: "Apply Filters", exact: true })
@@ -609,7 +644,7 @@ test("resident table controls preserve global query state and fit phone viewport
     page.getByText("Residents could not be loaded", { exact: true }),
   ).toHaveCount(0);
   await page
-    .getByRole("button", { name: "Filter Representative", exact: true })
+    .getByRole("button", { name: "Sort & Filter", exact: true })
     .click();
   await page
     .getByRole("textbox", { name: "Representative", exact: true })
@@ -624,9 +659,83 @@ test("resident table controls preserve global query state and fit phone viewport
     }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Filter Representative", exact: true }),
+    page.getByRole("button", { name: "Sort & Filter", exact: true }),
   ).toBeVisible();
   await page.setViewportSize({ width: 320, height: 740 });
+  const controlStrip = page.getByRole("group", {
+    name: "Resident selection and display controls",
+  });
+  await expect(controlStrip.locator("details summary")).toBeVisible();
+  const columnChooser = controlStrip.locator("details");
+  await columnChooser.locator("summary").click();
+  const columnOptions = columnChooser.getByRole("group", {
+    name: "Show columns",
+  });
+  await expect(columnOptions).toBeVisible();
+  const optionBounds = await columnOptions.boundingBox();
+  expect(
+    optionBounds &&
+      optionBounds.x >= 0 &&
+      optionBounds.y >= 0 &&
+      optionBounds.x + optionBounds.width <= 320 &&
+      optionBounds.y + optionBounds.height <= 740,
+  ).toBe(true);
+  const roleOption = columnChooser.getByRole("checkbox", {
+    name: "Role",
+    exact: true,
+  });
+  await roleOption.check();
+  await expect(
+    page.getByRole("columnheader", { name: "Role", exact: true }),
+  ).toBeVisible();
+  await roleOption.uncheck();
+  await expect(
+    page.getByRole("columnheader", { name: "Role", exact: true }),
+  ).toHaveCount(0);
+  await columnChooser.locator("summary").click();
+  const rowControls = [
+    controlStrip.getByRole("checkbox", { name: "Select All", exact: true }),
+    controlStrip.getByRole("button", {
+      name: "Sort & Filter",
+      exact: true,
+    }),
+    controlStrip.getByRole("link", { name: "Clear filters", exact: true }),
+    columnChooser.locator("summary"),
+    controlStrip.getByRole("button", { name: /Enable Selected/ }),
+    controlStrip.getByRole("button", { name: /Make Eligible/ }),
+  ];
+  const controlCenters = await Promise.all(
+    rowControls.map(async (control) => {
+      const bounds = await control.boundingBox();
+      expect(bounds).not.toBeNull();
+      return Math.round((bounds?.y ?? -100) + (bounds?.height ?? 0) / 2);
+    }),
+  );
+  expect(
+    Math.max(...controlCenters) - Math.min(...controlCenters),
+  ).toBeLessThan(2);
+  for (const action of [
+    controlStrip.getByRole("button", { name: /Enable Selected/ }),
+    controlStrip.getByRole("button", { name: /Make Eligible/ }),
+  ]) {
+    const bounds = await action.boundingBox();
+    expect(bounds?.height).toBeGreaterThanOrEqual(48);
+    expect(
+      await action.evaluate((button) =>
+        Number.parseFloat(getComputedStyle(button).fontSize),
+      ),
+    ).toBeLessThan(16);
+  }
+  expect(
+    await controlStrip
+      .locator("div[tabindex='0']")
+      .evaluate((element) => element.scrollWidth > element.clientWidth),
+  ).toBe(true);
+  await expect(
+    page.locator(
+      "[data-account-review] thead th a, [data-account-review] thead th button",
+    ),
+  ).toHaveCount(0);
   await page
     .getByRole("button", { name: "Sort & Filter", exact: true })
     .click();
@@ -680,10 +789,16 @@ test("resident table controls preserve global query state and fit phone viewport
       .innerText()
   ).trim();
   const partial = identifier.slice(1).toLowerCase();
-  const householdHeader = page.getByRole("columnheader").nth(2);
-  await householdHeader.getByRole("button").click();
-  const filterPanel = page.locator("[popover]:popover-open");
-  await filterPanel.locator("input:not([type=hidden])").fill(partial);
+  await page
+    .getByRole("button", { name: "Sort & Filter", exact: true })
+    .click();
+  const filterPanel = page.getByRole("dialog", {
+    name: "Sort & Filter",
+    exact: true,
+  });
+  await filterPanel
+    .getByRole("textbox", { name: "Flat Number", exact: true })
+    .fill(partial);
   await page
     .getByRole("button", { name: "Apply Filters", exact: true })
     .click();

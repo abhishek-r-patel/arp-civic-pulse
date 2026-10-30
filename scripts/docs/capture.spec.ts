@@ -23,12 +23,17 @@ test.skip(
 );
 
 const images = join(process.cwd(), "docs", "images", "user-guide");
-const onlyScreenshot = process.env.DOC_SCREENSHOT_ONLY;
+const onlyScreenshots = new Set(
+  (process.env.DOC_SCREENSHOT_ONLY ?? "")
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean),
+);
 type Persona = "voter" | "rwa-admin" | "rwa-readonly";
 const screenshotPersona = new WeakMap<Page, Persona>();
 
 async function capture(page: Page, name: string, dialogOnly = false, viewportOnly = false) {
-  if (onlyScreenshot && name !== onlyScreenshot) return;
+  if (onlyScreenshots.size > 0 && !onlyScreenshots.has(name)) return;
   const persona = screenshotPersona.get(page) ?? "rwa-admin";
   const personaImages = join(images, persona);
   await mkdir(personaImages, { recursive: true });
@@ -194,19 +199,30 @@ test("capture bulk account review documentation", async ({ browser }) => {
   const accountRow = (id: string) => page.getByRole("row").filter({ has: page.locator(`a[href="/admin/residents/${id}"]`) });
   async function findAccount(id: string, url: string) {
     await page.goto(url);
+    await page.waitForLoadState("networkidle");
+    const paginationPage = page.locator(
+      'nav[aria-label="Pagination"] [aria-current="page"]',
+    );
     for (let index = 0; index < 30; index += 1) {
       if (await accountRow(id).count()) return;
       const next = page.getByRole("link", { name: /Next page/i });
       if (!await next.count()) break;
       await next.click();
+      await expect(paginationPage).toContainText(`Page ${index + 2} of`);
     }
     throw new Error("Synthetic review account was not found in the paginated register.");
   }
   try {
     await signInThroughUi(page, operator.email, operator.code);
     await page.goto("/admin/residents");
-    await page.getByRole("button", { name: "Filter Role", exact: true }).click();
-    await expect(page.getByRole("combobox", { name: "Role", exact: true })).toHaveText("Voter");
+    await page.getByRole("button", { name: "Sort & Filter", exact: true }).click();
+    const roleFilters = page.getByRole("dialog", {
+      name: "Sort & Filter",
+      exact: true,
+    });
+    await expect(
+      roleFilters.getByRole("combobox", { name: "Role", exact: true }),
+    ).toHaveText("Voter");
     await page.keyboard.press("Escape");
     await capture(page, "47-accounts-list");
     await findAccount(resident.id, "/admin/residents?status=SUSPENDED&limit=100");
@@ -231,8 +247,14 @@ test("capture bulk account review documentation", async ({ browser }) => {
     expect(await asUser(operator.id, "(select is_eligible from public.households where id=$1)", [other.householdId])).toBe(false);
     expect(await asUser(operator.id, "(select status from public.profiles where id=$1)", [untouched.id])).toBe("SUSPENDED");
     await findAccount(administrator.id, "/admin/residents?status=SUSPENDED&isAdmin=all&limit=100");
-    await page.getByRole("button", { name: "Filter Role", exact: true }).click();
-    await expect(page.getByRole("combobox", { name: "Role", exact: true })).toHaveText("All roles");
+    await page.getByRole("button", { name: "Sort & Filter", exact: true }).click();
+    const allRoleFilters = page.getByRole("dialog", {
+      name: "Sort & Filter",
+      exact: true,
+    });
+    await expect(
+      allRoleFilters.getByRole("combobox", { name: "Role", exact: true }),
+    ).toHaveText("All roles");
     await page.keyboard.press("Escape");
     await expect(page.getByText("0 selected", { exact: true })).toBeVisible();
     await accountRow(administrator.id).getByRole("checkbox").check();
@@ -373,8 +395,8 @@ test("capture administrator assignment of exclusive management roles", async ({ 
   try {
     await signInThroughUi(page, operator.email, operator.code);
     await page.goto("/admin/residents/new");
-    await page.getByLabel("Email address").fill(email);
-    await page.getByLabel("Resident name").fill(name);
+    await page.getByRole("textbox", { name: /^Email address/ }).fill(email);
+    await page.getByRole("textbox", { name: /^Resident name/ }).fill(name);
     await chooseDropdownOption(
       page,
       "Role",
@@ -400,7 +422,10 @@ test("capture administrator assignment of exclusive management roles", async ({ 
     await page.getByRole("button", { name: "Assign Flat" }).click();
     await expect(page.getByText(`Flat ${identifier} assigned.`)).toBeVisible();
     await page.getByRole("link", { name: "Change eligibility" }).click();
-    await page.getByLabel("Eligible to vote").check();
+    await page.getByRole("checkbox", {
+      name: "Eligible to vote",
+      exact: true,
+    }).check();
     await page.getByRole("button", { name: "Save Changes" }).click();
     await expect(page.getByText("Flat updated.")).toBeVisible();
     await page.goto(accountPath);
@@ -650,7 +675,9 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     );
     await a.setViewportSize({ width: 1280, height: 900 });
     await a.goto("/admin/residents/new");
-    await expect(a.getByLabel("Resident name")).toBeVisible();
+    await expect(
+      a.getByRole("textbox", { name: /^Resident name/ }),
+    ).toBeVisible();
     await expect(
       a.locator("form").getByText("Flat assignment", { exact: true }),
     ).toBeHidden();
@@ -674,8 +701,8 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     expect(checkboxHelpAlignment).toEqual([true, true]);
     await capture(a, "16-create-account");
     const onboardingEmail = plusEmail();
-    await a.getByLabel(/Email address/).fill(onboardingEmail);
-    await a.getByLabel(/Resident name/).fill("Arun Shah (example)");
+    await a.getByRole("textbox", { name: /^Email address/ }).fill(onboardingEmail);
+    await a.getByRole("textbox", { name: /^Resident name/ }).fill("Arun Shah (example)");
     await a.getByRole("button", { name: "Create Resident" }).click();
     await expect(a.getByText(/before creating a resident/)).toBeVisible();
     await capture(a, "43-household-required");
@@ -689,7 +716,10 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     const onboardingAccountPath = new URL(a.url()).pathname;
     await capture(a, "42-created-suspended");
     await a.getByRole("link", { name: "Change eligibility" }).click();
-    await a.getByLabel("Eligible to vote").check();
+    await a.getByRole("checkbox", {
+      name: "Eligible to vote",
+      exact: true,
+    }).check();
     await a.getByRole("button", { name: "Save Changes" }).click();
     await expect(a.getByText("Flat updated.")).toBeVisible();
     await a.goto(
@@ -718,8 +748,8 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     await capture(a, "19-delete-dialog");
     await a.keyboard.press("Escape");
     await a.goto("/admin/residents/new");
-    await a.getByLabel(/Email address/).fill(plusEmail());
-    await a.getByLabel(/Resident name/).fill("Meera Iyer (example)");
+    await a.getByRole("textbox", { name: /^Email address/ }).fill(plusEmail());
+    await a.getByRole("textbox", { name: /^Resident name/ }).fill("Meera Iyer (example)");
     await a.locator('[id="household.identifier"]').click();
     await capture(a, "20-add-household");
     await a.goto("/admin/votes/new");
@@ -1141,7 +1171,9 @@ test("capture the RWA ReadOnly persona", async ({ browser }) => {
     await expect(page.getByLabel("Role", { exact: true })).toBeDisabled();
     await capture(page, "04-observer-account-detail");
     await page.goto("/admin/residents/new");
-    await expect(page.getByLabel("Email address")).toBeDisabled();
+    await expect(
+      page.getByRole("textbox", { name: /^Email address/ }),
+    ).toBeDisabled();
     await capture(page, "05-create-account-disabled");
 
     await page.goto("/admin/residents");
@@ -1367,7 +1399,9 @@ test("capture Residents management surfaces", async ({ browser }) => {
     await capture(observerPage, "04-observer-account-detail");
     await capture(observerPage, "07-new-household-disabled");
     await observerPage.goto("/admin/residents/new");
-    await expect(observerPage.getByLabel(/Email address/)).toBeDisabled();
+    await expect(
+      observerPage.getByRole("textbox", { name: /^Email address/ }),
+    ).toBeDisabled();
     await capture(observerPage, "05-create-account-disabled");
     await observerPage.goto("/admin/residents/import");
     await capture(observerPage, "09-register-import-disabled");
@@ -1424,16 +1458,22 @@ test("capture self-registration and one-step account onboarding", async ({ brows
 
     await signInThroughUi(a, admin.email, admin.code);
     await a.goto("/admin/residents/new");
-    await a.getByLabel(/Email address/).fill(plusEmail());
-    await a.getByLabel(/Resident name/).fill("Neha Joshi (example)");
+    await a.getByRole("textbox", { name: /^Email address/ }).fill(plusEmail());
+    await a.getByRole("textbox", { name: /^Resident name/ }).fill("Neha Joshi (example)");
     const adminPicker = a.getByRole("combobox", { name: /Flat Number/ });
     await adminPicker.click();
     await expect(a.getByRole("listbox")).toBeVisible();
     await capture(a, "81-add-account-flat-picker", false, true);
     const chosen = listed[1] ?? "";
     await a.getByRole("option", { name: chosen, exact: true }).click();
-    await a.getByLabel("Eligible to vote").check();
-    await a.getByLabel("Enable account now").check();
+    await a.getByRole("checkbox", {
+      name: "Eligible to vote",
+      exact: true,
+    }).check();
+    await a.getByRole("checkbox", {
+      name: "Enable account now",
+      exact: true,
+    }).check();
     await a.getByRole("button", { name: "Create Resident" }).click();
     await expect(a.getByText("Account created and enabled.")).toBeVisible();
     await expect(a.getByText(chosen, { exact: true })).toBeVisible();
@@ -1449,7 +1489,11 @@ test("capture self-registration and one-step account onboarding", async ({ brows
     await expect(a.getByText(`Moved to ${moveTo}.`)).toBeVisible();
 
     await a.goto("/admin/residents?status=SUSPENDED&selfRegistered=true");
-    await expect(a.locator("[data-account-review]").getByText("Self-registered").first()).toBeVisible();
+    await expect(
+      a.locator(
+        '[data-account-review] tbody details > summary[title="Self-registered"]',
+      ).first(),
+    ).toBeVisible();
     await capture(a, "84-self-registered-accounts", false, true);
     await a.goto("/admin/residents");
     await expect(a.getByRole("heading", { level: 1, name: "Residents" })).toBeVisible();

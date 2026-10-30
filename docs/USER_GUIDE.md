@@ -232,8 +232,8 @@ Choose **Manage** in Residents to edit details, role or access. The household se
 
 The pictures below show the step-by-step path: an account created without a flat, refused enablement, then a flat assigned from the account page. Residents screenshots retain the earlier filter layout; use the current column controls described below.
 
-Use the filter button beside a Residents column heading to find people and their
-assignments together. **Representative** searches names (not email); **Status**,
+Use the **Sort & Filter** toolbar button (a funnel with up/down arrows) to find
+people and their assignments together. **Representative** searches names (not email); **Status**,
 **Role**, **Voting Eligibility**, the configured identifier (for example
 **Flat Number**) and **Last Changed** have their own filters. Date ranges use your
 browser time zone: **Changed From** includes that instant, **Changed Before**
@@ -243,8 +243,9 @@ or **Admin-registered** on hover or click/tap (person and shield icons,
 respectively); ascending puts Admin-registered
 first and descending puts Self-registered first. The old self-registration
 caption below a name is replaced by this column. Existing screenshots predate it.
-**Clear filters** sits beside Select All and the selection count in the same
-toolbar as the right-aligned bulk actions, rather than in a separate row.
+The matching funnel-with-circled-X **Clear filters** button sits beside Select All and
+the selection count in the same toolbar as the right-aligned bulk actions,
+rather than in a separate row.
 Role badges use green for Voter, amber for RWA ReadOnly (including App Support)
 and red for RWA Admin, with text and icons retained. These colours describe the
 role, not whether the account is enabled or eligible. Existing screenshots
@@ -286,9 +287,11 @@ supported and show Page not found; replace any bookmarks with Residents.
 
 ![RWA Admin 17: account identity, role, access status and Flat section](./images/user-guide/rwa-admin/17-account.png)
 
-The toolbar shows **Select All** and the selection count on the left, with action buttons right-aligned. **Select All** selects actionable rows on the current page only.
+The toolbar shows **Select All** and the selection count on the left, with action buttons right-aligned. Select individual residents with the checkbox in the **Select** column, or use **Select All** for actionable residents on the current page only.
 
-The Residents columns are **Select**, **Representative**, **Flat** (or your configured household name), **Status**, **Role**, **Voting Eligibility**, **Last Changed** and **Actions**. Last Changed uses your browser/device time zone without repeating a zone suffix; hover over a date to see the zone. Until the browser loads, dates are explicitly labelled UTC. It tracks changes to the account profile, not separate household eligibility edits. Voting deadlines still use the RWA time zone.
+The Residents columns are **Select**, **Representative**, **Flat** (or your configured household name), **Status**, **Role**, **Voting Eligibility**, **Last Changed**, **Source** and **Actions**. Last Changed uses your browser/device time zone without repeating a zone suffix; hover over a date to see the zone. Until the browser loads, dates are explicitly labelled UTC. It tracks changes to the account profile, not separate household eligibility edits. Voting deadlines still use the RWA time zone.
+
+On narrow screens the register remains a table. **Select**, **Representative**, **Flat**, **Status** and **Actions** stay visible. Use **Columns** to show or hide **Role**, **Voting Eligibility**, **Last Changed** and **Source**. Your choice is saved in this browser, not in your account. If the columns do not fit, scroll within the table; the page itself stays within the screen width. Use the toolbar’s funnel icon to sort or filter any field, including hidden columns, and the clear-filter icon to reset filters. Table headings stay plain to avoid duplicating those controls. Selection, filters, bulk actions and the Columns chooser stay on one row; swipe or use keyboard focus to scroll the row on very narrow screens.
 Pages throughout the app now use the available window width with small side
 gutters, giving tables more room on wide screens. Individual forms and ballots
 keep their narrower readable layout. Existing guide screenshots predate this
@@ -305,7 +308,7 @@ In **Actions**, select the person/edit icon to manage that resident. Hover for
 **Manage [resident name]**; keyboard and screen-reader navigation retain the same
 named link. ReadOnly observers can open it to inspect details without editing.
 
-**Enable Selected** and **Make Eligible** are separate page-local operations. Selections cover the current page and clear when sorting, filtering, changing pages or page size; they do not alter a frozen electorate. The default role filter is Voters (`voter`). Choose All Roles or RWA Admin (`rwa-admin`) explicitly before selecting an RWA Admin for enablement. Each account commits separately; after a failure, refresh and review before retrying.
+After selecting residents, **Enable Selected** turns on sign-in access; it does not change voting eligibility. **Make Eligible** marks the selected residents' households eligible for future votes; it does not enable sign-in. Scheduled, active and past votes keep their frozen assignments. The button counts show how many selected residents can receive each action. Selections cover the current page and clear when sorting, filtering, changing pages or page size. The default role filter is Voters (`voter`). Choose All Roles or RWA Admin (`rwa-admin`) explicitly before selecting an RWA Admin for enablement. Each account is processed separately; a failure stops later rows, and completed changes are not rolled back. Refresh and review before retrying.
 
 Residents who registered themselves at `/register` appear as suspended Voters with their household already assigned and **not eligible**; their row is marked **Self-registered**. Set **Source** to **Self-registered** (and **Status** to Suspended) to review them. Check the name, email and household against your records, then use **Enable Selected** for access and **Make Eligible** for voting. A wrong or unknown registration can be left suspended or set to Deleted from **Manage**. Each one is recorded in Audit History as **Profile self registered** by **System**.
 

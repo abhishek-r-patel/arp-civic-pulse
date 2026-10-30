@@ -8,6 +8,7 @@ import {
   seedHousehold,
   signInThroughUi,
 } from "./support/live";
+import { chooseDropdownOption } from "./support/dropdown";
 
 test.use({ trace: "off", video: "off", screenshot: "off" });
 
@@ -38,13 +39,28 @@ test("committee observers can read management pages and still cast their own bal
   await expect(
     page.getByRole("button", { name: "Enable Selected" }),
   ).toBeDisabled();
-  await page.getByRole("button", { name: "Filter Role", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Sort & Filter", exact: true })
+    .click();
+  const controls = page.getByRole("dialog", {
+    name: "Sort & Filter",
+    exact: true,
+  });
   await expect(
-    page.getByRole("combobox", { name: "Role", exact: true }),
+    controls.getByRole("combobox", { name: "Role", exact: true }),
   ).toBeEnabled();
   await page.keyboard.press("Escape");
   await page
-    .getByRole("link", { name: "Sort Representative ascending", exact: true })
+    .getByRole("button", { name: "Sort & Filter", exact: true })
+    .click();
+  const sortControls = page.getByRole("dialog", {
+    name: "Sort & Filter",
+    exact: true,
+  });
+  await chooseDropdownOption(page, "Sort By", "Representative");
+  await chooseDropdownOption(page, "Sort Direction", "Ascending");
+  await sortControls
+    .getByRole("button", { name: "Apply Filters", exact: true })
     .click();
   await expect(
     page.getByRole("columnheader", { name: "Representative", exact: true }),

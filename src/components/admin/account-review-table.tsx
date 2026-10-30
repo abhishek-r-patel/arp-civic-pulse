@@ -1,14 +1,19 @@
 /* Page-scoped review with independent, confirmed account-access and flat-eligibility actions. */
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCheck, UserCheck, UserRoundPen } from "lucide-react";
+import { CheckCheck, ChevronDown, UserCheck, UserRoundPen } from "lucide-react";
 import { formatInstant, formatLocalInstant } from "@/components/admin/format";
 import { ManagementFields } from "./management-fields";
 import {
-  ResidentColumnHeader,
   ResidentTableToolbar,
   type ResidentTableState,
 } from "./resident-table-controls";
@@ -34,6 +39,98 @@ import { apiRequest } from "@/shared/http/api-client";
 const subscribe = () => () => {};
 const browserTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 const serverTimezone = () => null;
+const RESIDENT_COLUMNS_STORAGE_KEY = "civic-pulse-resident-columns";
+const RESIDENT_COLUMNS_EVENT = "civic-pulse:resident-columns";
+const STORAGE_UNAVAILABLE = Symbol("storage-unavailable");
+const COMPACT_TABLE_QUERY = "(max-width: 1023px)";
+const FIXED_RESIDENT_COLUMNS = [
+  "select",
+  "name",
+  "household",
+  "status",
+  "manage",
+];
+const OPTIONAL_RESIDENT_COLUMNS = [
+  { key: "role", label: "Role" },
+  { key: "eligibility", label: "Voting Eligibility" },
+  { key: "updated", label: "Last Changed" },
+  { key: "source", label: "Source" },
+] as const;
+type OptionalResidentColumn = (typeof OPTIONAL_RESIDENT_COLUMNS)[number]["key"];
+
+function subscribeToCompactTable(onChange: () => void) {
+  const media = window.matchMedia(COMPACT_TABLE_QUERY);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+
+function compactTableSnapshot() {
+  return window.matchMedia(COMPACT_TABLE_QUERY).matches;
+}
+
+function subscribeToColumnPreference(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  window.addEventListener(RESIDENT_COLUMNS_EVENT, onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener(RESIDENT_COLUMNS_EVENT, onChange);
+  };
+}
+
+function columnPreferenceSnapshot():
+  string | null | typeof STORAGE_UNAVAILABLE {
+  try {
+    return window.localStorage.getItem(RESIDENT_COLUMNS_STORAGE_KEY);
+  } catch {
+    return STORAGE_UNAVAILABLE;
+  }
+}
+
+function isOptionalResidentColumn(
+  value: unknown,
+): value is OptionalResidentColumn {
+  return OPTIONAL_RESIDENT_COLUMNS.some((column) => column.key === value);
+}
+
+function isStoredResidentColumn(
+  value: unknown,
+): value is OptionalResidentColumn | "select" {
+  return value === "select" || isOptionalResidentColumn(value);
+}
+
+function ResidentColumnChooser({
+  selected,
+  onToggle,
+}: Readonly<{
+  selected: ReadonlySet<OptionalResidentColumn>;
+  onToggle: (column: OptionalResidentColumn, checked: boolean) => void;
+}>) {
+  return (
+    <details className="relative flex shrink-0 items-center lg:hidden">
+      <summary className="inline-flex min-h-12 cursor-pointer list-none items-center justify-center gap-2 rounded-control border border-control-border bg-surface px-4 py-3 font-semibold text-primary hover:bg-primary/5 [&::-webkit-details-marker]:hidden">
+        Columns
+        <ChevronDown aria-hidden="true" className="size-4" />
+      </summary>
+      <fieldset className="absolute right-0 z-30 mt-2 grid max-h-[70dvh] w-64 max-w-[calc(100vw-2rem)] gap-1 overflow-y-auto rounded-card border border-border bg-surface p-3 text-primary shadow-panel">
+        <legend className="px-1 pb-1 font-semibold">Show columns</legend>
+        {OPTIONAL_RESIDENT_COLUMNS.map((column) => (
+          <label
+            key={column.key}
+            className="inline-flex min-h-12 cursor-pointer items-center gap-3 px-2"
+          >
+            <input
+              type="checkbox"
+              className="size-5 accent-accent"
+              checked={selected.has(column.key)}
+              onChange={(event) => onToggle(column.key, event.target.checked)}
+            />
+            {column.label}
+          </label>
+        ))}
+      </fieldset>
+    </details>
+  );
+}
 
 export function AccountReviewTable({
   accounts: initial,
@@ -52,9 +149,58 @@ export function AccountReviewTable({
     browserTimezone,
     serverTimezone,
   );
+  const compactTable = useSyncExternalStore(
+    subscribeToCompactTable,
+    compactTableSnapshot,
+    () => false,
+  );
+  const savedColumnPreference = useSyncExternalStore(
+    subscribeToColumnPreference,
+    columnPreferenceSnapshot,
+    () => null,
+  );
   const router = useRouter();
   const [accounts, setAccounts] = useState(initial);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [temporaryColumns, setTemporaryColumns] =
+    useState<ReadonlySet<OptionalResidentColumn> | null>(null);
+  const [columnWriteError, setColumnWriteError] = useState<string | null>(null);
+  const parsedColumnPreference = useMemo(() => {
+    if (savedColumnPreference === STORAGE_UNAVAILABLE)
+      return {
+        columns: new Set<OptionalResidentColumn>(),
+        error:
+          "Saved column choices could not be loaded. Current defaults are shown; changes may not be remembered on this device.",
+      };
+    if (savedColumnPreference === null)
+      return { columns: new Set<OptionalResidentColumn>(), error: null };
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(savedColumnPreference);
+    } catch {
+      return {
+        columns: new Set<OptionalResidentColumn>(),
+        error:
+          "Saved column choices are invalid. Default columns are shown; choose columns to replace the saved preference.",
+      };
+    }
+    if (!Array.isArray(parsed) || !parsed.every(isStoredResidentColumn)) {
+      return {
+        columns: new Set<OptionalResidentColumn>(),
+        error:
+          "Saved column choices are invalid. Default columns are shown; choose columns to replace the saved preference.",
+      };
+    }
+    return {
+      columns: new Set<OptionalResidentColumn>(
+        parsed.filter(isOptionalResidentColumn),
+      ),
+      error: null,
+    };
+  }, [savedColumnPreference]);
+  const optionalColumns = temporaryColumns ?? parsedColumnPreference.columns;
+  const columnPreferenceError =
+    columnWriteError ?? parsedColumnPreference.error;
   const [action, setAction] = useState<AccountReviewAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [outcomes, setOutcomes] = useState<string[]>([]);
@@ -107,6 +253,29 @@ export function AccountReviewTable({
   const enable = accountReviewTargets(accounts, selected, "enable");
   const eligible = accountReviewTargets(accounts, selected, "eligible");
   const targets = action === "enable" ? enable : eligible;
+
+  function toggleOptionalColumn(
+    column: OptionalResidentColumn,
+    checked: boolean,
+  ) {
+    const next = new Set(optionalColumns);
+    if (checked) next.add(column);
+    else next.delete(column);
+    try {
+      window.localStorage.setItem(
+        RESIDENT_COLUMNS_STORAGE_KEY,
+        JSON.stringify([...next]),
+      );
+      setTemporaryColumns(null);
+      setColumnWriteError(null);
+      window.dispatchEvent(new Event(RESIDENT_COLUMNS_EVENT));
+    } catch {
+      setTemporaryColumns(next);
+      setColumnWriteError(
+        "Column choices changed for this visit, but the browser could not save them on this device.",
+      );
+    }
+  }
 
   async function run() {
     if (!action || busy) return;
@@ -295,7 +464,15 @@ export function AccountReviewTable({
     eligibility: "eligibility",
     updated: "updated",
   };
-  const tableColumns = columns.map(
+  const visibleColumns = compactTable
+    ? columns.filter(
+        (column) =>
+          FIXED_RESIDENT_COLUMNS.includes(column.key) ||
+          (isOptionalResidentColumn(column.key) &&
+            optionalColumns.has(column.key)),
+      )
+    : columns;
+  const tableColumns = visibleColumns.map(
     (column): Column<ReviewAccountProjection> => {
       const key = sortKeys[column.key];
       if (!key) return column;
@@ -307,13 +484,6 @@ export function AccountReviewTable({
               ? "ascending"
               : "descending"
             : undefined,
-        headerContent: (
-          <ResidentColumnHeader
-            state={tableState}
-            column={key}
-            title={column.header}
-          />
-        ),
       };
     },
   );
@@ -321,56 +491,78 @@ export function AccountReviewTable({
     <div data-account-review className="grid gap-5">
       <div
         data-resident-toolbar
-        className="flex flex-wrap items-center gap-4 border-b border-border pb-5"
+        className="grid gap-3 border-b border-border pb-5"
       >
-        <ManagementFields canManage={canManage}>
-          <div className="flex flex-wrap items-center gap-4">
-            <label className="inline-flex touch-target items-center gap-2">
-              <input
-                ref={selectPage}
-                type="checkbox"
-                className="size-5 accent-accent"
-                checked={allSelected}
-                disabled={busy || !selectable.length}
-                onChange={(event) =>
-                  setSelected(
-                    event.target.checked
-                      ? new Set(selectable.map((account) => account.id))
-                      : new Set(),
-                  )
-                }
-              />
-              Select All
-            </label>
-            <span
-              role="status"
-              className="font-semibold text-accent tabular-nums"
-            >
-              {selected.size} selected{busy ? `; ${completed} completed` : ""}
-            </span>
-          </div>
-        </ManagementFields>
-        <ResidentTableToolbar state={tableState} />
-        <div className="ml-auto max-w-full">
-          <ManagementFields canManage={canManage}>
-            <div className="flex max-w-full flex-wrap justify-end gap-4">
-              <Button
-                disabled={busy || !enable.length}
-                onClick={() => setAction("enable")}
-              >
-                <UserCheck aria-hidden="true" className="size-5" />
-                Enable Selected ({enable.length})
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={busy || !eligible.length}
-                onClick={() => setAction("eligible")}
-              >
-                <CheckCheck aria-hidden="true" className="size-5" />
-                Make Eligible ({eligible.length})
-              </Button>
+        <div
+          role="group"
+          aria-label="Resident selection and display controls"
+          className="flex min-w-0 flex-nowrap items-center gap-1"
+        >
+          <div
+            tabIndex={0}
+            className="flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            <div className="shrink-0">
+              <ManagementFields canManage={canManage}>
+                <div className="flex items-center gap-3">
+                  <label className="inline-flex touch-target items-center gap-2">
+                    <input
+                      ref={selectPage}
+                      type="checkbox"
+                      className="size-5 accent-accent"
+                      checked={allSelected}
+                      disabled={busy || !selectable.length}
+                      onChange={(event) =>
+                        setSelected(
+                          event.target.checked
+                            ? new Set(selectable.map((account) => account.id))
+                            : new Set(),
+                        )
+                      }
+                    />
+                    Select All
+                  </label>
+                  <span
+                    role="status"
+                    className="font-semibold text-accent tabular-nums"
+                  >
+                    {selected.size} selected
+                    {busy ? `; ${completed} completed` : ""}
+                  </span>
+                </div>
+              </ManagementFields>
             </div>
-          </ManagementFields>
+            <ResidentTableToolbar state={tableState} />
+            <div className="shrink-0">
+              <ManagementFields canManage={canManage}>
+                <div className="flex flex-nowrap items-center gap-2">
+                  <Button
+                    className="w-auto gap-1.5 px-3 py-2 text-caption whitespace-nowrap"
+                    disabled={busy || !enable.length}
+                    onClick={() => setAction("enable")}
+                  >
+                    <UserCheck aria-hidden="true" className="size-4" />
+                    Enable Selected ({enable.length})
+                  </Button>
+                  <Button
+                    className="w-auto gap-1.5 px-3 py-2 text-caption whitespace-nowrap"
+                    variant="secondary"
+                    disabled={busy || !eligible.length}
+                    onClick={() => setAction("eligible")}
+                  >
+                    <CheckCheck aria-hidden="true" className="size-4" />
+                    Make Eligible ({eligible.length})
+                  </Button>
+                </div>
+              </ManagementFields>
+            </div>
+          </div>
+          {compactTable ? (
+            <ResidentColumnChooser
+              selected={optionalColumns}
+              onToggle={toggleOptionalColumn}
+            />
+          ) : null}
         </div>
       </div>
       {problem ? (
@@ -387,11 +579,17 @@ export function AccountReviewTable({
           </ul>
         </Notice>
       ) : null}
+      {columnPreferenceError ? (
+        <Notice tone="warning" heading="Column preferences">
+          <p>{columnPreferenceError}</p>
+        </Notice>
+      ) : null}
       <DataTable
         caption="Account access and voting eligibility review"
         columns={tableColumns}
         rows={accounts}
         rowKey={(account) => account.id}
+        stackOnMobile={false}
       />
       <ConfirmDialog
         open={action !== null}

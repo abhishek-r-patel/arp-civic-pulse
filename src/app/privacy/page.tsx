@@ -90,6 +90,12 @@ export default async function PrivacyPage() {
           if browser storage is blocked, the choice lasts only for the open
           page.
         </p>
+        <p>
+          The optional-column choice for the Residents table is also kept in
+          this browser&apos;s local storage. It contains no account details and
+          is not synced through your account. If browser storage is blocked, the
+          choice lasts only for the current page visit.
+        </p>
       </section>
       <section className="grid gap-2">
         <h2 className="text-section font-semibold text-primary md:text-section-lg">

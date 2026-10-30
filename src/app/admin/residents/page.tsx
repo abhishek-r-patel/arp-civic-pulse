@@ -3,7 +3,7 @@ import { Upload, UserPlus } from "lucide-react";
 import { AccountReviewTable } from "@/components/admin/account-review-table";
 import { flashNotices, firstValues } from "@/components/admin/format";
 import { LinkButton } from "@/components/ui/button";
-import { EmptyState, PageHeader } from "@/components/ui/layout";
+import { EmptyState } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { Pagination } from "@/components/ui/pagination";
 import { ApiError } from "@/server/http/errors";
@@ -109,10 +109,14 @@ export default async function ResidentsPage({
 
   return (
     <div className="grid gap-8">
-      <PageHeader
-        title="Residents"
-        description={`Manage people, their ${deps.terms.households}, account access and voting eligibility together. Assign one representative per ${deps.terms.household}. Register changes apply to future votes only; scheduled, active and past votes keep their frozen assignments.`}
-        actions={
+      <header
+        data-page-header
+        className="grid min-w-0 gap-2 border-b border-border pb-5 md:pb-6"
+      >
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-4">
+          <h1 className="font-heading text-page-title font-semibold md:text-page-title-lg">
+            Residents
+          </h1>
           <div className="flex flex-wrap gap-3">
             <LinkButton
               href="/admin/residents/import"
@@ -130,8 +134,14 @@ export default async function ResidentsPage({
               Add Resident
             </LinkButton>
           </div>
-        }
-      />
+        </div>
+        <p className="text-body text-muted">
+          Manage residents, {deps.terms.households}, sign-in access, and voting
+          eligibility. One representative per {deps.terms.household}. Changes to
+          assignments or eligibility apply to future votes only; existing votes
+          keep their original assignments.
+        </p>
+      </header>
 
       {flash ? (
         <Notice tone="success" heading={flash}>

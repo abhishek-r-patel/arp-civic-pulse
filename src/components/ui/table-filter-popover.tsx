@@ -9,7 +9,27 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Filter } from "lucide-react";
+import { ArrowDown, ArrowUp, Circle, Funnel, X } from "lucide-react";
+
+export function ResidentSortFilterIcon() {
+  return (
+    <span aria-hidden="true" className="relative block size-5">
+      <Funnel className="absolute bottom-0 left-0 size-4" />
+      <ArrowUp className="absolute top-0 right-0 size-2" />
+      <ArrowDown className="absolute top-2 right-0 size-2" />
+    </span>
+  );
+}
+
+export function ResidentClearFiltersIcon() {
+  return (
+    <span aria-hidden="true" className="relative block size-5">
+      <Funnel className="absolute bottom-0 left-0 size-4" />
+      <Circle className="absolute top-0 right-0 size-3" />
+      <X className="absolute top-0.5 right-0.5 size-2" />
+    </span>
+  );
+}
 
 export function TableFilterPopover({
   label,
@@ -53,11 +73,12 @@ export function TableFilterPopover({
         ref={trigger}
         popoverTarget={id}
         aria-label={label}
+        title={label}
         aria-describedby={active ? `${id}-active` : undefined}
         className={`inline-flex size-12 shrink-0 items-center justify-center rounded-control hover:bg-accent/10 ${active ? "text-accent" : "text-muted"}`}
         onClick={place}
       >
-        <Filter aria-hidden="true" className="size-4" />
+        <ResidentSortFilterIcon />
         {active ? (
           <span aria-hidden="true" className="text-caption">
             *

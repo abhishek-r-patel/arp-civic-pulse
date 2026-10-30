@@ -443,8 +443,9 @@ For focused documentation capture, also set `DOC_SCREENSHOTS=1` and run
 Stop another dev server in the same checkout first. Use only a confirmed
 disposable project with reviewed migrations, synthetic data and image redaction;
 see the technical guide for capture details and cleanup boundaries.
-To rewrite only one image while still exercising the full workflow, set
-`DOC_SCREENSHOT_ONLY` to its capture name (for example, `25-ready-preview`).
+To rewrite selected images while still exercising the full workflow, set
+`DOC_SCREENSHOT_ONLY` to one or more comma-separated capture names (for example,
+`25-ready-preview,47-accounts-list`).
 
 ```powershell
 $env:LIVE_AUTH = "1"
