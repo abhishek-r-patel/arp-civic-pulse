@@ -92,7 +92,7 @@ describe("contact delivery", () => {
       from: "support@civic.example",
       to: ["admin@civic.example"],
       reply_to: "resident@example.test",
-      subject: "Civic Pulse contact enquiry",
+      subject: "Civic Pulse contact enquiry (civic.example)",
       text: expect.stringContaining("A synthetic contact delivery test."),
     });
     expect(options.signal).toBeInstanceOf(AbortSignal);

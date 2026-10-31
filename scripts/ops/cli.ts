@@ -258,9 +258,41 @@ async function main(): Promise<number> {
       return 0;
     }
 
+    case "demo-reset": {
+      // Erases and reseeds the DEDICATED demo project only (docs/OPERATIONS.md, "Demo site").
+      const { demoResetTarget, resetDemo } = await import("./demo.ts");
+      const target = demoResetTarget(process.env, option("confirm"));
+      const counts = await resetDemo(target, {
+        initialize: flag("initialize"),
+      });
+      console.log(JSON.stringify({ ok: true, ...counts }));
+      return 0;
+    }
+
+    case "provision": {
+      // Prepares one fresh customer project (docs/OPERATIONS.md, "Provision a customer RWA").
+      const { provisionPlan, provisionCustomer } =
+        await import("./provision.ts");
+      const names = ["confirm", "tenant-id", "host", "rwa-name", "admin-name"];
+      const { target, request } = provisionPlan(
+        process.env,
+        Object.fromEntries(
+          [...names, "timezone"].map((name) => [name, option(name)]),
+        ),
+      );
+      const report = await provisionCustomer(target, request, {
+        applyMigrations: flag("apply-migrations"),
+        activate: flag("activate"),
+        accessToken: process.env.SUPABASE_ACCESS_TOKEN,
+        repoRoot: process.cwd(),
+      });
+      console.log(JSON.stringify(report, null, 2));
+      return report.activationRequested && !report.ready ? 1 : 0;
+    }
+
     default:
       console.error(
-        "Commands: config-check | generate-key | backup | verify --manifest | restore --manifest | prune | recovery-record --since --out | status | auth-orphans [--apply] | counts --manifest",
+        "Commands: config-check | generate-key | backup | verify --manifest | restore --manifest | prune | recovery-record --since --out | status | auth-orphans [--apply] | counts --manifest | demo-reset --confirm <ref> [--initialize] | provision --confirm <ref> --tenant-id <uuid> --host <host> --rwa-name <name> --admin-name <name> [--timezone <tz>] [--apply-migrations] [--activate]",
       );
       return 2;
   }

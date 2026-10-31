@@ -1,7 +1,10 @@
 // Tenant directory validation, fail-closed routing, and concurrent context isolation.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseEnvironment } from "@/server/config/environment";
-import { resolveTenantContext } from "@/server/config/tenant-context";
+import {
+  activeSiteOrigin,
+  resolveTenantContext,
+} from "@/server/config/tenant-context";
 import type { TenantDirectoryEntry } from "@/server/config/tenant-directory";
 import { createAdminClient, createUserClient } from "@/server/db/clients";
 import { ApiError } from "@/server/http/errors";
@@ -380,6 +383,55 @@ describe("tenant directory routing", () => {
         }),
       }),
     ).toThrow(/version/u);
+  });
+
+  it("caps the pilot at ten customer hosts and one main and one demo host", () => {
+    const customer = (index: number): TenantDirectoryEntry => {
+      const id = `30000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+      return {
+        host: `rwa${index}.example.test`,
+        kind: "customer",
+        tenantId: id,
+        state: "active",
+        projectUrl: `https://rwa${index}project.supabase.co`,
+        publishableKey: "sb_publishable_rwa",
+        serviceRoleKeyRef: secretRef(id),
+      };
+    };
+    const ten = Array.from({ length: 10 }, (_, index) => customer(index + 1));
+    expect(() =>
+      routedEnvironment([mainEntry, demoEntry, ...ten]),
+    ).not.toThrow();
+    expect(() =>
+      routedEnvironment([mainEntry, demoEntry, ...ten, customer(11)]),
+    ).toThrow(/more than 10 customer hosts/u);
+    expect(() =>
+      routedEnvironment([
+        mainEntry,
+        { ...mainEntry, host: "www.example.test" },
+        customerEntry,
+      ]),
+    ).toThrow(/more than 1 main host/u);
+    expect(() =>
+      routedEnvironment([
+        demoEntry,
+        { ...demoEntry, host: "demo2.example.test" },
+        customerEntry,
+      ]),
+    ).toThrow(/more than 1 demo host/u);
+  });
+
+  it("publishes only active main and demo origins for cross-links", () => {
+    expect(activeSiteOrigin("main", environment)).toBe("https://example.test");
+    expect(activeSiteOrigin("demo", environment)).toBe(
+      "https://demo.example.test",
+    );
+    const provisioningDemo = routedEnvironment([
+      mainEntry,
+      { ...demoEntry, state: "provisioning" },
+      customerEntry,
+    ]);
+    expect(activeSiteOrigin("demo", provisioningDemo)).toBeUndefined();
   });
 
   it("limits legacy mode to the configured canonical host", () => {

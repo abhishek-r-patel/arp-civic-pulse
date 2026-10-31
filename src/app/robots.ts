@@ -1,17 +1,18 @@
 // Public discovery only; authorization, not robots.txt, protects resident data.
 import type { MetadataRoute } from "next";
-import { PUBLIC_PAGES, siteOrigin } from "@/shared/metadata";
+import { hostDiscovery } from "@/server/site/discovery";
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const { origin, kind, pages } = await hostDiscovery();
+  if (kind === "demo") {
+    return { rules: { userAgent: "*", disallow: ["/"] } };
+  }
   return {
     rules: {
       userAgent: "*",
-      allow: [
-        ...PUBLIC_PAGES.map((page) => `${page.path}$`),
-        "/opengraph-image",
-      ],
+      allow: [...pages.map((page) => `${page.path}$`), "/opengraph-image"],
       disallow: ["/", "/api/", "/admin/", "/votes/"],
     },
-    sitemap: `${siteOrigin()}/sitemap.xml`,
+    sitemap: `${origin}/sitemap.xml`,
   };
 }

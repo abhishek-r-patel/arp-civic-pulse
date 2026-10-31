@@ -20,6 +20,8 @@ import { HouseholdTermsProvider } from "./household-terms";
 import { RwaContactBlock } from "./rwa-branding";
 import { ThemeSwitcher } from "./theme-switcher";
 import { canViewAdministration } from "@/shared/contracts/register";
+import { MainShell } from "@/components/site/main-shell";
+import { DemoBanner } from "@/components/site/demo-banner";
 
 export const MAIN_CONTENT_ID = "main-content";
 
@@ -42,6 +44,10 @@ export async function AppShell({
   children,
 }: Readonly<{ children: ReactNode }>) {
   const tenant = await getRequestTenantContext();
+  // The product website has no RWA backend: never load sessions or settings there.
+  if (tenant.kind === "main") {
+    return <MainShell mainContentId={MAIN_CONTENT_ID}>{children}</MainShell>;
+  }
   const session = await getSessionState(tenant);
   const csrfToken =
     session.state === "anonymous" ? undefined : await getCsrfToken();
@@ -70,6 +76,7 @@ export async function AppShell({
           Skip to main content
         </a>
         <header className="border-b border-border bg-surface">
+          {tenant.kind === "demo" ? <DemoBanner /> : null}
           {/* Row one: title and signed-in identity. Row two: tabs on the left
               and icon utilities with Sign Out on the right. */}
           <div className="mx-auto grid w-full max-w-content gap-1 px-4 py-2 md:px-6">
@@ -208,7 +215,11 @@ export async function AppShell({
             </p>
           </div>
           <PublicAnalytics
-            measurementId={getEnvironment().GOOGLE_ANALYTICS_ID}
+            measurementId={
+              tenant.kind === "demo"
+                ? undefined
+                : getEnvironment().GOOGLE_ANALYTICS_ID
+            }
           />
         </footer>
       </div>

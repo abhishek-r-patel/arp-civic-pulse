@@ -234,7 +234,18 @@ Tenant-routing source map:
 - `src/proxy.ts` resolves page hosts before session refresh; API handlers resolve through the request Host header. On Vercel, the hosted S04 test project showed that the public host, not forwarded headers, selects the tenant. Tenant routing stays disabled on staging/production until the domain, cap and external release gates are closed.
 - Process-wide state audited in S03: React `cache()` lookups are per request; the parsed environment is identical for all tenants; rate-limit buckets are stored in each tenant's own database (only the HMAC key is shared); PDF fonts are static assets. The CSV/PDF render semaphores in `src/server/exports/results-export.ts` are shared by every tenant in one function instance. They hold no tenant data, but one busy RWA can briefly delay another's exports (a fairness limit, not a data-isolation risk). The browser never talks to Supabase directly.
 - `tests/e2e/support/tenant-http.ts`: shared guarded helpers for the tenant HTTP specs. They accept only the two disposable project refs and never print keys, codes or cookies.
-- `tests/e2e/tenant-isolation-live.spec.ts`: opt-in (`TENANT_HTTP_TEST=1`) cross-surface check. It seeds one completed synthetic PUBLIC vote per project, then runs interleaved concurrent requests on both hosts. It asserts that branding, vote lists, vote details, CSV exports, error IDs and rate-limit buckets stay with their own tenant, and that the other tenant's vote returns 404.
+- `tests/e2e/tenant-isolation-live.spec.ts`: opt-in (`TENANT_HTTP_TEST=1`) cross-surface check. It seeds one completed synthetic PUBLIC vote per project, then runs interleaved concurrent requests on both hosts. It asserts that branding, vote lists, vote details, CSV exports, error IDs and rate-limit buckets stay with their own tenant, and that the other tenant's vote returns 404. It needs two customer hosts; the hosted test project currently has one because project B became the demo.
+
+Product website, demo and provisioning map (S05-S07):
+
+- `src/shared/host-routes.ts`: which paths the main host serves (website pages, `robots.txt`, `sitemap.xml`, health) and which requests the read-only demo host accepts.
+- `src/proxy.ts` rewrites main-host pages to `src/app/site/{page,contact/page,privacy/page}.tsx`; `src/server/http/route.ts` (`enforceHostKind`) answers main-host APIs `NOT_FOUND` and demo writes `DEMO_READ_ONLY` before any handler runs.
+- `src/server/site/main-host.ts`, `src/server/site/discovery.ts`, `src/components/site/{main-shell,demo-banner}.tsx`: main-site links, host-aware robots/sitemap/metadata, the product shell (no session or RWA data) and the demo banner. `src/app/app-shell.tsx` chooses the shell by host kind; `src/app/not-found.tsx` is host-aware.
+- `src/shared/demo.ts`, `src/server/demo/session.ts`, `src/app/api/demo/session/route.ts`, `src/components/demo/demo-persona-sign-in.tsx`: one-click persona sign-in on the demo host (password derived from the demo service-role key, never sent to the browser and self-repaired after a reset, so simultaneous visitors do not cancel each other; global rate limit).
+- `scripts/ops/supabase-project.ts`: shared guard that every credential points at the one confirmed project, plus service-role and Auth-lookup helpers.
+- `scripts/ops/demo.ts`: `npm run ops -- demo-reset`, which erases and reseeds the marked demo project only.
+- `scripts/ops/provision.ts`: `npm run ops -- provision`, which prepares one fresh customer project step by step (migrations, settings, Auth, first administrator) and prints its directory entry.
+- Tests: `tests/unit/{host-routes,demo-session,ops-demo,ops-provision}.test.ts`; hosted `tests/e2e/site-demo-live.spec.ts` (`SITE_DEMO_HTTP_TEST=1`).
 
 Register import and scheduling implementation map:
 
@@ -352,6 +363,9 @@ pages use server rendering through the session-aware shell, not a client-only
 SPA. `/register` is public but deliberately `noindex` and outside the sitemap.
 Private routes inherit `noindex, nofollow`; robots and sitemap are not
 authorization. Do not include register, ballot or results URLs in discovery.
+With tenant routing on, discovery is per host: the main host lists only its
+product pages, the demo host disallows all crawling, and customer hosts list
+their own public pages with relative canonical URLs.
 
 | File | Responsibility |
 |---|---|

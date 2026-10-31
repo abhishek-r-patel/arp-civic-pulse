@@ -40,27 +40,56 @@ export const PUBLIC_PAGES = [
   },
 ] as const;
 
+// Main product website pages (served from src/app/site; see host-routes.ts).
+export const MAIN_PUBLIC_PAGES = [
+  {
+    path: "/",
+    title: "Voting and polls for Resident Welfare Associations",
+    description:
+      "Civic Pulse gives each Resident Welfare Association its own private site for registered-member polls and elections, with results, downloads and audit history.",
+  },
+  {
+    path: "/contact",
+    title: "Contact sales",
+    description:
+      "Ask about Civic Pulse for your Resident Welfare Association. Annual plans are quoted per association.",
+  },
+  {
+    path: "/privacy",
+    title: "Website privacy notice",
+    description:
+      "What the Civic Pulse product website collects, and how each RWA's own site handles resident information.",
+  },
+] as const;
+
+export type PublicPagePath =
+  | (typeof PUBLIC_PAGES)[number]["path"]
+  | (typeof MAIN_PUBLIC_PAGES)[number]["path"];
+
+// Last-resort origin when no request host is available (build-time rendering).
 export function siteOrigin(): string {
   return new URL(process.env.APP_ORIGIN || "http://localhost:3000").origin;
 }
 
-export function publicMetadata(
-  path: (typeof PUBLIC_PAGES)[number]["path"],
+/*
+ * Canonical and Open Graph URLs are relative: the root layout sets
+ * `metadataBase` to the requesting host's canonical origin, so each RWA host
+ * and the main website describe their own address, never another host's.
+ */
+function pageMetadata(
+  page: Readonly<{ path: string; title: string; description: string }>,
 ): Metadata {
-  const page = PUBLIC_PAGES.find((entry) => entry.path === path);
-  if (!page) throw new Error("Unknown public metadata route");
-  const url = new URL(path, siteOrigin()).href;
   return {
     title: page.title,
     description: page.description,
-    alternates: { canonical: url },
+    alternates: { canonical: page.path },
     robots: { index: true, follow: true },
     openGraph: {
       type: "website",
       siteName: "Civic Pulse",
       title: `${page.title} | Civic Pulse`,
       description: page.description,
-      url,
+      url: page.path,
       images: [
         {
           url: "/opengraph-image",
@@ -77,6 +106,22 @@ export function publicMetadata(
       images: ["/opengraph-image"],
     },
   };
+}
+
+export function publicMetadata(
+  path: (typeof PUBLIC_PAGES)[number]["path"],
+): Metadata {
+  const page = PUBLIC_PAGES.find((entry) => entry.path === path);
+  if (!page) throw new Error("Unknown public metadata route");
+  return pageMetadata(page);
+}
+
+export function mainPublicMetadata(
+  path: (typeof MAIN_PUBLIC_PAGES)[number]["path"],
+): Metadata {
+  const page = MAIN_PUBLIC_PAGES.find((entry) => entry.path === path);
+  if (!page) throw new Error("Unknown main website metadata route");
+  return pageMetadata(page);
 }
 
 export function privateMetadata(title: string, description: string): Metadata {
@@ -102,7 +147,7 @@ export function privateRecordMetadata(
     return {
       ...privateMetadata(`${title} - ${id}`, description),
       alternates: {
-        canonical: new URL(route.replace("[id]", id), siteOrigin()).href,
+        canonical: route.replace("[id]", id),
       },
     };
   };

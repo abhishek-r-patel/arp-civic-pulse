@@ -36,16 +36,21 @@ disposable database into the real register.
 | `GOOGLE_ANALYTICS_ID`, `GOOGLE_SITE_VERIFICATION` | public pages | Optional public identifiers. GA4 is consent-gated on privacy/contact only; verification is not proof of Google property ownership. Set at build/runtime and rebuild after changes. |
 | `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | the app, build | Optional Sentry error monitoring with 10% sampled tracing, active only on Vercel Production/Preview. Events are scrubbed in `src/shared/observability/sentry.ts`, including tag values. System faults (`type: system`), unexpected errors, page crashes and invalid API replies are reported. Each report is tagged with the error ID (`error_id`) plus `area`, `error_code`, `error_category`, `cause_*`, `route`, `host` and `tenant`. Search Sentry for `error_id:<ID>` using the ID a person quotes; see [Debug a reported error ID](#debug-a-reported-error-id). The auth token is a build-only secret for source maps. |
 
-### Tenant routing configuration (implemented, not operational)
+### Tenant routing configuration (tenant-test project only)
 
 S03 implements a server-only `TENANT_DIRECTORY_JSON` host allowlist and separate
 `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` variables for tenant credentials.
 `TENANT_ROUTING_ENABLED` defaults to `false`. The staging project has no tenant
-directory, host entries or tenant secrets configured; only the separate
-`arp-civic-pulse-tenant-test` project routes two synthetic disposable tenants.
-Do not enable routing, onboard customer hosts or treat the staging database as
-a real tenant until the actual domain and numeric cap are approved and the
-remaining release gates close (S04 is complete).
+directory, host entries or tenant secrets configured. Only the separate
+`arp-civic-pulse-tenant-test` project routes hosts, all synthetic:
+`site.arp-civic-pulse.vercel.app` (main product website),
+`demo.arp-civic-pulse.vercel.app` (demo, disposable project B) and
+`tenant-a.arp-civic-pulse.vercel.app` (customer, disposable project A).
+`tenant-b` was retired when project B became the demo, so the two-customer
+hosted isolation specs need a second customer project before they can run
+again. Do not enable routing for real customers or treat the staging database
+as a real tenant until the actual domain is approved and the remaining release
+gates close.
 
 Each version-1 directory entry binds one exact lowercase hostname to a
 `main`/`demo`/`customer` environment kind and explicit
@@ -66,9 +71,96 @@ permissions limited to named operators and audit changes, but do not describe
 that policy as technical tenant isolation. Changes take effect only in new
 deployments; confirm successful deployment and host-specific health before
 activating a tenant. The 64 KB total Node deployment environment limit is shared
-by the directory and all credentials. The proposed three-customer cap is not
-confirmed and must not be used as an onboarding authorization. See
+by the directory and all credentials. The approved pilot cap is **10 customer
+hosts** plus one main and one demo host (`MAX_CUSTOMER_TENANTS` in
+`src/server/config/tenant-directory.ts`); a directory over a limit is rejected
+as a whole. See
 [Vercel environment variables](https://vercel.com/docs/environment-variables).
+
+The main host has no RWA backend: it serves the product website only, every
+`/api/*` route except `/api/internal/health` answers `NOT_FOUND`, and RWA pages
+such as `/sign-in` are 404. The demo host is read-only: only `GET`/`HEAD`/
+`OPTIONS`, demo persona sign-in and sign-out are allowed; every other write
+answers `DEMO_READ_ONLY` (403).
+
+### Demo site
+
+The demo host shows a fictional association, Green Meadows, from its own
+dedicated Supabase project. Visitors pick **Sample resident** or **Sample
+committee member** on the sign-in page; no email or code is involved and changes
+are refused. Reset it weekly (active votes close 28 days after a reset and the
+scheduled vote opens after 7 days) and after any suspected tampering:
+
+```powershell
+# DEMO_PROJECT_REF, DEMO_SUPABASE_URL, DEMO_SERVICE_ROLE_KEY and DEMO_DATABASE_URL
+# must all point at the demo project; never print them.
+$env:PGSSLROOTCERT = "$PWD\.certs\supabase-db-ca.crt"
+npm run ops --silent -- demo-reset --confirm <DEMO_PROJECT_REF>
+```
+
+It erases every app table and Auth user in that project and reseeds 12
+households, the two personas and six votes (scheduled, draft, cancelled, open
+public poll, open secret election, completed). It refuses unless `--confirm`
+matches, every credential points at that project, the project is not
+`NEXT_PUBLIC_SUPABASE_URL`, and the database carries the demo marker. Use
+`--initialize` once, only for a new, dedicated demo project. Output is counts
+only. Known limits: a visitor can copy the persona's session and call the
+database directly to cast a ballot (the next reset repairs it); the seed
+administrator cannot sign in.
+
+All visitors share each persona. The server signs them in with a password it
+derives from the demo project's service-role key, so simultaneous visitors never
+cancel each other (one-time codes did). The password never leaves the server.
+After a reset or key rotation the first sign-in finds a mismatch, sets the
+password through the Auth admin API, logs `demo.persona_password_set` and
+signs in again; no manual step is needed. A `DEMO-` error ID whose log shows
+`DEMO_PERSONA_MISSING` means the demo needs a reset; `AUTH_UNAVAILABLE` with an
+Auth cause (for example `over_request_rate_limit`) means Supabase Auth refused
+the sign-in. Keep the Email provider's password sign-in enabled in the demo
+project.
+
+### Provision a customer RWA
+
+Each customer gets a **new, empty** Supabase project; never copy data from the
+demo or another RWA. Pick a new tenant UUID once and reuse it on every retry.
+
+```powershell
+# PROVISION_PROJECT_REF/SUPABASE_URL/SERVICE_ROLE_KEY/DATABASE_URL/PUBLISHABLE_KEY
+# and PROVISION_ADMIN_EMAIL for that project; SUPABASE_ACCESS_TOKEN (optional) to
+# apply and verify Auth settings. Set them in the shell, never on the command line.
+$env:PGSSLROOTCERT = "$PWD\.certs\supabase-db-ca.crt"
+npm run ops --silent -- provision --confirm <ref> --tenant-id <uuid> `
+  --host <rwa host> --rwa-name "<association name>" --admin-name "<name>" `
+  [--timezone Asia/Kolkata] [--apply-migrations] [--activate]
+```
+
+Every step checks before it writes, so re-run after any failure:
+
+1. **Guards.** Refuses the demo project (by `DEMO_PROJECT_REF`, the directory or
+   the database marker), a project or host that `TENANT_DIRECTORY_JSON` gives to
+   another tenant, a secret key passed as the publishable key, and a project with
+   app tables but no migration history or with migrations this release does not
+   know.
+2. **Migrations.** Reports pending migrations; with `--apply-migrations` it runs
+   `supabase db push` and re-checks the history.
+3. **Settings.** Initializes the association name and time zone once; a project
+   already holding another name is blocked.
+4. **First administrator.** Finds or creates the Auth identity, then enables it
+   through `deployment_bootstrap_admin`. A different enabled administrator means
+   the project was already handed over and is blocked.
+5. **Auth.** With `SUPABASE_ACCESS_TOKEN` it sets sign-up off, Site URL and the
+   only redirect URL to the RWA host, six-digit codes and the repository sign-in
+   template, then verifies them and that custom SMTP exists. Without a token it
+   is reported as a manual step.
+
+The JSON report lists each step, `blockers`, `handover` tasks and the
+`directoryEntry`. The entry is `provisioning` unless `--activate` is passed and
+there are no blockers; activation with blockers exits 1. Then: set the Vercel
+sensitive secret named by `serviceRoleKeyRef`, add the host as a Vercel domain,
+add the entry to `TENANT_DIRECTORY_JSON`, redeploy, check
+`https://<host>/api/internal/health`, and have the administrator sign in. The
+RWA's real policy approvals and retention periods are recorded with them before
+the first vote; provisioning never records approvals.
 
 ## 2. Monitoring
 
@@ -163,6 +255,7 @@ Every failure screen shows an **Error ID** that residents and RWA administrators
 | `SETTINGS-` | RWA settings and App Support Access | `src/server/settings/` |
 | `AUDIT-` | Audit history | `src/app/api/admin/audit/` |
 | `CONTACT-` | Public contact form and email delivery | `src/server/contact.ts` |
+| `DEMO-` | Demo persona sign-in | `src/server/demo/session.ts`, `src/app/api/demo/session/` |
 | `HEALTH-` | Health probe | `src/app/api/internal/health/` |
 | `API-` | Any other API route | `src/app/api/` |
 | `PAGE-` | A page crashed while loading (browser error boundary) | Sentry only; follow its `digest` tag to the server log |

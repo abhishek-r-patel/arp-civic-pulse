@@ -67,6 +67,11 @@ const environmentSchema = z
         .optional(),
     ),
     GOOGLE_SITE_VERIFICATION: optionalText,
+    // Public enquiry address shown on the main product website only.
+    SALES_CONTACT_EMAIL: z.preprocess(
+      blankToUndefined,
+      emailAddress.optional(),
+    ),
     // The only identity App Support Access may enable; RWA admins cannot change it.
     APP_SUPPORT_EMAIL: z.preprocess(blankToUndefined, emailAddress.optional()),
   })
@@ -252,6 +257,7 @@ const environmentKeys = [
   "CONTACT_EMAIL_TO",
   "GOOGLE_ANALYTICS_ID",
   "GOOGLE_SITE_VERIFICATION",
+  "SALES_CONTACT_EMAIL",
   "APP_SUPPORT_EMAIL",
 ] as const;
 

@@ -1,7 +1,9 @@
 // Guards public canonical metadata and keeps private resident URLs out of discovery.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  MAIN_PUBLIC_PAGES,
   PUBLIC_PAGES,
+  mainPublicMetadata,
   privateMetadata,
   privateRecordMetadata,
   publicMetadata,
@@ -23,9 +25,7 @@ describe("launch metadata", () => {
       params: Promise.resolve({ id: "22222222-2222-4222-8222-222222222222" }),
     });
     expect(first.title).not.toBe(second.title);
-    expect(first.alternates?.canonical).toBe(
-      `https://civic.example/votes/${id}`,
-    );
+    expect(first.alternates?.canonical).toBe(`/votes/${id}`);
     expect(first.robots).toEqual({ index: false, follow: false });
     const invalid = await generate({
       params: Promise.resolve({ id: "unexpected/path?email=private" }),
@@ -33,8 +33,7 @@ describe("launch metadata", () => {
     expect(invalid.alternates).toBeUndefined();
     expect(invalid.title).toBe("Vote");
   });
-  it("gives public pages distinct titles, descriptions and canonical URLs", () => {
-    vi.stubEnv("APP_ORIGIN", "https://civic.example");
+  it("gives public pages distinct titles, descriptions and host-relative canonical URLs", () => {
     const metadata = PUBLIC_PAGES.map((page) => publicMetadata(page.path));
     expect(new Set(metadata.map((page) => page.title)).size).toBe(
       PUBLIC_PAGES.length,
@@ -42,11 +41,10 @@ describe("launch metadata", () => {
     expect(new Set(metadata.map((page) => page.description)).size).toBe(
       PUBLIC_PAGES.length,
     );
+    // Resolved against the requesting host's metadataBase, never another host.
     for (const entry of PUBLIC_PAGES) {
       const page = publicMetadata(entry.path);
-      expect(page.alternates?.canonical).toBe(
-        `https://civic.example${entry.path}`,
-      );
+      expect(page.alternates?.canonical).toBe(entry.path);
       expect(page.robots).toEqual({ index: true, follow: true });
       expect(page.openGraph).toMatchObject({
         images: [{ url: "/opengraph-image", alt: expect.any(String) }],
@@ -67,5 +65,18 @@ describe("launch metadata", () => {
       index: false,
       follow: false,
     });
+  });
+
+  it("keeps main website pages separate from RWA pages", () => {
+    expect(MAIN_PUBLIC_PAGES.map((page) => page.path)).toEqual([
+      "/",
+      "/contact",
+      "/privacy",
+    ]);
+    for (const entry of MAIN_PUBLIC_PAGES) {
+      const page = mainPublicMetadata(entry.path);
+      expect(page.alternates?.canonical).toBe(entry.path);
+      expect(page.robots).toEqual({ index: true, follow: true });
+    }
   });
 });

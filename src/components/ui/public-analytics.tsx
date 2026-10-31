@@ -33,12 +33,25 @@ function subscribe(listener: () => void) {
   };
 }
 
+// Pages measured on an RWA host unless the shell passes its own list.
+const RWA_ANALYTICS_PAGES: Readonly<Record<string, string>> = {
+  "/privacy": "Privacy policy | Civic Pulse",
+  "/contact": "Contact | Civic Pulse",
+};
+
 export function PublicAnalytics({
   measurementId,
-}: Readonly<{ measurementId?: string }>) {
+  pages = RWA_ANALYTICS_PAGES,
+}: Readonly<{
+  measurementId?: string | undefined;
+  pages?: Readonly<Record<string, string>>;
+}>) {
   const pathname = usePathname();
   const consent = useSyncExternalStore(subscribe, consentSnapshot, () => false);
-  const allowedPage = pathname === "/privacy" || pathname === "/contact";
+  const pageTitle = Object.hasOwn(pages, pathname)
+    ? pages[pathname]
+    : undefined;
+  const allowedPage = pageTitle !== undefined;
   const enabled = Boolean(measurementId && allowedPage && consent);
   const lastPage = useRef<string | null>(null);
 
@@ -58,19 +71,13 @@ export function PublicAnalytics({
       allow_ad_personalization_signals: false,
       cookie_domain: "none",
       page_location: `${window.location.origin}${pathname}`,
-      page_title:
-        pathname === "/privacy"
-          ? "Privacy policy | Civic Pulse"
-          : "Contact | Civic Pulse",
+      page_title: pageTitle,
       page_referrer: "",
     });
     window.gtag("event", "page_view", {
       page_location: `${window.location.origin}${pathname}`,
       page_path: pathname,
-      page_title:
-        pathname === "/privacy"
-          ? "Privacy policy | Civic Pulse"
-          : "Contact | Civic Pulse",
+      page_title: pageTitle,
       page_referrer: "",
     });
     lastPage.current = key;
@@ -98,7 +105,7 @@ export function PublicAnalytics({
   return (
     <div className="mx-auto mt-4 max-w-content border-t border-border pt-4 text-caption text-muted">
       <CheckboxField
-        label="Allow optional Google Analytics on privacy and contact pages"
+        label="Allow optional Google Analytics on this site's public information pages"
         checked={consent}
         onChange={(event) => {
           try {

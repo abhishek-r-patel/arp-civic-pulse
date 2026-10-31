@@ -32,7 +32,7 @@ export const { GET, POST, PUT, PATCH, DELETE } = route({
       "contact-global",
       "DEPENDENCY_UNAVAILABLE",
     );
-    await sendContact(message, requestId);
+    await sendContact(message, requestId, tenant.hostname);
     return ok(
       {
         message:

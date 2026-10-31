@@ -21,6 +21,16 @@ const serviceRoleKeyRefSchema = z
 
 const stateSchema = z.enum(["provisioning", "active", "unavailable"]);
 
+/*
+ * Pilot limits (docs/IMPLEMENTATION_PLAN.md S01/S02). Every customer's service
+ * key is a Vercel variable readable by the shared deployment, so the pilot is
+ * capped at ten customer RWAs (demo and main excluded) and one main and one
+ * demo host. Exceeding a limit rejects the whole directory rather than picking
+ * which entries to serve.
+ */
+export const MAX_CUSTOMER_TENANTS = 10;
+const MAX_ENTRIES_PER_KIND = { main: 1, demo: 1 } as const;
+
 const mainEntrySchema = z.strictObject({
   host: hostnameSchema,
   kind: z.literal("main"),
@@ -137,6 +147,31 @@ export function parseTenantDirectory(
     throw new Error(
       `Invalid tenant directory configuration: ${fields.join(", ")}`,
     );
+  }
+
+  // Counted by distinct host, so a duplicated entry is isolated (below), not fatal.
+  const hostsByKind = new Map<string, Set<unknown>>();
+  for (const value of envelope.data.entries) {
+    if (typeof value !== "object" || value === null || !("kind" in value)) {
+      continue;
+    }
+    const kind = String(value.kind);
+    const hosts = hostsByKind.get(kind) ?? new Set<unknown>();
+    hosts.add("host" in value ? value.host : value);
+    hostsByKind.set(kind, hosts);
+  }
+  const countOf = (kind: string) => hostsByKind.get(kind)?.size ?? 0;
+  if (countOf("customer") > MAX_CUSTOMER_TENANTS) {
+    throw new Error(
+      `Invalid tenant directory configuration: TENANT_DIRECTORY_JSON.entries has more than ${MAX_CUSTOMER_TENANTS} customer hosts`,
+    );
+  }
+  for (const [kind, limit] of Object.entries(MAX_ENTRIES_PER_KIND)) {
+    if (countOf(kind) > limit) {
+      throw new Error(
+        `Invalid tenant directory configuration: TENANT_DIRECTORY_JSON.entries has more than ${limit} ${kind} host`,
+      );
+    }
   }
 
   const invalidHosts = new Set<string>();

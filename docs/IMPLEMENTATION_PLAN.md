@@ -41,12 +41,13 @@ and record the selected policy here before implementing the affected behavior.
 
 | Decision | Selected starting policy | Status / remaining decision |
 | --- | --- | --- |
-| Actual domain and main-domain experience | Product/pricing/contact website, separate from demo and customer voting environments | Website direction confirmed; actual domain pending |
+| Actual domain and main-domain experience | Product/pricing/contact website, separate from demo and customer voting environments; until a domain is bought, placeholder `site.`/`demo.`/`<rwa>.arp-civic-pulse.vercel.app` hosts (product owner, 31 October 2026) | Website direction and placeholder hosts confirmed; actual domain pending |
+| Pricing on the website | "Contact us for a quote"; no prices published (product owner, 31 October 2026) | Confirmed for the website; actual price and inclusions pending |
 | Customer onboarding and subdomain ownership | Operator-assisted provisioning; approved, unique names; reserve platform names including `demo`; no automatic reuse after cancellation | Confirmed |
 | Public demo access | Prepared resident/read-only experiences using synthetic data in a dedicated project; no public edits initially | Confirmed; any future interactive voting or editable admin demo requires a new decision and isolated temporary sandboxes |
 | RWA directory and secrets | Server-controlled hostname allowlist, managed secret references and narrowly authorized operator access | Boundaries confirmed; Vercel environment variables accepted for a capped pilot, with shared-runtime secret exposure recorded under S02 |
 | Initial offer and subscription enforcement | Manual annual billing; after the agreed grace period, block new vote creation, not active elections, existing vote access or authorized exports | Model confirmed; price, included services and grace-period length pending; lifecycle details belong to S10 |
-| Customer size and voting scope | Both PUBLIC polls and PRIVATE elections are allowed in the pilot (product owner, 31 October 2026); no SaaS pilot capacity selected yet | Vote types confirmed. Pilot RWA count, households per RWA and peak simultaneous voters pending; historical 500-household/100-concurrent targets are not SaaS capacity evidence |
+| Customer size and voting scope | Both PUBLIC polls and PRIVATE elections are allowed in the pilot (product owner, 31 October 2026); pilot cap of **10 customer RWAs** on the shared Vercel deployment (product owner, 31 October 2026), enforced by the directory parser | Vote types and RWA count confirmed. Households per RWA and peak simultaneous voters pending; historical 500-household/100-concurrent targets are not SaaS capacity evidence |
 | Operational responsibilities | Operator owns provisioning, releases, monitoring, backups and incident coordination; RWA owns register accuracy, member approval, entitlement, election rules and election decisions | Responsibility split confirmed; service hours, recovery targets and per-RWA approvals pending |
 | Support access | No routine customer-data access by support; exceptional access requires RWA authorization, audit, expiry and staff accountability | Confirmed policy; technical enforcement and revocation verification remain future work |
 | Offboarding and service commitments | Agree export handover, retention/deletion, backup expiry and access revocation before a paid pilot | Commitment to agreement confirmed; periods, service targets and contractual terms pending |
@@ -71,15 +72,16 @@ continue to govern each customer.
 - Select the actual domain before DNS and canonical-origin configuration; the
   placeholder does not authorize a purchase.
 - Agree pricing and included services, plus the exact billing grace period.
-- Select pilot RWA count, households per RWA and peak simultaneous voters. Both
-  vote types are allowed; review voting/bylaw fit against PRD A1-A7 with each RWA.
+- Select pilot households per RWA and peak simultaneous voters (the RWA count
+  is capped at 10). Both vote types are allowed; review voting/bylaw fit against
+  PRD A1-A7 with each RWA.
 - Agree support hours, recovery targets, export handover, retention/deletion and
   backup-expiry periods before paid use; S09/S11 must implement and verify the
   approved operating and contractual controls.
 - S02 records Vercel environment variables as the limited-pilot secret store and
-  defines trusted-host, failure and isolation contracts. Confirm the numeric
-  tenant cap and actual domain before implementation or onboarding; no unknown
-  policy may become a code default.
+  defines trusted-host, failure and isolation contracts. The 10-customer cap is
+  confirmed; confirm the actual domain before onboarding a real customer; no
+  unknown policy may become a code default.
 
 ### S02 - Tenant Resolution and Configuration Contract
 
@@ -206,16 +208,17 @@ cases are specified. S03 now has local tests for exact-host routing, malformed
 and conflicting entries, unavailable states, missing/malformed credentials and
 concurrent project/client binding. S04 later verified Vercel ingress,
 direct-origin and cross-host behavior on a hosted test project, and S03 then
-verified cases 4 and 5 for two customer hosts there. The demo host, and
-repeating case 5 after unavailability or rotation on hosted infrastructure,
-remain for S06/S07. The production
-domain/ingress and remaining S12 release work stay open. S01's customer-count
-decision and the proposed three-customer cap still need explicit confirmation.
+verified cases 4 and 5 for two customer hosts there. S05/S06 then verified the
+main and demo hosts there. Repeating case 5 after unavailability or rotation on
+hosted infrastructure remains open, and needs a second customer project now
+that project B is the demo. The production domain/ingress and remaining S12
+release work stay open. The pilot cap is 10 customer RWAs.
 
 ### Working Checklist
 
-S01 is partially complete; S02's design is specified; S03 and S04 are complete
-(routing remains disabled on staging); S05-S12 are pending. Work on one bounded task at a time; split a task into
+S01 is partially complete; S02's design is specified; S03-S06 are complete on
+the hosted test project (routing remains disabled on staging); S07 is partially
+complete; S08-S12 are pending. Work on one bounded task at a time; split a task into
 smaller steps here when necessary. Planning approval does not authorize provider
 purchases, production writes, migrations, resets, commits or deployment.
 
@@ -260,13 +263,19 @@ purchases, production writes, migrations, resets, commits or deployment.
 	rejection, unknown-host 404 and SSO-protected per-deployment URLs. Both
 	projects use six-digit email OTPs. SMTP delivery for project B, the actual
 	domain/cap and trusted-client-IP limiting remain separate release gates.
-- [ ] **S05 - Separate main and RWA web experiences.** Implement the approved main
+- [x] **S05 - Separate main and RWA web experiences.** Implement the approved main
 	website while retaining RWA app screens and branding. Scope public metadata,
 	sitemap, robots, guides, contact destinations, analytics consent and any cache by
 	host; do not enable marketing tracking on authentication/voting flows. **Done
 	when:** main/demo/customer/unknown-host journeys pass responsive browser checks,
 	and no customer information appears on another host or the main website.
-- [ ] **S06 - Provision the synthetic demo.** Create the authorized dedicated demo
+	The main host (`site.arp-civic-pulse.vercel.app`) serves the product,
+	privacy and contact pages ("contact us for a quote") with per-host metadata,
+	sitemap and robots, no RWA backend, and `NOT_FOUND` for other APIs. The
+	hosted `tests/e2e/site-demo-live.spec.ts` passes on Chromium and WebKit,
+	including a 360 px phone width. No analytics are added. The actual domain
+	and `SALES_CONTACT_EMAIL` remain open.
+- [x] **S06 - Provision the synthetic demo.** Create the authorized dedicated demo
 	backend, seed fictional residents and representative PUBLIC/PRIVATE lifecycle
 	examples, add a visible demo banner and implement the approved access model.
 	Restrict outbound email and costly/abusive actions. Scope resets to verified
@@ -274,6 +283,14 @@ purchases, production writes, migrations, resets, commits or deployment.
 	when:** demo journeys, synthetic-data checks, visitor interference protections
 	and an authorized repeatable reset are verified; use synthetic screenshots for
 	marketing and keep demo availability independent of test-fixture cleanup.
+	Test project B is now the dedicated demo (`demo.arp-civic-pulse.vercel.app`),
+	with a banner and two shared personas that need no email. Every write except
+	persona sign-in and sign-out answers `DEMO_READ_ONLY`. `demo-reset` refuses
+	any project without the demo marker and reseeds 12 households, 2 personas
+	and 6 votes. Persona sign-in uses a server-derived password, so
+	simultaneous visitors do not cancel each other. Residual risks
+	(a copied session can call the database directly; the reset repairs it) are
+	in OPERATIONS. Marketing screenshots are not yet produced.
 - [ ] **S07 - Make customer provisioning repeatable.** Build an operator workflow
 	for a fresh Supabase project, reviewed migrations, settings, SMTP/Auth URLs,
 	first approved admin, secret registration and subdomain activation. Handle
@@ -281,6 +298,13 @@ purchases, production writes, migrations, resets, commits or deployment.
 	Never populate customers from the demo database. **Done when:** two synthetic
 	RWAs can be independently provisioned, verified and handed over, with secrets
 	absent from logs and browser responses.
+	**Partial:** `npm run ops -- provision` is implemented and unit-tested. It is
+	idempotent, refuses the demo project and other tenants' projects or hosts,
+	checks migrations, settings, the first admin and Auth/SMTP, and prints a
+	directory entry that is `active` only when nothing blocks. A live run
+	against the demo project was correctly refused. Provisioning two fresh
+	synthetic projects is not yet verified: the Supabase free-project quota is
+	used, and the Management API needs a valid access token.
 - [ ] **S08 - Establish fleet releases and isolation regression.** Track each
 	backend's migration/schema version against the shared application, test fresh
 	install and upgrades, and define staged rollout and schema-compatible rollback.
@@ -342,7 +366,10 @@ separate milestones. Do not mark an entire task complete from partial evidence.
 | S02 | Host/directory/state/failure contract and spoofing/isolation acceptance cases specified; Vercel-only capped-pilot choice recorded; no application/configuration changes | `node --test scripts/docs/check.test.mjs`: 5 passed; unchanged pre-existing readiness-to-deployment anchor warning; `git diff --check` passed; no runtime, ingress or secret-isolation tests run | Actual domain, numeric pilot cap and Vercel ingress/direct-origin behavior require confirmation; runtime implementation is S03/S04 work |
 | S03 | Strict host-directory parsing, immutable request-scoped tenant context and context-bound Supabase clients are implemented locally behind a false-by-default flag; no tenant values are deployed | `npm run test`: 42 files/601 passed; `npm run lint`, `npm run typecheck`, `npm run build`, `npm run format:check`, `git diff --check` passed; `node --test scripts/docs/check.test.mjs`: 5 passed with the unchanged readiness-to-deployment anchor warning; synthetic tenant-mode `npm run deploy:check` passed; no tenant-directory/secret markers in `.next/static`. Build emitted safe settings-unavailable warnings during prerender. | Partial: cache/export/rate-limit/reporting isolation has source-level wiring but not full cross-surface multi-backend evidence; actual domain, numeric cap, S04 origin/session behavior and Vercel ingress/direct-origin checks remain blockers. **Completed 31 October 2026:** audit of process-wide state; `tests/e2e/tenant-isolation-live.spec.ts` 1 passed and `tenant-origin-live.spec.ts` 1 passed against hosted `tenant-a`/`tenant-b` after redeploying with error IDs; Vercel logs labelled 22 host-A and 10 host-B failures with the correct tenant and the unknown host as `unresolved`; new interleaved-context unit test passed. S03 complete. Hosted demo, unavailability and rotation repeats move to S06/S07; domain, cap and production approvals stay open |
 | S04 | Tenant-specific session cookie names, host-only production cookie attributes, request-tenant Origin checks and independent Supabase Auth project binding are implemented locally; routing remains disabled. A second disposable tenant-test project (`hnqajjjemqepxuoqbsqx`, Singapore) received all 44 migrations through the normal CLI after `20261123100000` gained its missing `reset role;` | `tests/live/auth.live.test.ts`: 17 passed against both disposable projects with verified database TLS, including the paired test proving the same email gets separate Auth users/profiles, independent OTP login and refresh, rejection of project A tokens by project B, project-local suspension and independent sign-out; focused Chromium `tests/e2e/auth-api.spec.ts`: 15 passed; focused S04 unit tests: 38 passed; `tests/e2e/tenant-origin-live.spec.ts`: 1 passed locally (Host overrides) and 1 passed with `TENANT_HTTP_REMOTE=1` against hosted `tenant-a`/`tenant-b.arp-civic-pulse.vercel.app` (project `arp-civic-pulse-tenant-test`, 31 October 2026); curl probes confirmed SSO 302 on per-deployment URLs and app 404 on the unlisted default host; typecheck, lint, format and docs checks passed | Complete for S04. Separate gates: SMTP delivery for project B, actual domain/numeric cap, trusted-client-IP limiting (H1) and production approvals. Tenant B currently has sign-up disabled and email Auth enabled. |
-| S05-S12 | Pending | Not run | Dependencies and task-specific authorizations remain open |
+| S05 | Main-host product website (product, privacy, contact) with per-host metadata/sitemap/robots and no RWA backend; deployed to the hosted test project | Hosted `tests/e2e/site-demo-live.spec.ts` (Chromium + WebKit, no retries): 10 passed, including the 360 px phone-width check; curl 200 for main `/`, `/contact`, demo `/sign-in` and tenant-a health; local vitest, lint, typecheck, format check, docs check and build passed | Complete on the hosted test project. Actual domain and `SALES_CONTACT_EMAIL` are open; no analytics |
+| S06 | Test project B became the dedicated synthetic demo with banner, two shared personas, `DEMO_READ_ONLY` write refusal and a marker-guarded `demo-reset` | `demo-reset` reseeded `{profiles:14, households:12, votes:6, ballots:23}`; hosted spec proves persona journeys, read-only refusal, registration off and 8 simultaneous same-persona sign-ins: one-time codes collided (`otp_expired`), so persona sign-in moved to a server-derived password; afterwards 10/10 passed twice and the concurrency test 6/6 with no retries (one earlier run failed in the concurrency test right after a deploy with no server error logged) | Complete on the hosted test project. Weekly resets are an operator duty; marketing screenshots not produced; copied-session residual risk documented |
+| S07 | `npm run ops -- provision` with shared project guard (`scripts/ops/supabase-project.ts`) | `tests/unit/ops-provision.test.ts` + `ops-demo.test.ts`: 19 passed; live run against the demo project refused ("This project holds the demo; it can never become a customer.") with no writes | Partial: two fresh synthetic projects not provisioned (free-project quota used, Supabase access token invalid); Management API auth field names unverified live; SMTP pending |
+| S08-S12 | Pending | Not run | Dependencies and task-specific authorizations remain open |
 
 ### Public launch follow-up: 26 October 2026
 

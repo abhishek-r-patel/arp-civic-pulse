@@ -56,7 +56,16 @@ export default async function RegisterPage() {
         title="Register"
         description={`Create an account for ${organisation} Voting App - Civic Pulse. Each email address and ${terms.household} can be registered once.`}
       />
-      {households ? (
+      {tenant.kind === "demo" ? (
+        <Notice heading="Registration is turned off in the demo">
+          This demo uses fictional residents. On a real association&apos;s site,
+          new residents register here and an administrator enables them.{" "}
+          <a href="/sign-in" className="underline">
+            Sign in as a sample resident
+          </a>{" "}
+          instead.
+        </Notice>
+      ) : households ? (
         <SelfRegistrationForm
           csrfToken={csrfToken}
           terms={terms}

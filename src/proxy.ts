@@ -13,6 +13,7 @@ import {
 } from "@/server/config/tenant-context";
 import { ApiError } from "@/server/http/errors";
 import { MAINTENANCE_PAGE, isMaintenanceMode } from "@/server/maintenance";
+import { mainHostRoute } from "@/shared/host-routes";
 
 /*
  * Ensures every page request has a CSRF context (docs/API.md section 3.2) and
@@ -46,6 +47,14 @@ export async function proxy(request: NextRequest) {
         "Retry-After": "300",
       },
     });
+  }
+
+  // The main product website has no RWA backend, sessions or forms: it only
+  // maps its public pages to `src/app/site` and 404s everything else.
+  if (tenant.kind === "main") {
+    return NextResponse.rewrite(
+      new URL(mainHostRoute(request.nextUrl.pathname), request.url),
+    );
   }
 
   const production = process.env.NODE_ENV === "production";

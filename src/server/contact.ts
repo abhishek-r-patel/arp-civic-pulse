@@ -17,6 +17,8 @@ export function contactEnabled(): boolean {
 export async function sendContact(
   message: ContactMessage,
   requestId: string,
+  // Every RWA host shares one operator inbox, so the subject names the site.
+  siteHost?: string,
 ): Promise<void> {
   const environment = getEnvironment();
   if (!contactEnabled()) throw contactDisabled();
@@ -35,7 +37,9 @@ export async function sendContact(
         from: environment.CONTACT_EMAIL_FROM,
         to: [environment.CONTACT_EMAIL_TO],
         reply_to: message.email,
-        subject: "Civic Pulse contact enquiry",
+        subject: siteHost
+          ? `Civic Pulse contact enquiry (${siteHost})`
+          : "Civic Pulse contact enquiry",
         text: `Name: ${message.name}\nReply email: ${message.email}\n\n${message.message}`,
       }),
       signal: AbortSignal.timeout(10_000),

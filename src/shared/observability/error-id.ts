@@ -24,6 +24,7 @@ export const ERROR_AREAS = [
   "SETTINGS",
   "AUDIT",
   "CONTACT",
+  "DEMO",
   "HEALTH",
   "API",
   "PAGE",
@@ -43,6 +44,7 @@ const PATH_AREAS: ReadonlyArray<readonly [RegExp, ErrorArea]> = [
   [/^\/api\/admin\/audit(?:\/|$)/u, "AUDIT"],
   [/^\/api\/register(?:\/|$)/u, "SIGNUP"],
   [/^\/api\/contact(?:\/|$)/u, "CONTACT"],
+  [/^\/api\/demo(?:\/|$)/u, "DEMO"],
   [/^\/api\/internal\/health(?:\/|$)/u, "HEALTH"],
 ];
 

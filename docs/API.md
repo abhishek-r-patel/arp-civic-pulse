@@ -561,7 +561,7 @@ These, a safe cause (`causeSource`/`causeCode`/`causeStatus`, never provider mes
 |---|---|---|
 | `400` | `MALFORMED_JSON` | Correct request syntax |
 | `401` | `AUTH_REQUIRED`, `SESSION_EXPIRED` | Sign in again; do not retain ballot choices outside page memory |
-| `403` | `FORBIDDEN`, `CSRF_FAILED` | Capability or browser-request protection failed |
+| `403` | `FORBIDDEN`, `CSRF_FAILED`, `DEMO_READ_ONLY` | Capability or browser-request protection failed; on the demo host every change is refused |
 | `404` | `NOT_FOUND`, `EXPORT_FORMAT_UNAVAILABLE` | Record absent/inaccessible, or requested optional format unavailable after authorization |
 | `405` | `METHOD_NOT_ALLOWED` | Unsupported method; the `Allow` header lists supported methods |
 | `409` | `ALREADY_SUBMITTED`, `STALE_REVISION`, `REGISTER_CONFLICT`, `VOTE_FROZEN`, `LIFECYCLE_CONFLICT`, `VOTING_CLOSED`, `RESULTS_UNAVAILABLE`, `ACTIVATION_BLOCKED` | Refresh safe state, resolve conflict, or satisfy activation blockers; never blindly retry a mutation |
@@ -747,17 +747,36 @@ Bound database wait time and export concurrency to preserve submission responsiv
 
 Validate server configuration at startup. Store credentials in the hosting secret manager; use placeholder-only examples and exclude real environment files from source control. No secret uses a browser-visible environment prefix or appears in rendered HTML, JavaScript bundles, JSON, URLs, or logs.
 
-### Tenant routing configuration (implemented locally; disabled and not deployed)
+### Tenant routing configuration (off by default; synthetic hosted test project only)
 
 The [S02 design contract](./IMPLEMENTATION_PLAN.md#s02---tenant-resolution-and-configuration-contract)
 defines the host and lifecycle policy. S03 implements a version-1 server-only
 directory, exact-host resolver and per-request Supabase clients. Routing defaults
 to off on staging, and no customer host is configured there. A separate
-retained Vercel test project routes two synthetic disposable tenants; see the
+retained Vercel test project routes synthetic main, demo and customer hosts; see the
 [deployment record](./DEPLOYMENT.md#tenant-routing-disabled-on-staging-separate-hosted-test-project).
-Do not enable it for real hosts until the domain and numeric pilot cap are
-approved and the remaining release gates close. S04 origin/session behavior
-and Vercel ingress/direct-origin handling are verified on that test project.
+Do not enable it for real hosts until the domain is approved and the remaining
+release gates close. The pilot cap is 10 customer hosts plus one main and one
+demo host. S04 origin/session behavior and Vercel ingress/direct-origin
+handling are verified on that test project.
+
+**Host kinds (S05/S06).** On the `main` host the proxy serves the product
+website (`/`, `/contact`, `/privacy`, `robots.txt`, `sitemap.xml`) and RWA pages
+are 404. Every API route there except `GET /api/internal/health` answers
+`404 NOT_FOUND` (logged cause `MAIN_HOST_NO_API`), including `POST /api/contact`;
+health answers `ok` without a database call. On the `demo` host only `GET`,
+`HEAD` and `OPTIONS`, `POST /api/demo/session` and `POST /api/auth/sign-out`
+are allowed; every other request answers `403 DEMO_READ_ONLY` before any
+handler runs.
+
+`POST /api/demo/session` (demo host only; elsewhere `404 NOT_FOUND`) takes
+`{"persona":"resident"|"committee"}` with the usual Origin/CSRF checks, signs
+the visitor in as that fictional account with a server-derived password (no
+email or code; the password never reaches the browser), rotates the
+CSRF context and returns `{"data":{"account":…}}` like code verification. It
+is limited to 300 sign-ins per hour across all visitors (`429 RATE_LIMITED`);
+while the demo is being reset it answers `503 DEPENDENCY_UNAVAILABLE`. Error
+IDs use the `DEMO-` prefix.
 
 Set `TENANT_ROUTING_ENABLED=true` only with a valid `TENANT_DIRECTORY_JSON`.
 The strict envelope has `version: 1` and an `entries` array. `main` entries have
@@ -790,7 +809,7 @@ deployment; dashboard write-only behavior is not runtime isolation. Environment
 changes require a new deployment, and Node deployments have a documented 64 KB
 total environment-variable limit. The directory/secret model therefore has a
 shared blast radius and a finite pilot scope. Do not claim per-tenant secret
-isolation or onboard past the confirmed cap. See [Vercel environment
+isolation or onboard past the 10-customer cap. See [Vercel environment
 variables](https://vercel.com/docs/environment-variables).
 
 | Variable | Purpose | Availability |
@@ -811,6 +830,7 @@ variables](https://vercel.com/docs/environment-variables).
 | `TRUSTED_PROXY_CONFIG` | Explicit trusted proxy/source-IP interpretation | Server runtime |
 | `RESEND_API_KEY` | Optional contact-only Resend credential; required with both contact addresses | Server secret |
 | `CONTACT_EMAIL_FROM`, `CONTACT_EMAIL_TO` | Optional bare sender/administrator email addresses; all contact settings are required together | Server-only configuration |
+| `SALES_CONTACT_EMAIL` | Optional public enquiry address shown on the main product website's Contact page | Server configuration rendered into that page only |
 | `GOOGLE_ANALYTICS_ID` | Optional GA4 `G-...` identifier; privacy/contact only after opt-in | Public identifier supplied by the server; build/runtime |
 | `GOOGLE_SITE_VERIFICATION` | Optional Google HTML-tag verification token | Public identifier; build/runtime |
 | `NEXT_PUBLIC_SENTRY_DSN` | Optional Sentry error/trace ingest DSN; active only on Vercel Production/Preview builds | Public identifier; build/runtime |

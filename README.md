@@ -15,11 +15,13 @@ voting-scope decisions before marking S01 complete. S02's fail-closed tenant
 resolution/configuration design is specified, including Vercel's shared-secret
 limits. S03 adds locally tested, request-scoped tenant routing behind
 `TENANT_ROUTING_ENABLED`, which defaults to false. No directory, tenant secrets
-or customer hosts are configured on staging; a separate retained Vercel test
-project serves two synthetic disposable tenant hosts. The actual domain and
-proposed three-customer cap remain unconfirmed. S04 (tenant authentication and
-origin isolation) is complete; S03 is not release approval, and S05-S12 remain
-pending.
+or customer hosts are configured on staging. A separate retained Vercel test
+project serves the product website (`site.`), the synthetic demo (`demo.`) and
+one synthetic customer (`tenant-a.`) on placeholder `arp-civic-pulse.vercel.app`
+hosts; the actual domain is unconfirmed and the pilot cap is 10 customer RWAs.
+S03-S06 are complete on that test project. S07 (`npm run ops -- provision`) is
+implemented and unit-tested but not yet verified on two fresh projects;
+S08-S12 remain pending. None of this is release approval.
 
 The [staging site](https://staging.arp-civic-pulse.vercel.app) uses Vercel's
 **Production target only**, backed by the disposable Supabase project. Automatic
@@ -179,19 +181,19 @@ Open <http://localhost:3000>. Use synthetic data only; never copy production reg
 
 ## Scripts
 
-| Command                                   | Purpose                                                                                                         |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `npm run dev`                             | Development server                                                                                              |
-| `npm run build` / `npm run start`         | Production build and server                                                                                     |
-| `npm run deploy:check`                    | Validate injected production configuration without loading local environment files or printing values           |
-| `npm run lint`                            | ESLint (Next.js core-web-vitals and TypeScript rules)                                                           |
-| `npm run format` / `npm run format:check` | Prettier with the Tailwind class-order plugin                                                                   |
-| `npm run typecheck`                       | `tsc --noEmit` under strict settings                                                                            |
-| `npm test`                                | Vitest unit tests in `tests/unit`                                                                               |
-| `npm run test:integration`                | Real-PostgreSQL tests in `tests/integration` (needs `INTEGRATION_DATABASE_URL`, see `supabase/README.md`)       |
-| `npm run test:live`                       | Real hosted Supabase Auth/PostgREST tests in `tests/live` (needs a disposable project in `.env.local`)          |
-| `npm run test:e2e`                        | Playwright and axe checks in `tests/e2e` (run `npx playwright install` first)                                   |
-| `npm run ops -- <command>`                | Backup, verify, restore rehearsal, status, orphan Auth cleanup (see [docs/OPERATIONS.md](./docs/OPERATIONS.md)) |
+| Command                                   | Purpose                                                                                                                                            |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                             | Development server                                                                                                                                 |
+| `npm run build` / `npm run start`         | Production build and server                                                                                                                        |
+| `npm run deploy:check`                    | Validate injected production configuration without loading local environment files or printing values                                              |
+| `npm run lint`                            | ESLint (Next.js core-web-vitals and TypeScript rules)                                                                                              |
+| `npm run format` / `npm run format:check` | Prettier with the Tailwind class-order plugin                                                                                                      |
+| `npm run typecheck`                       | `tsc --noEmit` under strict settings                                                                                                               |
+| `npm test`                                | Vitest unit tests in `tests/unit`                                                                                                                  |
+| `npm run test:integration`                | Real-PostgreSQL tests in `tests/integration` (needs `INTEGRATION_DATABASE_URL`, see `supabase/README.md`)                                          |
+| `npm run test:live`                       | Real hosted Supabase Auth/PostgREST tests in `tests/live` (needs a disposable project in `.env.local`)                                             |
+| `npm run test:e2e`                        | Playwright and axe checks in `tests/e2e` (run `npx playwright install` first)                                                                      |
+| `npm run ops -- <command>`                | Backup, verify, restore rehearsal, status, orphan Auth cleanup, demo reset, customer provisioning (see [docs/OPERATIONS.md](./docs/OPERATIONS.md)) |
 
 Browser journeys that sign in for real (`tests/e2e/*-live.spec.ts`) run only with `LIVE_AUTH=1`. On managed Windows machines, system policy can close Microsoft Edge shortly after Playwright starts it ("DevTools remote debugging is disallowed by the system admin"); use Playwright's own Chromium (`npx playwright install chromium`) instead of `PLAYWRIGHT_CHROMIUM_CHANNEL=msedge`.
 
@@ -211,9 +213,11 @@ Server configuration is validated when the server starts (`src/instrumentation.t
 - `NEXT_PUBLIC_*` values are visible in browsers and must never hold a secret.
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only and reserved for controlled Auth provisioning and resident self-registration, never ballots, results or exports.
 - Host-based routing is disabled by default. `TENANT_ROUTING_ENABLED`,
-  `TENANT_DIRECTORY_JSON` and UUID-keyed tenant secrets must not be configured
-  until the domain, pilot cap, S04 origin/session behavior and Vercel ingress
-  trust are approved and verified. See the [S03 implementation status](./docs/IMPLEMENTATION_PLAN.md#working-checklist).
+  `TENANT_DIRECTORY_JSON` and UUID-keyed tenant secrets are configured only on
+  the retained tenant-test Vercel project, never on staging or production until
+  the domain and Vercel ingress trust are approved. `SALES_CONTACT_EMAIL` sets
+  the main website's contact address; `DEMO_*` and `PROVISION_*` are operator
+  shell variables for `demo-reset` and `provision`. See the [working checklist](./docs/IMPLEMENTATION_PLAN.md#working-checklist).
 - `APP_SUPPORT_EMAIL` is an optional server-only developer/support contact; it only becomes usable when an RWA Admin turns App Support Access on, and never appears in a browser.
 - `SUPABASE_ACCESS_TOKEN` and `MIGRATION_DATABASE_URL` are deployment-only and not read by the running application.
 - SMTP, OTP settings and Cron are configured in Supabase/provider settings and reviewed migrations.
@@ -243,6 +247,10 @@ supabase           config.toml and migrations (reviewed, versioned SQL)
 tests              unit, integration, e2e, fixtures
 src/app/user-guide Native public index and Resident/RWA Admin guide pages
 src/app/tech-guide Unlisted public developer reference
+src/app/site       Main-host product website pages (proxy rewrites the main host here)
+src/components/site Product website shell and the demo banner
+src/server/demo    Demo persona sign-in (session.ts)
+scripts/ops        Operator CLI: backups, demo-reset (demo.ts), provision (provision.ts)
 src/components/guides Native content, contents navigation, screenshots and diagrams
 src/shared/guides/screenshots.ts Curated synthetic screenshot inventory
 public/guides      Current referenced PNGs and generated dimensions.json

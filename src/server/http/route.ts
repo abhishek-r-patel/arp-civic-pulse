@@ -1,7 +1,11 @@
 // Consistent safe HTTP request/response behavior for application routes.
 import "server-only";
-import { tenantContextForProxy } from "@/server/config/tenant-context";
+import {
+  tenantContextForProxy,
+  type TenantContext,
+} from "@/server/config/tenant-context";
 import { ApiError } from "@/server/http/errors";
+import { demoRequestAllowed, mainHostApiAllowed } from "@/shared/host-routes";
 import { errorResponse, newRequestId } from "@/server/http/response";
 import { isMaintenanceMode } from "@/server/maintenance";
 import { log } from "@/server/observability/logger";
@@ -21,6 +25,8 @@ export interface RouteContext {
   request: Request;
   requestId: string;
   params: RouteParams;
+  /** Host-resolved tenant when the host is known; handlers still resolve their own backend. */
+  tenant?: TenantContext | undefined;
 }
 
 export type RouteHandler = (
@@ -42,12 +48,30 @@ function logHost(request: Request): string {
 }
 
 // Which RWA the request was for. Never throws: logging must not fail a request.
-function tenantLabel(host: string): string {
+function resolveTenant(host: string): TenantContext | undefined {
   try {
-    const tenant = tenantContextForProxy(host);
-    return tenant.tenantId ?? tenant.kind;
+    return tenantContextForProxy(host);
   } catch {
-    return "unresolved";
+    return undefined;
+  }
+}
+
+/*
+ * Host-kind limits, applied before any handler runs (src/shared/host-routes.ts):
+ * the main website has no RWA backend, and the demo refuses every change.
+ */
+function enforceHostKind(
+  tenant: TenantContext | undefined,
+  method: HttpMethod,
+  pathname: string,
+): void {
+  if (tenant?.kind === "main" && !mainHostApiAllowed(pathname)) {
+    throw new ApiError("NOT_FOUND", {
+      cause: { source: "tenant_config", code: "MAIN_HOST_NO_API" },
+    });
+  }
+  if (tenant?.kind === "demo" && !demoRequestAllowed(method, pathname)) {
+    throw new ApiError("DEMO_READ_ONLY");
   }
 }
 
@@ -117,13 +141,14 @@ export function route(
         const area = areaForPath(routeName);
         const requestId = newRequestId(area);
         const host = logHost(request);
+        const tenant = resolveTenant(host);
         const context: RequestLogContext = {
           requestId,
           area,
           route: routeName,
           method,
           host,
-          tenant: tenantLabel(host),
+          tenant: tenant ? (tenant.tenantId ?? tenant.kind) : "unresolved",
         };
 
         return runWithRequestContext(context, async () => {
@@ -132,6 +157,7 @@ export function route(
             if (!handler) {
               throw new ApiError("METHOD_NOT_ALLOWED", { allow });
             }
+            enforceHostKind(tenant, method, routeName);
             // Maintenance stops every data path; the health route stays honest about it.
             if (
               isMaintenanceMode() &&
@@ -145,7 +171,7 @@ export function route(
               });
             }
             const params = (await nextContext?.params) ?? {};
-            response = await handler({ request, requestId, params });
+            response = await handler({ request, requestId, params, tenant });
           } catch (error) {
             const durationMs = Math.round(performance.now() - started);
             if (error instanceof ApiError) {

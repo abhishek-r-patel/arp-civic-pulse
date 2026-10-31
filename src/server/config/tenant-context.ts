@@ -261,3 +261,21 @@ export function tenantContextForProxy(
 ): TenantContext {
   return resolveTenantContext(hostHeader, environment, process.env);
 }
+
+/*
+ * Public origin of the active main or demo host, for cross-links between the
+ * product website and the demo. Customer hosts are never listed: one RWA's
+ * address is not shown on another host or the main website.
+ */
+export function activeSiteOrigin(
+  kind: "main" | "demo",
+  environment: Environment = getEnvironment(),
+): string | undefined {
+  if (!environment.TENANT_ROUTING_ENABLED) return undefined;
+  const entry = parseTenantDirectory(
+    environment.TENANT_DIRECTORY_JSON,
+  ).entries.find(
+    (candidate) => candidate.kind === kind && candidate.state === "active",
+  );
+  return entry ? `https://${entry.host}` : undefined;
+}

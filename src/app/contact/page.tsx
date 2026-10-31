@@ -6,7 +6,10 @@ import { PublicStructuredData } from "@/components/ui/public-structured-data";
 import { getSessionState } from "@/server/authorization/account";
 import { contactEnabled } from "@/server/contact";
 import { createUserClient } from "@/server/db/clients";
-import { getRequestTenantContext } from "@/server/config/tenant-context";
+import {
+  activeSiteOrigin,
+  getRequestTenantContext,
+} from "@/server/config/tenant-context";
 import { getCsrfToken } from "@/server/http/csrf-cookie";
 import { ApiError } from "@/server/http/errors";
 import { log } from "@/server/observability/logger";
@@ -17,6 +20,8 @@ export const metadata = publicMetadata("/contact");
 
 export default async function ContactPage() {
   const tenant = await getRequestTenantContext();
+  const mainOrigin =
+    tenant.kind === "demo" ? activeSiteOrigin("main") : undefined;
   const csrfToken = await getCsrfToken();
   const session = await getSessionState(tenant);
   let adminNames: string[] | null = null;
@@ -42,7 +47,21 @@ export default async function ContactPage() {
         title="Contact"
         description="Need help with your account, service or privacy? Contact your RWA administrator. This page is not for emergencies."
       />
-      {contactEnabled() ? (
+      {tenant.kind === "demo" ? (
+        <Notice heading="The demo cannot send messages">
+          This is a demo with fictional data, so the contact form is turned off.
+          {mainOrigin ? (
+            <>
+              {" "}
+              To ask about Civic Pulse, use the{" "}
+              <a href={`${mainOrigin}/contact`} className="underline">
+                product website&apos;s contact page
+              </a>
+              .
+            </>
+          ) : null}
+        </Notice>
+      ) : contactEnabled() ? (
         <ContactForm csrfToken={csrfToken} />
       ) : (
         <Notice tone="warning" heading="Online contact is unavailable">
