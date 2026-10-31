@@ -278,7 +278,7 @@ async function managementAuth(
   return (await response.json()) as Record<string, unknown>;
 }
 
-async function remoteMigrations(db: Db): Promise<string[] | null> {
+export async function remoteMigrations(db: Db): Promise<string[] | null> {
   const exists = await db.query<{ t: string | null }>(
     "select to_regclass('supabase_migrations.schema_migrations')::text as t",
   );

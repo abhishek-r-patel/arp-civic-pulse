@@ -91,7 +91,21 @@ export interface TestDatabase {
 // creation is serialised across parallel test files with an advisory lock.
 const CREATION_LOCK = 727_001;
 
-async function provisionDatabase(name: string): Promise<void> {
+async function provisionDatabase(
+  name: string,
+  throughMigration?: string,
+): Promise<void> {
+  const files = readdirSync(MIGRATIONS)
+    .filter((file) => file.endsWith(".sql"))
+    .sort();
+  const cutoff =
+    throughMigration === undefined
+      ? files.length - 1
+      : files.findIndex((file) => file.startsWith(`${throughMigration}_`));
+  if (cutoff < 0) {
+    throw new Error(`Migration baseline ${throughMigration} was not found.`);
+  }
+
   await withClient("supabase_admin", "postgres", async (lockClient) => {
     await lockClient.query("select pg_advisory_lock($1)", [CREATION_LOCK]);
     try {
@@ -101,11 +115,8 @@ async function provisionDatabase(name: string): Promise<void> {
         client.query(readFileSync(join(SUPPORT, "supabase-stub.sql"), "utf8")),
       );
 
-      const files = readdirSync(MIGRATIONS)
-        .filter((file) => file.endsWith(".sql"))
-        .sort();
       await withClient("postgres", name, async (client) => {
-        for (const file of files) {
+        for (const file of files.slice(0, cutoff + 1)) {
           const sql = readFileSync(join(MIGRATIONS, file), "utf8");
           await inTransaction(client, () => client.query(sql), true);
         }
@@ -116,9 +127,11 @@ async function provisionDatabase(name: string): Promise<void> {
   });
 }
 
-export async function createTestDatabase(): Promise<TestDatabase> {
+export async function createTestDatabase(options?: {
+  throughMigration?: string;
+}): Promise<TestDatabase> {
   const name = `cp_it_${randomBytes(4).toString("hex")}`;
-  await provisionDatabase(name);
+  await provisionDatabase(name, options?.throughMigration);
   return {
     name,
     asSuperuser: (fn) => withClient("supabase_admin", name, fn),

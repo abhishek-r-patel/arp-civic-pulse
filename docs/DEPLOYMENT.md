@@ -375,6 +375,9 @@ Use the secret manager's generator for `RATE_LIMIT_HMAC_KEY` or generate 32 rand
 The following belong **only** to an approved deployment/operations runner, not Vercel's application environment:
 
 - `SUPABASE_ACCESS_TOKEN`: least-privilege management token only if using management/CLI operations.
+- `MIGRATION_PROJECT_REF`: the confirmed project reference for the read-only
+  `npm run ops -- migration-status` report; operator-only, never a Vercel app
+  variable.
 - `MIGRATION_DATABASE_URL`: approved production direct or supported session-pooler migration connection, with `sslmode=verify-full` and the provider CA; never transaction pooling. Restrict database access to the migration operator/runner. Never use a backup login to migrate.
 - Backup runner: `BACKUP_DATABASE_URL`, `BACKUP_ENCRYPTION_KEY`, `BACKUP_DIR`, `BACKUP_MAX_AGE_HOURS`, optionally `PG_BIN_DIR` and approved CA configuration. Follow [OPERATIONS.md](./OPERATIONS.md).
 - Recovery rehearsal runner: `RESTORE_DATABASE_URL`, pointing to an isolated, already-migrated recovery environment, never production.
@@ -605,6 +608,43 @@ Deployment sequence:
 7. Validate SMTP with approved operator accounts; perform ballot/export acceptance checks in staging rather than generating fake production votes.
 8. Enable privacy-safe monitoring and alert delivery: health availability, Cron lag, database capacity, invariant/submission failures, email errors, exports and backup freshness. Do not use monitoring as a free-tier keep-alive. Configure the external backup scheduler/off-site destination separately; Vercel's ephemeral filesystem is not backup storage.
 9. Record deployment URL, artifact/revision, time, environment, migration versions and approving operator in the approved release record. Never include secrets.
+
+### Shared-app fleet release gate
+
+One application deployment serves every routed customer database. Keep an
+operator-only release matrix for each backend with its immutable tenant ID,
+project reference, last applied migration version, candidate minimum schema
+version and verification result; never include connection strings or keys.
+Until fleet aggregation is automated, run the read-only
+`npm run ops -- migration-status --confirm <ref>` command once per backend and
+record its sanitized output in the release matrix. The command reports
+repository versus remote migration versions; still use the Supabase CLI dry run
+to review pending SQL. A healthy `/api/internal/health` response does not
+establish schema compatibility.
+
+Use expand/contract releases:
+
+1. Keep the existing shared application running while applying only reviewed,
+   backward-compatible schema expansions to each backend. Confirm each
+   migration history before moving to the next backend.
+2. If any backend fails or is behind the candidate's required minimum, stop the
+   migration wave and do not deploy the candidate. Keep the previous application
+   running only while it remains compatible with every schema already changed;
+   otherwise put the service in maintenance mode and investigate.
+3. Deploy the shared application only after every routed backend satisfies its
+   declared minimum schema and the two-backend isolation/version-skew checks
+   pass. Do not mix an app revision that calls newly added routines with a
+   backend that lacks them.
+4. Remove or contract obsolete schema only in a later release, after all
+   supported application revisions no longer use it, with no active-vote
+   impact and a separately reviewed migration.
+
+Prefer postponing schema changes that alter ballot, electorate, tally or
+deadline behavior while any election is active. Never change those guarantees
+to make a release fit a window. An application rollback is allowed only to a
+retained build compatible with every already-applied schema; otherwise ship a
+forward fix or keep maintenance enabled. Never reverse an applied migration or
+restore an older database to undo a release after acknowledged votes.
 
 For HTTPS checks, use a trusted shell without disabling certificate validation:
 

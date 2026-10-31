@@ -132,6 +132,14 @@ versioned aggregate report, exposed by `npm run ops -- config-check`.
 permissions, rollback, privacy and CLI exit behavior. No web route or schema
 migration is added.
 
+`tests/integration/migration-upgrade.test.ts` verifies migration
+`20261124100000` upgrades a disposable database from the previous schema baseline,
+preserves RWA settings and enables the new accent through the guarded profile
+routine. Fleet migration reporting remains an operator-run release check.
+`scripts/ops/migration-status.ts` validates the confirmed per-RWA database
+target for the read-only migration-version report; it never applies SQL.
+`tests/unit/ops-migration-status.test.ts` covers target/refusal behavior.
+
 Concept-fidelity correction: `src/components/votes/vote-list-card.tsx` owns the
 server-rendered rich card and compact upcoming row; `src/app/page.tsx` owns status
 links, compact type/history controls and the three-column overview. Existing

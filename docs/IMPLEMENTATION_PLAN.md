@@ -46,9 +46,9 @@ and record the selected policy here before implementing the affected behavior.
 | Customer onboarding and subdomain ownership | Operator-assisted provisioning; approved, unique names; reserve platform names including `demo`; no automatic reuse after cancellation | Confirmed |
 | Public demo access | Prepared resident/read-only experiences using synthetic data in a dedicated project; no public edits initially | Confirmed; any future interactive voting or editable admin demo requires a new decision and isolated temporary sandboxes |
 | RWA directory and secrets | Server-controlled hostname allowlist, managed secret references and narrowly authorized operator access | Boundaries confirmed; Vercel environment variables accepted for a capped pilot, with shared-runtime secret exposure recorded under S02 |
-| Initial offer and subscription enforcement | Manual annual billing; after the agreed grace period, block new vote creation, not active elections, existing vote access or authorized exports | Model confirmed; price, included services and grace-period length pending; lifecycle details belong to S10 |
+| Initial offer and subscription enforcement | Manual annual billing; grace starts on invoice due date; after grace, block new vote drafts and activation/scheduling of not-yet-active votes, while preserving active votes, existing access and authorized exports | Product owner selected a 7-calendar-day default, overridden per tenant by `TENANT_<UUID32>_BILLING_GRACE_DAYS`; no additional household/feature limits beyond the 10-customer cap. Manual operator-only billing records, no gateway/card data. Ledger store remains undecided, so billing code and enforcement are not implemented. Price and included services remain pending |
 | Customer size and voting scope | Both PUBLIC polls and PRIVATE elections are allowed in the pilot (product owner, 31 October 2026); pilot cap of **10 customer RWAs** on the shared Vercel deployment (product owner, 31 October 2026), enforced by the directory parser | Vote types and RWA count confirmed. Households per RWA and peak simultaneous voters pending; historical 500-household/100-concurrent targets are not SaaS capacity evidence |
-| Operational responsibilities | Operator owns provisioning, releases, monitoring, backups and incident coordination; RWA owns register accuracy, member approval, entitlement, election rules and election decisions | Responsibility split confirmed; service hours, recovery targets and per-RWA approvals pending |
+| Operational responsibilities | Operator owns provisioning, releases, monitoring, backups and incident coordination; RWA owns register accuracy, member approval, entitlement, election rules and election decisions | Responsibility split confirmed; backup destination and RPO/RTO are deferred; service hours and per-RWA approvals remain pending |
 | Support access | No routine customer-data access by support; exceptional access requires RWA authorization, audit, expiry and staff accountability | Confirmed policy; technical enforcement and revocation verification remain future work |
 | Offboarding and service commitments | Agree export handover, retention/deletion, backup expiry and access revocation before a paid pilot | Commitment to agreement confirmed; periods, service targets and contractual terms pending |
 
@@ -71,7 +71,8 @@ continue to govern each customer.
 
 - Select the actual domain before DNS and canonical-origin configuration; the
   placeholder does not authorize a purchase.
-- Agree pricing and included services, plus the exact billing grace period.
+- Agree pricing and included services. The S10 billing grace default and
+  enforcement boundary are recorded above; ledger storage remains undecided.
 - Select pilot households per RWA and peak simultaneous voters (the RWA count
   is capped at 10). Both vote types are allowed; review voting/bylaw fit against
   PRD A1-A7 with each RWA.
@@ -218,7 +219,9 @@ release work stay open. The pilot cap is 10 customer RWAs.
 
 S01 is partially complete; S02's design is specified; S03-S07 are complete on
 the hosted test project (routing remains disabled on staging; S07's SMTP step
-stays an open gate); S08-S12 are pending. Work on one bounded task at a time; split a task into
+stays an open gate); S08-S09 are in progress; S10's policy direction is recorded
+but its implementation is blocked on ledger storage; S11-S12 are pending. Work
+on one bounded task at a time; split a task into
 smaller steps here when necessary. Planning approval does not authorize provider
 purchases, production writes, migrations, resets, commits or deployment.
 
@@ -314,6 +317,12 @@ purchases, production writes, migrations, resets, commits or deployment.
 	**Done when:** direct RPC/RLS and application tests cover two backends, concurrent
 	requests and version skew; releases never apply migrations at app startup or
 	restore an old database to roll back acknowledged votes.
+	**In progress:** the disposable PostgreSQL integration suite now has an
+	upgrade-path test from the previous schema version, and this plan records a
+	shared-app rollout gate. The read-only `migration-status` command reports
+	per-project versions against the candidate migration set. Existing hosted
+	two-customer tests cover concurrent application requests; fleet aggregation
+	and older/newer app-to-schema compatibility evidence remain open.
 - [ ] **S09 - Operate each RWA safely.** Add per-RWA health/alerts, backup-age and
 	migration reporting, restricted operations credentials, off-site backup
 	automation, incident ownership and audited support procedures. Scope retention,
@@ -321,6 +330,13 @@ purchases, production writes, migrations, resets, commits or deployment.
 	hosted backup/restore rehearsal proves isolation and agreed RPO/RTO, support
 	revocation is verified and [production security gates](./PILOT_READINESS.md#3-open-gates-people-devices-approvals-environments)
 	including trusted-client-IP abuse protection are resolved with evidence.
+	**In progress:** health resolves the request tenant's own database; the
+	`status` command checks one operator-selected target's operational invariants
+	and backup age, and `migration-status` compares recorded schema versions
+	read-only with project-reference confirmation. Per-customer operations are not
+	aggregated. Backup automation/recovery stays blocked on the deferred destination
+	and RPO/RTO; support expiry/revocation evidence and trusted-client-IP protection
+	remain open.
 - [ ] **S10 - Add customer billing and lifecycle controls.** Record plans, customer
 	subscriptions, invoices/payments, renewals and operator audit; manual billing can
 	precede a payment integration. Implement only approved household/feature limits,
@@ -328,6 +344,13 @@ purchases, production writes, migrations, resets, commits or deployment.
 	**Done when:** access and billing transitions preserve active-vote integrity and
 	agreed exports; any payment integration validates signed, replay-safe webhooks
 	and duplicate/out-of-order events without handling raw card details.
+	**Policy recorded:** manual operator-only ledger; no gateway or card data;
+	7-day default from invoice due date, configurable per tenant through
+	`TENANT_<UUID32>_BILLING_GRACE_DAYS`; after expiry, block new draft creation and
+	activation/scheduling of not-yet-active votes only. Keep active votes, access
+	and authorized exports available; add no household/feature quota beyond the
+	10-customer cap. **Implementation blocked:** the ledger store is deferred, so
+	no subscription, invoice, renewal or audit records or enforcement are built.
 - [ ] **S11 - Complete contracts and offboarding.** Agree pricing/cost model,
 	applicable privacy/tax/bylaw advice, service commitments, legal operator,
 	subprocessors, per-RWA policy approvals, retention, termination and support
@@ -371,7 +394,10 @@ separate milestones. Do not mark an entire task complete from partial evidence.
 | S05 | Main-host product website (product, privacy, contact) with per-host metadata/sitemap/robots and no RWA backend; deployed to the hosted test project | Hosted `tests/e2e/site-demo-live.spec.ts` (Chromium + WebKit, no retries): 10 passed, including the 360 px phone-width check; curl 200 for main `/`, `/contact`, demo `/sign-in` and tenant-a health; local vitest, lint, typecheck, format check, docs check and build passed | Complete on the hosted test project. Actual domain and `SALES_CONTACT_EMAIL` are open; no analytics |
 | S06 | Test project B became the dedicated synthetic demo with banner, two shared personas, `DEMO_READ_ONLY` write refusal and a marker-guarded `demo-reset` | `demo-reset` reseeded `{profiles:14, households:12, votes:6, ballots:23}`; hosted spec proves persona journeys, read-only refusal, registration off and 8 simultaneous same-persona sign-ins: one-time codes collided (`otp_expired`), so persona sign-in moved to a server-derived password; afterwards 10/10 passed twice and the concurrency test 6/6 with no retries (one earlier run failed in the concurrency test right after a deploy with no server error logged) | Complete on the hosted test project. Weekly resets are an operator duty; marketing screenshots not produced; copied-session residual risk documented |
 | S07 | `npm run ops -- provision` with shared project guard (`scripts/ops/supabase-project.ts`); the Auth step now patches sign-in settings separately from the email template, which Supabase only accepts once custom SMTP exists; `supabase db push` runs without a shell so the database URL never reaches a command line | `tests/unit/ops-provision.test.ts` + `ops-demo.test.ts`: 20 passed; live run against the demo project refused with no writes. Two fresh free-tier projects (`civic-pulse-s07-a`, `-b`, Mumbai) each: pass 1 blocked on 44 pending migrations; pass 2 with `--apply-migrations --activate` applied 44 migrations, set settings and the first admin, then refused activation because SMTP is missing (exit 1); pass 3 reported every step `already`, with 1 user/profile/admin/settings row (no duplicates). Each was wired as hosted `tenant-b`; `tenant-isolation-live` and `tenant-origin-live` passed 2/2 against tenant-a for both. Projects deleted, directory restored, demo restored and `site-demo-live` passed 10/10 (Chromium + WebKit) | Complete on the hosted test project. SMTP per customer project, the real domain and production approvals stay open |
-| S08-S12 | Pending | Not run | Dependencies and task-specific authorizations remain open |
+| S08 | In progress | `tests/integration/migration-upgrade.test.ts`: 1 passed on a new disposable PostgreSQL 17 cluster, upgrading `20261123100000` through `20261124100000`; the non-restore integration suite passed (20 files/325 tests). Unit coverage rejects duplicate/unsorted local versions and verifies migration-target confirmation. Existing hosted S07 evidence covers two-backend concurrent cross-surface isolation and origin checks. Shared-app staged rollout, schema-compatible rollback and the per-project `migration-status` report are implemented/documented. Fleet aggregation and explicit older/newer app-to-schema tests remain open | No production migration/deployment approval; hosted verification of the new read-only report remains |
+| S09 | In progress | Existing tenant-aware health and target-scoped `status`/backup-age checks; `migration-status` is read-only and project-confirmed. Support Access is RWA-controlled and audited | Backup target/RPO/RTO deferred; backup/restore rehearsal, support expiry/revocation verification, trusted-client-IP protection, and fleet aggregation remain open |
+| S10 | Policy recorded; implementation blocked | User selected manual operator-only records, no gateway/card data, per-tenant grace variable with 7-day default from invoice due date, automatic block on new drafts and activation/scheduling of not-yet-active votes after grace, and no new household/feature quotas | Ledger store deferred; pricing/inclusions remain undecided. No billing records or enforcement have been implemented |
+| S11-S12 | Pending | Not run | Contracts, offboarding and production launch approvals remain open |
 
 ### Public launch follow-up: 26 October 2026
 

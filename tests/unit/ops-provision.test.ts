@@ -196,6 +196,8 @@ describe("migrationStatus", () => {
     );
     expect(versions.length).toBeGreaterThan(10);
     expect(versions[0]).toBe("20261024100000");
+    expect(new Set(versions).size).toBe(versions.length);
+    expect(versions).toEqual([...versions].sort());
   });
 });
 

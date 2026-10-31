@@ -24,6 +24,7 @@ disposable database into the real register.
 | --------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `BACKUP_DATABASE_URL`                   | `backup`, `auth-orphans`, `recovery-record` | A **direct** (not transaction-pooled) connection for a dedicated backup login. See 3.1.                                                                          |
 | `CONFIG_DATABASE_URL`                   | `config-check` | Operator-only direct/session PostgreSQL connection for read-only inspection. Requires unfiltered application reads and existing private-helper/status execution privileges; normally use the approved database-owner operator credential. Never put it in the application host or browser. |
+| `MIGRATION_PROJECT_REF` / `MIGRATION_DATABASE_URL` | `migration-status` | Operator-only project reference and verified-TLS database connection. The command is read-only and refuses a URL that does not match `--confirm`; never put this credential in Vercel. |
 | `BACKUP_ENCRYPTION_KEY`                 | all backup commands    | 64 hex characters (`npm run ops -- generate-key`). Keep it in the approved secret store, **never beside the backups or in the database**. Lose it and every backup is unreadable.          |
 | `BACKUP_DIR`                            | `backup`, `prune`, `status` | The destination folder. The operator makes it off-site (a synced/mounted folder, an object-store mount, a removable drive that leaves the building). **Which one is not decided.** |
 | `BACKUP_MAX_AGE_HOURS`                  | `status`               | Alert if the newest backup is older than this.                                                                                                                                           |
@@ -118,6 +119,27 @@ signs in again; no manual step is needed. A `DEMO-` error ID whose log shows
 Auth cause (for example `over_request_rate_limit`) means Supabase Auth refused
 the sign-in. Keep the Email provider's password sign-in enabled in the demo
 project.
+
+### Check a customer's migration version
+
+Set `MIGRATION_PROJECT_REF` and `MIGRATION_DATABASE_URL` only in the approved
+operator environment. `MIGRATION_DATABASE_URL` must use verified TLS and point
+to that exact Supabase project; on Windows, set `PGSSLROOTCERT` to the approved
+Supabase database CA. Run:
+
+```powershell
+npm run ops -- migration-status --confirm $env:MIGRATION_PROJECT_REF
+```
+
+The read-only report compares the repository migration versions with
+`supabase_migrations.schema_migrations` for that one project. It prints only
+the project reference, version counts/latest versions, pending versions and
+unknown remote versions—not the database URL or credentials. `current` exits
+zero; an uninitialized/untracked project, pending migrations or unknown remote
+versions exits nonzero. Run once per RWA during a fleet release and retain the
+sanitized reports in the approved release record. This is a migration-history
+check, not proof of schema drift absence, policy correctness or active-vote
+compatibility; continue the required dry-run, SQL review and staging checks.
 
 ### Provision a customer RWA
 

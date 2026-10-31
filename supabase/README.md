@@ -158,6 +158,11 @@ and says so.
 ## Deployment procedures (run as the migration role, never exposed over the API)
 
 These live in the `app_private` schema and write an audit event in the same transaction.
+Before preparing a release, use
+`npm run ops -- migration-status --confirm <ref>` with
+`MIGRATION_PROJECT_REF` and `MIGRATION_DATABASE_URL` set in the restricted
+operator environment. It only compares recorded migration versions; it does not
+apply SQL or establish that the database has no schema drift.
 
 ```sql
 select app_private.deployment_initialize_settings('<RWA name>', '<IANA timezone>');
@@ -206,6 +211,12 @@ local server has no `pg_cron`, so Cron scheduling is skipped there (the completi
 the scheduled job is verified on a hosted project. It does **not** prove Supabase
 Auth (code delivery, expiry, sessions, cookies); verify those against a real Supabase project or the local
 stack (`supabase start`, which needs Docker).
+
+`tests/integration/migration-upgrade.test.ts` starts from the previous reviewed
+migration baseline, applies `20261124100000` transactionally, and verifies
+that existing RWA settings remain readable and the new profile behavior works.
+It complements fresh-database migration tests; it does not replace the per-project
+preflight and operator approval in the [deployment runbook](../docs/DEPLOYMENT.md).
 
 ## Verifying against a hosted Supabase project (real Auth)
 
