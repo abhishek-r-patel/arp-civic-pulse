@@ -62,6 +62,13 @@ default `arp-civic-pulse-tenant-test.vercel.app` host is still attached after
 the rename; it is not in the directory and returns the app's 404. The rename
 did not add `demo-arp-civic-pulse.vercel.app` automatically. It was added on
 31 October 2026 and configured to redirect (308) to the canonical demo host.
+Because it has no Git connection, pushing to `main` updates only the staging
+project; this project changes only when someone runs the manual deploy above. On 31 October 2026 the
+committed `main` tree (`91b2895`, premium homepage plus the `bom1` region) was
+deployed this way with operator approval. All three hosts now report
+`bom1::bom1` in `X-Vercel-Id`. Warm TTFB from India measured: main site
+~0.22–0.40 s, demo `/sign-in` ~0.47 s, demo `/user-guide` ~0.48–1.4 s, against ~1.2–2.1 s under
+`iad1`. Signed-in journeys were not re-measured.
 The project Node.js setting was changed from 26.x to 24.x on 31 October to
 match `package.json` `engines`; deployments already built on 24.x. The old
 `tenant-b` domain was detached. Redeploy after any variable change.
