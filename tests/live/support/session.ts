@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { verifyCode } from "@/server/auth/otp";
+import { testTenantContext } from "../../fixtures/tenant-context";
 import { ApiError } from "@/server/http/errors";
 import {
   enableAccount,
@@ -73,6 +74,10 @@ export async function signIn(
   await enableAccount(admin, provisioned.accountId, null);
 
   const client = publicClient();
-  await verifyCode({ client, admin }, email, await emailOtp(admin, email));
+  await verifyCode(
+    { tenant: testTenantContext, client, admin },
+    email,
+    await emailOtp(admin, email),
+  );
   return { id: provisioned.accountId, email, name, client };
 }

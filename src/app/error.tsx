@@ -1,11 +1,19 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 
 export default function ErrorPage({
+  error,
   reset,
 }: Readonly<{ error: Error; reset: () => void }>) {
+  // Boundary-caught render errors never reach the global handler; report them here.
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   return (
     <div className="grid max-w-ballot gap-4">
       <h1 className="text-page-title font-semibold md:text-page-title-lg">

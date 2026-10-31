@@ -3,6 +3,7 @@ import "server-only";
 import { notFound, redirect } from "next/navigation";
 import { getSessionState } from "@/server/authorization/account";
 import { createAdminClient, createUserClient } from "@/server/db/clients";
+import { getRequestTenantContext } from "@/server/config/tenant-context";
 import { getCsrfToken } from "@/server/http/csrf-cookie";
 import type { RegisterDeps } from "@/server/register/shared";
 import {
@@ -29,14 +30,15 @@ type RwaSettingsPageContext = RegisterDeps &
   RwaProfile & { csrfToken: string | undefined };
 
 async function verifiedAdminContext() {
-  const session = await getSessionState();
+  const tenant = await getRequestTenantContext();
+  const session = await getSessionState(tenant);
   if (session.state !== "account") {
     redirect("/sign-in");
   }
   if (!canViewAdministration(session.account)) {
     notFound();
   }
-  return { session, client: await createUserClient() };
+  return { tenant, session, client: await createUserClient(tenant) };
 }
 
 /*
@@ -46,8 +48,8 @@ async function verifiedAdminContext() {
  * caller. Management mutations still require a current administrator.
  */
 export async function adminPageContext(): Promise<PageContext> {
-  const { session, client } = await verifiedAdminContext();
-  const branding = await loadCurrentBranding();
+  const { tenant, session, client } = await verifiedAdminContext();
+  const branding = await loadCurrentBranding(tenant);
   const terms = buildHouseholdTerms(
     branding.householdLabel,
     branding.identifierKind,
@@ -57,19 +59,21 @@ export async function adminPageContext(): Promise<PageContext> {
     terms,
     identifierLabel: terms.identifierLabel,
     client,
-    admin: createAdminClient(),
+    tenant,
+    admin: await createAdminClient(tenant),
     actor: session.account,
     csrfToken: await getCsrfToken(),
   };
 }
 
 export async function adminRwaSettingsPageContext(): Promise<RwaSettingsPageContext> {
-  const { session, client } = await verifiedAdminContext();
+  const { tenant, session, client } = await verifiedAdminContext();
   const profile = await getRwaProfile(client);
   return {
     ...profile,
     client,
-    admin: createAdminClient(),
+    tenant,
+    admin: await createAdminClient(tenant),
     actor: session.account,
     csrfToken: await getCsrfToken(),
   };
@@ -81,13 +85,14 @@ export async function adminRwaSettingsPageContext(): Promise<RwaSettingsPageCont
  * electorate, never by this layer.
  */
 export async function memberPageContext(): Promise<PageContext> {
-  const session = await getSessionState();
+  const tenant = await getRequestTenantContext();
+  const session = await getSessionState(tenant);
   if (session.state !== "account") {
     redirect("/sign-in");
   }
 
-  const client = await createUserClient();
-  const branding = await loadCurrentBranding();
+  const client = await createUserClient(tenant);
+  const branding = await loadCurrentBranding(tenant);
   const terms = buildHouseholdTerms(
     branding.householdLabel,
     branding.identifierKind,
@@ -97,7 +102,8 @@ export async function memberPageContext(): Promise<PageContext> {
     terms,
     identifierLabel: terms.identifierLabel,
     client,
-    admin: createAdminClient(),
+    tenant,
+    admin: await createAdminClient(tenant),
     actor: session.account,
     csrfToken: await getCsrfToken(),
   };

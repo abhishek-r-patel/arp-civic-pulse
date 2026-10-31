@@ -33,6 +33,40 @@ disposable database into the real register.
 | `RESEND_API_KEY`, `CONTACT_EMAIL_FROM`, `CONTACT_EMAIL_TO` | contact route | Optional server-only support-mail settings; set all three together. Separate from Supabase OTP SMTP. Restore from the secret/configuration store, not a database backup. |
 | `APP_SUPPORT_EMAIL`                     | the app, `config-check` | Optional server-only developer/support contact eligible for RWA-controlled App Support Access. Setting it does **not** grant access; an enabled RWA Admin must turn it on from Settings and can turn it off at any time. When on, the identity signs in through normal email OTP with household-free, read-only (`rwa-readonly`) access. Never browser-visible. |
 | `GOOGLE_ANALYTICS_ID`, `GOOGLE_SITE_VERIFICATION` | public pages | Optional public identifiers. GA4 is consent-gated on privacy/contact only; verification is not proof of Google property ownership. Set at build/runtime and rebuild after changes. |
+| `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | the app, build | Optional Sentry error monitoring with 10% sampled tracing, active only on Vercel Production/Preview. Events are scrubbed in `src/shared/observability/sentry.ts`; unexpected API and export failures are reported with their support `requestId` tag, so search Sentry by the ID a user quotes. The auth token is a build-only secret for source maps. |
+
+### Tenant routing configuration (implemented, not operational)
+
+S03 implements a server-only `TENANT_DIRECTORY_JSON` host allowlist and separate
+`TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` variables for tenant credentials.
+`TENANT_ROUTING_ENABLED` defaults to `false`. The current app and staging
+project have no tenant directory, host entries or tenant secrets configured.
+Do not enable routing, onboard customer hosts or treat the staging database as
+a tenant until the actual domain and numeric cap are approved, S04 is complete,
+and Vercel ingress/direct-origin behavior is verified.
+
+Each version-1 directory entry binds one exact lowercase hostname to a
+`main`/`demo`/`customer` environment kind and explicit
+provisioning/active/unavailable state. `main` has no RWA backend; demo and each
+customer require distinct canonical HTTPS `*.supabase.co` origins, a publishable
+key and a service-role reference derived from the immutable UUID. Unknown hosts,
+invalid entries, incomplete credentials and unavailable tenants fail closed;
+no fallback is permitted. With routing off, Vercel Preview runtimes also accept
+their own `VERCEL_URL`/`VERCEL_BRANCH_URL` hosts; Production does not. An invalid envelope or empty/all-invalid directory
+prevents startup; an invalid entry only disables its associated host when other
+valid entries remain.
+
+Vercel Secret values are readable by deployed function code. In this shared
+deployment every configured tenant credential is within the application's
+runtime reach; operators with deployment access are technically able to deploy
+code that accesses all tenants. Keep deployment and environment-variable
+permissions limited to named operators and audit changes, but do not describe
+that policy as technical tenant isolation. Changes take effect only in new
+deployments; confirm successful deployment and host-specific health before
+activating a tenant. The 64 KB total Node deployment environment limit is shared
+by the directory and all credentials. The proposed three-customer cap is not
+confirmed and must not be used as an onboarding authorization. See
+[Vercel environment variables](https://vercel.com/docs/environment-variables).
 
 ## 2. Monitoring
 

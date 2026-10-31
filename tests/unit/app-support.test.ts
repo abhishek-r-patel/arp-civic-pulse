@@ -5,6 +5,7 @@ import { ApiError } from "@/server/http/errors";
 import type { RegisterDeps } from "@/server/register/shared";
 import { setAppSupportAccess } from "@/server/settings/app-support";
 import { appSupportAccessSchema } from "@/shared/contracts/app-support";
+import { testTenantContext } from "../fixtures/tenant-context";
 
 const env: { APP_SUPPORT_EMAIL?: string } = {};
 vi.mock("@/server/config/environment", () => ({ getEnvironment: () => env }));
@@ -61,6 +62,7 @@ function world(profileReads: Result[], rpcResult: Result) {
     },
   };
   const deps: RegisterDeps = {
+    tenant: testTenantContext,
     client: client as unknown as SupabaseClient,
     admin: admin as unknown as SupabaseClient,
     actor: { id: ACTOR, representativeName: "Asha", isAdmin: true },

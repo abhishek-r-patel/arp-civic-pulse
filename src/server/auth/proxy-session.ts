@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import type { NextRequest } from "next/server";
+import type { TenantContext } from "@/server/config/tenant-context";
 import { getEnvironment } from "@/server/config/environment";
+import { publicConfiguration } from "@/server/db/clients";
 import {
   hardenSessionCookie,
   isSupabaseAuthCookie,
@@ -30,6 +32,7 @@ const encode = (value: string) => encodeURIComponent(value);
 
 export async function refreshSessionCookies(
   request: NextRequest,
+  tenant: TenantContext,
 ): Promise<RefreshedSession | null> {
   // Anonymous visitors and sign-in pages cost nothing: no cookie, no work.
   if (
@@ -38,13 +41,9 @@ export async function refreshSessionCookies(
     return null;
   }
 
-  const {
-    NEXT_PUBLIC_SUPABASE_URL: url,
-    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: key,
-  } = getEnvironment();
-  if (!url || !key) {
-    return null;
-  }
+  const configuration = publicConfiguration(tenant);
+  if (!configuration) return null;
+  const { url, key } = configuration;
   const secure = getEnvironment().NODE_ENV === "production";
 
   const jar = new Map(

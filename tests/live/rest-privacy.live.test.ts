@@ -16,6 +16,7 @@ import {
   withSql,
 } from "./support/live";
 import { signIn, type SignedIn } from "./support/session";
+import { testTenantContext } from "../fixtures/tenant-context";
 
 /*
  * The authorization and privacy matrix on the REAL hosted project, through the
@@ -74,6 +75,7 @@ describe.skipIf(!hasLive || !hasSql)(
     const anon = publicClient();
 
     const deps = (user: SignedIn, isAdmin: boolean): RegisterDeps => ({
+      tenant: testTenantContext,
       client: user.client,
       admin,
       actor: { id: user.id, representativeName: user.name, isAdmin },

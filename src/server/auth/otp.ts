@@ -8,6 +8,7 @@ import { ApiError } from "@/server/http/errors";
 import { log } from "@/server/observability/logger";
 import { AUTH_RATE_LIMITS, enforceRateLimit } from "@/server/auth/rate-limit";
 import { CODE_RESEND_SECONDS } from "@/shared/contracts/auth";
+import type { TenantContext } from "@/server/config/tenant-context";
 
 /*
  * OTP request, verification and sign-out on top of Supabase Auth, which owns
@@ -15,6 +16,8 @@ import { CODE_RESEND_SECONDS } from "@/shared/contracts/auth";
  * here. Provider responses are never forwarded to clients.
  */
 export interface AuthDependencies {
+  /** Immutable host-resolved backend context shared by both clients. */
+  tenant: TenantContext;
   /** Server client carrying (and receiving) the caller's SDK cookie session. */
   client: SupabaseClient;
   /** Server-only privileged client, used solely for the supplemental limiter. */

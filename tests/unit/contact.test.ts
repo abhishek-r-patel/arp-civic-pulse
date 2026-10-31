@@ -4,10 +4,20 @@ import { POST, GET } from "@/app/api/contact/route";
 import { createCsrfContext, csrfTokenFor } from "@/server/http/csrf";
 import { parseEnvironment } from "@/server/config/environment";
 
-const { context, rpc, transport } = vi.hoisted(() => ({
+const { context, rpc, transport, tenant } = vi.hoisted(() => ({
   context: { value: "" },
   rpc: vi.fn(),
   transport: vi.fn(),
+  tenant: {
+    tenantId: "single-rwa",
+    kind: "single",
+    hostname: "civic.example",
+    canonicalOrigin: "https://civic.example",
+    state: "active",
+    projectUrl: "https://project.supabase.co",
+    publishableKey: "synthetic-publishable-key",
+    serviceRoleKeyRef: "SUPABASE_SERVICE_ROLE_KEY",
+  },
 }));
 vi.mock("@/server/http/csrf-cookie", () => ({
   readCsrfContext: async () => context.value,
@@ -20,6 +30,9 @@ vi.mock("@/server/config/environment", async (original) => {
   };
 });
 vi.mock("@/server/db/clients", () => ({ createAdminClient: () => ({ rpc }) }));
+vi.mock("@/server/config/tenant-context", () => ({
+  getRequestTenantContext: async () => tenant,
+}));
 
 beforeEach(() => {
   vi.stubEnv("NODE_ENV", "test");

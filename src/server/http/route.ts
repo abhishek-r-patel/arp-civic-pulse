@@ -4,6 +4,7 @@ import { ApiError } from "@/server/http/errors";
 import { errorResponse, newRequestId } from "@/server/http/response";
 import { isMaintenanceMode } from "@/server/maintenance";
 import { log } from "@/server/observability/logger";
+import { reportError } from "@/server/observability/error-reporting";
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 export type HttpMethod = (typeof METHODS)[number];
@@ -78,6 +79,7 @@ export function route(
               method,
               errorName: error instanceof Error ? error.name : "UnknownError",
             });
+            reportError(error, { requestId, route: routeName, method });
             response = errorResponse(new ApiError("INTERNAL_ERROR"), requestId);
           }
         }

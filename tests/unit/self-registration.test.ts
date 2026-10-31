@@ -6,13 +6,25 @@ import { createCsrfContext, csrfTokenFor } from "@/server/http/csrf";
 const NEW_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const EXISTING_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 
-const { context, rpc, createUser, listUsers, deleteUser } = vi.hoisted(() => ({
-  context: { value: "" },
-  rpc: vi.fn(),
-  createUser: vi.fn(),
-  listUsers: vi.fn(),
-  deleteUser: vi.fn(),
-}));
+const { context, rpc, createUser, listUsers, deleteUser, tenant } = vi.hoisted(
+  () => ({
+    context: { value: "" },
+    rpc: vi.fn(),
+    createUser: vi.fn(),
+    listUsers: vi.fn(),
+    deleteUser: vi.fn(),
+    tenant: {
+      tenantId: "single-rwa",
+      kind: "single",
+      hostname: "civic.example",
+      canonicalOrigin: "https://civic.example",
+      state: "active",
+      projectUrl: "https://project.supabase.co",
+      publishableKey: "synthetic-publishable-key",
+      serviceRoleKeyRef: "SUPABASE_SERVICE_ROLE_KEY",
+    },
+  }),
+);
 vi.mock("@/server/http/csrf-cookie", () => ({
   readCsrfContext: async () => context.value,
 }));
@@ -28,6 +40,9 @@ vi.mock("@/server/db/clients", () => ({
     rpc,
     auth: { admin: { createUser, listUsers, deleteUser } },
   }),
+}));
+vi.mock("@/server/config/tenant-context", () => ({
+  getRequestTenantContext: async () => tenant,
 }));
 
 const allowed = { data: { allowed: true }, error: null };

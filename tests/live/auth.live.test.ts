@@ -23,6 +23,7 @@ import {
   withSql,
 } from "./support/live";
 import { apiError, authUserExists, signIn } from "./support/session";
+import { testTenantContext } from "../fixtures/tenant-context";
 
 /*
  * Real Supabase Auth + PostgREST. Exercises the actual service code with real
@@ -154,7 +155,7 @@ describe.skipIf(!hasLive)("live: Supabase Auth and API posture", () => {
       // Suspended until explicitly enabled: no application access yet.
       const client = publicClient();
       await verifyCode(
-        { client, admin },
+        { tenant: testTenantContext, client, admin },
         email,
         await emailOtp(admin, email),
       ).catch(() => undefined);
@@ -194,7 +195,7 @@ describe.skipIf(!hasLive)("live: Supabase Auth and API posture", () => {
       const email = liveEmail();
       const started = Date.now();
       const result = await requestCode(
-        { client: publicClient(), admin },
+        { tenant: testTenantContext, client: publicClient(), admin },
         email,
       );
 
@@ -215,7 +216,11 @@ describe.skipIf(!hasLive)("live: Supabase Auth and API posture", () => {
 
       const code = await emailOtp(admin, email);
       const client = publicClient();
-      const account = await verifyCode({ client, admin }, email, code);
+      const account = await verifyCode(
+        { tenant: testTenantContext, client, admin },
+        email,
+        code,
+      );
       expect(account).toEqual({
         id: provisioned.accountId,
         representativeName: "Replay Tester",
@@ -224,10 +229,18 @@ describe.skipIf(!hasLive)("live: Supabase Auth and API posture", () => {
       expect(await getVerifiedUserId(client)).toBe(provisioned.accountId);
 
       const replay = await apiError(
-        verifyCode({ client: publicClient(), admin }, email, code),
+        verifyCode(
+          { tenant: testTenantContext, client: publicClient(), admin },
+          email,
+          code,
+        ),
       );
       const wrong = await apiError(
-        verifyCode({ client: publicClient(), admin }, email, "000000"),
+        verifyCode(
+          { tenant: testTenantContext, client: publicClient(), admin },
+          email,
+          "000000",
+        ),
       );
       expect(replay.code).toBe("CODE_INVALID_OR_EXPIRED");
       expect(wrong.code).toBe("CODE_INVALID_OR_EXPIRED");
@@ -251,7 +264,11 @@ describe.skipIf(!hasLive)("live: Supabase Auth and API posture", () => {
       for (const email of [suspendedEmail, noProfileEmail]) {
         const client = publicClient();
         const error = await apiError(
-          verifyCode({ client, admin }, email, await emailOtp(admin, email)),
+          verifyCode(
+            { tenant: testTenantContext, client, admin },
+            email,
+            await emailOtp(admin, email),
+          ),
         );
         expect(error.code).toBe("FORBIDDEN");
         expect(await getVerifiedUserId(client)).toBeNull();

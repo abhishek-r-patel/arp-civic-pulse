@@ -1,6 +1,7 @@
 // Public resident self-registration with CSRF, bounded validation, a honeypot and shared budgets.
 import { assertAuthMutationAllowed } from "@/server/auth/dependencies";
 import { createAdminClient } from "@/server/db/clients";
+import { getRequestTenantContext } from "@/server/config/tenant-context";
 import { parseJsonBody } from "@/server/http/request";
 import { ok } from "@/server/http/response";
 import { route } from "@/server/http/route";
@@ -20,7 +21,8 @@ export const { GET, POST, PUT, PATCH, DELETE } = route({
     if (input.website) {
       return ok({ message: ACCEPTED }, requestId, 202);
     }
-    await selfRegister(createAdminClient(), input);
+    const tenant = await getRequestTenantContext();
+    await selfRegister(await createAdminClient(tenant), input);
     return ok({ message: ACCEPTED }, requestId, 202);
   },
 });

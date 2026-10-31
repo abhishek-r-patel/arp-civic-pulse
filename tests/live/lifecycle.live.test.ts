@@ -15,6 +15,7 @@ import {
 } from "@/server/votes/lifecycle";
 import { adminClient, hasLive, hasSql, withSql } from "./support/live";
 import { apiError, signIn, type SignedIn } from "./support/session";
+import { testTenantContext } from "../fixtures/tenant-context";
 
 /*
  * Activation, early completion, cancellation and scheduled completion against
@@ -31,6 +32,7 @@ describe.skipIf(!hasLive || !hasSql)("live: vote lifecycle", () => {
   let householdId: string;
 
   const asDeps = (user: SignedIn, isAdmin: boolean): RegisterDeps => ({
+    tenant: testTenantContext,
     client: user.client,
     admin,
     actor: { id: user.id, representativeName: user.name, isAdmin },

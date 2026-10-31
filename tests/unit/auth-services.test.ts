@@ -21,6 +21,7 @@ import {
   provisionAccount,
 } from "@/server/register/provisioning";
 import { CODE_RESEND_SECONDS } from "@/shared/contracts/auth";
+import { testTenantContext } from "../fixtures/tenant-context";
 
 /*
  * Logic tests with injected fakes. They prove our mapping, ordering and
@@ -194,6 +195,7 @@ describe("requestCode", () => {
     signInWithOtp: ReturnType<typeof vi.fn>,
     admin = allowAdmin(),
   ) => ({
+    tenant: testTenantContext,
     client: asClient({ auth: { signInWithOtp } }),
     admin,
     wait: vi.fn().mockResolvedValue(undefined),
@@ -259,6 +261,7 @@ describe("requestCode", () => {
     const clock = vi.fn().mockReturnValueOnce(0).mockReturnValue(100);
     await requestCode(
       {
+        tenant: testTenantContext,
         client: asClient({
           auth: {
             signInWithOtp: vi.fn().mockResolvedValue({ data: {}, error: null }),
@@ -276,6 +279,7 @@ describe("requestCode", () => {
     await failure(
       requestCode(
         {
+          tenant: testTenantContext,
           client: asClient({ auth: { signInWithOtp: vi.fn() } }),
           admin: allowAdmin(false),
           wait: rejectedWait,
@@ -295,6 +299,7 @@ describe("verifyCode", () => {
     row: Fake | null,
     signOutFn = vi.fn().mockResolvedValue({ error: null }),
   ) => ({
+    tenant: testTenantContext,
     client: profileClient(row, { auth: { verifyOtp, signOut: signOutFn } }),
     admin: allowAdmin(),
     signOutFn,
@@ -306,7 +311,11 @@ describe("verifyCode", () => {
       { id: USER_ID, representative_name: "Alice Rao", is_admin: false },
     );
     await expect(
-      verifyCode({ client, admin }, "a@example.test", "123456"),
+      verifyCode(
+        { tenant: testTenantContext, client, admin },
+        "a@example.test",
+        "123456",
+      ),
     ).resolves.toEqual({
       id: USER_ID,
       representativeName: "Alice Rao",
@@ -321,7 +330,11 @@ describe("verifyCode", () => {
       representative_name: "A",
       is_admin: true,
     });
-    await verifyCode({ client, admin }, "a@example.test", "123456");
+    await verifyCode(
+      { tenant: testTenantContext, client, admin },
+      "a@example.test",
+      "123456",
+    );
     expect(verifyOtp).toHaveBeenCalledWith({
       email: "a@example.test",
       token: "123456",
@@ -344,7 +357,11 @@ describe("verifyCode", () => {
       expect(
         codeOf(
           await failure(
-            verifyCode({ client, admin }, "a@example.test", "123456"),
+            verifyCode(
+              { tenant: testTenantContext, client, admin },
+              "a@example.test",
+              "123456",
+            ),
           ),
         ),
       ).toBe("CODE_INVALID_OR_EXPIRED");
@@ -375,7 +392,11 @@ describe("verifyCode", () => {
       null,
     );
     const error = await failure(
-      verifyCode({ client, admin }, "a@example.test", "123456"),
+      verifyCode(
+        { tenant: testTenantContext, client, admin },
+        "a@example.test",
+        "123456",
+      ),
     );
 
     expect(error.code).toBe("FORBIDDEN");
@@ -387,7 +408,7 @@ describe("verifyCode", () => {
     const client = asClient({ auth: { verifyOtp } });
     const error = await failure(
       verifyCode(
-        { client, admin: allowAdmin(false, 20) },
+        { tenant: testTenantContext, client, admin: allowAdmin(false, 20) },
         "a@example.test",
         "123456",
       ),

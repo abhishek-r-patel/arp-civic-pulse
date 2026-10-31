@@ -25,6 +25,7 @@ import {
   publicClient,
 } from "./support/live";
 import { apiError, signIn } from "./support/session";
+import { testTenantContext } from "../fixtures/tenant-context";
 
 /*
  * Register administration against real Supabase Auth and PostgREST, using the
@@ -39,6 +40,7 @@ describe.skipIf(!hasLive)("live: register administration", () => {
     admin = adminClient();
     const adminUser = await signIn(admin);
     deps = {
+      tenant: testTenantContext,
       client: adminUser.client,
       admin,
       actor: {
@@ -65,7 +67,7 @@ describe.skipIf(!hasLive)("live: register administration", () => {
   async function signInAs(email: string) {
     const client = publicClient();
     const account = await verifyCode(
-      { client, admin },
+      { tenant: testTenantContext, client, admin },
       email,
       await emailOtp(admin, email),
     );

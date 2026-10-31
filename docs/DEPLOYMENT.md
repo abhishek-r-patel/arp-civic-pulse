@@ -6,6 +6,32 @@ This repository is **deployed to staging using Vercel's Production target, not r
 
 Do not promote a deployment or admit real residents until the open gates in [PILOT_READINESS.md](./PILOT_READINESS.md) are closed. In particular, `TRUSTED_PROXY_CONFIG` is reserved and **does not implement trusted-client-IP limiting**. Approve ingress, implement and test spoof-resistant IP enforcement before release; setting the variable is not a workaround. This guide does not grant approval of A1-A7, providers, regions, retention or recovery objectives.
 
+### Tenant routing code (disabled; not deployed)
+
+The [S02 tenant contract](./IMPLEMENTATION_PLAN.md#s02---tenant-resolution-and-configuration-contract)
+specifies exact allowlisted hosts for the main site, reserved demo and customer
+RWAs; separate Supabase projects; explicit provisioning/active/unavailable
+states; and no fallback for unknown or unavailable hosts. S03 implements
+request-scoped resolution and client factories, gated by
+`TENANT_ROUTING_ENABLED` (default `false`). The current staging deployment still
+uses one `APP_ORIGIN` and one disposable Supabase project; no tenant directory,
+customer subdomains or tenant credentials are configured.
+
+The selected pilot design stores a server-only tenant directory and separate
+per-RWA service-role credentials in Vercel environment variables. Function code
+can access every configured tenant secret, so a shared deployment has a
+fleet-wide secret blast radius and Vercel deployment administrators have
+technical capability to reach every configured backend. This is not
+per-tenant credential isolation. Vercel applies environment changes only to
+new deployments and documents a 64 KB aggregate environment-variable limit for
+Node.js deployments; see [Vercel environment variables](https://vercel.com/docs/environment-variables).
+A three-customer cap is proposed but not confirmed. Do not onboard a customer
+or enable routing until the actual domain and numeric cap are approved, S04
+origin/session behavior is complete, and Vercel ingress/direct-origin behavior
+is verified. Focused local tests do not establish hosted isolation.
+Ingress host trust, conflicting forwarded headers and direct-origin bypass
+also require verification against the actual Vercel setup before tenant routing.
+
 ### Current staging configuration: Production target only
 
 As of 28 October 2026, the operator approved this permanent staging setup:
@@ -68,6 +94,19 @@ forward-only. No `--include-all` or migration-history rewrite was used.
   Production branch, with `previewDeploymentsDisabled=true`. All eight
   Preview-only environment entries were removed; the nine Production entries
   remain. No credentials were transferred to a different project.
+- 31 October 2026: Sentry settings were added to the same project for
+  Production and Preview: `NEXT_PUBLIC_SENTRY_DSN` (public config),
+  `SENTRY_ORG`, `SENTRY_PROJECT` and the operator-entered build-only
+  `SENTRY_AUTH_TOKEN` (EU-region Sentry project `arp-civic-pulse`). Preview
+  copies are inert while previews stay disabled. A synthetic event sent with the
+  DSN reached Sentry; in-app capture and source-map upload are unverified until
+  the next Production build. A CLI Preview deploy attempted that day failed
+  before building because Preview intentionally has no app variables; nothing
+  was served. Single-tenant mode now also accepts a Preview deployment's own
+  `VERCEL_URL`/`VERCEL_BRANCH_URL` hosts (only when `VERCEL_ENV=preview`), so a
+  future Preview would render instead of returning 404. This is local and
+  unit-tested only; Preview app variables were deliberately not restored, so no
+  Preview deployment has exercised it.
 - [vercel.json](../vercel.json) adds a durable Git policy:
   `git.deploymentEnabled` disables `**` and enables `main`. Vercel enables a
   branch when any matching rule is true, so `main` still builds while feature
@@ -201,9 +240,14 @@ Configure these in the hosting environment manager, scoped separately to Product
 | `NEXT_PUBLIC_SUPABASE_URL` | Approved project's bare HTTPS API origin, not a database connection URL or `/rest/v1` URL. Public/build-time value. |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Same project's publishable key or legacy **anon** key. Public/build-time value, never a secret/service-role/user token. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Same project's server-only privileged credential, accessible only to the application runtime/build environment that requires it. Never prefix it with `NEXT_PUBLIC_`. |
+| `TENANT_ROUTING_ENABLED` | Optional host-based routing switch; defaults to `false`. Do not enable before the domain, cap, S04, and ingress gates are complete. |
+| `TENANT_DIRECTORY_JSON` | Required only when routing is enabled; version-1 exact-host directory with project origins and secret references, never secret values. |
+| `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` | One server-only privileged credential per immutable tenant UUID referenced by the directory; all remain accessible to shared function code. |
 | `RATE_LIMIT_HMAC_KEY` | Independent random production secret, at least 32 characters. Store in the approved secret manager; generate separately for each environment. |
 | `APP_SUPPORT_EMAIL` | Optional server-only developer/support contact for RWA-controlled App Support Access. Leave unset unless the RWA wants in-app developer help; setting it grants nothing until an RWA Admin turns access on. Never prefix with `NEXT_PUBLIC_`. |
 | `LOG_LEVEL` | Normally `info`; logs remain allowlisted and must not capture bodies, selections, OTPs, tokens or cookies. |
+| `NEXT_PUBLIC_SENTRY_DSN` | Optional public Sentry DSN. Scope to **Production and Preview** only; the app also keeps Sentry off unless Vercel reports one of those environments at build time. Rebuild after changes. |
+| `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | Optional build-time source-map upload. The token is a non-revealable build secret; without it the build emits no source maps. |
 | `MAINTENANCE_MODE` | `1` for initial restricted deployment/recovery; `0` only for an authorized validation or release window. |
 | `PDF_EXPORT_ENABLED` | `0` to defer optional PDF; `1` only after hosted font/render/runtime checks. |
 | `TRUSTED_PROXY_CONFIG` | Reserved; not an enabled security control. Remains a release blocker as described above. |

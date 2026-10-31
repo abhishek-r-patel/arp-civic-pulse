@@ -7,6 +7,11 @@ import {
   isValidCsrfContext,
 } from "@/server/http/csrf";
 import { refreshSessionCookies } from "@/server/auth/proxy-session";
+import {
+  tenantContextForProxy,
+  type TenantContext,
+} from "@/server/config/tenant-context";
+import { ApiError } from "@/server/http/errors";
 import { MAINTENANCE_PAGE, isMaintenanceMode } from "@/server/maintenance";
 
 /*
@@ -21,6 +26,17 @@ import { MAINTENANCE_PAGE, isMaintenanceMode } from "@/server/maintenance";
  * session upkeep only; authorization is decided later, per request, on the server.
  */
 export async function proxy(request: NextRequest) {
+  let tenant: TenantContext;
+  try {
+    tenant = tenantContextForProxy(request.headers.get("host"));
+  } catch (error) {
+    if (!(error instanceof ApiError)) throw error;
+    return new NextResponse(null, {
+      status: error.status,
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  }
+
   if (isMaintenanceMode()) {
     return new NextResponse(MAINTENANCE_PAGE, {
       status: 503,
@@ -42,7 +58,7 @@ export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(CSRF_CONTEXT_HEADER, context);
 
-  const refreshed = await refreshSessionCookies(request);
+  const refreshed = await refreshSessionCookies(request, tenant);
   if (refreshed) {
     requestHeaders.set("cookie", refreshed.cookieHeader);
   }

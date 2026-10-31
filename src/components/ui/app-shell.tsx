@@ -4,6 +4,7 @@ import Image from "next/image";
 import { History, Settings } from "lucide-react";
 import { SignOutButton } from "@/components/access/sign-out-button";
 import { getSessionState } from "@/server/authorization/account";
+import { getRequestTenantContext } from "@/server/config/tenant-context";
 import { getCsrfToken } from "@/server/http/csrf-cookie";
 import { NavLink } from "./nav-link";
 import { Breadcrumbs } from "./breadcrumbs";
@@ -23,9 +24,11 @@ import { canViewAdministration } from "@/shared/contracts/register";
 export const MAIN_CONTENT_ID = "main-content";
 
 // Branding must never take the shell down: fall back to the product name.
-async function shellBranding() {
+async function shellBranding(
+  tenant: Awaited<ReturnType<typeof getRequestTenantContext>>,
+) {
   try {
-    return await loadCurrentBranding();
+    return await loadCurrentBranding(tenant);
   } catch {
     log("warn", "settings.branding_unavailable", {});
     return null;
@@ -38,12 +41,13 @@ async function shellBranding() {
 export async function AppShell({
   children,
 }: Readonly<{ children: ReactNode }>) {
-  const session = await getSessionState();
+  const tenant = await getRequestTenantContext();
+  const session = await getSessionState(tenant);
   const csrfToken =
     session.state === "anonymous" ? undefined : await getCsrfToken();
   const account = session.state === "account" ? session.account : null;
-  const branding = account ? await shellBranding() : null;
-  const publicIdentity = account ? null : await loadPublicRwaIdentity();
+  const branding = account ? await shellBranding(tenant) : null;
+  const publicIdentity = account ? null : await loadPublicRwaIdentity(tenant);
   const rwaAlias = branding?.alias ?? publicIdentity?.alias ?? null;
   const headerTitle = rwaAlias ? `Civic Pulse for ${rwaAlias}` : "Civic Pulse";
   const initials =
@@ -54,7 +58,7 @@ export async function AppShell({
       .map((part) => Array.from(part)[0] ?? "")
       .join("") ?? "";
   const palette = (branding ?? publicIdentity)?.accentPalette;
-  const terms = await loadHouseholdTerms();
+  const terms = await loadHouseholdTerms(tenant);
 
   return (
     <HouseholdTermsProvider terms={terms}>

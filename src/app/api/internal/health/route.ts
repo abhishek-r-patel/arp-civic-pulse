@@ -12,7 +12,9 @@ async function databaseReachable(): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const { data, error, status } = await createAdminClient()
+    const { data, error, status } = await (
+      await createAdminClient()
+    )
       .rpc("health_ping")
       .abortSignal(controller.signal);
     if (!error && data === true) {

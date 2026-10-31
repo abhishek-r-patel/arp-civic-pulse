@@ -11,6 +11,7 @@ import {
 import { ApiError } from "@/server/http/errors";
 import { BASE_HEADERS } from "@/server/http/response";
 import { log } from "@/server/observability/logger";
+import { reportError } from "@/server/observability/error-reporting";
 import { getRwaBranding } from "@/server/settings/rwa-profile";
 import type { RegisterDeps } from "@/server/register/shared";
 import { buildHouseholdTerms } from "@/shared/contracts/household-terms";
@@ -116,6 +117,7 @@ export async function exportResults(
       });
     }
     log("error", "exports.render_failed", { requestId });
+    reportError(error, { requestId, event: "exports.render_failed" });
     throw new ApiError("EXPORT_FAILED");
   }
 }

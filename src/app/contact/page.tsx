@@ -6,6 +6,7 @@ import { PublicStructuredData } from "@/components/ui/public-structured-data";
 import { getSessionState } from "@/server/authorization/account";
 import { contactEnabled } from "@/server/contact";
 import { createUserClient } from "@/server/db/clients";
+import { getRequestTenantContext } from "@/server/config/tenant-context";
 import { getCsrfToken } from "@/server/http/csrf-cookie";
 import { ApiError } from "@/server/http/errors";
 import { log } from "@/server/observability/logger";
@@ -15,13 +16,16 @@ import { publicMetadata } from "@/shared/metadata";
 export const metadata = publicMetadata("/contact");
 
 export default async function ContactPage() {
+  const tenant = await getRequestTenantContext();
   const csrfToken = await getCsrfToken();
-  const session = await getSessionState();
+  const session = await getSessionState(tenant);
   let adminNames: string[] | null = null;
   let adminDirectoryUnavailable = false;
   if (session.state === "account" && !session.account.isAppSupport) {
     try {
-      adminNames = await getEnabledRwaAdminNames(await createUserClient());
+      adminNames = await getEnabledRwaAdminNames(
+        await createUserClient(tenant),
+      );
     } catch (error) {
       if (!(error instanceof ApiError)) throw error;
       log("warn", "contact.admin_directory_unavailable", {

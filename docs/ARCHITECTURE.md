@@ -3,7 +3,7 @@
 ## 01 Scope and Governing Decisions
 [PRD.md](./PRD.md) defines product behavior and acceptance criteria. [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) defines visual and accessibility behavior. This document defines the target implementation; it does not override product requirements or claim the current scaffold has already been migrated.
 
-- One mobile-first Next.js application for one RWA, initially 500 households and about 100 concurrent users.
+- Current application: one mobile-first Next.js deployment for one RWA, with a historical target of 500 households and about 100 concurrent users. Planned SaaS retains the shared app with a separate Supabase project per RWA; SaaS capacity is not approved by that historical target.
 - Preserve **Supabase** for PostgreSQL, Auth, RLS, guarded SQL functions and scheduled database maintenance, and **Tailwind CSS** for styling.
 - **Supabase PostgreSQL is the source of truth** for eligibility, accepted participation, responses, totals and audit history. On-screen results and exports are derived views, never independent editable records.
 - PDF is an optional printable results export and may be deferred beyond version 1. No voting, completion or recovery operation depends on a PDF.
@@ -11,6 +11,31 @@
 - PRIVATE voting provides application-level privacy under PRD assumption A2, not cryptographic anonymity against infrastructure operators.
 - Obtain approval of PRD assumptions A1-A7, providers, region, retention and recovery objectives before real voting.
 - No separate backend application, microservices, Redis, queue, AI, or application file storage for the MVP. Approved off-site backup storage is a separate operational requirement.
+
+### Planned SaaS boundary
+
+The [S01 decision record](./IMPLEMENTATION_PLAN.md#s01---product-and-commercial-boundaries)
+confirms a shared application with a separate Supabase database/Auth project per
+customer RWA, customer subdomains, a separate main website and a dedicated
+synthetic read-only demo. S03 routing code is now present but disabled; no
+current deployment has tenant isolation or routing configured. The existing
+single-project staging configuration remains unchanged.
+
+Server-controlled exact-host allowlisting, managed secret references and
+restricted operator access are confirmed boundaries. The [S02 design
+contract](./IMPLEMENTATION_PLAN.md#s02---tenant-resolution-and-configuration-contract)
+specifies the directory, environment kinds/states, fail-closed behavior and
+spoofing/isolation cases. S03 now implements a strict server-only directory and
+immutable request-scoped backend context behind `TENANT_ROUTING_ENABLED`
+(default `false`); the current staging deployment still uses one project and
+has no tenant directory, customer hosts or tenant secrets configured. Vercel
+environment variables were selected for a capped pilot, with the
+shared-runtime/fleet-wide secret blast radius documented; the proposed
+three-customer cap is not confirmed. Vercel ingress/trusted-host behavior and
+direct-origin bypass must be verified before routing changes. Host-specific
+authentication, cookie, CSRF and canonical-origin behavior remain S04 work.
+Unknown or unavailable hosts must never fall back to another RWA. The actual
+domain, customer capacity and existing production gates remain open.
 
 ## 02 System Overview and Stack
 
@@ -54,7 +79,7 @@ Supporting services:
 | Exports | CSV in version 1; optional PDFKit in a Node.js server route, not an external PDF service |
 | Hosting | Vercel is the preferred starting option, subject to plan eligibility, region, runtime limits and cost validation |
 | Testing | Vitest, real Supabase/PostgreSQL integration tests, Playwright and axe |
-| Observability | Allowlisted application events and provider metrics without sensitive payload capture |
+| Observability | Allowlisted application events and provider metrics without sensitive payload capture; optional Sentry errors and 10% sampled traces, scrubbed of request headers, cookies, bodies, query strings, user identity, emails, phone numbers and tokens (no Session Replay) |
 
 Pin supported dependency versions in a lockfile and review licenses/advisories. Do not introduce an ORM, custom authentication system or generic repository framework without a demonstrated need.
 
@@ -170,6 +195,7 @@ src\
     config\
   shared\
     contracts\
+    observability\
     validation\
   styles\
     globals.css
@@ -187,6 +213,13 @@ docs\
 ```
 
 Keep Supabase user-session and privileged provisioning clients separate. Do not introduce a second frontend/backend package or speculative abstraction layers.
+
+Tenant-routing source map:
+
+- `src/server/config/tenant-directory.ts` validates the versioned directory envelope and isolates invalid or conflicting entries to their affected hosts; project URLs are restricted to canonical HTTPS `*.supabase.co` origins.
+- `src/server/config/tenant-context.ts` resolves the exact request host to an immutable context without placing service-role values in that context. Request lookup is React request-cached; there is no mutable process-wide current tenant.
+- `src/server/db/clients.ts` binds user and privileged Supabase clients to the supplied context. The privileged credential is read only from its referenced server environment variable.
+- `src/proxy.ts` resolves page hosts before session refresh; API handlers resolve through the request Host header. Vercel ingress/direct-origin trust is unverified, and tenant routing must remain disabled until S04 and external release gates are closed.
 
 Register import and scheduling implementation map:
 

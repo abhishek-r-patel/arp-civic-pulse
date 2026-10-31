@@ -2,9 +2,14 @@
 
 ## 1. Scope and authority
 
-[PRD.md](./PRD.md), [ARCHITECTURE.md](./ARCHITECTURE.md), and [DATABASE.md](./DATABASE.md) govern this contract. This document defines the required HTTP boundaries and integrations for the single-RWA MVP; it does not add product capabilities.
+[PRD.md](./PRD.md), [ARCHITECTURE.md](./ARCHITECTURE.md), and [DATABASE.md](./DATABASE.md) govern this contract. This document defines the required HTTP boundaries and integrations for the currently deployed single-RWA app. A gated tenant-routing implementation is described in section 10; it is not configured or activated on staging.
 
-**Status:** Implementation contract, not evidence of an implemented or tested API. PRD assumptions A1-A7 remain provisional until approved. Production activation requires current approvals, approved retention settings, provider/region approval, and the release evidence required by the governing documents.
+**Status:** Current API contract for the deployed single-RWA application. S03
+tenant-routing code has focused local tests but is disabled and unconfigured;
+this is not evidence of a deployed SaaS environment or production readiness.
+PRD assumptions A1-A7 remain provisional until approved. Production activation
+requires current approvals, approved retention settings, provider/region
+approval, and the release evidence required by the governing documents.
 
 - Use same-origin Next.js route handlers under `/api`, server-only application services, Supabase Auth, Supabase PostgreSQL with RLS and guarded SQL RPCs, and approved custom SMTP.
 - Supabase PostgreSQL is authoritative. CSV export is required for version 1; PDF is an optional derived printable outcome and may be deferred without blocking pilot readiness. Neither export is a backup or signature-replacement workflow.
@@ -735,13 +740,59 @@ Bound database wait time and export concurrency to preserve submission responsiv
 
 Validate server configuration at startup. Store credentials in the hosting secret manager; use placeholder-only examples and exclude real environment files from source control. No secret uses a browser-visible environment prefix or appears in rendered HTML, JavaScript bundles, JSON, URLs, or logs.
 
+### Tenant routing configuration (implemented locally; disabled and not deployed)
+
+The [S02 design contract](./IMPLEMENTATION_PLAN.md#s02---tenant-resolution-and-configuration-contract)
+defines the host and lifecycle policy. S03 implements a version-1 server-only
+directory, exact-host resolver and per-request Supabase clients. Routing defaults
+to off, and no directory, tenant credentials or customer host is configured in
+the current deployment. Do not enable it until the domain and numeric pilot cap
+are approved, S04 origin/session behavior is complete, and Vercel ingress and
+direct-origin handling are verified.
+
+Set `TENANT_ROUTING_ENABLED=true` only with a valid `TENANT_DIRECTORY_JSON`.
+The strict envelope has `version: 1` and an `entries` array. `main` entries have
+an exact lowercase DNS host and lifecycle state, with no RWA backend. `demo`
+and `customer` entries also require a UUID tenant ID, a canonical HTTPS
+`*.supabase.co` project origin, a publishable key and a service-role reference
+derived from the UUID. The referenced secret name is
+`TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY`; its value belongs in a separate
+server-only environment variable and never in the JSON directory. Do not put
+these settings under a `NEXT_PUBLIC_` prefix.
+
+The existing single-project mode remains the default and resolves an exact
+host matching `APP_ORIGIN`. Only when Vercel reports `VERCEL_ENV=preview` does
+it also accept that deployment's own `VERCEL_URL` and `VERCEL_BRANCH_URL` hosts,
+so per-deployment Preview URLs render instead of returning 404. The canonical
+origin stays `APP_ORIGIN`, so browser mutations on those hosts still fail the
+same-origin check unless `APP_ORIGIN` is set to that host. Production and
+directory mode never accept Vercel system hosts. In directory mode, an unknown or malformed
+host returns a generic 404; a known provisioning/unavailable host, invalid
+entry, missing credential or malformed key returns a generic 503. Invalid
+directory envelopes and empty/all-invalid directories prevent startup; invalid
+or conflicting entries make only their associated host unavailable when other
+valid entries remain. No failure falls back to another project. API handlers
+resolve the request Host header directly; Vercel ingress trust and direct-origin
+bypass remain unverified, and per-host CSRF/canonical-origin handling is S04 work.
+
+Vercel function code can read all tenant secrets configured on the shared
+deployment; dashboard write-only behavior is not runtime isolation. Environment
+changes require a new deployment, and Node deployments have a documented 64 KB
+total environment-variable limit. The directory/secret model therefore has a
+shared blast radius and a finite pilot scope. Do not claim per-tenant secret
+isolation or onboard past the confirmed cap. See [Vercel environment
+variables](https://vercel.com/docs/environment-variables).
+
 | Variable | Purpose | Availability |
 |---|---|---|
 | `APP_ORIGIN` | Canonical origin for exact Origin/CSRF checks; HTTPS in production | Server configuration |
+| `TENANT_ROUTING_ENABLED` | Enables S03 host routing only after S04 and ingress gates; defaults to `false` | Server configuration |
+| `TENANT_DIRECTORY_JSON` | Version-1 exact-host directory; contains secret references, never service-role values | Server configuration |
+| `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` | UUID-derived per-tenant privileged client credential referenced by the directory | Server secret |
 | `NODE_ENV` | Execution mode | Build/runtime configuration; not a secret |
-| `NEXT_PUBLIC_SUPABASE_URL` | Approved Supabase project URL | Public configuration; not a secret |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public Supabase client key; use the selected SDK/project's supported publishable or legacy anon key convention | Public configuration; never a privileged key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Privileged Auth provisioning/administration credential, or the supported server secret-key equivalent selected for the project | Server secret; isolated from normal ballot/result clients |
+| `NEXT_PUBLIC_SUPABASE_URL` | Approved single-project Supabase URL; unset in tenant-routing mode | Public configuration; not a secret |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Single-project public client key; use the selected SDK/project's supported publishable or legacy anon key convention; unset in tenant-routing mode | Public configuration; never a privileged key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Legacy single-project privileged Auth provisioning/administration credential; unset in tenant-routing mode | Server secret; isolated from normal ballot/result clients |
 | `SUPABASE_ACCESS_TOKEN` | Supabase CLI deployment/management authentication where required | Deployment-only secret; not application runtime |
 | `MIGRATION_DATABASE_URL` | Reviewed Supabase migration connection where the deployment workflow uses a direct connection | Deployment-only secret; not application runtime |
 | `RATE_LIMIT_HMAC_KEY` | Versioned digest key for supplemental application rate limits | Server secret |
@@ -752,6 +803,9 @@ Validate server configuration at startup. Store credentials in the hosting secre
 | `CONTACT_EMAIL_FROM`, `CONTACT_EMAIL_TO` | Optional bare sender/administrator email addresses; all contact settings are required together | Server-only configuration |
 | `GOOGLE_ANALYTICS_ID` | Optional GA4 `G-...` identifier; privacy/contact only after opt-in | Public identifier supplied by the server; build/runtime |
 | `GOOGLE_SITE_VERIFICATION` | Optional Google HTML-tag verification token | Public identifier; build/runtime |
+| `NEXT_PUBLIC_SENTRY_DSN` | Optional Sentry error/trace ingest DSN; active only on Vercel Production/Preview builds | Public identifier; build/runtime |
+| `SENTRY_ORG`, `SENTRY_PROJECT` | Sentry source-map upload target | Build-only configuration |
+| `SENTRY_AUTH_TOKEN` | Sentry source-map upload credential; without it no source maps are emitted | Build-only secret; never `NEXT_PUBLIC_` |
 
 The public-key name above is the target convention, not a reason to duplicate an existing supported anon-key variable during implementation. Public Supabase URL/key visibility is safe only with correct RLS/grants; it never replaces authorization. Privileged credentials must never use a `NEXT_PUBLIC_` prefix.
 

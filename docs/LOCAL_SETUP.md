@@ -156,6 +156,7 @@ Leave these optional `.env.example` settings blank for ordinary local work:
 | `CONTACT_EMAIL_TO` | Controlled administrator/test inbox; never use a production recipient for synthetic tests |
 | `GOOGLE_ANALYTICS_ID` | Optional GA4 `G-...` identifier, public information pages only after opt-in |
 | `GOOGLE_SITE_VERIFICATION` | Google HTML verification token, not the complete meta tag |
+| `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_*` | Leave blank locally; Sentry runs only on Vercel Production/Preview builds |
 
 Configure all three contact settings together or startup validation fails. With
 all three blank, `/contact` explicitly says online contact is not available.

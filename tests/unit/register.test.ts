@@ -34,6 +34,7 @@ import {
   patchAccountSchema,
   patchHouseholdSchema,
 } from "@/shared/contracts/register";
+import { testTenantContext } from "../fixtures/tenant-context";
 
 /*
  * Logic tests with call-order recording. Database behaviour is covered by the
@@ -200,6 +201,7 @@ function world(
 
   return {
     deps: {
+      tenant: testTenantContext,
       client: asClient(client),
       admin: asClient(admin),
       actor: { id: ACTOR, representativeName: "Asha", isAdmin: true },

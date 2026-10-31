@@ -4,6 +4,21 @@ Mobile-first voting and polls for a single Resident Welfare Association (RWA).
 
 The application implements registered-member email OTP access, household/account administration with reviewed CSV import, PUBLIC polls and PRIVATE elections with immediate or scheduled opening, protected results, CSV/PDF exports, and operational backup/recovery tooling. Production use remains blocked by the approvals and external-environment checks in [pilot readiness](./docs/PILOT_READINESS.md).
 
+The [SaaS action plan](./docs/IMPLEMENTATION_PLAN.md#saas-action-plan---31-october-2026)
+tracks the planned shared application, separate Supabase projects per RWA,
+customer subdomains and synthetic-only `demo.yourapp.in` environment. It contains
+confirmed S01 starting policies and unresolved decisions, not a deployed SaaS
+offering or production approval. S01 is partially complete: operator-assisted
+onboarding, a read-only synthetic demo, manual annual billing and responsibility
+boundaries are confirmed. Resolve the remaining commercial, capacity and
+voting-scope decisions before marking S01 complete. S02's fail-closed tenant
+resolution/configuration design is specified, including Vercel's shared-secret
+limits. S03 adds locally tested, request-scoped tenant routing behind
+`TENANT_ROUTING_ENABLED`, which defaults to false. No directory, tenant secrets
+or customer hosts are configured or deployed; the actual domain, proposed
+three-customer cap and Vercel ingress remain unconfirmed. S03 is not release
+approval; S04-S12 remain pending.
+
 The [staging site](https://arp-civic-pulse-staging.vercel.app) uses Vercel's
 **Production target only**, backed by the disposable Supabase project. Automatic
 Preview deployments are disabled; only `main` deploys automatically. This is not
@@ -189,10 +204,14 @@ Browser journeys that sign in for real (`tests/e2e/*-live.spec.ts`) run only wit
 
 New here? Follow the step-by-step [local setup guide](./docs/LOCAL_SETUP.md).
 
-Server configuration is validated when the server starts (`src/instrumentation.ts` → `src/server/config/environment.ts`); production fails clearly on missing or unsafe values. See [.env.example](./.env.example) for placeholder-only variables.
+Server configuration is validated when the server starts (`src/instrumentation.ts` → `src/server/config/environment.ts`); production fails clearly on missing or unsafe values. The same startup hook and `src/instrumentation-client.ts` initialize optional, scrubbed Sentry error monitoring on Vercel Production/Preview only (see [Operations](./docs/OPERATIONS.md)). See [.env.example](./.env.example) for placeholder-only variables.
 
 - `NEXT_PUBLIC_*` values are visible in browsers and must never hold a secret.
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only and reserved for controlled Auth provisioning and resident self-registration, never ballots, results or exports.
+- Host-based routing is disabled by default. `TENANT_ROUTING_ENABLED`,
+  `TENANT_DIRECTORY_JSON` and UUID-keyed tenant secrets must not be configured
+  until the domain, pilot cap, S04 origin/session behavior and Vercel ingress
+  trust are approved and verified. See the [S03 implementation status](./docs/IMPLEMENTATION_PLAN.md#working-checklist).
 - `APP_SUPPORT_EMAIL` is an optional server-only developer/support contact; it only becomes usable when an RWA Admin turns App Support Access on, and never appears in a browser.
 - `SUPABASE_ACCESS_TOKEN` and `MIGRATION_DATABASE_URL` are deployment-only and not read by the running application.
 - SMTP, OTP settings and Cron are configured in Supabase/provider settings and reviewed migrations.
