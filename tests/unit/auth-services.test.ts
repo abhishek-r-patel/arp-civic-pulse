@@ -6,7 +6,11 @@ import {
   verifyCode,
   MINIMUM_CODE_REQUEST_MS,
 } from "@/server/auth/otp";
-import { enforceRateLimit, subjectDigest } from "@/server/auth/rate-limit";
+import {
+  AUTH_RATE_LIMITS,
+  enforceRateLimit,
+  subjectDigest,
+} from "@/server/auth/rate-limit";
 import {
   getVerifiedUserId,
   loadEnabledAccount,
@@ -119,6 +123,19 @@ describe("toApiError", () => {
 });
 
 describe("rate limiting", () => {
+  it("uses the approved provisional per-IP OTP budgets", () => {
+    expect(AUTH_RATE_LIMITS.codeRequestByIp).toEqual({
+      scope: "auth.code.ip",
+      limit: 30,
+      windowSeconds: 900,
+    });
+    expect(AUTH_RATE_LIMITS.verifyByIp).toEqual({
+      scope: "auth.verify.ip",
+      limit: 100,
+      windowSeconds: 900,
+    });
+  });
+
   it("derives stable, keyed, 32-byte digests that separate subject kinds and keys", () => {
     const key = Buffer.alloc(32, 7);
     const digest = subjectDigest("email", "a@example.test", key);
@@ -194,10 +211,12 @@ describe("requestCode", () => {
   const deps = (
     signInWithOtp: ReturnType<typeof vi.fn>,
     admin = allowAdmin(),
+    clientIp?: string,
   ) => ({
     tenant: testTenantContext,
     client: asClient({ auth: { signInWithOtp } }),
     admin,
+    clientIp,
     wait: vi.fn().mockResolvedValue(undefined),
     clock: vi.fn().mockReturnValue(0),
   });
@@ -254,6 +273,47 @@ describe("requestCode", () => {
     );
     expect(error.code).toBe("RATE_LIMITED");
     expect(signInWithOtp).not.toHaveBeenCalled();
+  });
+
+  it("applies the IP budget first and sends no raw address to PostgreSQL", async () => {
+    const admin = allowAdmin(false, 30);
+    const signInWithOtp = vi.fn();
+    const error = await failure(
+      requestCode(deps(signInWithOtp, admin, "203.0.113.42"), "a@example.test"),
+    );
+
+    expect(error.code).toBe("RATE_LIMITED");
+    expect(signInWithOtp).not.toHaveBeenCalled();
+    expect(admin.rpc).toHaveBeenCalledWith(
+      "consume_rate_limit",
+      expect.objectContaining({
+        p_scope: "auth.code.ip",
+        p_limit: 30,
+        p_window_seconds: 900,
+      }),
+    );
+    expect(
+      JSON.stringify((admin.rpc as ReturnType<typeof vi.fn>).mock.calls),
+    ).not.toContain("203.0.113.42");
+  });
+
+  it("fails closed when a production caller has no trusted client IP", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      const signInWithOtp = vi.fn();
+      const error = await failure(
+        requestCode(deps(signInWithOtp), "a@example.test"),
+      );
+
+      expect(error.code).toBe("AUTH_UNAVAILABLE");
+      expect(error.safeCause).toMatchObject({
+        source: "trusted_proxy",
+        code: "CLIENT_IP_UNAVAILABLE",
+      });
+      expect(signInWithOtp).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("pads fast responses to the minimum duration, including rejections", async () => {
@@ -321,6 +381,35 @@ describe("verifyCode", () => {
       representativeName: "Alice Rao",
       isAdmin: false,
     });
+  });
+
+  it("applies the per-IP verification budget before Auth", async () => {
+    const verifyOtp = vi.fn();
+    const { client } = make(verifyOtp, null);
+    const admin = allowAdmin(false, 45);
+    const error = await failure(
+      verifyCode(
+        {
+          tenant: testTenantContext,
+          client,
+          admin,
+          clientIp: "203.0.113.42",
+        },
+        "a@example.test",
+        "123456",
+      ),
+    );
+
+    expect(error.code).toBe("RATE_LIMITED");
+    expect(verifyOtp).not.toHaveBeenCalled();
+    expect(admin.rpc).toHaveBeenCalledWith(
+      "consume_rate_limit",
+      expect.objectContaining({
+        p_scope: "auth.verify.ip",
+        p_limit: 100,
+        p_window_seconds: 900,
+      }),
+    );
   });
 
   it("verifies with the normalised email and token as an email OTP", async () => {

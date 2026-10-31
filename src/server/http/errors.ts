@@ -207,7 +207,7 @@ const ERRORS = {
     503,
     "dependency",
     "Sign-in is temporarily unavailable. Try again shortly.",
-    "Supabase Auth or the sign-in rate limiter failed. Check Supabase status and the log's `causeStatus`.",
+    "Supabase Auth, the rate limiter, or trusted Vercel IP data failed. Check `causeSource`/`causeCode`; for `trusted_proxy`, verify `TRUSTED_PROXY_CONFIG=vercel`, `VERCEL=1` and `X-Forwarded-For`.",
   ),
   PROVISIONING_INCOMPLETE: system(
     503,
@@ -250,6 +250,7 @@ export type ErrorCauseSource =
   | "supabase_auth"
   | "email_provider"
   | "rate_limiter"
+  | "trusted_proxy"
   | "tenant_config"
   | "deployment_config"
   | "export"

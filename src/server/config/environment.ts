@@ -55,7 +55,10 @@ const environmentSchema = z
       blankToUndefined,
       z.enum(["error", "warn", "info", "debug"]).default("info"),
     ),
-    TRUSTED_PROXY_CONFIG: optionalText,
+    TRUSTED_PROXY_CONFIG: z.preprocess(
+      blankToUndefined,
+      z.enum(["vercel"]).optional(),
+    ),
     RESEND_API_KEY: optionalText,
     CONTACT_EMAIL_FROM: z.preprocess(blankToUndefined, z.email().optional()),
     CONTACT_EMAIL_TO: z.preprocess(blankToUndefined, z.email().optional()),

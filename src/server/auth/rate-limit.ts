@@ -20,11 +20,17 @@ export interface RateLimitPolicy {
 }
 
 export const AUTH_RATE_LIMITS = {
+  codeRequestByIp: {
+    scope: "auth.code.ip",
+    limit: 30,
+    windowSeconds: 900,
+  },
   codeRequestByEmail: {
     scope: "auth.code.email",
     limit: 5,
     windowSeconds: 900,
   },
+  verifyByIp: { scope: "auth.verify.ip", limit: 100, windowSeconds: 900 },
   verifyByEmail: { scope: "auth.verify.email", limit: 10, windowSeconds: 900 },
   // Register changes by one administrator (provisional; validate in the pilot).
   adminMutationByProfile: {

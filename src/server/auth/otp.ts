@@ -22,6 +22,8 @@ export interface AuthDependencies {
   client: SupabaseClient;
   /** Server-only privileged client, used solely for the supplemental limiter. */
   admin: SupabaseClient;
+  /** Vercel-overwritten client IP; used only as an HMAC rate-limit subject. */
+  clientIp?: string;
   /** Injectable for tests. */
   wait?: (milliseconds: number) => Promise<void>;
   clock?: () => number;
@@ -63,6 +65,7 @@ export async function requestCode(
   const startedAt = (deps.clock ?? Date.now)();
 
   try {
+    await enforceTrustedIpBudget(deps, AUTH_RATE_LIMITS.codeRequestByIp);
     await enforceRateLimit(
       deps.admin,
       AUTH_RATE_LIMITS.codeRequestByEmail,
@@ -101,6 +104,7 @@ export async function verifyCode(
   email: string,
   code: string,
 ): Promise<Account> {
+  await enforceTrustedIpBudget(deps, AUTH_RATE_LIMITS.verifyByIp);
   await enforceRateLimit(
     deps.admin,
     AUTH_RATE_LIMITS.verifyByEmail,
@@ -140,6 +144,23 @@ export async function verifyCode(
     });
   }
   return account;
+}
+
+async function enforceTrustedIpBudget(
+  deps: AuthDependencies,
+  policy:
+    | typeof AUTH_RATE_LIMITS.codeRequestByIp
+    | typeof AUTH_RATE_LIMITS.verifyByIp,
+): Promise<void> {
+  if (!deps.clientIp) {
+    if (process.env.NODE_ENV === "production") {
+      throw new ApiError("AUTH_UNAVAILABLE", {
+        cause: { source: "trusted_proxy", code: "CLIENT_IP_UNAVAILABLE" },
+      });
+    }
+    return;
+  }
+  await enforceRateLimit(deps.admin, policy, "ip", deps.clientIp);
 }
 
 function rejectCode(): never {

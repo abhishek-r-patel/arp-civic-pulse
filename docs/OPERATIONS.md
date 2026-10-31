@@ -31,6 +31,7 @@ disposable database into the real register.
 | `RESTORE_DATABASE_URL`                  | `restore`              | An **isolated** database that already has the reviewed migrations applied. Never the live one.                                                                                           |
 | `MAINTENANCE_MODE=1`                    | the app                | Pages show a maintenance notice (HTTP 503), every API route answers 503, and `/api/internal/health` reports `unavailable`.                                                                |
 | `PDF_EXPORT_ENABLED=0`                  | the app                | Switches the PDF download off (the control disappears; the endpoint answers `EXPORT_FORMAT_UNAVAILABLE`). On by default.                                                                  |
+| `TRUSTED_PROXY_CONFIG=vercel`           | the app                | Production OTP code requests/verification use Vercel's overwritten `X-Forwarded-For` for per-RWA HMAC budgets (30/100 per 15 minutes). Requires Vercel system variables (`VERCEL=1`); missing or invalid input fails closed. Do not place another proxy in front of Vercel; hosted spoof/burst checks and pilot threshold validation remain open. |
 | `PG_BIN_DIR`                            | backup tools           | Folder holding `pg_dump`/`pg_restore` (PostgreSQL 17 client tools, matching Supabase). Optional if they are on `PATH`.                                                                     |
 | `RESEND_API_KEY`, `CONTACT_EMAIL_FROM`, `CONTACT_EMAIL_TO` | contact route | Optional server-only support-mail settings; set all three together. Separate from Supabase OTP SMTP. Restore from the secret/configuration store, not a database backup. |
 | `APP_SUPPORT_EMAIL`                     | the app, `config-check` | Optional server-only developer/support contact eligible for RWA-controlled App Support Access. Setting it does **not** grant access; an enabled RWA Admin must turn it on from Settings and can turn it off at any time. When on, the identity signs in through normal email OTP with household-free, read-only (`rwa-readonly`) access. Never browser-visible. |
@@ -299,7 +300,7 @@ Steps:
 2. **Read the line.** Each one gives:
    - `errorCode`, `errorCategory` and `errorType`. `user` means expected behaviour such as a wrong code or no access; `system` means a fault you must look at.
    - `hint`: a plain-English meaning and first check.
-   - `causeSource`/`causeCode`/`causeStatus`: which dependency failed and its identifier, for example `database` `57014` for a statement timeout, `supabase_auth` with an HTTP status, or `tenant_config` `SERVICE_KEY_MISSING`.
+   - `causeSource`/`causeCode`/`causeStatus`: which dependency failed and its identifier, for example `database` `57014` for a statement timeout, `supabase_auth` with an HTTP status, `trusted_proxy` with `CLIENT_IP_MISSING`/`CLIENT_IP_INVALID`, or `tenant_config` `SERVICE_KEY_MISSING`.
    - `reason`, for conflicts.
    - `route`, `method`, `host`, `tenant` and `durationMs`.
 3. **Open Sentry for system faults.** Search `error_id:<ID>` in the project's Issues. The event shows the exact code location (source maps) and the same tags. Issues are grouped by error code and route, so the event count shows how many people hit the same fault.

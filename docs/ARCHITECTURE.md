@@ -30,8 +30,9 @@ immutable request-scoped backend context behind `TENANT_ROUTING_ENABLED`
 (default `false`); the current staging deployment still uses one project and
 has no tenant directory, customer hosts or tenant secrets configured. Vercel
 environment variables were selected for a capped pilot, with the
-shared-runtime/fleet-wide secret blast radius documented; the proposed
-three-customer cap is not confirmed. S04 implements tenant-namespaced
+shared-runtime/fleet-wide secret blast radius documented; the pilot cap of 10
+customer RWAs was approved on 31 October 2026 and is enforced by the directory
+parser. S04 implements tenant-namespaced
 host-only session cookies and request-tenant canonical-origin CSRF checks.
 Real disposable cross-project tests pass. A retained hosted Vercel test project
 shows that the public Host selects the tenant, spoofed forwarding headers are
@@ -459,13 +460,14 @@ Use stable identifiers, foreign keys, nonnegative counter constraints, explicit 
 - Normalize emails using one documented policy without provider-specific rewriting. Reject duplicate household IDs and ambiguous representative assignments.
 - Return generic code-request acknowledgements without revealing registration. Invalid/expired codes get actionable retry guidance without exposing account existence.
 - Configure custom SMTP, expiry, resend cooldown, attempt/request limits and sender authentication. Never log OTPs or email contents.
+- OTP request and verification add per-RWA shared atomic IP budgets (30 requests and 100 verifications per 15 minutes) alongside the email budgets. `src/server/auth/trusted-client-ip.ts` trusts only a single valid Vercel-overwritten `X-Forwarded-For` value when `TRUSTED_PROXY_CONFIG=vercel` and `VERCEL=1`; missing, ambiguous or invalid source data fails closed. Raw IPs are HMACed before the limiter and never stored or logged. Pilot capacity and hosted spoofing tests remain release gates.
 - Use `@supabase/ssr` for the Next.js cookie/session integration. Verify identity server-side using supported Auth verification methods; do not trust an unverified cookie session object as authorization.
 - Apply secure cookie settings and the SDK's supported refresh behavior. Session cookies use a tenant-specific name, are HttpOnly and omit Domain; production names use the `__Host-` prefix. Do not invent a parallel opaque-session system.
 - Check current application suspension/role on each protected operation and inside guarded database functions. A still-valid JWT must not bypass suspension or changed entitlement.
 - Implementation: `src/proxy.ts` refreshes an expiring session before render (Server Components cannot set cookies) and forwards the new cookies to the page and browser; this is session upkeep, not authorization. Session cookies are hardened in one place (`src/server/auth/session-cookies.ts`): HttpOnly, SameSite=Lax, Secure in production, capped at 14 days as a sliding inactivity window (provisional until A4).
 - Sign-out and administrative Auth actions do not necessarily invalidate every issued JWT immediately. Enforce application access independently and test existing-token scenarios.
 - Native time-boxed sessions, inactivity limits and single-session enforcement require Supabase Pro or higher. Do not promise those controls on Free; approve the persistent-session policy under A4.
-- Server-proxied Auth calls must follow Supabase's supported trusted-IP forwarding configuration where needed. Never trust arbitrary client forwarding headers or let all residents accidentally share an untested server-IP limit.
+- Server-proxied Auth calls use Vercel's documented overwritten `X-Forwarded-For` only on the configured Vercel runtime. Do not trust arbitrary forwarding headers or place an unapproved upstream proxy in front; shared-NAT IP thresholds require pilot validation.
 - Privileged Auth credentials remain server-only and isolated to provisioning/administrative Auth operations and resident self-registration. Never use them for ordinary ballots, results or exports.
 
 ## 07 Atomic Voting and PRIVATE Privacy

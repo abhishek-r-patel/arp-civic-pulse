@@ -199,7 +199,7 @@ npm run dev`}</code>
             ],
             [
               "src/server/auth/; src/server/http/",
-              "OTP, cookies, limiter, Origin/CSRF, request parsing, errors and pagination.",
+              "OTP, cookies, Vercel-only trusted client-IP budgets, Origin/CSRF, request parsing, errors and pagination.",
             ],
             [
               "src/shared/contracts/; src/shared/validation/; src/shared/http/",
@@ -862,6 +862,10 @@ npm run dev`}</code>
             [
               "Auth/profile update partially succeeded",
               "register/accounts.ts + provisioning.ts, saved profile/access and Auth outcome; follow recovery without deleting an uncertain identity.",
+            ],
+            [
+              "OTP returns AUTH_UNAVAILABLE with a trusted_proxy cause",
+              "Confirm TRUSTED_PROXY_CONFIG=vercel, Vercel system variables are enabled (VERCEL=1), and the request has one valid Vercel-overwritten X-Forwarded-For value. Do not trust a client-supplied forwarding header or add an upstream proxy.",
             ],
             [
               "Local PostgreSQL certificate failure",

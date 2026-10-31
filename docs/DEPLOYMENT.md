@@ -2,9 +2,9 @@
 
 ## 1. Status and approval boundary
 
-This repository is **deployed to staging using Vercel's Production target, not real production or approved for real voting**. The architecture prefers Vercel for Next.js and Supabase PostgreSQL/Auth/Cron. The staging account is recorded below; no production Supabase project, production hosting plan, region, domain, budget or trusted ingress is approved by this configuration. No existing hosted project is assumed to be production.
+This repository is **deployed to staging using Vercel's Production target, not real production or approved for real voting**. The architecture prefers Vercel for Next.js and Supabase PostgreSQL/Auth/Cron. The staging account is recorded below; no production Supabase project, production hosting plan, region, domain, budget or production ingress is approved by this configuration. No existing hosted project is assumed to be production.
 
-Do not promote a deployment or admit real residents until the open gates in [PILOT_READINESS.md](./PILOT_READINESS.md) are closed. In particular, `TRUSTED_PROXY_CONFIG` is reserved and **does not implement trusted-client-IP limiting**. Approve ingress, implement and test spoof-resistant IP enforcement before release; setting the variable is not a workaround. This guide does not grant approval of A1-A7, providers, regions, retention or recovery objectives.
+Do not promote a deployment or admit real residents until the open gates in [PILOT_READINESS.md](./PILOT_READINESS.md) are closed. The application now implements local per-RWA OTP IP budgets using Vercel's overwritten `X-Forwarded-For`; hosted spoof/burst verification, Vercel configuration, and pilot threshold validation remain open. `TRUSTED_PROXY_CONFIG=vercel` is required in production, and Vercel system environment variables must be enabled so `VERCEL=1` is available. The application does not support an upstream proxy in front of Vercel. This guide does not grant approval of A1-A7, providers, regions, retention or recovery objectives.
 
 ### Tenant routing: disabled on staging; separate hosted test project
 
@@ -78,7 +78,8 @@ local unit tests so far.
 
 Still open:
 - the actual domain (the cap is now 10 customers; see below)
-- trusted-client-IP rate limiting (H1)
+- redeploy with `TRUSTED_PROXY_CONFIG=vercel` and verify spoofed-header/burst behavior for the new OTP IP budgets
+- validate shared-NAT thresholds during the pilot
 - SMTP delivery for project B
 - production approvals
 
@@ -368,7 +369,7 @@ Configure these in the hosting environment manager, scoped separately to Product
 | `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | Optional build-time source-map upload. The token is a non-revealable build secret; without it the build emits no source maps. |
 | `MAINTENANCE_MODE` | `1` for initial restricted deployment/recovery; `0` only for an authorized validation or release window. |
 | `PDF_EXPORT_ENABLED` | `0` to defer optional PDF; `1` only after hosted font/render/runtime checks. |
-| `TRUSTED_PROXY_CONFIG` | Reserved; not an enabled security control. Remains a release blocker as described above. |
+| `TRUSTED_PROXY_CONFIG` | Set to `vercel` in Production and Preview for OTP functionality. Enables the Vercel-overwritten `X-Forwarded-For` source; OTP requests fail closed if configuration, `VERCEL=1` or one valid IP is unavailable. Set up Vercel system environment variables and redeploy. Hosted spoof/burst checks and pilot capacity validation remain open. |
 
 Use the secret manager's generator for `RATE_LIMIT_HMAC_KEY` or generate 32 random bytes on an approved workstation; do not put its value in command arguments, logs, chat or version control.
 

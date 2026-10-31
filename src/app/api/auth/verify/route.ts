@@ -15,7 +15,11 @@ export const { GET, POST, PUT, PATCH, DELETE } = route({
   POST: async ({ request, requestId }) => {
     await assertAuthMutationAllowed(request);
     const { email, code } = await parseJsonBody(request, verifyCodeSchema);
-    const account = await verifyCode(await authDependencies(), email, code);
+    const account = await verifyCode(
+      await authDependencies(request),
+      email,
+      code,
+    );
 
     // The pre-authentication CSRF context is replaced once a session exists.
     await rotateCsrfContext();

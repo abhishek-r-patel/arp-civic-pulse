@@ -725,17 +725,17 @@ Supabase Auth enforces its own OTP request/verification limits. Shared PostgreSQ
 
 | Surface | Required enforcement dimensions |
 |---|---|
-| Code request/resend | Normalized-email HMAC, trusted-client-IP HMAC, resend cooldown; apply equally to unknown accounts |
-| Code verification | Configured Auth attempt/request limits, trusted IP, and additional application budget where needed |
+| Code request/resend | Normalized-email HMAC (5/15 min), Vercel client-IP HMAC (30/15 min), resend cooldown; apply equally to unknown accounts |
+| Code verification | Configured Auth attempt/request limits, email HMAC (10/15 min), and Vercel client-IP HMAC (100/15 min) |
 | Resident self-registration | Normalized-email HMAC, normalized-household HMAC and one global budget; honeypot; trusted IP pending the release blocker below |
 | Submission and sensitive mutations | Authenticated account, endpoint, and trusted IP as appropriate |
 | Results/named-response reads | Authenticated account and bounded page size |
 | PDF/CSV | Authenticated account request budget plus bounded global render concurrency and memory |
 | Cron maintenance | Scheduling-role execution grants and bounded batch/concurrency limits |
 
-Code expiry, resend cooldown, Auth request/verification limits, additional application thresholds, body/list caps, timeouts, and export concurrency are controlled operational settings, finalized and validated during the pilot. Validate both configured Auth protections and application limits before release; do not claim a custom five-attempt challenge rule or unsupported session timeout. Session policy must match the selected plan and A4 approval. Technical limits must not silently alter voting rules.
+The provisional per-RWA IP budgets are 30 code requests and 100 code verifications per IP per 15 minutes; email budgets remain 5 requests and 10 verifications per email per 15 minutes. Shared-NAT residents aggregate into the same IP budget, so validate the thresholds against pilot capacity before production. Code expiry, resend cooldown, Auth request/verification limits, body/list caps, timeouts, and export concurrency remain operational settings. Validate both configured Auth protections and application limits before release; do not claim a custom five-attempt challenge rule or unsupported session timeout. Session policy must match the selected plan and A4 approval. Technical limits must not silently alter voting rules.
 
-**Unresolved security release blocker:** the current application enforces email budgets for code requests/verification, but not trusted-client-IP budgets. Rotating email addresses bypasses that application dimension and can consume database/provider capacity; provider limits alone are not a substitute. Production ingress is not decided, so `TRUSTED_PROXY_CONFIG` is currently reserved and does not activate IP enforcement. Before deployment, choose the ingress, implement and test its guaranteed overwritten client-IP header, block direct-origin bypass, and verify spoofed forwarding headers cannot reset budgets. Do not trust arbitrary `X-Forwarded-For` or `X-Real-IP` values.
+**Trusted-IP implementation and release gate:** code request and verification now enforce per-RWA IP budgets using atomic HMAC buckets. `TRUSTED_PROXY_CONFIG=vercel` is the only supported setting; production OTP traffic requires it, and runtime requests also require Vercel's `VERCEL=1` system variable. If these are missing, the app may build but code request/verification fails closed. The handler accepts only one valid IP from `X-Forwarded-For`, which Vercel documents as overwritten to prevent spoofing ([request-header reference](https://vercel.com/docs/headers/request-headers), [system-environment reference](https://vercel.com/docs/environment-variables/system-environment-variables)). Missing, invalid, ambiguous, or non-Vercel input fails closed with `503 AUTH_UNAVAILABLE`; raw IPs are never logged or stored. Do not place an upstream proxy in front of this deployment or trust arbitrary forwarding headers. Local unit tests cover parsing and budgets; hosted spoofing/burst verification and pilot threshold validation remain open release gates.
 
 Return `429 RATE_LIMITED` and `Retry-After` in whole seconds when an abuse budget is exhausted. Temporary resource/dependency exhaustion may instead return `503` with appropriate retry guidance. Do not publish email-specific account existence through limiter behavior.
 
@@ -827,7 +827,7 @@ variables](https://vercel.com/docs/environment-variables).
 | `RATE_LIMIT_HMAC_KEY` | Versioned digest key for supplemental application rate limits | Server secret |
 | `APP_SUPPORT_EMAIL` | Developer/support contact eligible for RWA-controlled App Support Access; does not grant access by itself | Server-only configuration; never browser-visible |
 | `LOG_LEVEL` | Privacy-safe operational logging level | Server runtime |
-| `TRUSTED_PROXY_CONFIG` | Explicit trusted proxy/source-IP interpretation | Server runtime |
+| `TRUSTED_PROXY_CONFIG` | Set to `vercel` in production to trust one Vercel-overwritten `X-Forwarded-For` IP for OTP budgets; production-required | Server runtime |
 | `RESEND_API_KEY` | Optional contact-only Resend credential; required with both contact addresses | Server secret |
 | `CONTACT_EMAIL_FROM`, `CONTACT_EMAIL_TO` | Optional bare sender/administrator email addresses; all contact settings are required together | Server-only configuration |
 | `SALES_CONTACT_EMAIL` | Optional public enquiry address shown on the main product website's Contact page | Server configuration rendered into that page only |

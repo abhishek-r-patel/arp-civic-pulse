@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   createTestDatabase,
+  dbError,
   hasDatabase,
   type TestDatabase,
 } from "./support/database";
@@ -40,6 +41,29 @@ describe.skipIf(!hasDatabase)("migration upgrade compatibility", () => {
       accent_palette: "TEAL",
     });
 
+    const legacy = await db.asRole(
+      "authenticated",
+      { sub: world.admin.id },
+      (client) =>
+        client.query<{ update_rwa_profile: Record<string, unknown> }>(
+          "select public.update_rwa_profile($1::jsonb)",
+          [profileSettings("PLUM")],
+        ),
+      { commit: true },
+    );
+    expect(legacy.rows[0]?.update_rwa_profile).toMatchObject({
+      accentPalette: "PLUM",
+    });
+
+    const unsupportedFeature = await dbError(
+      db.asRole("authenticated", { sub: world.admin.id }, (client) =>
+        client.query("select public.update_rwa_profile($1::jsonb)", [
+          profileSettings("AMBER"),
+        ]),
+      ),
+    );
+    expect(unsupportedFeature.message).toBe("VALIDATION_FAILED");
+
     const migration = readFileSync(
       new URL(
         "../../supabase/migrations/20261124100000_add_amber_accent_palette.sql",
@@ -64,28 +88,7 @@ describe.skipIf(!hasDatabase)("migration upgrade compatibility", () => {
       (client) =>
         client.query<{ update_rwa_profile: Record<string, unknown> }>(
           "select public.update_rwa_profile($1::jsonb)",
-          [
-            JSON.stringify({
-              fullName: "Lakeview Residents Association",
-              alias: "Lakeview RWA",
-              address: "12 Example Road",
-              email: "contact@example.org",
-              phone: "+91 123 456 7890",
-              website: "https://example.org",
-              accentPalette: "AMBER",
-              welcomeMessage: "Welcome.",
-              householdLabel: "Flat",
-              identifierKind: "ID",
-              defaultHouseholds: [],
-              rwaPositions: [
-                "President",
-                "Vice-President",
-                "Secretary",
-                "Joint-Secretary",
-                "Treasurer",
-              ],
-            }),
-          ],
+          [profileSettings("AMBER")],
         ),
       { commit: true },
     );
@@ -104,4 +107,27 @@ describe.skipIf(!hasDatabase)("migration upgrade compatibility", () => {
       accent_palette: "AMBER",
     });
   });
+
+  function profileSettings(accentPalette: "PLUM" | "AMBER"): string {
+    return JSON.stringify({
+      fullName: "Lakeview Residents Association",
+      alias: "Lakeview RWA",
+      address: "12 Example Road",
+      email: "contact@example.org",
+      phone: "+91 123 456 7890",
+      website: "https://example.org",
+      accentPalette,
+      welcomeMessage: "Welcome.",
+      householdLabel: "Flat",
+      identifierKind: "ID",
+      defaultHouseholds: [],
+      rwaPositions: [
+        "President",
+        "Vice-President",
+        "Secretary",
+        "Joint-Secretary",
+        "Treasurer",
+      ],
+    });
+  }
 });

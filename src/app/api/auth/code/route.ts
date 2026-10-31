@@ -18,7 +18,7 @@ export const { GET, POST, PUT, PATCH, DELETE } = route({
     await assertAuthMutationAllowed(request);
     const { email } = await parseJsonBody(request, requestCodeSchema);
     const { resendAfterSeconds } = await requestCode(
-      await authDependencies(),
+      await authDependencies(request),
       email,
     );
 
