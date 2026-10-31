@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   authConfigPatch,
   authConfigProblems,
+  authTemplatePatch,
   directoryEntry,
   localMigrationVersions,
   migrationStatus,
@@ -202,31 +203,44 @@ describe("Auth configuration", () => {
   const template = "<p>Your code is {{ .Token }}</p>";
 
   it("a patched configuration has no fixable problems", () => {
-    const patched = authConfigPatch("rwa-one.example.org", template);
+    const patched = authConfigPatch("rwa-one.example.org");
     expect(authConfigProblems(patched, "rwa-one.example.org")).toEqual({
       fixable: [],
+      template: false,
       smtp: false,
     });
     expect(
       authConfigProblems(
-        { ...patched, smtp_host: "smtp.example.org" },
+        {
+          ...patched,
+          ...authTemplatePatch(template),
+          smtp_host: "smtp.example.org",
+        },
         "rwa-one.example.org",
-      ).smtp,
-    ).toBe(true);
+      ),
+    ).toEqual({ fixable: [], template: true, smtp: true });
   });
 
-  it("reports wildcard redirects, open sign-up and a code-less template", () => {
-    const { fixable } = authConfigProblems(
+  it("keeps the template out of the settings that work without SMTP", () => {
+    expect(Object.keys(authConfigPatch("rwa-one.example.org"))).not.toContain(
+      "mailer_templates_magic_link_content",
+    );
+  });
+
+  it("reports wildcard redirects, open sign-up, email off and a code-less template", () => {
+    const problems = authConfigProblems(
       {
         disable_signup: false,
         site_url: "https://rwa-one.example.org",
         uri_allow_list: "https://*.example.org",
         mailer_otp_length: 8,
+        external_email_enabled: false,
         mailer_templates_magic_link_content: "{{ .ConfirmationURL }}",
       },
       "rwa-one.example.org",
     );
-    expect(fixable).toHaveLength(4);
+    expect(problems.fixable).toHaveLength(4);
+    expect(problems.template).toBe(false);
   });
 });
 

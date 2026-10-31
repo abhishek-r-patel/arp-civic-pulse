@@ -105,6 +105,22 @@ stand in for the real domain. The hosted spec
   submission with `403 DEMO_READ_ONLY`
 - the committee persona sees administration screens read-only
 
+**Customer provisioning (S07).** On the Supabase free tier (two active
+projects), the demo project was paused, then two fresh synthetic projects
+(`civic-pulse-s07-a`, `civic-pulse-s07-b`, Mumbai) were created and checked one
+at a time with `npm run ops -- provision` and a scoped management token. Each
+needed three passes: blocked on 44 pending migrations; migrations, settings and
+first admin done but activation refused because SMTP is missing; then every
+step `already`, with one row each for user, profile, admin and settings. Each
+was temporarily added to the directory as `tenant-b` (tenant `33333333-…`,
+`state: active` as a test-only override of the SMTP blocker) with its secret,
+redeployed, and both two-customer specs passed against `tenant-a`. Each project
+was then deleted, `tenant-b` and its secret removed, the demo restored and
+redeployed, and `site-demo-live.spec.ts` passed 10/10 (Chromium + WebKit).
+The directory is back to the three entries above, so `tenant-b` again does
+not resolve. The tenant HTTP helpers accept the new project through
+`TENANT_HTTP_PROJECT_B_REF` (see `tests/e2e/support/tenant-http.ts`).
+
 The selected pilot design stores a server-only tenant directory and separate
 per-RWA service-role credentials in Vercel environment variables. Function code
 can access every configured tenant secret, so a shared deployment has a

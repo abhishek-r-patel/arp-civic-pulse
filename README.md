@@ -19,9 +19,10 @@ or customer hosts are configured on staging. A separate retained Vercel test
 project serves the product website (`site.`), the synthetic demo (`demo.`) and
 one synthetic customer (`tenant-a.`) on placeholder `arp-civic-pulse.vercel.app`
 hosts; the actual domain is unconfirmed and the pilot cap is 10 customer RWAs.
-S03-S06 are complete on that test project. S07 (`npm run ops -- provision`) is
-implemented and unit-tested but not yet verified on two fresh projects;
-S08-S12 remain pending. None of this is release approval.
+S03-S07 are complete on that test project: `npm run ops -- provision` was
+verified on two fresh temporary projects (since deleted); each customer still
+needs custom SMTP before activation. S08-S12 remain pending. None of this is
+release approval.
 
 The [staging site](https://staging.arp-civic-pulse.vercel.app) uses Vercel's
 **Production target only**, backed by the disposable Supabase project. Automatic

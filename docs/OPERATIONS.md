@@ -142,16 +142,24 @@ Every step checks before it writes, so re-run after any failure:
    app tables but no migration history or with migrations this release does not
    know.
 2. **Migrations.** Reports pending migrations; with `--apply-migrations` it runs
-   `supabase db push` and re-checks the history.
+   `supabase db push` and re-checks the history. Run it through `npm run ops`:
+   the push starts `npx` directly (no shell), so the database URL never appears
+   in a command line.
 3. **Settings.** Initializes the association name and time zone once; a project
    already holding another name is blocked.
 4. **First administrator.** Finds or creates the Auth identity, then enables it
    through `deployment_bootstrap_admin`. A different enabled administrator means
    the project was already handed over and is blocked.
-5. **Auth.** With `SUPABASE_ACCESS_TOKEN` it sets sign-up off, Site URL and the
-   only redirect URL to the RWA host, six-digit codes and the repository sign-in
-   template, then verifies them and that custom SMTP exists. Without a token it
-   is reported as a manual step.
+5. **Auth.** With `SUPABASE_ACCESS_TOKEN` it sets sign-up off, email sign-in
+   on, Site URL and the only redirect URL to the RWA host and six-digit codes,
+   then verifies them. Supabase refuses email-template changes until the
+   project has custom SMTP (free projects return 400), so the repository
+   sign-in subject and template are set only after SMTP exists; until then the
+   step is `blocked` and activation is refused. Add SMTP in the Supabase
+   dashboard, then re-run. Without a token the step is reported as manual. The
+   token needs Organization Projects, Project Settings and Auth Config
+   read-write plus Organizations, Projects, API Keys and API Key Secrets read;
+   give it a short expiry and revoke it after use.
 
 The JSON report lists each step, `blockers`, `handover` tasks and the
 `directoryEntry`. The entry is `provisioning` unless `--activate` is passed and

@@ -216,9 +216,9 @@ release work stay open. The pilot cap is 10 customer RWAs.
 
 ### Working Checklist
 
-S01 is partially complete; S02's design is specified; S03-S06 are complete on
-the hosted test project (routing remains disabled on staging); S07 is partially
-complete; S08-S12 are pending. Work on one bounded task at a time; split a task into
+S01 is partially complete; S02's design is specified; S03-S07 are complete on
+the hosted test project (routing remains disabled on staging; S07's SMTP step
+stays an open gate); S08-S12 are pending. Work on one bounded task at a time; split a task into
 smaller steps here when necessary. Planning approval does not authorize provider
 purchases, production writes, migrations, resets, commits or deployment.
 
@@ -291,20 +291,22 @@ purchases, production writes, migrations, resets, commits or deployment.
 	simultaneous visitors do not cancel each other. Residual risks
 	(a copied session can call the database directly; the reset repairs it) are
 	in OPERATIONS. Marketing screenshots are not yet produced.
-- [ ] **S07 - Make customer provisioning repeatable.** Build an operator workflow
+- [x] **S07 - Make customer provisioning repeatable.** Build an operator workflow
 	for a fresh Supabase project, reviewed migrations, settings, SMTP/Auth URLs,
 	first approved admin, secret registration and subdomain activation. Handle
 	partial failures and retries without duplicate identities or false activation.
 	Never populate customers from the demo database. **Done when:** two synthetic
 	RWAs can be independently provisioned, verified and handed over, with secrets
 	absent from logs and browser responses.
-	**Partial:** `npm run ops -- provision` is implemented and unit-tested. It is
+	**Complete on the hosted test project:** `npm run ops -- provision` is
 	idempotent, refuses the demo project and other tenants' projects or hosts,
 	checks migrations, settings, the first admin and Auth/SMTP, and prints a
-	directory entry that is `active` only when nothing blocks. A live run
-	against the demo project was correctly refused. Provisioning two fresh
-	synthetic projects is not yet verified: the Supabase free-project quota is
-	used, and the Management API needs a valid access token.
+	directory entry that is `active` only when nothing blocks. Two fresh
+	synthetic projects were provisioned one at a time (free-tier limit: the
+	demo was paused meanwhile), each wired as `tenant-b`, verified with both
+	two-customer hosted specs, then deleted. Open gate: custom SMTP, so every
+	real customer's Auth step (and therefore activation) stays blocked until
+	SMTP is configured on its project.
 - [ ] **S08 - Establish fleet releases and isolation regression.** Track each
 	backend's migration/schema version against the shared application, test fresh
 	install and upgrades, and define staged rollout and schema-compatible rollback.
@@ -368,7 +370,7 @@ separate milestones. Do not mark an entire task complete from partial evidence.
 | S04 | Tenant-specific session cookie names, host-only production cookie attributes, request-tenant Origin checks and independent Supabase Auth project binding are implemented locally; routing remains disabled. A second disposable tenant-test project (`hnqajjjemqepxuoqbsqx`, Singapore) received all 44 migrations through the normal CLI after `20261123100000` gained its missing `reset role;` | `tests/live/auth.live.test.ts`: 17 passed against both disposable projects with verified database TLS, including the paired test proving the same email gets separate Auth users/profiles, independent OTP login and refresh, rejection of project A tokens by project B, project-local suspension and independent sign-out; focused Chromium `tests/e2e/auth-api.spec.ts`: 15 passed; focused S04 unit tests: 38 passed; `tests/e2e/tenant-origin-live.spec.ts`: 1 passed locally (Host overrides) and 1 passed with `TENANT_HTTP_REMOTE=1` against hosted `tenant-a`/`tenant-b.arp-civic-pulse.vercel.app` (project `arp-civic-pulse-tenant-test`, 31 October 2026); curl probes confirmed SSO 302 on per-deployment URLs and app 404 on the unlisted default host; typecheck, lint, format and docs checks passed | Complete for S04. Separate gates: SMTP delivery for project B, actual domain/numeric cap, trusted-client-IP limiting (H1) and production approvals. Tenant B currently has sign-up disabled and email Auth enabled. |
 | S05 | Main-host product website (product, privacy, contact) with per-host metadata/sitemap/robots and no RWA backend; deployed to the hosted test project | Hosted `tests/e2e/site-demo-live.spec.ts` (Chromium + WebKit, no retries): 10 passed, including the 360 px phone-width check; curl 200 for main `/`, `/contact`, demo `/sign-in` and tenant-a health; local vitest, lint, typecheck, format check, docs check and build passed | Complete on the hosted test project. Actual domain and `SALES_CONTACT_EMAIL` are open; no analytics |
 | S06 | Test project B became the dedicated synthetic demo with banner, two shared personas, `DEMO_READ_ONLY` write refusal and a marker-guarded `demo-reset` | `demo-reset` reseeded `{profiles:14, households:12, votes:6, ballots:23}`; hosted spec proves persona journeys, read-only refusal, registration off and 8 simultaneous same-persona sign-ins: one-time codes collided (`otp_expired`), so persona sign-in moved to a server-derived password; afterwards 10/10 passed twice and the concurrency test 6/6 with no retries (one earlier run failed in the concurrency test right after a deploy with no server error logged) | Complete on the hosted test project. Weekly resets are an operator duty; marketing screenshots not produced; copied-session residual risk documented |
-| S07 | `npm run ops -- provision` with shared project guard (`scripts/ops/supabase-project.ts`) | `tests/unit/ops-provision.test.ts` + `ops-demo.test.ts`: 19 passed; live run against the demo project refused ("This project holds the demo; it can never become a customer.") with no writes | Partial: two fresh synthetic projects not provisioned (free-project quota used, Supabase access token invalid); Management API auth field names unverified live; SMTP pending |
+| S07 | `npm run ops -- provision` with shared project guard (`scripts/ops/supabase-project.ts`); the Auth step now patches sign-in settings separately from the email template, which Supabase only accepts once custom SMTP exists; `supabase db push` runs without a shell so the database URL never reaches a command line | `tests/unit/ops-provision.test.ts` + `ops-demo.test.ts`: 20 passed; live run against the demo project refused with no writes. Two fresh free-tier projects (`civic-pulse-s07-a`, `-b`, Mumbai) each: pass 1 blocked on 44 pending migrations; pass 2 with `--apply-migrations --activate` applied 44 migrations, set settings and the first admin, then refused activation because SMTP is missing (exit 1); pass 3 reported every step `already`, with 1 user/profile/admin/settings row (no duplicates). Each was wired as hosted `tenant-b`; `tenant-isolation-live` and `tenant-origin-live` passed 2/2 against tenant-a for both. Projects deleted, directory restored, demo restored and `site-demo-live` passed 10/10 (Chromium + WebKit) | Complete on the hosted test project. SMTP per customer project, the real domain and production approvals stay open |
 | S08-S12 | Pending | Not run | Dependencies and task-specific authorizations remain open |
 
 ### Public launch follow-up: 26 October 2026

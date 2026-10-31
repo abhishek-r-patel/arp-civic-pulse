@@ -26,6 +26,18 @@ export interface TenantHttpProject {
 
 const APPROVED_REFS = { A: "nycbbzgsilnxrgkwlwno", B: "hnqajjjemqepxuoqbsqx" };
 
+/*
+ * Project B became the demo, so an operator may name another disposable
+ * project explicitly (for example a temporary S07 provisioning project).
+ */
+function approvedRef(label: "A" | "B"): string {
+  const override = process.env[`TENANT_HTTP_PROJECT_${label}_REF`];
+  if (override && !/^[a-z0-9]{20}$/u.test(override)) {
+    throw new Error(`TENANT_HTTP_PROJECT_${label}_REF is not a project ref.`);
+  }
+  return override || APPROVED_REFS[label];
+}
+
 export function requiredSetting(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing tenant HTTP test setting: ${name}.`);
@@ -44,7 +56,7 @@ export function tenantHttpProjects(): [TenantHttpProject, TenantHttpProject] {
       serviceRoleKey: requiredSetting(
         `TENANT_HTTP_PROJECT_${label}_SERVICE_ROLE_KEY`,
       ),
-      ref: APPROVED_REFS[label],
+      ref: approvedRef(label),
       host: requiredSetting(`TENANT_HTTP_HOST_${label}`),
       tenantId: requiredSetting(`TENANT_HTTP_TENANT_${label}_ID`),
       databaseUrl: process.env[`TENANT_HTTP_PROJECT_${label}_DATABASE_URL`],

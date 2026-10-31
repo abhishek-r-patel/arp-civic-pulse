@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
@@ -181,7 +182,7 @@ export async function localMigrationVersions(dir: string): Promise<string[]> {
 const SIGN_IN_SUBJECT = "Your Civic Pulse sign-in code";
 
 /** Hosted Auth settings the app requires (docs/DEPLOYMENT.md section 5). */
-export function authConfigPatch(host: string, template: string) {
+export function authConfigPatch(host: string) {
   const origin = `https://${host}`;
   return {
     site_url: origin,
@@ -189,16 +190,25 @@ export function authConfigPatch(host: string, template: string) {
     disable_signup: true,
     external_email_enabled: true,
     mailer_otp_length: 6,
+  };
+}
+
+/*
+ * Sent separately: Supabase refuses email template changes (400) on projects
+ * that still use its default email sender, so this waits for custom SMTP.
+ */
+export function authTemplatePatch(template: string) {
+  return {
     mailer_subjects_magic_link: SIGN_IN_SUBJECT,
     mailer_templates_magic_link_content: template,
   };
 }
 
-/** Plain-language problems; SMTP is reported separately because only the operator holds it. */
+/** Plain-language problems; SMTP and the template are reported separately because SMTP only the operator holds. */
 export function authConfigProblems(
   config: Readonly<Record<string, unknown>>,
   host: string,
-): { fixable: string[]; smtp: boolean } {
+): { fixable: string[]; template: boolean; smtp: boolean } {
   const origin = `https://${host}`;
   const fixable: string[] = [];
   if (config.disable_signup !== true) fixable.push("public sign-up is on");
@@ -210,16 +220,15 @@ export function authConfigProblems(
   if (Number(config.mailer_otp_length) !== 6) {
     fixable.push("sign-in codes are not six digits");
   }
-  if (
-    !String(config.mailer_templates_magic_link_content ?? "").includes(
-      "{{ .Token }}",
-    )
-  ) {
-    fixable.push("the sign-in email does not contain the code");
+  if (config.external_email_enabled !== true) {
+    fixable.push("email sign-in is turned off");
   }
+  const template = String(
+    config.mailer_templates_magic_link_content ?? "",
+  ).includes("{{ .Token }}");
   const smtp =
     typeof config.smtp_host === "string" && config.smtp_host.trim() !== "";
-  return { fixable, smtp };
+  return { fixable, template, smtp };
 }
 
 export function directoryEntry(
@@ -255,8 +264,15 @@ async function managementAuth(
     signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) {
+    // Supabase's own explanation (never contains credentials) makes 400s actionable.
+    const reason = await response
+      .json()
+      .then((body: { message?: unknown }) =>
+        typeof body.message === "string" ? `: ${body.message}` : "",
+      )
+      .catch(() => "");
     throw new Error(
-      `Supabase Management API returned ${response.status} for the Auth settings (check SUPABASE_ACCESS_TOKEN and project access).`,
+      `Supabase Management API returned ${response.status} for the Auth settings${reason} (check SUPABASE_ACCESS_TOKEN and project access).`,
     );
   }
   return (await response.json()) as Record<string, unknown>;
@@ -275,11 +291,24 @@ async function remoteMigrations(db: Db): Promise<string[] | null> {
 
 function pushMigrations(databaseUrl: string): boolean {
   // The CLI only accepts the URL as an argument (docs/DEPLOYMENT.md section 4).
-  const result = spawnSync(
-    "npx",
-    ["supabase", "db", "push", "--db-url", databaseUrl, "--yes"],
-    { stdio: "ignore", shell: process.platform === "win32", timeout: 600_000 },
-  );
+  // Run npm's npx script directly with Node so the URL (with its password) is
+  // never concatenated into a Windows shell command line.
+  const npmCli = process.env.npm_execpath;
+  const npxCli = npmCli ? path.join(path.dirname(npmCli), "npx-cli.js") : "";
+  const args = ["supabase", "db", "push", "--db-url", databaseUrl, "--yes"];
+  let command = "npx";
+  if (npxCli && existsSync(npxCli)) {
+    command = process.execPath;
+    args.unshift(npxCli);
+  } else if (process.platform === "win32") {
+    throw new Error(
+      "Run provisioning through `npm run ops` so migrations can be applied without a shell.",
+    );
+  }
+  const result = spawnSync(command, args, {
+    stdio: "ignore",
+    timeout: 600_000,
+  });
   return result.status === 0;
 }
 
@@ -456,13 +485,24 @@ export async function provisionCustomer(
     if (options.accessToken) {
       let config = await managementAuth(target.projectRef, options.accessToken);
       let problems = authConfigProblems(config, request.host);
+      let changed = false;
       if (problems.fixable.length > 0) {
         config = await managementAuth(
           target.projectRef,
           options.accessToken,
-          authConfigPatch(request.host, template),
+          authConfigPatch(request.host),
         );
         problems = authConfigProblems(config, request.host);
+        changed = true;
+      }
+      if (!problems.template && problems.smtp) {
+        config = await managementAuth(
+          target.projectRef,
+          options.accessToken,
+          authTemplatePatch(template),
+        );
+        problems = authConfigProblems(config, request.host);
+        changed = true;
       }
       if (problems.fixable.length > 0) {
         add("auth", "blocked", `still wrong: ${problems.fixable.join("; ")}`);
@@ -470,10 +510,20 @@ export async function provisionCustomer(
         add(
           "auth",
           "blocked",
-          "Auth settings are correct but custom SMTP is not configured; add it in the Supabase dashboard (docs/LOCAL_SETUP.md section 8)",
+          "Auth settings are correct but custom SMTP is not configured; add it in the Supabase dashboard (docs/LOCAL_SETUP.md section 8), then re-run to set the six-digit code email",
+        );
+      } else if (!problems.template) {
+        add(
+          "auth",
+          "blocked",
+          "the sign-in email still does not contain the code",
         );
       } else {
-        add("auth", "already", "Auth settings and custom SMTP verified");
+        add(
+          "auth",
+          changed ? "done" : "already",
+          "Auth settings, sign-in email and custom SMTP verified",
+        );
       }
     } else {
       add(
