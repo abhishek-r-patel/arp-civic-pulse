@@ -201,6 +201,9 @@ describe("demoSessionSchema", () => {
       true,
     );
     expect(demoSessionSchema.safeParse({ persona: "admin" }).success).toBe(
+      true,
+    );
+    expect(demoSessionSchema.safeParse({ persona: "owner" }).success).toBe(
       false,
     );
     expect(

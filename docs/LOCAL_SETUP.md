@@ -112,6 +112,7 @@ Important details:
 - `APP_ORIGIN` must **exactly** match the address in your browser. If you browse to `http://localhost:3000`, use that; `127.0.0.1` is a different origin and will fail the app's security check ("Your page has expired. Reload it and try again.").
 - `NEXT_PUBLIC_*` values are visible to browsers. Only the publishable key belongs there. The secret key and `LIVE_DATABASE_URL` are server-side only.
 - If your database password contains special characters, URL-encode them in the connection string.
+- `.env.local` is for your staging/test project only. Demo-project settings go in a separate, Git-ignored `.env.demo.local` that only `npm run ops` and `npm run demo:reset` load; see [Demo site](./OPERATIONS.md#demo-site). Never point the main `.env.local` settings at the demo project, because `demo:reset` erases it. The optional `TENANT_TEST_*` settings are the one exception: they point at the demo project for the cross-customer paired live test, which leaves test users there. `npm run test:live` therefore runs `npm run demo:reset` automatically afterwards (even if tests fail; skipped only when you pass file filters that exclude the auth suite). Never run it during a demo.
 
 For an authorized developer's **read-only setup review without an app login**,
 set the separate `CONFIG_DATABASE_URL` in the ignored environment/secret store
@@ -414,7 +415,7 @@ Follow this to see every built feature:
 | Unit tests | `npm test` | Nothing extra |
 | Production build | `npm run build` | `.env.local` loaded |
 | Real-database tests | `npm run test:integration` | A throwaway local PostgreSQL (below) |
-| Hosted-Supabase tests | `npm run test:live` | `.env.local` loaded; a disposable project |
+| Hosted-Supabase tests | `npm run test:live` | `.env.local` loaded; a disposable project. With `TENANT_TEST_*` set it also resets the demo afterwards (needs `.env.demo.local`) |
 | Browser tests | `npx playwright test --project=chromium` | `npx playwright install chromium` once; add `LIVE_AUTH=1` for the signed-in specs |
 
 **Integration tests** need a disposable **PostgreSQL 17** server (the version Supabase runs; never a shared or production one). One-time setup of a throwaway cluster, then start it in its own window or as a background process (do not use `pg_ctl -w`, which can hang a shell):

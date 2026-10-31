@@ -9,7 +9,7 @@ tracks the planned shared application, separate Supabase projects per RWA,
 customer subdomains and synthetic-only `demo.yourapp.in` environment. It contains
 confirmed S01 starting policies and unresolved decisions, not a deployed SaaS
 offering or production approval. S01 is partially complete: operator-assisted
-onboarding, a read-only synthetic demo, manual annual billing and responsibility
+onboarding, a shared, writable synthetic demo reset regularly, manual annual billing and responsibility
 boundaries are confirmed. Resolve the remaining commercial, capacity and
 voting-scope decisions before marking S01 complete. S02's fail-closed tenant
 resolution/configuration design is specified, including Vercel's shared-secret
@@ -195,7 +195,7 @@ Open <http://localhost:3000>. Use synthetic data only; never copy production reg
 | `npm run typecheck`                       | `tsc --noEmit` under strict settings                                                                                                                                            |
 | `npm test`                                | Vitest unit tests in `tests/unit`                                                                                                                                               |
 | `npm run test:integration`                | Real-PostgreSQL tests in `tests/integration`, including the migration upgrade-path regression (needs `INTEGRATION_DATABASE_URL`, see `supabase/README.md`)                      |
-| `npm run test:live`                       | Real hosted Supabase Auth/PostgREST tests in `tests/live` (needs a disposable project in `.env.local`)                                                                          |
+| `npm run test:live`                       | Real hosted Supabase Auth/PostgREST tests in `tests/live` (needs a disposable project in `.env.local`); resets the demo afterwards when `TENANT_TEST_*` is set                  |
 | `npm run test:e2e`                        | Playwright and axe checks in `tests/e2e` (run `npx playwright install` first)                                                                                                   |
 | `npm run ops -- <command>`                | Backup, verify, restore rehearsal, status, migration-version reporting, orphan Auth cleanup, demo reset, customer provisioning (see [docs/OPERATIONS.md](./docs/OPERATIONS.md)) |
 
@@ -220,8 +220,9 @@ Server configuration is validated when the server starts (`src/instrumentation.t
   `TENANT_DIRECTORY_JSON` and UUID-keyed tenant secrets are configured only on
   the retained tenant-test Vercel project, never on staging or production until
   the domain and Vercel ingress trust are approved. `SALES_CONTACT_EMAIL` sets
-  the main website's contact address; `DEMO_*` and `PROVISION_*` are operator
-  shell variables for `demo-reset` and `provision`. See the [working checklist](./docs/IMPLEMENTATION_PLAN.md#working-checklist).
+  the main website's contact address; `DEMO_*` live in a separate, Git-ignored
+  `.env.demo.local` loaded only by `npm run ops`/`npm run demo:reset`, and
+  `PROVISION_*` are operator shell variables for `provision`. See the [working checklist](./docs/IMPLEMENTATION_PLAN.md#working-checklist).
 - `APP_SUPPORT_EMAIL` is an optional server-only developer/support contact; it only becomes usable when an RWA Admin turns App Support Access on, and never appears in a browser.
 - `SUPABASE_ACCESS_TOKEN`, `MIGRATION_DATABASE_URL` and `MIGRATION_PROJECT_REF` are deployment/operations-only and not read by the running application.
 - SMTP, OTP settings and Cron are configured in Supabase/provider settings and reviewed migrations.

@@ -81,11 +81,11 @@ const ERRORS = {
     "You do not have access to this resource.",
     "The account lacks the role for this action, or is suspended. Check the account's role and status in the register.",
   ),
-  DEMO_READ_ONLY: user(
+  DEMO_EMAIL_DISABLED: user(
     403,
     "authorization",
-    "This is a demo with fictional data, so changes are turned off.",
-    "Someone tried to change data on the demo site, which only allows looking around. Expected; no action needed unless it is a customer site that was configured as `demo` by mistake.",
+    "This is a demo with fictional data and no email, so this option is turned off. Use the sample sign-in buttons instead.",
+    "Someone tried email sign-in, registration or contact on the demo site, which sends no email. Expected; no action needed unless a customer site was configured as `demo` by mistake.",
   ),
   CSRF_FAILED: user(
     403,

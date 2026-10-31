@@ -4,8 +4,10 @@
  * - The main product website has no RWA backend. It serves only its own pages
  *   (rendered from `src/app/site`) and shared public assets; every RWA route,
  *   sign-in and API other than the health check is a 404 there.
- * - The demo host is a normal RWA site whose changes are turned off. Its only
- *   writes are the demo persona sign-in and sign-out.
+ * - The demo host is a normal, writable RWA site shared by every visitor and
+ *   restored by `npm run ops -- demo-reset`. It has no email delivery, so only
+ *   the email-dependent writes (code sign-in, self-registration, contact) are
+ *   refused there; visitors use the persona sign-in instead.
  * Pure functions so the proxy, the API wrapper and unit tests share one list.
  */
 
@@ -43,12 +45,17 @@ export function mainHostApiAllowed(pathname: string): boolean {
   return pathname === "/api/internal/health";
 }
 
-const DEMO_WRITE_PATHS = new Set(["/api/demo/session", "/api/auth/sign-out"]);
+const DEMO_EMAIL_PATHS = new Set([
+  "/api/auth/code",
+  "/api/auth/verify",
+  "/api/register",
+  "/api/contact",
+]);
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
-/** The demo accepts reads, persona sign-in and sign-out; every other write is refused. */
+/** The demo accepts every request except writes that would need email delivery. */
 export function demoRequestAllowed(method: string, pathname: string): boolean {
   return (
-    READ_METHODS.has(method.toUpperCase()) || DEMO_WRITE_PATHS.has(pathname)
+    READ_METHODS.has(method.toUpperCase()) || !DEMO_EMAIL_PATHS.has(pathname)
   );
 }

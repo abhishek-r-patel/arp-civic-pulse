@@ -17,7 +17,7 @@
 The [S01 decision record](./IMPLEMENTATION_PLAN.md#s01---product-and-commercial-boundaries)
 confirms a shared application with a separate Supabase database/Auth project per
 customer RWA, customer subdomains, a separate main website and a dedicated
-synthetic read-only demo. S03 routing code is now present but disabled; no
+synthetic demo (shared and writable since 31 October 2026, reset regularly). S03 routing code is now present but disabled; no
 current deployment has tenant isolation or routing configured. The existing
 single-project staging configuration remains unchanged.
 
@@ -247,12 +247,13 @@ Tenant-routing source map:
 
 Product website, demo and provisioning map (S05-S07):
 
-- `src/shared/host-routes.ts`: which paths the main host serves (website pages, `robots.txt`, `sitemap.xml`, health) and which requests the read-only demo host accepts.
-- `src/proxy.ts` rewrites main-host pages to `src/app/site/{page,contact/page,privacy/page}.tsx`; `src/server/http/route.ts` (`enforceHostKind`) answers main-host APIs `NOT_FOUND` and demo writes `DEMO_READ_ONLY` before any handler runs.
+- `src/shared/host-routes.ts`: which paths the main host serves (website pages, `robots.txt`, `sitemap.xml`, health) and which email-sending routes the shared, writable demo host refuses.
+- `src/proxy.ts` rewrites main-host pages to `src/app/site/{page,contact/page,privacy/page}.tsx`; `src/server/http/route.ts` (`enforceHostKind`) answers main-host APIs `NOT_FOUND` and demo email routes `DEMO_EMAIL_DISABLED` before any handler runs.
 - `src/server/site/main-host.ts`, `src/server/site/discovery.ts`, `src/components/site/{main-shell,demo-banner}.tsx`: main-site links, host-aware robots/sitemap/metadata, the product shell (no session or RWA data) and the demo banner. `src/app/app-shell.tsx` chooses the shell by host kind; `src/app/not-found.tsx` is host-aware.
 - `src/shared/demo.ts`, `src/server/demo/session.ts`, `src/app/api/demo/session/route.ts`, `src/components/demo/demo-persona-sign-in.tsx`: one-click persona sign-in on the demo host (password derived from the demo service-role key, never sent to the browser and self-repaired after a reset, so simultaneous visitors do not cancel each other; global rate limit).
 - `scripts/ops/supabase-project.ts`: shared guard that every credential points at the one confirmed project, plus service-role and Auth-lookup helpers.
-- `scripts/ops/demo.ts`: `npm run ops -- demo-reset`, which erases and reseeds the marked demo project only.
+- `scripts/ops/demo.ts`: `npm run ops -- demo-reset` (shortcut `npm run demo:reset`), which erases and reseeds the marked demo project only.
+- `scripts/test/live.mjs`: `npm run test:live` wrapper. Runs the live Vitest suites, then `npm run demo:reset` whenever the cross-customer paired test (which uses the demo as project B) could have run.
 - `scripts/ops/provision.ts`: `npm run ops -- provision`, which prepares one fresh customer project step by step (migrations, settings, Auth, first administrator) and prints its directory entry.
 - Tests: `tests/unit/{host-routes,demo-session,ops-demo,ops-provision}.test.ts`; hosted `tests/e2e/site-demo-live.spec.ts` (`SITE_DEMO_HTTP_TEST=1`).
 

@@ -1,4 +1,4 @@
-// Host-kind routing: the main website serves only its pages, and the demo refuses changes.
+// Host-kind routing: the main website serves only its pages, and the demo refuses email routes.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   demoRequestAllowed,
@@ -55,15 +55,16 @@ describe("demo write policy", () => {
   it.each([
     ["GET", "/api/votes", true],
     ["HEAD", "/api/votes", true],
+    ["GET", "/api/auth/code", true],
     ["POST", "/api/demo/session", true],
     ["POST", "/api/auth/sign-out", true],
+    ["POST", "/api/votes/1/submission", true],
+    ["PATCH", "/api/admin/settings", true],
+    ["DELETE", "/api/admin/accounts/1", true],
     ["POST", "/api/auth/code", false],
     ["POST", "/api/auth/verify", false],
     ["POST", "/api/register", false],
     ["POST", "/api/contact", false],
-    ["POST", "/api/votes/1/submission", false],
-    ["PATCH", "/api/admin/settings", false],
-    ["DELETE", "/api/admin/accounts/1", false],
   ] as const)("%s %s allowed: %s", (method, path, allowed) => {
     expect(demoRequestAllowed(method, path)).toBe(allowed);
   });
@@ -114,24 +115,31 @@ describe("API host-kind guard", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it("refuses demo changes with a plain explanation and lets reads through", async () => {
+  it("refuses demo email routes with a plain explanation and lets other changes through", async () => {
     const route = await routedRoute();
     const handler = vi.fn(() => new Response("ran"));
     const { GET, POST } = route({ GET: handler, POST: handler });
+    const email = await POST(
+      new Request("https://demo.example.test/api/auth/code", {
+        method: "POST",
+        headers: { host: "demo.example.test" },
+      }),
+    );
+    expect(email.status).toBe(403);
+    const body = (await email.json()) as {
+      error: { code: string; message: string };
+    };
+    expect(body.error.code).toBe("DEMO_EMAIL_DISABLED");
+    expect(body.error.message).toMatch(/demo/iu);
+    expect(handler).not.toHaveBeenCalled();
+
     const write = await POST(
       new Request("https://demo.example.test/api/votes/1/submission", {
         method: "POST",
         headers: { host: "demo.example.test" },
       }),
     );
-    expect(write.status).toBe(403);
-    const body = (await write.json()) as {
-      error: { code: string; message: string };
-    };
-    expect(body.error.code).toBe("DEMO_READ_ONLY");
-    expect(body.error.message).toMatch(/demo/iu);
-    expect(handler).not.toHaveBeenCalled();
-
+    expect(await write.text()).toBe("ran");
     const read = await GET(
       new Request("https://demo.example.test/api/votes", {
         headers: { host: "demo.example.test" },

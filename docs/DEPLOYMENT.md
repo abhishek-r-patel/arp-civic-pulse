@@ -78,7 +78,7 @@ local unit tests so far.
 
 Still open:
 - the actual domain (the cap is now 10 customers; see below)
-- redeploy with `TRUSTED_PROXY_CONFIG=vercel` and verify spoofed-header/burst behavior for the new OTP IP budgets
+- verify spoofed-header/burst behavior for the new OTP IP budgets (`TRUSTED_PROXY_CONFIG=vercel` was set and deployed on 31 October 2026; a wrong-code check on `tenant-a` returned 422, not the fail-closed 503)
 - validate shared-NAT thresholds during the pilot
 - SMTP delivery for project B
 - production approvals
@@ -106,6 +106,10 @@ stand in for the real domain. The hosted spec
   submission with `403 DEMO_READ_ONLY`
 - the committee persona sees administration screens read-only
 
+That run predates the 31 October 2026 decision to make the demo writable. The
+spec now checks that only email routes answer `403 DEMO_EMAIL_DISABLED` and
+that the RWA admin persona sees the full seed; it needs a redeploy of the
+tenant-test project before it can pass.
 **Customer provisioning (S07).** On the Supabase free tier (two active
 projects), the demo project was paused, then two fresh synthetic projects
 (`civic-pulse-s07-a`, `civic-pulse-s07-b`, Mumbai) were created and checked one
@@ -369,7 +373,7 @@ Configure these in the hosting environment manager, scoped separately to Product
 | `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | Optional build-time source-map upload. The token is a non-revealable build secret; without it the build emits no source maps. |
 | `MAINTENANCE_MODE` | `1` for initial restricted deployment/recovery; `0` only for an authorized validation or release window. |
 | `PDF_EXPORT_ENABLED` | `0` to defer optional PDF; `1` only after hosted font/render/runtime checks. |
-| `TRUSTED_PROXY_CONFIG` | Set to `vercel` in Production and Preview for OTP functionality. Enables the Vercel-overwritten `X-Forwarded-For` source; OTP requests fail closed if configuration, `VERCEL=1` or one valid IP is unavailable. Set up Vercel system environment variables and redeploy. Hosted spoof/burst checks and pilot capacity validation remain open. |
+| `TRUSTED_PROXY_CONFIG` | Set to `vercel` in Production and Preview for OTP functionality. Enables the Vercel-overwritten `X-Forwarded-For` source; OTP requests fail closed if configuration, `VERCEL=1` or one valid IP is unavailable. Set up Vercel system environment variables and redeploy. Set on the tenant-test project (Production) on 31 October 2026; not yet set on staging. Hosted spoof/burst checks and pilot capacity validation remain open. |
 
 Use the secret manager's generator for `RATE_LIMIT_HMAC_KEY` or generate 32 random bytes on an approved workstation; do not put its value in command arguments, logs, chat or version control.
 
@@ -386,11 +390,11 @@ The following belong **only** to an approved deployment/operations runner, not V
 
 SMTP credentials belong in Supabase's provider settings, not application/public variables.
 
-- Operator workstation for the demo and new customers: `DEMO_*` variables for
-  `npm run ops -- demo-reset` and `PROVISION_*` (plus optional
-  `SUPABASE_ACCESS_TOKEN`) for `npm run ops -- provision`. Neither set is read
-  by the running application; never add them to Vercel. See
-  [operations](./OPERATIONS.md#demo-site).
+- Operator workstation for the demo and new customers: `DEMO_*` variables in a
+  separate, Git-ignored `.env.demo.local` for `npm run demo:reset`, and
+  `PROVISION_*` (plus optional `SUPABASE_ACCESS_TOKEN`) for
+  `npm run ops -- provision`. Neither set is read by the running application;
+  never add them to Vercel. See [operations](./OPERATIONS.md#demo-site).
 - `SALES_CONTACT_EMAIL` (optional, server configuration): the enquiry address
   shown on the main product website's Contact page.
 

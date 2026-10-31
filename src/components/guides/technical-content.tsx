@@ -76,8 +76,10 @@ export const technicalSections: GuideSection[] = [
           </li>
           <li>
             For a fresh checkout run npm ci. Supply ignored .env.local values
-            for a verified disposable Supabase project. Never copy production
-            registers, backups or secrets into development.
+            for a verified disposable Supabase project. Demo-project settings
+            live separately in ignored .env.demo.local, loaded only by npm run
+            ops and npm run demo:reset. Never copy production registers, backups
+            or secrets into development.
           </li>
           <li>
             Apply reviewed migrations to that authorised target in filename
@@ -914,7 +916,7 @@ npm run dev`}</code>
             ],
             [
               "npm run test:live",
-              "Opted-in synthetic Supabase Auth/Data API integration. Requires an authorised disposable target; may create records.",
+              "Opted-in synthetic Supabase Auth/Data API integration. Requires an authorised disposable target; may create records. When TENANT_TEST_* is set, the paired test uses the demo project, so the command runs npm run demo:reset afterwards.",
             ],
             [
               "npm run test:e2e",

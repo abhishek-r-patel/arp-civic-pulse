@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEMO_DEADLINE_LEAD_MS,
   DEMO_TABLES,
   demoResetTarget,
   demoSeedPlan,
@@ -89,5 +90,60 @@ describe("demoSeedPlan", () => {
   it("erases every app table, including the settings row", () => {
     expect(DEMO_TABLES).toContain("rwa_settings");
     expect(DEMO_TABLES).toContain("audit_events");
+  });
+
+  it("keeps the electorate to enabled residents with eligible flats", () => {
+    const special = [
+      plan.ineligibleIndex,
+      plan.suspendedIndex,
+      plan.deletedIndex,
+    ];
+    expect(new Set(special).size).toBe(3);
+    expect(special.every((index) => index >= plan.electorateSize)).toBe(true);
+    expect(Math.max(...special)).toBe(plan.residents.length - 1);
+    expect(plan.blockASize).toBeLessThan(plan.electorateSize);
+    expect(
+      plan.households
+        .slice(0, plan.blockASize)
+        .every((flat) => flat.startsWith("A-")),
+    ).toBe(true);
+  });
+
+  it("lists the flats that pending registrations claim and leaves some unclaimed", () => {
+    const listed = plan.profile.defaultHouseholds;
+    expect(new Set(listed).size).toBe(listed.length);
+    for (const flat of [
+      ...plan.households,
+      ...plan.pendingRegistrations.map((entry) => entry.identifier),
+      ...plan.unclaimedHouseholds,
+    ]) {
+      expect(listed).toContain(flat);
+    }
+    expect(plan.pendingRegistrations.length).toBeGreaterThan(0);
+    expect(plan.unclaimedHouseholds.length).toBeGreaterThan(0);
+  });
+
+  it("gives every secret election instructions, which activation requires", () => {
+    const { election, closingSoon, completedElection } = plan.votes;
+    for (const vote of [election, closingSoon, completedElection]) {
+      expect(vote.instructions.length).toBeGreaterThan(0);
+    }
+    expect(completedElection.offices).toHaveLength(3);
+  });
+
+  it("dates every vote state correctly relative to the reset", () => {
+    const { votes } = plan;
+    expect(votes.closingSoon.closesAt).toBe("2026-01-03T00:00:00.000Z");
+    expect(votes.extended.extendedTo > votes.extended.closesAt).toBe(true);
+    expect(votes.withdrawn.opensAt > "2026-01-01").toBe(true);
+    expect(votes.withdrawn.closesAt > votes.withdrawn.opensAt).toBe(true);
+    expect(DEMO_DEADLINE_LEAD_MS).toBeGreaterThanOrEqual(60_000);
+  });
+
+  it("creates the RWA admin persona and keeps titles distinct", () => {
+    expect(DEMO_PERSONAS.admin.email).toMatch(/@example\.com$/u);
+    const titles = Object.values(plan.votes).map((vote) => vote.title);
+    expect(new Set(titles).size).toBe(titles.length);
+    expect(titles.length).toBeGreaterThanOrEqual(15);
   });
 });

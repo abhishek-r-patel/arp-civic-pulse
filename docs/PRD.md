@@ -14,7 +14,7 @@
 The [SaaS product and commercial boundaries](./IMPLEMENTATION_PLAN.md#s01---product-and-commercial-boundaries)
 record confirmed development direction: operator-assisted customer onboarding,
 a separate Supabase project per RWA behind a shared application, a separate
-product/pricing/contact website, a synthetic read-only demo and manual annual
+product/pricing/contact website, a shared, writable synthetic demo reset regularly and manual annual
 billing. The deployed application remains single-RWA. S03 adds a locally tested,
 disabled-by-default server routing foundation; no customer hosts or directory
 are configured, and the website, demo and billing controls are not implemented.

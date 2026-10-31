@@ -21,9 +21,10 @@
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:load": "vitest run --config vitest.load.config.ts",
-    "test:live": "vitest run --config vitest.live.config.ts",
+    "test:live": "node scripts/test/live.mjs",
     "test:e2e": "playwright test",
-    "ops": "node --conditions=react-server --env-file-if-exists=.env.local scripts/ops/cli.ts"
+    "ops": "node --conditions=react-server --env-file-if-exists=.env.local --env-file-if-exists=.env.demo.local scripts/ops/cli.ts",
+    "demo:reset": "node --use-system-ca --conditions=react-server --env-file-if-exists=.env.local --env-file-if-exists=.env.demo.local scripts/ops/cli.ts demo-reset --confirm hnqajjjemqepxuoqbsqx"
   },
   "dependencies": {
     "@sentry/nextjs": "11.10.0",

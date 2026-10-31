@@ -561,7 +561,7 @@ These, a safe cause (`causeSource`/`causeCode`/`causeStatus`, never provider mes
 |---|---|---|
 | `400` | `MALFORMED_JSON` | Correct request syntax |
 | `401` | `AUTH_REQUIRED`, `SESSION_EXPIRED` | Sign in again; do not retain ballot choices outside page memory |
-| `403` | `FORBIDDEN`, `CSRF_FAILED`, `DEMO_READ_ONLY` | Capability or browser-request protection failed; on the demo host every change is refused |
+| `403` | `FORBIDDEN`, `CSRF_FAILED`, `DEMO_EMAIL_DISABLED` | Capability or browser-request protection failed; on the demo host the email-sending routes are refused |
 | `404` | `NOT_FOUND`, `EXPORT_FORMAT_UNAVAILABLE` | Record absent/inaccessible, or requested optional format unavailable after authorization |
 | `405` | `METHOD_NOT_ALLOWED` | Unsupported method; the `Allow` header lists supported methods |
 | `409` | `ALREADY_SUBMITTED`, `STALE_REVISION`, `REGISTER_CONFLICT`, `VOTE_FROZEN`, `LIFECYCLE_CONFLICT`, `VOTING_CLOSED`, `RESULTS_UNAVAILABLE`, `ACTIVATION_BLOCKED` | Refresh safe state, resolve conflict, or satisfy activation blockers; never blindly retry a mutation |
@@ -764,13 +764,15 @@ handling are verified on that test project.
 website (`/`, `/contact`, `/privacy`, `robots.txt`, `sitemap.xml`) and RWA pages
 are 404. Every API route there except `GET /api/internal/health` answers
 `404 NOT_FOUND` (logged cause `MAIN_HOST_NO_API`), including `POST /api/contact`;
-health answers `ok` without a database call. On the `demo` host only `GET`,
-`HEAD` and `OPTIONS`, `POST /api/demo/session` and `POST /api/auth/sign-out`
-are allowed; every other request answers `403 DEMO_READ_ONLY` before any
-handler runs.
+health answers `ok` without a database call. The `demo` host is shared and
+writable: every request is allowed except the email-sending routes
+`POST /api/auth/code`, `POST /api/auth/verify`, `POST /api/register` and
+`POST /api/contact`, which answer `403 DEMO_EMAIL_DISABLED` before any handler
+runs (the demo has no email delivery). Visitors' changes last until the next
+`demo-reset`.
 
 `POST /api/demo/session` (demo host only; elsewhere `404 NOT_FOUND`) takes
-`{"persona":"resident"|"committee"}` with the usual Origin/CSRF checks, signs
+`{"persona":"resident"|"committee"|"admin"}` with the usual Origin/CSRF checks, signs
 the visitor in as that fictional account with a server-derived password (no
 email or code; the password never reaches the browser), rotates the
 CSRF context and returns `{"data":{"account":…}}` like code verification. It

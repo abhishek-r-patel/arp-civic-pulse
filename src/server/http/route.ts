@@ -58,7 +58,7 @@ function resolveTenant(host: string): TenantContext | undefined {
 
 /*
  * Host-kind limits, applied before any handler runs (src/shared/host-routes.ts):
- * the main website has no RWA backend, and the demo refuses every change.
+ * the main website has no RWA backend, and the demo refuses email-dependent writes.
  */
 function enforceHostKind(
   tenant: TenantContext | undefined,
@@ -71,7 +71,7 @@ function enforceHostKind(
     });
   }
   if (tenant?.kind === "demo" && !demoRequestAllowed(method, pathname)) {
-    throw new ApiError("DEMO_READ_ONLY");
+    throw new ApiError("DEMO_EMAIL_DISABLED");
   }
 }
 

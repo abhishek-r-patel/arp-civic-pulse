@@ -1,6 +1,7 @@
-// S05/S06 hosted checks: the product website and the read-only synthetic demo
-// on their own hosts. Needs a deployed directory with main and demo entries
-// and a demo project seeded by `npm run ops -- demo-reset`.
+// S05/S06 hosted checks: the product website and the shared, writable synthetic
+// demo on their own hosts. Needs a deployed directory with main and demo entries
+// and a demo project seeded by `npm run ops -- demo-reset`. Read-only checks, so
+// running them leaves the seeded demo unchanged.
 import { expect, test } from "@playwright/test";
 import { isErrorId } from "../../src/shared/observability/error-id";
 import { DEMO_PERSONAS } from "../../src/shared/demo";
@@ -56,7 +57,7 @@ test.describe("product website and demo hosts", () => {
     expect(sitemap).not.toContain(demoOrigin);
   });
 
-  test("demo visitors sign in as a persona and cannot change anything", async ({
+  test("demo visitors sign in as a persona and cannot trigger email", async ({
     page,
     request,
   }) => {
@@ -77,19 +78,31 @@ test.describe("product website and demo hosts", () => {
       .click();
     // A cold demo sign-in makes two Auth calls before redirecting.
     await expect(page).toHaveURL(`${demoOrigin}/`, { timeout: 30_000 });
-    await page
-      .getByRole("link", { name: /solar lights/iu })
-      .first()
-      .click();
-    await page.getByRole("radio", { name: "Yes" }).check();
-    await page.getByRole("button", { name: "Review Selections" }).click();
-    const submission = page.waitForResponse((response) =>
-      response.url().endsWith("/submission"),
-    );
-    await page.getByRole("button", { name: "Submit Vote" }).click();
-    const response = await submission;
-    expect(response.status()).toBe(403);
-    expect((await response.json()).error.code).toBe("DEMO_READ_ONLY");
+    await expect(
+      page.getByRole("link", { name: /solar lights/iu }).first(),
+    ).toBeVisible();
+
+    // The only refused writes are the email-sending routes.
+    const email = await page.request.post(`${demoOrigin}/api/auth/code`, {
+      headers: { origin: demoOrigin },
+      data: { email: "someone@example.com" },
+    });
+    expect(email.status()).toBe(403);
+    expect((await email.json()).error.code).toBe("DEMO_EMAIL_DISABLED");
+  });
+
+  test("the RWA admin persona sees seeded drafts and pending registrations", async ({
+    page,
+  }) => {
+    await page.goto(`${demoOrigin}/sign-in`);
+    await page.getByRole("button", { name: DEMO_PERSONAS.admin.label }).click();
+    await expect(page).toHaveURL(`${demoOrigin}/`, { timeout: 30_000 });
+    await page.goto(`${demoOrigin}/admin/votes`);
+    await expect(
+      page.getByText("Festival celebration plan").first(),
+    ).toBeVisible();
+    await page.goto(`${demoOrigin}/admin/residents?selfRegistered=true`);
+    await expect(page.getByText("Rohan Demo").first()).toBeVisible();
   });
 
   test("the committee persona sees administration screens read-only", async ({

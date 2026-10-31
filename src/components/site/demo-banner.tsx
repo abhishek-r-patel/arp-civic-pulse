@@ -1,4 +1,4 @@
-// Persistent notice on every demo page: fictional data, changes turned off.
+// Persistent notice on every demo page: fictional, shared data that resets.
 import { activeSiteOrigin } from "@/server/config/tenant-context";
 
 export function DemoBanner() {
@@ -10,9 +10,9 @@ export function DemoBanner() {
       className="border-b border-warning/40 bg-warning/5 px-4 py-2 text-caption text-warning md:px-6"
     >
       <p className="mx-auto max-w-content">
-        <strong>Demo:</strong> every name, home and vote here is fictional, and
-        changes are turned off. Sign in as a sample resident or committee member
-        to look around.
+        <strong>Demo:</strong> every name, home and vote here is fictional and
+        shared with other visitors, and it is reset regularly. Sign in as a
+        sample resident, committee member or RWA admin to try it.
         {mainOrigin ? (
           <>
             {" "}

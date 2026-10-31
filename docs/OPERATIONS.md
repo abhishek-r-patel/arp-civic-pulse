@@ -81,34 +81,77 @@ as a whole. See
 
 The main host has no RWA backend: it serves the product website only, every
 `/api/*` route except `/api/internal/health` answers `NOT_FOUND`, and RWA pages
-such as `/sign-in` are 404. The demo host is read-only: only `GET`/`HEAD`/
-`OPTIONS`, demo persona sign-in and sign-out are allowed; every other write
-answers `DEMO_READ_ONLY` (403).
+such as `/sign-in` are 404. The demo host is shared and writable: visitors may
+change anything until the next reset, except the email-sending routes
+(`POST /api/auth/code`, `/api/auth/verify`, `/api/register` and `/api/contact`),
+which answer `DEMO_EMAIL_DISABLED` (403) because the demo has no email delivery.
 
 ### Demo site
 
 The demo host shows a fictional association, Green Meadows, from its own
-dedicated Supabase project. Visitors pick **Sample resident** or **Sample
-committee member** on the sign-in page; no email or code is involved and changes
-are refused. Reset it weekly (active votes close 28 days after a reset and the
-scheduled vote opens after 7 days) and after any suspected tampering:
+dedicated Supabase project. Visitors pick **Sample resident**, **Sample
+committee member** or **Sample RWA admin** on the sign-in page; no email or code
+is involved. Everyone shares the same data and can change it, including the RWA
+profile, accounts, settings and votes (decision of 31 October 2026, S01), so
+reset it before every planned demo, weekly (active votes close 2 to 28 days
+after a reset and the scheduled vote opens after 7 days) and after any
+suspected tampering:
 
 ```powershell
-# DEMO_PROJECT_REF, DEMO_SUPABASE_URL, DEMO_SERVICE_ROLE_KEY and DEMO_DATABASE_URL
-# must all point at the demo project; never print them.
-$env:PGSSLROOTCERT = "$PWD\.certs\supabase-db-ca.crt"
-npm run ops --silent -- demo-reset --confirm <DEMO_PROJECT_REF>
+npm run demo:reset
 ```
 
-It erases every app table and Auth user in that project and reseeds 12
-households, the two personas and six votes (scheduled, draft, cancelled, open
-public poll, open secret election, completed). It refuses unless `--confirm`
+Its settings live in a separate `.env.demo.local` file (ignored by Git) at the
+repo root: `DEMO_PROJECT_REF`, `DEMO_SUPABASE_URL`, `DEMO_SERVICE_ROLE_KEY`,
+`DEMO_DATABASE_URL`, and `PGSSLROOTCERT=.certs/supabase-db-ca.crt`. Only
+`npm run ops` and `npm run demo:reset` load it; the app, Playwright and live
+tests read `.env.local` (staging/test) only, so demo credentials never reach
+them. `npm run demo:reset` also loads `.env.local` (so it can refuse the main
+app project) and uses the Windows certificate store (`--use-system-ca`). The
+demo project reference `hnqajjjemqepxuoqbsqx` is fixed in its `--confirm`
+argument in `package.json`, so a file pointing at another project is refused;
+if the demo project is ever replaced, change both. The longer form still
+works: `npm run ops --silent -- demo-reset --confirm <DEMO_PROJECT_REF>`.
+
+The `TENANT_TEST_*` settings in `.env.local` also point at the demo project:
+the free tier allows only two projects, so the cross-customer paired live test
+(`tests/live/auth.live.test.ts`) uses staging as project A and the demo as
+project B. That test leaves Auth users, profiles and audit rows in the demo, so
+`npm run test:live` (`scripts/test/live.mjs`) runs `npm run demo:reset`
+automatically when it finishes, even if tests failed (the reset deletes every
+Auth user and app row, so it removes them). It skips the reset only when
+`TENANT_TEST_*` is empty or you pass file filters that exclude the auth suite.
+If the reset fails, the command exits non-zero with a warning; rerun
+`npm run demo:reset` before any demo. The reset takes about two minutes and
+needs `.env.demo.local`; never run live tests during a demo.
+
+It erases every app table and Auth user in that project and reseeds a fresh copy
+(about two minutes; it waits for one vote's short deadline to pass). The seed
+(`demoSeedPlan` in `scripts/ops/demo.ts`) covers every state the app shows:
+
+| Area | Seeded |
+| --- | --- |
+| RWA profile | Full name, alias, address, email, phone, website, Forest accent, welcome message, Flat label, 22 listed flats, three committee positions |
+| Accounts | Seed admin and RWA admin persona; committee (read-only) persona; resident persona plus 14 more enabled residents; one resident whose flat is ineligible; one suspended; one deleted; two pending self-registrations (flats D-101, D-102); D-201 and D-202 listed but unclaimed |
+| Open votes | Single choice (resident persona not yet voted); up to two choices (persona voted, then changed it); any number of choices; Block A only (partial electorate); deadline extended with a reason; secret election with none of the above (persona voted); secret by-election closing in two days |
+| Finished votes | Completed early with a leader; tie completed at its deadline; completed with no responses; secret election with a leader, a tie and no winner (all none of the above); cancelled with a reason |
+| Not started | Scheduled; schedule withdrawn back to draft with a reason; draft ready to start; unfinished draft |
+
+The electorate is the 15 enabled residents with eligible flats. Output is counts
+only: profiles, households, votes by status and ballots. A successful run prints
+23 profiles, 20 households, 16 votes (7 active, 4 completed, 1 scheduled, 3
+draft, 1 cancelled) and 65 ballots.
+
+It refuses unless `--confirm`
 matches, every credential points at that project, the project is not
 `NEXT_PUBLIC_SUPABASE_URL`, and the database carries the demo marker. Use
-`--initialize` once, only for a new, dedicated demo project. Output is counts
-only. Known limits: a visitor can copy the persona's session and call the
-database directly to cast a ballot (the next reset repairs it); the seed
-administrator cannot sign in.
+`--initialize` once, only for a new, dedicated demo project. Known limits: any
+visitor can deface the profile and branding, create or suspend accounts
+(including the personas), import registers, start, end or cancel votes, turn on
+App Support Access or fill the database; a copied persona session can also call
+the database directly. The next reset repairs all of it. The seed
+administrator, which records the approvals and owns the seeded votes, cannot
+sign in; visitors use the RWA admin persona instead.
 
 All visitors share each persona. The server signs them in with a password it
 derives from the demo project's service-role key, so simultaneous visitors never

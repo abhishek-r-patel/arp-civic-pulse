@@ -130,9 +130,9 @@ export default async function MainHomePage() {
               <a href={demoOrigin} className="text-accent underline">
                 demo site
               </a>{" "}
-              uses a fictional association. Sign in as a sample resident or
-              committee member with one click; no email is needed and changes
-              are turned off.
+              uses a fictional association. Sign in as a sample resident,
+              committee member or RWA admin with one click; no email is needed.
+              Visitors share the demo, and it is reset regularly.
             </>
           ) : (
             <>
