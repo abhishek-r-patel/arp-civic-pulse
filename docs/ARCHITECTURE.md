@@ -48,7 +48,9 @@ domain, customer capacity and existing production gates remain open.
 
 The staging Vercel project uses only its Production target on `main`, with
 Preview deployments disabled and the existing disposable Supabase database.
-`vercel.json` restricts automatic Git deployments to `main`; hosted environment
+`vercel.json` restricts automatic Git deployments to `main` and pins functions to
+`bom1` (Mumbai), beside the `ap-south-1` Supabase projects, so each sequential
+auth/profile/data query stays in-region. Hosted environment
 scope, protection and canonical `APP_ORIGIN` remain project settings.
 Real production requires separate hosting/database projects and credentials.
 See the [current staging configuration](./DEPLOYMENT.md#current-staging-configuration-production-target-only).

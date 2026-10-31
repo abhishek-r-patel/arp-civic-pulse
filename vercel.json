@@ -7,6 +7,7 @@
     }
   },
   "framework": "nextjs",
+  "regions": ["bom1"],
   "installCommand": "npm ci",
   "buildCommand": "npm run deploy:check && npm run build"
 }

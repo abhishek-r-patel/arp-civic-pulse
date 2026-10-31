@@ -237,7 +237,7 @@ npm run dev`}</code>
             ],
             [
               "next.config.ts; vercel.json; .github/workflows/",
-              "Security/cache headers, PDF file tracing, hosting restrictions and validation automation.",
+              "Security/cache headers, PDF file tracing, hosting restrictions, the bom1 function region and validation automation.",
             ],
           ]}
         />
