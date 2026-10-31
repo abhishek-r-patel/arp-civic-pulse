@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { Client } from "pg";
+import type { Client } from "pg";
+import { operationalDatabaseClient } from "../../../scripts/ops/database";
 
 const env = process.env;
 
@@ -11,6 +12,12 @@ export const hasLive = Boolean(
   env.LIVE_TEST_EMAIL,
 );
 export const hasSql = Boolean(env.LIVE_DATABASE_URL);
+export const hasTenantTestSettings = Boolean(
+  env.TENANT_TEST_SUPABASE_URL ||
+  env.TENANT_TEST_SUPABASE_PUBLISHABLE_KEY ||
+  env.TENANT_TEST_SUPABASE_SERVICE_ROLE_KEY ||
+  env.TENANT_TEST_DATABASE_URL,
+);
 
 // In-memory sessions only: nothing is persisted and no refresh timers run.
 const clientOptions = {
@@ -32,6 +39,20 @@ export const publicClient = (): SupabaseClient =>
   createClient(
     env.NEXT_PUBLIC_SUPABASE_URL ?? "",
     env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
+    clientOptions,
+  );
+
+export const tenantTestAdminClient = (): SupabaseClient =>
+  createClient(
+    env.TENANT_TEST_SUPABASE_URL ?? "",
+    env.TENANT_TEST_SUPABASE_SERVICE_ROLE_KEY ?? "",
+    clientOptions,
+  );
+
+export const tenantTestPublicClient = (): SupabaseClient =>
+  createClient(
+    env.TENANT_TEST_SUPABASE_URL ?? "",
+    env.TENANT_TEST_SUPABASE_PUBLISHABLE_KEY ?? "",
     clientOptions,
   );
 
@@ -59,14 +80,11 @@ export async function emailOtp(
   return code;
 }
 
-// TLS is used; certificate verification is relaxed because this is a throwaway test project.
 export async function withSql<T>(
   fn: (client: Client) => Promise<T>,
+  connectionString = env.LIVE_DATABASE_URL ?? "",
 ): Promise<T> {
-  const client = new Client({
-    connectionString: env.LIVE_DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-  });
+  const client = operationalDatabaseClient(connectionString);
   await client.connect();
   try {
     return await fn(client);

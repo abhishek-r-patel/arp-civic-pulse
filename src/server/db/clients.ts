@@ -8,7 +8,10 @@ import {
   serviceRoleKeyIsValid,
   type TenantContext,
 } from "@/server/config/tenant-context";
-import { hardenSessionCookie } from "@/server/auth/session-cookies";
+import {
+  hardenSessionCookie,
+  sessionCookieName,
+} from "@/server/auth/session-cookies";
 import { ApiError } from "@/server/http/errors";
 
 export function publicConfiguration(
@@ -28,7 +31,11 @@ function requirePublicConfiguration(tenant: TenantContext): {
 } {
   const configuration = publicConfiguration(tenant);
   // Missing configuration is a deployment fault, not a client error.
-  if (!configuration) throw new ApiError("DEPENDENCY_UNAVAILABLE");
+  if (!configuration) {
+    throw new ApiError("DEPENDENCY_UNAVAILABLE", {
+      cause: { source: "deployment_config", code: "SUPABASE_PUBLIC_CONFIG" },
+    });
+  }
   return configuration;
 }
 
@@ -46,8 +53,16 @@ export async function createUserClient(
   const { url, key } = requirePublicConfiguration(resolvedTenant);
   const store = await cookies();
   const secure = getEnvironment().NODE_ENV === "production";
+  if (!resolvedTenant.tenantId) {
+    throw new ApiError("DEPENDENCY_UNAVAILABLE", {
+      cause: { source: "tenant_config", code: "TENANT_ID_MISSING" },
+    });
+  }
 
   return createServerClient(url, key, {
+    cookieOptions: {
+      name: sessionCookieName(resolvedTenant.tenantId, secure),
+    },
     cookies: {
       getAll: () => store.getAll(),
       setAll: (cookiesToSet) => {
@@ -88,7 +103,19 @@ export async function createAdminClient(
     !key ||
     (resolvedTenant.kind !== "single" && !serviceRoleKeyIsValid(key))
   ) {
-    throw new ApiError("DEPENDENCY_UNAVAILABLE");
+    throw new ApiError("DEPENDENCY_UNAVAILABLE", {
+      cause: {
+        source: "deployment_config",
+        code:
+          resolvedTenant.kind === "main"
+            ? "ADMIN_CLIENT_ON_MAIN_HOST"
+            : !url
+              ? "SUPABASE_URL_MISSING"
+              : !key
+                ? "SERVICE_KEY_MISSING"
+                : "SERVICE_KEY_INVALID",
+      },
+    });
   }
 
   return createClient(url, key, {

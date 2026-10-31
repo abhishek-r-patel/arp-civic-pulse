@@ -6,16 +6,81 @@ This repository is **deployed to staging using Vercel's Production target, not r
 
 Do not promote a deployment or admit real residents until the open gates in [PILOT_READINESS.md](./PILOT_READINESS.md) are closed. In particular, `TRUSTED_PROXY_CONFIG` is reserved and **does not implement trusted-client-IP limiting**. Approve ingress, implement and test spoof-resistant IP enforcement before release; setting the variable is not a workaround. This guide does not grant approval of A1-A7, providers, regions, retention or recovery objectives.
 
-### Tenant routing code (disabled; not deployed)
+### Tenant routing: disabled on staging; separate hosted test project
 
 The [S02 tenant contract](./IMPLEMENTATION_PLAN.md#s02---tenant-resolution-and-configuration-contract)
 specifies exact allowlisted hosts for the main site, reserved demo and customer
 RWAs; separate Supabase projects; explicit provisioning/active/unavailable
 states; and no fallback for unknown or unavailable hosts. S03 implements
 request-scoped resolution and client factories, gated by
-`TENANT_ROUTING_ENABLED` (default `false`). The current staging deployment still
+`TENANT_ROUTING_ENABLED` (default `false`). The staging deployment still
 uses one `APP_ORIGIN` and one disposable Supabase project; no tenant directory,
-customer subdomains or tenant credentials are configured.
+customer subdomains or tenant credentials are configured on it.
+
+**Hosted S04 test project (31 October 2026, retained).** With operator
+approval, a separate Hobby project, `arp-civic-pulse-tenant-test` in team
+`arp-civic-pulse`, serves synthetic hosts
+<https://tenant-a.arp-civic-pulse.vercel.app> and
+<https://tenant-b.arp-civic-pulse.vercel.app>. Both are subdomains of the
+team slug, so they are same-site, which makes them a realistic cookie test.
+It has Production-only, sensitive variables:
+- `TENANT_ROUTING_ENABLED=true`
+- a two-entry `TENANT_DIRECTORY_JSON`, mapping host A to disposable project
+  `nycbbzgsilnxrgkwlwno` (also the staging database) and host B to
+  `hnqajjjemqepxuoqbsqx`
+- the two `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` values
+- a project-specific `RATE_LIMIT_HMAC_KEY`, `APP_ORIGIN` set to host A
+  (metadata only in directory mode) and `LOG_LEVEL=info`
+
+It has no Git connection, no Preview variables and no Sentry settings. It was
+deployed from the uncommitted local S04 working tree with
+`vercel deploy --prod`, using `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` overrides so
+the repository's staging `.vercel` link was untouched. `.vercelignore`
+excludes `.env*`, `.certs` and keys. Protection stays
+`all_except_custom_domains`: the tenant hosts are public, while the
+per-deployment URL redirects to Vercel SSO (302). The project's own default
+`arp-civic-pulse-tenant-test.vercel.app` host is not in the directory and
+returns the app's 404. Redeploy after any variable change.
+
+These hosted checks passed. The opt-in spec
+`tests/e2e/tenant-origin-live.spec.ts` ran with `TENANT_HTTP_REMOTE=1` against
+the real HTTPS hosts, using admin-generated codes so no email was sent:
+- OTP verification succeeds on each host, and production `__Host-` cookies
+  carry tenant-specific names.
+- A session from one host gets 401 on the other.
+- A wrong Origin gets `403 CSRF_FAILED`.
+- A valid host A cookie/token with `Origin`, `X-Forwarded-Host` and
+  `X-Forwarded-Proto` pointing at host B gets 403.
+- The unlisted default host gets 404.
+- Signing out on host A leaves the host B session valid.
+
+This closes S04's hosted origin/session gate only.
+
+**S03 cross-surface isolation (31 October 2026).** The tenant-test project was
+redeployed from the uncommitted working tree that includes readable error IDs.
+Project B now has synthetic settings named "Tenant B Synthetic RWA".
+`tests/e2e/tenant-isolation-live.spec.ts` and the origin spec both passed
+against the hosted HTTPS hosts. The isolation spec:
+- seeds one completed synthetic PUBLIC vote in each project, with the same admin
+  email in both
+- runs three rounds of interleaved concurrent requests on both hosts
+- confirms each host shows only its own RWA name, vote list, vote detail and CSV
+  export, and that the other tenant's vote returns 404
+- confirms responses carry readable error IDs (for example `VOTEADMIN-…`)
+- confirms 10 wrong codes on host A trigger 429 there, while the same email on
+  host B still gets the ordinary 422
+
+Vercel runtime logs from that run labelled every `request.failed` line with the
+correct tenant: 22 for host A (`11111111-…`), 10 for host B (`22222222-…`). The
+unlisted default host was logged as `unresolved`. Repeating these checks after
+a host becomes unavailable, or after credential rotation, is covered only by
+local unit tests so far.
+
+Still open:
+- the actual domain and customer cap
+- trusted-client-IP rate limiting (H1)
+- SMTP delivery for project B
+- production approvals
 
 The selected pilot design stores a server-only tenant directory and separate
 per-RWA service-role credentials in Vercel environment variables. Function code
@@ -26,11 +91,8 @@ per-tenant credential isolation. Vercel applies environment changes only to
 new deployments and documents a 64 KB aggregate environment-variable limit for
 Node.js deployments; see [Vercel environment variables](https://vercel.com/docs/environment-variables).
 A three-customer cap is proposed but not confirmed. Do not onboard a customer
-or enable routing until the actual domain and numeric cap are approved, S04
-origin/session behavior is complete, and Vercel ingress/direct-origin behavior
-is verified. Focused local tests do not establish hosted isolation.
-Ingress host trust, conflicting forwarded headers and direct-origin bypass
-also require verification against the actual Vercel setup before tenant routing.
+or enable routing on staging or production until the actual domain and numeric
+cap are approved and the remaining release gates close.
 
 ### Current staging configuration: Production target only
 
@@ -87,9 +149,24 @@ subsequently applied, and the Amber migration version collision was resolved
 forward-only. No `--include-all` or migration-history rewrite was used.
 
 - Canonical URL and Production `APP_ORIGIN`:
-  <https://arp-civic-pulse-staging.vercel.app>, without a trailing slash in the
+  <https://staging.arp-civic-pulse.vercel.app>, without a trailing slash in the
   environment value. Use this origin for sign-in and all browser mutations.
   Switching Vercel environments or protection does not rewrite `APP_ORIGIN`.
+- 31 October 2026 host move (operator-approved): the Vercel team slug was
+  renamed from `arp-e93d` to `arp-civic-pulse`, so older `*-arp-e93d.vercel.app`
+  deployment URLs and dashboard links below are historical. The domain
+  `staging.arp-civic-pulse.vercel.app` was added, Production `APP_ORIGIN` was
+  updated, and committed `10fc15b` was redeployed as
+  `dpl_gaaY7oo64XNkhGQBbGcuMYcuQnRT` (Ready). The former
+  `arp-civic-pulse-staging.vercel.app` host now permanently redirects (308) to
+  the new host. The operator updated the disposable project's Supabase Auth Site
+  URL to the new origin, and the Management API confirmed it; the local
+  access token cannot write Auth configuration. Hosted checks:
+  - Health returns 200 and sign-in renders.
+  - A same-origin request with a cookie-bound token returns 204 on sign-out.
+  - The old origin, a wrong origin and spoofed `X-Forwarded-Host` are rejected
+    with 403.
+  - Per-deployment URLs still redirect to Vercel SSO.
 - Vercel project `arp-civic-pulse-staging` remains connected to `main` as its
   Production branch, with `previewDeploymentsDisabled=true`. All eight
   Preview-only environment entries were removed; the nine Production entries
@@ -240,7 +317,7 @@ Configure these in the hosting environment manager, scoped separately to Product
 | `NEXT_PUBLIC_SUPABASE_URL` | Approved project's bare HTTPS API origin, not a database connection URL or `/rest/v1` URL. Public/build-time value. |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Same project's publishable key or legacy **anon** key. Public/build-time value, never a secret/service-role/user token. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Same project's server-only privileged credential, accessible only to the application runtime/build environment that requires it. Never prefix it with `NEXT_PUBLIC_`. |
-| `TENANT_ROUTING_ENABLED` | Optional host-based routing switch; defaults to `false`. Do not enable before the domain, cap, S04, and ingress gates are complete. |
+| `TENANT_ROUTING_ENABLED` | Optional host-based routing switch; defaults to `false`. Enabled only on the separate synthetic `arp-civic-pulse-tenant-test` project. Do not enable for staging or real hosts before the domain, cap and remaining release gates are complete. |
 | `TENANT_DIRECTORY_JSON` | Required only when routing is enabled; version-1 exact-host directory with project origins and secret references, never secret values. |
 | `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` | One server-only privileged credential per immutable tenant UUID referenced by the directory; all remain accessible to shared function code. |
 | `RATE_LIMIT_HMAC_KEY` | Independent random production secret, at least 32 characters. Store in the approved secret manager; generate separately for each environment. |

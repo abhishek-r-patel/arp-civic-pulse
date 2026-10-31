@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => ({
     env: loadEnv(mode, process.cwd(), ""),
     testTimeout: 90_000,
     hookTimeout: 120_000,
-    // One shared project and shared Auth rate limits: run files one at a time.
+    // Keep hosted project traffic serial to avoid shared Auth rate limits and data races.
     fileParallelism: false,
   },
 }));

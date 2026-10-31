@@ -48,7 +48,7 @@ unchanged; no migration is introduced for these server-rendered projections.
 | Success encoding | `application/json; charset=utf-8`, except downloads and `204` responses. |
 | Success envelope | An object containing `data` and `requestId`. Paginated responses additionally contain `page`. |
 | Error envelope | An object containing `error` and `requestId`; never a success envelope with an embedded failure. |
-| Request identifier | A server-generated random support identifier, also returned in `X-Request-ID`. It must not encode identity, selections, or session material. |
+| Request identifier | A server-generated random, readable error ID (`AREA-XXXXX-XXXXX`; section 6.2), also returned in `X-Request-ID`. It must not encode identity, selections, or session material. |
 | Field naming | JSON uses `camelCase`; database column names remain internal. |
 | Identifiers | UUID strings for entities. Audit IDs and all database `bigint` counts use decimal strings. IDs never confer permission. |
 | Time | RFC 3339 instants with explicit offsets on input; UTC `Z` instants on output. Return the frozen IANA `timezone` for activated vote display. Never accept an ambiguous local date/time. |
@@ -155,12 +155,13 @@ Exports contain the **complete authorized dataset**, independent of UI paginatio
 ### 3.1 OTP and session rules
 
 - Disable public signup. Request codes through Supabase Auth using `shouldCreateUser: false`; only fully provisioned enabled profiles may access application data. Normalize email by trimming and lowercasing without provider-specific rewriting.
+- In tenant-directory mode, the selected host binds OTP issuance, verification, session refresh and sign-out to that tenant's Supabase Auth project. Auth users and OTP configuration are project-local: the same email on two RWA projects is not cross-RWA SSO. Configure and verify signup, OTP template, expiry, SMTP and provider limits separately on each approved project before onboarding.
 - Codes are six numeric digits, expiring and single-use. Configure the Auth email template with `{{ .Token }}`, custom SMTP, expiry, resend cooldown, and request/verification limits. Record and validate the selected values under A4 before real voting; do not invent a parallel challenge store or fixed attempt budget unsupported by Auth.
 - Supabase Auth owns OTP verification, tokens, refresh, and session records. Use `@supabase/ssr` for supported Next.js cookie/session integration; do not add custom OTP/session tables, keyed OTP digests, or a parallel opaque-session system.
 - Verify identity server-side with supported Auth verification methods. An unverified cookie session object or user-editable Auth metadata is not authorization.
-- Apply HTTPS, Secure and appropriate SameSite/path settings using the SDK-supported integration. Validate actual cookie behavior; do not promise all SDK cookies are HttpOnly. Keep tokens out of application JSON, URLs, logs, and custom browser-storage flows.
+- Apply HTTPS, Secure and appropriate SameSite/path settings using the SDK-supported integration. Session cookies use a tenant-specific name, are HttpOnly, and have no Domain attribute; production names use the `__Host-` prefix. Validate actual cookie behavior. Keep tokens out of application JSON, URLs, logs, and custom browser-storage flows.
 - Approve the actual persistent-session policy under A4. Native time-boxed sessions, inactivity limits, and single-session enforcement require Supabase Pro or higher; do not promise a 30-minute idle or 12-hour absolute timeout on Free.
-- **Implemented session upkeep.** Access tokens are short-lived (about an hour). `src/proxy.ts` refreshes an expiring session before any page renders (`src/server/auth/proxy-session.ts`) and passes the new cookies to both the page and the browser, because a Server Component cannot set cookies; without this a session would end at the first page after the token expired. This is upkeep only, never authorization: every page and API call still verifies the user with the Auth server and re-reads the current profile. Session cookies are written by one shared function (`src/server/auth/session-cookies.ts`): HttpOnly, `SameSite=Lax`, path `/`, Secure in production, and the browser-side lifetime capped at 14 days (the SDK default is about 400). The SDK rewrites the cookie on each refresh, so the cap is a **sliding inactivity window**, not a fixed deadline. It is a provisional default pending the A4 session policy; native idle and absolute timeouts and single-session enforcement still need Supabase Pro or higher and are not claimed. Sign-out ends that session at Auth, and replaying a copy of the old cookie afterwards is refused (tested).
+- **Implemented session upkeep and tenant cookie isolation.** Access tokens are short-lived (about an hour). `src/proxy.ts` refreshes an expiring session before any page renders (`src/server/auth/proxy-session.ts`) and passes the new cookies to both the page and the browser, because a Server Component cannot set cookies; without this a session would end at the first page after the token expired. This is upkeep only, never authorization: every page and API call still verifies the user with the Auth server and re-reads the current profile. Session cookies are written by one shared function (`src/server/auth/session-cookies.ts`): the name derives from immutable tenant ID, HttpOnly, no `Domain`, `SameSite=Lax`, path `/`, Secure in production with the `__Host-` prefix, and the browser-side lifetime capped at 14 days (the SDK default is about 400). Host-only cookie scope and tenant-specific names prevent sibling-host cookie reuse. The SDK rewrites the cookie on each refresh, so the cap is a **sliding inactivity window**, not a fixed deadline. It is a provisional default pending the A4 session policy; native idle and absolute timeouts and single-session enforcement still need Supabase Pro or higher and are not claimed. Sign-out ends that tenant's session at Auth and rotates its CSRF context. The first release using the tenant-specific cookie name requires a new sign-in.
 - Sign-out clears SDK cookies and uses supported Auth sign-out behavior. Auth administrative actions and sign-out may not immediately invalidate every issued JWT.
 - Current profile status and role are checked on every protected operation, applicable RLS read, and guarded RPC. Suspension/soft deletion block access even with an existing JWT; role changes take effect from the current profile, not stale token claims.
 
@@ -168,7 +169,7 @@ Exports contain the **complete authorized dataset**, independent of UI paginatio
 
 All browser mutations, including code issuance, verification, and sign-out, require:
 
-1. An `Origin` exactly matching validated `APP_ORIGIN`; reject missing or mismatched origins.
+1. An `Origin` exactly matching the request tenant's canonical origin: `APP_ORIGIN` in single-project mode, or the exact HTTPS host selected by the server-side directory. Vercel Preview may use only its own `VERCEL_URL`/`VERCEL_BRANCH_URL` as set by the deployment runtime. Reject missing or mismatched origins.
 2. A valid `X-CSRF-Token` bound to the current session or a short-lived pre-authentication browser context.
 
 Deliver CSRF material in the server-rendered sign-in/application document; no separate token API is required. Bind pre-authentication material to a secure same-origin browser context, and replace it after authentication. A CSRF token is not a session token. Reject CSRF failures with `403 CSRF_FAILED`. Do not use a permissive CORS policy or SameSite cookies alone as CSRF protection.
@@ -548,7 +549,13 @@ Use shared Zod contracts at HTTP entry points plus protected database validation
 | `fieldErrors` | Optional array of `{ field, code, message }`; field paths only, never submitted values |
 | `context` | Optional allowlisted lifecycle/revision recovery context; never identity-to-choice information |
 
-The top-level `requestId` supports restricted troubleshooting. PRIVATE validation must not echo candidate IDs, chosen values, or a summary of selections; generic indexed field paths are sufficient.
+The top-level `requestId` is the request's **error ID**, also returned in the `X-Request-ID` header. Its format is `<AREA>-XXXXX-XXXXX`, for example `VOTE-7K3QX-M2PTA`. `AREA` names the product area handling the request (`AUTH`, `VOTE`, `EXPORT`, `VOTEADMIN`, `REGISTER`, `SIGNUP`, `SETTINGS`, `AUDIT`, `CONTACT`, `HEALTH` or `API`). The suffix is 10 random Crockford base32 characters with no identity, session, tenant or choice data. Every server log line and Sentry event for the request carries the same ID; see [OPERATIONS.md](./OPERATIONS.md#debug-a-reported-error-id). Clients must treat it as an opaque string. Browser fallbacks also exist: `PAGE-…` for page crashes, `BROWSER-…` or a Vercel `x-vercel-id` value for a non-JSON platform reply. PRIVATE validation must not echo candidate IDs, chosen values, or a summary of selections; generic indexed field paths are sufficient.
+
+Each code also has an internal **category** (`request`, `validation`, `authentication`, `authorization`, `security`, `not_found`, `conflict`, `rate_limit`, `dependency`, `data_integrity`, `internal`) and **type**:
+- `user`: an expected result of what the person did, logged at info, or warn for `CSRF_FAILED`/`RATE_LIMITED`.
+- `system`: a fault, logged at error and reported to Sentry.
+
+These, a safe cause (`causeSource`/`causeCode`/`causeStatus`, never provider messages) and a plain-English operator hint appear only in logs and Sentry, never in the response body. The catalogue lives in `src/server/http/errors.ts`.
 
 | HTTP status | Representative codes | Meaning / recovery |
 |---|---|---|
@@ -562,7 +569,7 @@ The top-level `requestId` supports restricted troubleshooting. PRIVATE validatio
 | `415` | `UNSUPPORTED_MEDIA_TYPE` | Send the expected content type |
 | `422` | `VALIDATION_FAILED`, `CODE_INVALID_OR_EXPIRED` | Correct fields or obtain a fresh code |
 | `429` | `RATE_LIMITED` | Wait at least the integer seconds in `Retry-After` |
-| `500` | `INTERNAL_ERROR` | Unexpected fault; restricted alert and safe support ID, no success-shaped fallback |
+| `500` | `INTERNAL_ERROR` | Unexpected fault; restricted alert and safe error ID, no success-shaped fallback |
 | `503` | `DEPENDENCY_UNAVAILABLE`, `AUTH_UNAVAILABLE`, `PROVISIONING_INCOMPLETE`, `EXPORT_FAILED`, `RESULTS_INTEGRITY_ERROR` | Temporary, partial-provisioning, or integrity-related unavailability; preserve safe state and follow outcome checks |
 
 Do not map unexpected database failures to duplicate success. A submission error or transport failure does not by itself prove rejection: recover through participation status. Results/export integrity errors require operator investigation rather than automatic client repair.
@@ -745,10 +752,12 @@ Validate server configuration at startup. Store credentials in the hosting secre
 The [S02 design contract](./IMPLEMENTATION_PLAN.md#s02---tenant-resolution-and-configuration-contract)
 defines the host and lifecycle policy. S03 implements a version-1 server-only
 directory, exact-host resolver and per-request Supabase clients. Routing defaults
-to off, and no directory, tenant credentials or customer host is configured in
-the current deployment. Do not enable it until the domain and numeric pilot cap
-are approved, S04 origin/session behavior is complete, and Vercel ingress and
-direct-origin handling are verified.
+to off on staging, and no customer host is configured there. A separate
+retained Vercel test project routes two synthetic disposable tenants; see the
+[deployment record](./DEPLOYMENT.md#tenant-routing-disabled-on-staging-separate-hosted-test-project).
+Do not enable it for real hosts until the domain and numeric pilot cap are
+approved and the remaining release gates close. S04 origin/session behavior
+and Vercel ingress/direct-origin handling are verified on that test project.
 
 Set `TENANT_ROUTING_ENABLED=true` only with a valid `TENANT_DIRECTORY_JSON`.
 The strict envelope has `version: 1` and an `entries` array. `main` entries have
@@ -763,17 +772,18 @@ these settings under a `NEXT_PUBLIC_` prefix.
 The existing single-project mode remains the default and resolves an exact
 host matching `APP_ORIGIN`. Only when Vercel reports `VERCEL_ENV=preview` does
 it also accept that deployment's own `VERCEL_URL` and `VERCEL_BRANCH_URL` hosts,
-so per-deployment Preview URLs render instead of returning 404. The canonical
-origin stays `APP_ORIGIN`, so browser mutations on those hosts still fail the
-same-origin check unless `APP_ORIGIN` is set to that host. Production and
-directory mode never accept Vercel system hosts. In directory mode, an unknown or malformed
+so per-deployment Preview URLs use their exact HTTPS origin for browser
+mutations. Production and directory mode never accept Vercel system hosts. In
+directory mode, an unknown or malformed
 host returns a generic 404; a known provisioning/unavailable host, invalid
 entry, missing credential or malformed key returns a generic 503. Invalid
 directory envelopes and empty/all-invalid directories prevent startup; invalid
 or conflicting entries make only their associated host unavailable when other
 valid entries remain. No failure falls back to another project. API handlers
-resolve the request Host header directly; Vercel ingress trust and direct-origin
-bypass remain unverified, and per-host CSRF/canonical-origin handling is S04 work.
+resolve the request Host header directly. Session cookies and the CSRF Origin
+check are bound to the resolved tenant's canonical origin (S04). On the hosted
+Vercel test project, `X-Forwarded-Host`/`X-Forwarded-Proto` cannot redirect
+that binding, and per-deployment URLs require Vercel SSO.
 
 Vercel function code can read all tenant secrets configured on the shared
 deployment; dashboard write-only behavior is not runtime isolation. Environment
@@ -786,7 +796,7 @@ variables](https://vercel.com/docs/environment-variables).
 | Variable | Purpose | Availability |
 |---|---|---|
 | `APP_ORIGIN` | Canonical origin for exact Origin/CSRF checks; HTTPS in production | Server configuration |
-| `TENANT_ROUTING_ENABLED` | Enables S03 host routing only after S04 and ingress gates; defaults to `false` | Server configuration |
+| `TENANT_ROUTING_ENABLED` | Enables S03 host routing; S04 is verified on a synthetic test project, but real hosts wait for domain/cap and release gates; defaults to `false` | Server configuration |
 | `TENANT_DIRECTORY_JSON` | Version-1 exact-host directory; contains secret references, never service-role values | Server configuration |
 | `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` | UUID-derived per-tenant privileged client credential referenced by the directory | Server secret |
 | `NODE_ENV` | Execution mode | Build/runtime configuration; not a secret |
@@ -824,7 +834,7 @@ Use separate credentials, databases, and email destinations in local/test/stagin
 - Names, emails, household identifiers, participation, and PUBLIC responses are restricted personal data. Project only what the caller needs.
 - PRIVATE choices exist transiently for validation/counter increments; never persist individual ballots, cross-office ballot identifiers, selection receipts, counter-update history, or request payloads.
 - Disable body, SQL bind-parameter, cookie, token, code, email-content, session replay, and network-payload capture across application, proxy, APM, error tracker, and database instrumentation.
-- Log only allowlisted event names, safe status classes, latency, and random support IDs. Never attach PRIVATE payloads to errors, audits, traces, emails, or metrics.
+- Log only allowlisted event names, safe status classes, error code/category/type, identifier-only causes, latency, and random error IDs. Never attach PRIVATE payloads to errors, audits, traces, emails, or metrics.
 - Deny live tallies, tally snapshots, change feeds, and debug endpoints that enable differencing. RWA Admins and RWA ReadOnly may monitor participation, never choices.
 - Application-level anonymity does not protect against privileged infrastructure/WAL/PITR correlation, a compromised process, or inference from low turnout. Obtain A2 approval without promising cryptographic anonymity.
 

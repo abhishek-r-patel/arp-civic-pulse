@@ -1,21 +1,34 @@
 import "server-only";
+import { currentRequestContext } from "@/server/observability/request-context";
 
 /*
  * Allowlisted operational logging. Only the fields below are ever written, and
  * only primitive values. Request bodies, headers, cookies, query strings,
  * emails, OTPs, tokens, vote payloads, error messages and stack traces are
  * never logged: callers cannot widen the allowlist by passing extra fields.
+ * Inside a request, the request context (error ID, area, route, method, host,
+ * tenant) is added automatically; explicitly passed fields take precedence.
  */
 const LEVELS = ["error", "warn", "info", "debug"] as const;
 export type LogLevel = (typeof LEVELS)[number];
 
 const ALLOWED_FIELDS = [
   "requestId",
+  "area",
   "route",
   "method",
+  "host",
+  "tenant",
   "status",
   "errorCode",
+  "errorCategory",
+  "errorType",
   "errorName",
+  "reason",
+  "causeSource",
+  "causeCode",
+  "causeStatus",
+  "hint",
   "durationMs",
 ] as const;
 
@@ -57,7 +70,11 @@ export function log(
   if (!shouldLog(configuredLevel(), level)) {
     return;
   }
-  const line = JSON.stringify({ level, event, ...sanitizeFields(fields) });
+  const line = JSON.stringify({
+    level,
+    event,
+    ...sanitizeFields({ ...currentRequestContext(), ...fields }),
+  });
 
   if (level === "error") {
     console.error(line);

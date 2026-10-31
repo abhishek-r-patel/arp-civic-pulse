@@ -54,7 +54,13 @@ export async function getVerifiedUserId(
   ) {
     return null;
   }
-  throw new ApiError("AUTH_UNAVAILABLE");
+  throw new ApiError("AUTH_UNAVAILABLE", {
+    cause: {
+      source: "supabase_auth",
+      code: (error as { code?: string }).code,
+      status,
+    },
+  });
 }
 
 /*

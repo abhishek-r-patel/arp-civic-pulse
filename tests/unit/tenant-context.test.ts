@@ -3,13 +3,21 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseEnvironment } from "@/server/config/environment";
 import { resolveTenantContext } from "@/server/config/tenant-context";
 import type { TenantDirectoryEntry } from "@/server/config/tenant-directory";
-import { createAdminClient } from "@/server/db/clients";
+import { createAdminClient, createUserClient } from "@/server/db/clients";
 import { ApiError } from "@/server/http/errors";
 
-const { createClientMock } = vi.hoisted(() => ({
-  createClientMock: vi.fn(),
-}));
+const { createClientMock, createServerClientMock, cookiesMock } = vi.hoisted(
+  () => ({
+    createClientMock: vi.fn(),
+    createServerClientMock: vi.fn(),
+    cookiesMock: vi.fn(),
+  }),
+);
 vi.mock("@supabase/supabase-js", () => ({ createClient: createClientMock }));
+vi.mock("@supabase/ssr", () => ({
+  createServerClient: createServerClientMock,
+}));
+vi.mock("next/headers", () => ({ cookies: cookiesMock }));
 
 const demoId = "10000000-0000-4000-8000-000000000001";
 const customerId = "20000000-0000-4000-8000-000000000002";
@@ -64,6 +72,8 @@ function apiCode(action: () => unknown): string | undefined {
 afterEach(() => {
   vi.unstubAllEnvs();
   createClientMock.mockReset();
+  createServerClientMock.mockReset();
+  cookiesMock.mockReset();
 });
 
 describe("tenant directory routing", () => {
@@ -146,6 +156,41 @@ describe("tenant directory routing", () => {
       "https://alpha-project.supabase.co",
       "sb_secret_alpha",
       expect.any(Object),
+    );
+  });
+
+  it("binds user clients to separate tenant session-cookie namespaces", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    cookiesMock.mockResolvedValue({
+      getAll: () => [],
+      set: vi.fn(),
+    });
+    const demo = resolveTenantContext(
+      "demo.example.test",
+      environment,
+      secrets,
+    );
+    const customer = resolveTenantContext(
+      "alpha.example.test",
+      environment,
+      secrets,
+    );
+
+    await Promise.all([createUserClient(demo), createUserClient(customer)]);
+
+    expect(createServerClientMock).toHaveBeenCalledWith(
+      "https://demo-project.supabase.co",
+      "sb_publishable_demo",
+      expect.objectContaining({
+        cookieOptions: { name: `cp-${demoId}-auth-token` },
+      }),
+    );
+    expect(createServerClientMock).toHaveBeenCalledWith(
+      "https://alpha-project.supabase.co",
+      "sb_publishable_alpha",
+      expect.objectContaining({
+        cookieOptions: { name: `cp-${customerId}-auth-token` },
+      }),
     );
   });
 
@@ -375,7 +420,7 @@ describe("tenant directory routing", () => {
       expect(resolveTenantContext(host, legacy, preview)).toMatchObject({
         kind: "single",
         hostname: host,
-        canonicalOrigin: "https://alpha.example.test",
+        canonicalOrigin: `https://${host}`,
       });
     }
     expect(

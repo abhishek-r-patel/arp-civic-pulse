@@ -556,8 +556,10 @@ See the [SMTP verification record](./DEPLOYMENT.md#staging-otp-verification-28-o
 This is not approval of the personal Gmail sender for production, the unchanged
 one-hour OTP expiry, sending capacity, or any production release gate.
 
-**Current 28 October staging-only follow-up:** the canonical site is now
-<https://arp-civic-pulse-staging.vercel.app>, using Vercel's Production target
+**Current 28 October staging-only follow-up:** the canonical site was then
+<https://arp-civic-pulse-staging.vercel.app> (moved on 31 October to
+<https://staging.arp-civic-pulse.vercel.app>; see the
+[deployment record](./DEPLOYMENT.md#current-staging-configuration-production-target-only)), using Vercel's Production target
 only with the same disposable database. Hosted Preview deployments are disabled,
 all eight Preview-only variables were removed, Production `APP_ORIGIN` and
 Supabase Auth Site URL are aligned, and redeployment

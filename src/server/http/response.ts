@@ -1,4 +1,5 @@
 import { ApiError } from "@/server/http/errors";
+import { newErrorId, type ErrorArea } from "@/shared/observability/error-id";
 import type { PageInfo } from "@/shared/contracts/pagination";
 
 const JSON_TYPE = "application/json; charset=utf-8";
@@ -9,9 +10,13 @@ export const BASE_HEADERS = {
   "X-Content-Type-Options": "nosniff",
 } as const;
 
-// A random support identifier: it never encodes identity, selections or sessions.
-export function newRequestId(): string {
-  return crypto.randomUUID();
+/*
+ * A random, readable error/support ID such as `VOTE-7K3QX-M2PTA` (see
+ * src/shared/observability/error-id.ts). The prefix names the product area;
+ * it never encodes identity, selections or sessions.
+ */
+export function newRequestId(area: ErrorArea = "API"): string {
+  return newErrorId(area);
 }
 
 function respond(

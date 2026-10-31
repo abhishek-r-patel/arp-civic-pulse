@@ -11,7 +11,8 @@ npm run ops -- <command> [options]      # Node uses --conditions=react-server an
 ## 1. Settings that belong to operations
 
 The staging host uses only Vercel's Production target at
-<https://arp-civic-pulse-staging.vercel.app>, backed by the disposable Supabase
+<https://staging.arp-civic-pulse.vercel.app> (the former
+`arp-civic-pulse-staging.vercel.app` host permanently redirects there), backed by the disposable Supabase
 project. Preview deployments and Preview-only app variables are disabled/removed.
 Keep Production `APP_ORIGIN` and Supabase Auth Site URL aligned with this exact
 origin and redeploy after origin changes; protection settings do not rewrite it.
@@ -33,17 +34,18 @@ disposable database into the real register.
 | `RESEND_API_KEY`, `CONTACT_EMAIL_FROM`, `CONTACT_EMAIL_TO` | contact route | Optional server-only support-mail settings; set all three together. Separate from Supabase OTP SMTP. Restore from the secret/configuration store, not a database backup. |
 | `APP_SUPPORT_EMAIL`                     | the app, `config-check` | Optional server-only developer/support contact eligible for RWA-controlled App Support Access. Setting it does **not** grant access; an enabled RWA Admin must turn it on from Settings and can turn it off at any time. When on, the identity signs in through normal email OTP with household-free, read-only (`rwa-readonly`) access. Never browser-visible. |
 | `GOOGLE_ANALYTICS_ID`, `GOOGLE_SITE_VERIFICATION` | public pages | Optional public identifiers. GA4 is consent-gated on privacy/contact only; verification is not proof of Google property ownership. Set at build/runtime and rebuild after changes. |
-| `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | the app, build | Optional Sentry error monitoring with 10% sampled tracing, active only on Vercel Production/Preview. Events are scrubbed in `src/shared/observability/sentry.ts`; unexpected API and export failures are reported with their support `requestId` tag, so search Sentry by the ID a user quotes. The auth token is a build-only secret for source maps. |
+| `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | the app, build | Optional Sentry error monitoring with 10% sampled tracing, active only on Vercel Production/Preview. Events are scrubbed in `src/shared/observability/sentry.ts`, including tag values. System faults (`type: system`), unexpected errors, page crashes and invalid API replies are reported. Each report is tagged with the error ID (`error_id`) plus `area`, `error_code`, `error_category`, `cause_*`, `route`, `host` and `tenant`. Search Sentry for `error_id:<ID>` using the ID a person quotes; see [Debug a reported error ID](#debug-a-reported-error-id). The auth token is a build-only secret for source maps. |
 
 ### Tenant routing configuration (implemented, not operational)
 
 S03 implements a server-only `TENANT_DIRECTORY_JSON` host allowlist and separate
 `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` variables for tenant credentials.
-`TENANT_ROUTING_ENABLED` defaults to `false`. The current app and staging
-project have no tenant directory, host entries or tenant secrets configured.
+`TENANT_ROUTING_ENABLED` defaults to `false`. The staging project has no tenant
+directory, host entries or tenant secrets configured; only the separate
+`arp-civic-pulse-tenant-test` project routes two synthetic disposable tenants.
 Do not enable routing, onboard customer hosts or treat the staging database as
-a tenant until the actual domain and numeric cap are approved, S04 is complete,
-and Vercel ingress/direct-origin behavior is verified.
+a real tenant until the actual domain and numeric cap are approved and the
+remaining release gates close (S04 is complete).
 
 Each version-1 directory entry binds one exact lowercase hostname to a
 `main`/`demo`/`customer` environment kind and explicit
@@ -145,6 +147,46 @@ records and frozen scheduled/active electorates are never overwritten by import.
 The probe aborts its outstanding database HTTP request after three seconds and clears its timer when the check finishes. Failures are reported through allowlisted operational logging without provider messages or credentials; the public response remains only a status and support ID.
 
 Run `status` and the health check from a scheduler you control (Windows Task Scheduler, cron, or a monitoring service) and alert on a non-zero exit. **Manual: no scheduler is configured by this repository.**
+
+### Debug a reported error ID
+
+Every failure screen shows an **Error ID** that residents and RWA administrators can quote. Admin bulk actions show it in their stop message. The ID's prefix tells you which part of the product failed:
+
+| Prefix | Area | Source to look in |
+|---|---|---|
+| `AUTH-` | Sign-in code, verify, sign-out | `src/server/auth/`, `src/app/api/auth/` |
+| `VOTE-` | Resident vote list/detail, submission, participation, results | `src/server/votes/`, `src/app/api/votes/` |
+| `EXPORT-` | CSV/PDF result downloads | `src/server/exports/` |
+| `VOTEADMIN-` | Admin drafts, preview, schedule, activate, deadline, complete, cancel, participation | `src/server/votes/drafts.ts`, `lifecycle.ts`, `src/app/api/admin/votes/` |
+| `REGISTER-` | Admin accounts, households and import | `src/server/register/`, `src/app/api/admin/{accounts,households}/` |
+| `SIGNUP-` | Public resident self-registration | `src/server/register/self-registration.ts` |
+| `SETTINGS-` | RWA settings and App Support Access | `src/server/settings/` |
+| `AUDIT-` | Audit history | `src/app/api/admin/audit/` |
+| `CONTACT-` | Public contact form and email delivery | `src/server/contact.ts` |
+| `HEALTH-` | Health probe | `src/app/api/internal/health/` |
+| `API-` | Any other API route | `src/app/api/` |
+| `PAGE-` | A page crashed while loading (browser error boundary) | Sentry only; follow its `digest` tag to the server log |
+| `BROWSER-` or `iad1::…`-style | The server or platform sent a non-JSON reply (timeout, crash page) | Sentry `api.invalid_response`; a Vercel-style ID is searchable in Vercel logs |
+
+Steps:
+
+1. **Find the log lines.** Go to Vercel → project → **Logs**, choose the time range and search for the ID. API IDs appear on every line of that request:
+   - `request.failed` is a known error; `request.unhandled` is an unexpected crash.
+   - Any earlier lines from deeper code, such as `provisioning.auth_stage_failed` or `auth.code.provider_unavailable`, carry the same `requestId`.
+2. **Read the line.** Each one gives:
+   - `errorCode`, `errorCategory` and `errorType`. `user` means expected behaviour such as a wrong code or no access; `system` means a fault you must look at.
+   - `hint`: a plain-English meaning and first check.
+   - `causeSource`/`causeCode`/`causeStatus`: which dependency failed and its identifier, for example `database` `57014` for a statement timeout, `supabase_auth` with an HTTP status, or `tenant_config` `SERVICE_KEY_MISSING`.
+   - `reason`, for conflicts.
+   - `route`, `method`, `host`, `tenant` and `durationMs`.
+3. **Open Sentry for system faults.** Search `error_id:<ID>` in the project's Issues. The event shows the exact code location (source maps) and the same tags. Issues are grouped by error code and route, so the event count shows how many people hit the same fault.
+4. **Act on the category:**
+   - `dependency`: check the named provider (Supabase status and usage, Resend, Vercel variables), then retry.
+   - `data_integrity`: stop and follow [6. Incidents](#6-incidents).
+   - `internal`: fix the code at the Sentry stack location.
+   - `security`/`rate_limit`: repeated hits from one host or tenant may be abuse.
+
+Logs never contain emails, names, codes, cookies, request bodies, query strings, choices or provider messages. The error ID alone cannot identify a person; ask the reporter for the time and the screen they were on if you need more context. Vercel keeps runtime logs only for a limited plan-dependent period, so look up reported IDs promptly. Sentry keeps system faults longer. Ordinary `user`-type errors are not sent to Sentry.
 
 ### Read-only RWA configuration inspection
 

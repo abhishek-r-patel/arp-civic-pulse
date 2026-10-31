@@ -45,6 +45,29 @@ describe("assertBrowserMutation", () => {
     expect(check({ origin: ORIGIN, "x-csrf-token": token })).toBeUndefined();
   });
 
+  it("binds mutations to the tenant's canonical origin, not the shared app origin", () => {
+    const tenantOrigin = "https://alpha.example.test";
+    expect(
+      codeOf(() =>
+        assertBrowserMutation(
+          new Request(`${tenantOrigin}/api/auth/code`, {
+            method: "POST",
+            headers: { origin: tenantOrigin, "x-csrf-token": token },
+          }),
+          { appOrigin: tenantOrigin, csrfContext: context },
+        ),
+      ),
+    ).toBeUndefined();
+    expect(
+      codeOf(() =>
+        assertBrowserMutation(
+          mutation({ origin: ORIGIN, "x-csrf-token": token }),
+          { appOrigin: tenantOrigin, csrfContext: context },
+        ),
+      ),
+    ).toBe("CSRF_FAILED");
+  });
+
   it("rejects a missing, mismatched or null origin with CSRF_FAILED", () => {
     expect(check({ "x-csrf-token": token })).toBe("CSRF_FAILED");
     expect(

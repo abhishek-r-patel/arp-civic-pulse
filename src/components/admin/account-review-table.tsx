@@ -300,7 +300,7 @@ export function AccountReviewTable({
       if (!mounted.current) return;
       if (!result.ok) {
         setProblem(
-          `${account.representativeName}: ${result.message} Processing stopped; this account may be partly or fully updated. Completed rows are not rolled back. Refresh and review before retrying. Reference: ${result.requestId ?? result.code}.`,
+          `${account.representativeName}: ${result.message} Processing stopped; this account may be partly or fully updated. Completed rows are not rolled back. Refresh and review before retrying. ${result.requestId ? `Error ID: ${result.requestId}` : `Error code: ${result.code}`}.`,
         );
         break;
       }

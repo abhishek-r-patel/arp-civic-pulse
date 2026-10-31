@@ -68,7 +68,13 @@ export async function exportResults(
     const release = await RENDER_SLOTS[format]
       .acquire(MAX_WAIT_MS)
       .catch(() => {
-        throw new ApiError("DEPENDENCY_UNAVAILABLE", { retryAfterSeconds: 5 });
+        throw new ApiError("DEPENDENCY_UNAVAILABLE", {
+          retryAfterSeconds: 5,
+          cause: {
+            source: "capacity",
+            code: `EXPORT_${format.toUpperCase()}_BUSY`,
+          },
+        });
       });
     let body: string | Uint8Array<ArrayBuffer>;
     const generatedAt = new Date();
@@ -114,10 +120,25 @@ export async function exportResults(
       throw new ApiError("EXPORT_FAILED", {
         message:
           "The PDF cannot display some characters in this record. Download the CSV instead.",
+        cause: { source: "export", code: "PDF_UNSUPPORTED_TEXT" },
+        // A known font limitation with a CSV workaround, not a fault to alert on.
+        report: false,
       });
     }
     log("error", "exports.render_failed", { requestId });
-    reportError(error, { requestId, event: "exports.render_failed" });
-    throw new ApiError("EXPORT_FAILED");
+    reportError(error, {
+      event: "exports.render_failed",
+      error_code: "EXPORT_FAILED",
+      error_category: "internal",
+      error_type: "system",
+    });
+    // Already reported above with the original render error and its stack.
+    throw new ApiError("EXPORT_FAILED", {
+      cause: {
+        source: "export",
+        code: `${format.toUpperCase()}_RENDER_FAILED`,
+      },
+      report: false,
+    });
   }
 }

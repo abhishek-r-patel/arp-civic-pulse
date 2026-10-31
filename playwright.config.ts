@@ -38,11 +38,15 @@ export default defineConfig({
     { name: "firefox", use: { ...devices["Desktop Firefox"] } },
     { name: "webkit", use: { ...devices["Desktop Safari"] } },
   ],
-  webServer: {
-    command: `npm run dev -- --hostname ${host} --port ${port}`,
-    url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    env: { APP_ORIGIN: baseURL },
-  },
+  // Hosted-only specs (for example TENANT_HTTP_REMOTE=1) need no local server.
+  webServer:
+    process.env.PLAYWRIGHT_NO_WEB_SERVER === "1"
+      ? undefined
+      : {
+          command: `npm run dev -- --hostname ${host} --port ${port}`,
+          url: process.env.PLAYWRIGHT_READY_URL ?? baseURL,
+          reuseExistingServer: !process.env.CI,
+          timeout: 120_000,
+          env: { APP_ORIGIN: baseURL },
+        },
 });

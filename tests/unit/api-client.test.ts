@@ -139,6 +139,28 @@ describe("browser API response handling", () => {
     });
   });
 
+  it("gives an unexpected reply a searchable error ID", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("<html>timeout</html>", {
+          status: 504,
+          headers: { "x-vercel-id": "bom1::abcde-123" },
+        }),
+      ),
+    );
+    await expect(apiRequest("/api/votes?x=1")).resolves.toMatchObject({
+      code: "INVALID_RESPONSE",
+      requestId: "bom1::abcde-123",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("oops", { status: 500 })),
+    );
+    const failure = await apiRequest("/api/votes");
+    expect(failure.ok ? null : failure.requestId).toMatch(/^BROWSER-/u);
+  });
+
   it("sends confirmed DELETE mutations with the CSRF token", async () => {
     const fetch = vi
       .fn()

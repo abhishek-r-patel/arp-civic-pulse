@@ -106,8 +106,8 @@ function realisticIdentifier(): string {
   return `${block}-${randomInt(1, 20)}${String(randomInt(1, 21)).padStart(2, "0")}`;
 }
 
-function liveSql(): Client {
-  return operationalDatabaseClient(process.env.LIVE_DATABASE_URL ?? "");
+function liveSql(databaseUrl = process.env.LIVE_DATABASE_URL ?? ""): Client {
+  return operationalDatabaseClient(databaseUrl);
 }
 
 /**
@@ -198,8 +198,9 @@ export async function asUser<T>(
   userId: string,
   sql: string,
   params: unknown[] = [],
+  databaseUrl?: string,
 ): Promise<T> {
-  const client = liveSql();
+  const client = liveSql(databaseUrl);
   await client.connect();
   try {
     await client.query("begin");
@@ -275,14 +276,19 @@ export async function activateVoteFor(
  * activation can be exercised. These are not real approvals and must never be
  * copied to a real deployment. Idempotent.
  */
-export async function ensureFixturePolicy(adminId: string): Promise<void> {
-  const sql = liveSql();
+export async function ensureFixturePolicy(
+  adminId: string,
+  databaseUrl?: string,
+  settingsName = "Live RWA",
+): Promise<void> {
+  const sql = liveSql(databaseUrl);
   await sql.connect();
   try {
     const settings = await sql.query("select 1 from public.rwa_settings");
     if (settings.rowCount === 0) {
       await sql.query(
-        "select app_private.deployment_initialize_settings('Live RWA', 'Asia/Kolkata')",
+        "select app_private.deployment_initialize_settings($1, 'Asia/Kolkata')",
+        [settingsName],
       );
     }
     for (const key of ["A1", "A2", "A3", "A4", "A5", "A6", "A7"]) {

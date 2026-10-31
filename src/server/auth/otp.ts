@@ -79,7 +79,9 @@ export async function requestCode(
       log("error", "auth.code.provider_unavailable", {
         status: error.status ?? 0,
       });
-      throw new ApiError("AUTH_UNAVAILABLE");
+      throw new ApiError("AUTH_UNAVAILABLE", {
+        cause: authCause(error),
+      });
     }
     if (error) {
       // Unknown, disabled or throttled by Auth: indistinguishable from success.
@@ -119,7 +121,7 @@ export async function verifyCode(
       });
     }
     if (isTemporary(error)) {
-      throw new ApiError("AUTH_UNAVAILABLE");
+      throw new ApiError("AUTH_UNAVAILABLE", { cause: authCause(error) });
     }
     return rejectCode();
   }
@@ -163,5 +165,16 @@ export async function signOut(
   ) {
     return;
   }
-  throw new ApiError("AUTH_UNAVAILABLE");
+  throw new ApiError("AUTH_UNAVAILABLE", {
+    cause: authCause(error as { code?: string; status?: number }),
+  });
+}
+
+// Supabase Auth's error code and HTTP status only; its message is never kept.
+function authCause(error: { code?: string | undefined; status?: number }): {
+  source: "supabase_auth";
+  code: string | undefined;
+  status: number | undefined;
+} {
+  return { source: "supabase_auth", code: error.code, status: error.status };
 }

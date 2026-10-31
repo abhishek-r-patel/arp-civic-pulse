@@ -116,10 +116,18 @@ export async function enforceRateLimit(
   });
 
   if (error) {
+    const mapped = toApiError(error);
     log("error", "ratelimit.unavailable", {
-      errorName: toApiError(error).code,
+      errorName: mapped.code,
+      causeCode: mapped.safeCause?.code,
     });
-    throw new ApiError(unavailable);
+    throw new ApiError(unavailable, {
+      cause: {
+        source: "rate_limiter",
+        code: mapped.safeCause?.code,
+        status: mapped.safeCause?.status,
+      },
+    });
   }
 
   const result = data as {
@@ -127,7 +135,9 @@ export async function enforceRateLimit(
     retryAfterSeconds?: number;
   } | null;
   if (!result || typeof result.allowed !== "boolean") {
-    throw new ApiError(unavailable);
+    throw new ApiError(unavailable, {
+      cause: { source: "rate_limiter", code: "UNEXPECTED_RESPONSE" },
+    });
   }
   if (!result.allowed) {
     throw new ApiError("RATE_LIMITED", {

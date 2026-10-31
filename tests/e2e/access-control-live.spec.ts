@@ -13,7 +13,7 @@ import {
   test,
   type APIRequestContext,
 } from "@playwright/test";
-import { Client } from "pg";
+import { operationalDatabaseClient } from "../../scripts/ops/database";
 import {
   createCsrfContext,
   csrfCookieName,
@@ -156,10 +156,7 @@ async function call(api: APIRequestContext, method: string, path: string) {
 }
 
 async function asOwner(sql: string, params: unknown[]) {
-  const client = new Client({
-    connectionString: process.env.LIVE_DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-  });
+  const client = operationalDatabaseClient(process.env.LIVE_DATABASE_URL ?? "");
   await client.connect();
   try {
     await client.query("begin");

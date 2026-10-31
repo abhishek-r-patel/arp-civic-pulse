@@ -116,6 +116,13 @@ No separate production database was changed and no staging application
 deployment was performed. The audit-filter and draft-deletion migrations were
 subsequently applied as recorded above.
 
+That file originally omitted its trailing `reset role;`, so a fresh CLI push
+failed when `cp_owner` tried to record the history entry (the transaction rolled
+back). `reset role;` was later appended; it changes no created objects, grants
+or ownership. The disposable project's recorded entry is unaffected and was not
+repaired. The second disposable tenant-test project (`hnqajjjemqepxuoqbsqx`)
+then received the full migration set through the normal CLI push.
+
 The separately authorized numbered-pagination follow-up applied
 `20261114100000` to the same disposable project, now also used by the
 Production-target-only staging host. A CLI dry run listed only this migration

@@ -5,7 +5,8 @@ import { getEnvironment } from "@/server/config/environment";
 import { publicConfiguration } from "@/server/db/clients";
 import {
   hardenSessionCookie,
-  isSupabaseAuthCookie,
+  isTenantSessionCookie,
+  sessionCookieName,
   type SessionCookieOptions,
 } from "@/server/auth/session-cookies";
 
@@ -34,17 +35,19 @@ export async function refreshSessionCookies(
   request: NextRequest,
   tenant: TenantContext,
 ): Promise<RefreshedSession | null> {
+  const configuration = publicConfiguration(tenant);
+  if (!configuration || !tenant.tenantId) return null;
+  const { url, key } = configuration;
+  const secure = getEnvironment().NODE_ENV === "production";
+  const cookieName = sessionCookieName(tenant.tenantId, secure);
   // Anonymous visitors and sign-in pages cost nothing: no cookie, no work.
   if (
-    !request.cookies.getAll().some(({ name }) => isSupabaseAuthCookie(name))
+    !request.cookies
+      .getAll()
+      .some(({ name }) => isTenantSessionCookie(name, cookieName))
   ) {
     return null;
   }
-
-  const configuration = publicConfiguration(tenant);
-  if (!configuration) return null;
-  const { url, key } = configuration;
-  const secure = getEnvironment().NODE_ENV === "production";
 
   const jar = new Map(
     request.cookies.getAll().map(({ name, value }) => [name, value]),
@@ -52,6 +55,7 @@ export async function refreshSessionCookies(
   const setCookies: RefreshedSession["setCookies"] = [];
 
   const supabase = createServerClient(url, key, {
+    cookieOptions: { name: cookieName },
     cookies: {
       getAll: () => [...jar].map(([name, value]) => ({ name, value })),
       setAll: (toSet) => {

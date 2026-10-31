@@ -90,6 +90,10 @@ function incomplete(
 ): ApiError {
   return new ApiError("PROVISIONING_INCOMPLETE", {
     context: { stage, profileBlocked },
+    cause: {
+      source: stage === "AUTH" ? "supabase_auth" : "database",
+      code: `${stage}_STAGE_FAILED`,
+    },
   });
 }
 
@@ -570,7 +574,7 @@ async function createWithHousehold(
   log("warn", "register.create_with_household_failed", {
     errorCode: mapped.code,
   });
-  throw new ApiError("DEPENDENCY_UNAVAILABLE");
+  throw new ApiError("DEPENDENCY_UNAVAILABLE", { cause: mapped.safeCause });
 }
 
 export async function setAuthBan(

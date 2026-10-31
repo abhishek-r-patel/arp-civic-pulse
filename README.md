@@ -15,11 +15,13 @@ voting-scope decisions before marking S01 complete. S02's fail-closed tenant
 resolution/configuration design is specified, including Vercel's shared-secret
 limits. S03 adds locally tested, request-scoped tenant routing behind
 `TENANT_ROUTING_ENABLED`, which defaults to false. No directory, tenant secrets
-or customer hosts are configured or deployed; the actual domain, proposed
-three-customer cap and Vercel ingress remain unconfirmed. S03 is not release
-approval; S04-S12 remain pending.
+or customer hosts are configured on staging; a separate retained Vercel test
+project serves two synthetic disposable tenant hosts. The actual domain and
+proposed three-customer cap remain unconfirmed. S04 (tenant authentication and
+origin isolation) is complete; S03 is not release approval, and S05-S12 remain
+pending.
 
-The [staging site](https://arp-civic-pulse-staging.vercel.app) uses Vercel's
+The [staging site](https://staging.arp-civic-pulse.vercel.app) uses Vercel's
 **Production target only**, backed by the disposable Supabase project. Automatic
 Preview deployments are disabled; only `main` deploys automatically. This is not
 real production: that requires separate Vercel/Supabase projects and approvals.
@@ -204,7 +206,7 @@ Browser journeys that sign in for real (`tests/e2e/*-live.spec.ts`) run only wit
 
 New here? Follow the step-by-step [local setup guide](./docs/LOCAL_SETUP.md).
 
-Server configuration is validated when the server starts (`src/instrumentation.ts` → `src/server/config/environment.ts`); production fails clearly on missing or unsafe values. The same startup hook and `src/instrumentation-client.ts` initialize optional, scrubbed Sentry error monitoring on Vercel Production/Preview only (see [Operations](./docs/OPERATIONS.md)). See [.env.example](./.env.example) for placeholder-only variables.
+Server configuration is validated when the server starts (`src/instrumentation.ts` → `src/server/config/environment.ts`); production fails clearly on missing or unsafe values. The same startup hook and `src/instrumentation-client.ts` initialize optional, scrubbed Sentry error monitoring on Vercel Production/Preview only. Every failure shows a readable **Error ID** such as `VOTE-7K3QX-M2PTA`. Its prefix names the product area, and the same ID appears in Vercel logs and Sentry; see [Debug a reported error ID](./docs/OPERATIONS.md#debug-a-reported-error-id). See [.env.example](./.env.example) for placeholder-only variables.
 
 - `NEXT_PUBLIC_*` values are visible in browsers and must never hold a secret.
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only and reserved for controlled Auth provisioning and resident self-registration, never ballots, results or exports.

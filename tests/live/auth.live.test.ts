@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { beforeAll, describe, expect, it } from "vitest";
 import { enforceRateLimit } from "@/server/auth/rate-limit";
-import { requestCode, verifyCode } from "@/server/auth/otp";
+import { requestCode, signOut, verifyCode } from "@/server/auth/otp";
 import {
   getVerifiedUserId,
   loadEnabledAccount,
@@ -18,8 +18,11 @@ import {
   emailOtp,
   hasLive,
   hasSql,
+  hasTenantTestSettings,
   liveEmail,
   publicClient,
+  tenantTestAdminClient,
+  tenantTestPublicClient,
   withSql,
 } from "./support/live";
 import { apiError, authUserExists, signIn } from "./support/session";
@@ -427,4 +430,230 @@ describe.skipIf(!hasLive)("live: Supabase Auth and API posture", () => {
       expect(limited.retryAfterSeconds).toBeLessThanOrEqual(60);
     });
   });
+
+  /*
+   * Both Supabase projects must be disposable: the live flow creates Auth users,
+   * profiles and audit rows that are intentionally not deleted.
+   */
+  describe.skipIf(!hasTenantTestSettings)(
+    "live: independent Supabase tenant projects",
+    () => {
+      it("isolates the same email, sessions, refresh, suspension and sign-out", async () => {
+        const requiredVariable = (name: string): string => {
+          const value = process.env[name];
+          if (!value) {
+            throw new Error(`Missing tenant-pair live-test setting: ${name}.`);
+          }
+          return value;
+        };
+        const requiredVariables = [
+          "NEXT_PUBLIC_SUPABASE_URL",
+          "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+          "SUPABASE_SERVICE_ROLE_KEY",
+          "LIVE_DATABASE_URL",
+          "LIVE_TEST_EMAIL",
+          "TENANT_TEST_SUPABASE_URL",
+          "TENANT_TEST_SUPABASE_PUBLISHABLE_KEY",
+          "TENANT_TEST_SUPABASE_SERVICE_ROLE_KEY",
+          "TENANT_TEST_DATABASE_URL",
+        ];
+        const missingVariables = requiredVariables.filter(
+          (name) => !process.env[name],
+        );
+        if (missingVariables.length > 0) {
+          throw new Error(
+            `Missing tenant-pair live-test settings: ${missingVariables.join(", ")}.`,
+          );
+        }
+
+        const projectAUrl = requiredVariable("NEXT_PUBLIC_SUPABASE_URL");
+        const projectAPublishableKey = requiredVariable(
+          "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+        );
+        const projectBUrl = requiredVariable("TENANT_TEST_SUPABASE_URL");
+        const projectBPublishableKey = requiredVariable(
+          "TENANT_TEST_SUPABASE_PUBLISHABLE_KEY",
+        );
+        const databaseUrlA = requiredVariable("LIVE_DATABASE_URL");
+        const databaseUrlB = requiredVariable("TENANT_TEST_DATABASE_URL");
+        const projectARef = new URL(projectAUrl).hostname.replace(
+          /\.supabase\.co$/u,
+          "",
+        );
+        const projectBRef = new URL(projectBUrl).hostname.replace(
+          /\.supabase\.co$/u,
+          "",
+        );
+        if (
+          projectARef !== "nycbbzgsilnxrgkwlwno" ||
+          projectBRef !== "hnqajjjemqepxuoqbsqx"
+        ) {
+          throw new Error(
+            "Tenant-pair live tests are restricted to the two approved disposable Supabase projects.",
+          );
+        }
+        for (const { databaseUrl, projectRef } of [
+          { databaseUrl: databaseUrlA, projectRef: projectARef },
+          { databaseUrl: databaseUrlB, projectRef: projectBRef },
+        ]) {
+          const parsed = new URL(databaseUrl);
+          const username = decodeURIComponent(parsed.username);
+          if (
+            !parsed.hostname.includes(projectRef) &&
+            !username.endsWith(`.${projectRef}`)
+          ) {
+            throw new Error(
+              "Tenant-pair live-test database URL does not match its approved Supabase project.",
+            );
+          }
+        }
+
+        const adminA = adminClient();
+        const adminB = tenantTestAdminClient();
+        const clientA = publicClient();
+        const clientB = tenantTestPublicClient();
+        const email = liveEmail();
+        const tenantA = {
+          ...testTenantContext,
+          tenantId: "tenant-a-live",
+          projectUrl: projectAUrl,
+          publishableKey: projectAPublishableKey,
+        };
+        const tenantB = {
+          ...testTenantContext,
+          tenantId: "tenant-b-live",
+          projectUrl: projectBUrl,
+          publishableKey: projectBPublishableKey,
+        };
+
+        const [profileA, profileB] = await Promise.all([
+          provisionAccount(adminA, {
+            email,
+            representativeName: "Tenant A Tester",
+            isAdmin: false,
+            actorProfileId: null,
+          }),
+          provisionAccount(adminB, {
+            email,
+            representativeName: "Tenant B Tester",
+            isAdmin: false,
+            actorProfileId: null,
+          }),
+        ]);
+        // Residents must represent a household before they can be enabled.
+        const addHousehold = (profileId: string, databaseUrl: string) =>
+          withSql(
+            (sql) =>
+              sql.query(
+                `insert into public.households (identifier, identifier_normalized, representative_profile_id, is_eligible)
+                 values ($1, app_private.normalize_key($1), $2, true)`,
+                [`L-${profileId.slice(0, 8)}`, profileId],
+              ),
+            databaseUrl,
+          );
+        await Promise.all([
+          addHousehold(profileA.accountId, databaseUrlA),
+          addHousehold(profileB.accountId, databaseUrlB),
+        ]);
+        await Promise.all([
+          enableAccount(adminA, profileA.accountId, null),
+          enableAccount(adminB, profileB.accountId, null),
+        ]);
+
+        expect(profileA.accountId).not.toBe(profileB.accountId);
+        expect(await authUserExists(adminA, email)).toBe(true);
+        expect(await authUserExists(adminB, email)).toBe(true);
+
+        const [profileAInB, profileBInA] = await Promise.all([
+          withSql(
+            (sql) =>
+              sql.query("select id from public.profiles where id = $1", [
+                profileA.accountId,
+              ]),
+            databaseUrlB,
+          ),
+          withSql(
+            (sql) =>
+              sql.query("select id from public.profiles where id = $1", [
+                profileB.accountId,
+              ]),
+            databaseUrlA,
+          ),
+        ]);
+        expect(profileAInB.rowCount).toBe(0);
+        expect(profileBInA.rowCount).toBe(0);
+
+        const [codeA, codeB] = await Promise.all([
+          emailOtp(adminA, email),
+          emailOtp(adminB, email),
+        ]);
+        const [accountA, accountB] = await Promise.all([
+          verifyCode(
+            { tenant: tenantA, client: clientA, admin: adminA },
+            email,
+            codeA,
+          ),
+          verifyCode(
+            { tenant: tenantB, client: clientB, admin: adminB },
+            email,
+            codeB,
+          ),
+        ]);
+        expect(accountA.id).toBe(profileA.accountId);
+        expect(accountB.id).toBe(profileB.accountId);
+
+        const [refreshedA, refreshedB] = await Promise.all([
+          clientA.auth.refreshSession(),
+          clientB.auth.refreshSession(),
+        ]);
+        expect(refreshedA.error).toBeNull();
+        expect(refreshedB.error).toBeNull();
+        expect(await getVerifiedUserId(clientA)).toBe(accountA.id);
+        expect(await getVerifiedUserId(clientB)).toBe(accountB.id);
+
+        const sessionA = refreshedA.data.session;
+        expect(sessionA).not.toBeNull();
+        if (!sessionA)
+          throw new Error("Project A did not return a refreshed session.");
+
+        const crossTenantClient = tenantTestPublicClient();
+        const crossTenantSession = await crossTenantClient.auth.setSession({
+          access_token: sessionA.access_token,
+          refresh_token: sessionA.refresh_token,
+        });
+        const crossTenantUser = crossTenantSession.error
+          ? null
+          : await crossTenantClient.auth.getUser();
+        expect(
+          crossTenantSession.error ?? crossTenantUser?.error,
+        ).not.toBeNull();
+
+        await withSql(
+          (sql) =>
+            sql.query(
+              "update public.profiles set status = 'SUSPENDED' where id = $1",
+              [accountA.id],
+            ),
+          databaseUrlA,
+        );
+        expect(await loadEnabledAccount(clientA, accountA.id)).toBeNull();
+        expect(await loadEnabledAccount(clientB, accountB.id)).toMatchObject({
+          isAdmin: false,
+        });
+        await withSql(
+          (sql) =>
+            sql.query(
+              "update public.profiles set status = 'ENABLED' where id = $1",
+              [accountA.id],
+            ),
+          databaseUrlA,
+        );
+
+        await signOut({ client: clientA });
+        expect(await getVerifiedUserId(clientA)).toBeNull();
+        expect(await getVerifiedUserId(clientB)).toBe(accountB.id);
+        await signOut({ client: clientB });
+      });
+    },
+  );
 });

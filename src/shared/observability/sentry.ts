@@ -92,6 +92,15 @@ export function scrubEvent<T extends Event>(event: T): T {
   if (scrubbed.message) {
     scrubbed.message = redactText(scrubbed.message);
   }
+  // Tags are app-set identifiers, but are masked too in case one ever carries text.
+  if (scrubbed.tags) {
+    scrubbed.tags = Object.fromEntries(
+      Object.entries(scrubbed.tags).map(([key, value]) => [
+        key,
+        typeof value === "string" ? redactText(value) : value,
+      ]),
+    );
+  }
   if (scrubbed.transaction) {
     scrubbed.transaction = stripUrlQuery(scrubbed.transaction);
   }

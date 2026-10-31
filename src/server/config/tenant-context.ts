@@ -21,7 +21,9 @@ export interface TenantContext {
 }
 
 function invalidHost(): never {
-  throw new ApiError("NOT_FOUND");
+  throw new ApiError("NOT_FOUND", {
+    cause: { source: "tenant_config", code: "UNKNOWN_HOST" },
+  });
 }
 
 function parseHost(
@@ -110,7 +112,9 @@ export function serviceRoleKeyIsValid(value: string): boolean {
 
 function activeContext(entry: TenantDirectoryEntry): TenantContext {
   if (entry.state !== "active") {
-    throw new ApiError("DEPENDENCY_UNAVAILABLE");
+    throw new ApiError("DEPENDENCY_UNAVAILABLE", {
+      cause: { source: "tenant_config", code: "TENANT_NOT_ACTIVE" },
+    });
   }
   if (entry.kind === "main") {
     return Object.freeze({
@@ -145,7 +149,9 @@ function resolveDirectoryHost(
   const { hostname } = parseHost(hostHeader, false);
   const directory = parseTenantDirectory(serialized);
   if (directory.invalidHosts.includes(hostname)) {
-    throw new ApiError("DEPENDENCY_UNAVAILABLE");
+    throw new ApiError("DEPENDENCY_UNAVAILABLE", {
+      cause: { source: "tenant_config", code: "DIRECTORY_ENTRY_INVALID" },
+    });
   }
   const entry = directory.entries.find(
     (candidate) => candidate.host === hostname,
@@ -163,7 +169,16 @@ function resolveDirectoryHost(
     !context.publishableKey ||
     !publicKeyIsSafe(context.publishableKey)
   ) {
-    throw new ApiError("DEPENDENCY_UNAVAILABLE");
+    throw new ApiError("DEPENDENCY_UNAVAILABLE", {
+      cause: {
+        source: "tenant_config",
+        code: !key
+          ? "SERVICE_KEY_MISSING"
+          : !serviceRoleKeyIsValid(key)
+            ? "SERVICE_KEY_INVALID"
+            : "PUBLIC_CONFIG_INVALID",
+      },
+    });
   }
   return context;
 }
@@ -172,23 +187,24 @@ function resolveDirectoryHost(
  * Vercel Preview deployments get a new URL per deploy, so single-tenant mode
  * also accepts that deployment's own system-provided hosts, but only when Vercel
  * reports a Preview runtime. Production and directory mode stay exact-host only.
- * canonicalOrigin remains APP_ORIGIN, so browser mutations on these hosts still
- * fail the same-origin check unless APP_ORIGIN is set to that host.
+ * The deployment URL becomes the preview's canonical origin, so mutations
+ * remain same-origin without treating arbitrary Host values as authority.
  */
-function previewDeploymentHosts(
+function previewDeploymentOrigins(
   source: Readonly<Record<string, string | undefined>>,
-): ReadonlySet<string> {
-  const hosts = new Set<string>();
-  if (source.VERCEL_ENV !== "preview") return hosts;
+): ReadonlyMap<string, string> {
+  const origins = new Map<string, string>();
+  if (source.VERCEL_ENV !== "preview") return origins;
   for (const value of [source.VERCEL_URL, source.VERCEL_BRANCH_URL]) {
     if (!value) continue;
     try {
-      hosts.add(parseHost(value, false).authority);
+      const { authority } = parseHost(value, false);
+      origins.set(authority, `https://${authority}`);
     } catch {
       // A malformed system value simply allows nothing extra.
     }
   }
-  return hosts;
+  return origins;
 }
 
 export function resolveTenantContext(
@@ -207,7 +223,8 @@ export function resolveTenantContext(
   const { authority, hostname } = parseHost(hostHeader, true, false);
   const configuredOrigin = new URL(environment.APP_ORIGIN);
   const isConfiguredHost = authority === configuredOrigin.host.toLowerCase();
-  if (!isConfiguredHost && !previewDeploymentHosts(source).has(authority)) {
+  const previewOrigin = previewDeploymentOrigins(source).get(authority);
+  if (!isConfiguredHost && !previewOrigin) {
     return invalidHost();
   }
 
@@ -217,7 +234,9 @@ export function resolveTenantContext(
     hostname: isConfiguredHost
       ? configuredOrigin.hostname.toLowerCase()
       : hostname,
-    canonicalOrigin: environment.APP_ORIGIN,
+    canonicalOrigin: isConfiguredHost
+      ? environment.APP_ORIGIN
+      : (previewOrigin ?? environment.APP_ORIGIN),
     state: "active",
     projectUrl: environment.NEXT_PUBLIC_SUPABASE_URL,
     publishableKey: environment.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,

@@ -75,7 +75,12 @@ export function ErrorSummary({
         ) : null}
         {failure.requestId ? (
           <p className="text-caption text-muted">
-            Support ID: {failure.requestId}
+            Error ID:{" "}
+            <span className="font-mono font-semibold text-primary select-all">
+              {failure.requestId}
+            </span>
+            . If this keeps happening, share this ID with your RWA
+            administrator.
           </p>
         ) : null}
       </div>
