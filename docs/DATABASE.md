@@ -686,7 +686,7 @@ No runtime routine returns active PRIVATE candidate/NOTA counters; completed PRI
 - **One lock order everywhere:** vote, then the selected households (by id), then their profiles (by id), then settings. Activation takes the register and settings under lock, re-runs the readiness checks, writes the frozen representative/household snapshot, initialises one zero counter per candidate plus one NOTA counter per office, freezes the RWA name, time zone and A1-A7 versions, and sets `ACTIVE` with its audit event in one transaction. A register or settings change waits for an in-flight activation, so a snapshot cannot tear.
 - **Deadlines belong to the database clock.** `complete_if_due` completes a vote whose deadline has passed, verifies the invariants first (a mismatch blocks completion and is logged, never exposing choices), and records the **deadline** as the completion time; the processing time is audit context only. `complete_due_votes` handles up to 50 due votes per run, each in its own subtransaction, so one failure never undoes the others and the result reports `{completed, blocked}`.
 - **Overdue actions.** Early completion or cancellation of a vote whose deadline has passed completes it at the deadline and *commits* that, then returns `{applied: false, reason: "DEADLINE_PASSED"}` (the API answers `409 LIFECYCLE_CONFLICT`). Raising instead would roll the reconciliation back. A repeat against a terminal vote raises `LIFECYCLE_CONFLICT` with the current state as DETAIL.
-- **Cron.** Migration `20261024130000` creates the non-login `cp_scheduler` role (it can execute `public.complete_due_votes()` and nothing else: no table access, no other routine) and, where `pg_cron` exists, schedules `set role cp_scheduler; select public.complete_due_votes()` every minute under the name `civic-pulse-complete-due-votes`. Where `pg_cron` is absent (a bare local PostgreSQL) scheduling is skipped with a notice; the deadline is still enforced by the database clock on every request. Verified on a hosted Supabase project: the job exists, runs each minute, and completes a due vote with the deadline as its completion time.
+- **Cron.** Migration `20261024130000` creates the non-login `cp_scheduler` role (at that point it could execute only `public.complete_due_votes()`: no table access, no other routine; migration `20261024160000` later also granted `public.run_maintenance()` for the daily `civic-pulse-maintenance` job) and, where `pg_cron` exists, schedules `set role cp_scheduler; select public.complete_due_votes()` every minute under the name `civic-pulse-complete-due-votes`. Where `pg_cron` is absent (a bare local PostgreSQL) scheduling is skipped with a notice; the deadline is still enforced by the database clock on every request. Verified on a hosted Supabase project: the job exists, runs each minute, and completes a due vote with the deadline as its completion time.
 
 **Deadline changes (migration `20261105100000`).** `change_vote_deadline(vote, closesAt, confirmed, reason)` is an administrator-session routine for `ACTIVE` votes of either type. It locks the vote (serializing with submissions, Cron and the other lifecycle routines), handles an overdue vote exactly like early completion/cancellation (completes at the deadline, commits, returns `{applied: false, reason: "DEADLINE_PASSED"}`), and otherwise requires the new deadline to be at least 5 minutes after the database clock (`VALIDATION_FAILED`, DETAIL `DEADLINE_TOO_SOON`) and different from the current one (DETAIL `DEADLINE_UNCHANGED`). There is no upper bound or change count. The reason is cleaned like other lifecycle reasons and stored only in the `VOTE_DEADLINE_CHANGED` audit event with `{previousClosesAt, closesAt, direction}`. `guard_vote_update` is recreated so an active vote's `closes_at` may change only under the routine's `cp.deadline_change` transaction flag and only while the vote stays `ACTIVE`; every other frozen column, and any terminal vote, stays immutable. Admission, live results, reconciliation and `complete_due_votes` read `closes_at` afresh, so they follow the new deadline without other changes.
 **Retention, monitoring and the health ping (migration `20261024160000`).**
@@ -799,6 +799,222 @@ Use server-only privileged Auth credentials solely for provisioning/administrati
 ### Local/test/staging fixtures
 
 Use synthetic identities and a local mail sink or approved staging recipients only. Cover both voting types, incomplete drafts, activated frozen electorates, suspension/reassignment, zero turnout, all-NOTA ballots, NOTA counts exceeding candidate counts, ties, cancellation, and long/multiscript report content. Construct accepted fixture submissions through the same protected submission path. Use separate databases/credentials per environment; never copy production registers or backups into development.
+
+### Where each database object is defined
+
+This map is generated from the 44 files in `supabase/migrations` and was checked on 31 October 2026 against both
+hosted synthetic projects (see the [schema health check](../supabase/README.md#schema-health-check-31-october-2026)).
+**Created** is the migration that first added the object; **Current definition** is the latest migration that
+replaced it, so read that file for today's behavior. Routines are grouped by the same areas as the
+[migration list](../supabase/README.md#migrations), using the area of the migration that created them. When adding a
+migration, update this map in the same change.
+
+**Called by:**
+
+- **App**: the Next.js server, with the signed-in user's session (`callRoutine` in `src/server`).
+- **Server key**: only the server-side `service_role` key may run it (provisioning, self-registration, rate limits,
+  health and status, App Support Access).
+- **Ops CLI**: `npm run ops` commands in `scripts/ops` (status, backup checks, configuration checks, demo reset).
+- **Cron**: the scheduled jobs, through the `cp_scheduler` role.
+- **Operator (deployment)**: run manually by the migration role during setup; see
+  [deployment procedures](../supabase/README.md#deployment-procedures-run-as-the-migration-role-never-exposed-over-the-api).
+- **Trigger**: runs automatically when a table row changes, to block unsafe writes or check invariants.
+- **Internal** / **Internal / RLS**: called only by other routines or by row-level security policies.
+
+Some callers are indirect, so check them by hand before calling any routine unused: the app passes some routine
+names through a helper (for example `import_register_household` in `src/server/register/import.ts`), Cron routines
+are named only inside `cron.schedule` job text, and operator routines are run by hand from the deployment procedures.
+
+#### Foundation and security
+
+| Routine | Created | Current definition | Called by |
+| --- | --- | --- | --- |
+| `app_private.append_audit` | `20261024100300` | `20261024100300` | Internal |
+| `app_private.assert_policy_ready` | `20261024100300` | `20261024100300` | Internal |
+| `app_private.assert_structurally_activatable` | `20261024100100` | `20261103100000` | Internal |
+| `app_private.can_view_office` | `20261024100100` | `20261107100000` | Internal |
+| `app_private.can_view_vote` | `20261024100100` | `20261024100100` | Internal |
+| `app_private.check_vote_invariants` | `20261024100100` | `20261027100000` | Trigger |
+| `app_private.check_vote_invariants_on_vote` | `20261024100100` | `20261024100100` | Trigger |
+| `app_private.current_uid` | `20261024100000` | `20261024100000` | Internal |
+| `app_private.deployment_bootstrap_admin` | `20261024100300` | `20261024100300` | Operator (deployment) |
+| `app_private.deployment_initialize_settings` | `20261024100300` | `20261031100000` | Operator (deployment) |
+| `app_private.deployment_invalidate_policy_approval` | `20261024100300` | `20261024100300` | Operator (deployment) |
+| `app_private.deployment_record_policy_approval` | `20261024100300` | `20261024100300` | Operator (deployment) |
+| `app_private.deployment_set_retention` | `20261024100300` | `20261024100300` | Operator (deployment) |
+| `app_private.flag_is_on` | `20261024100100` | `20261024100100` | Internal |
+| `app_private.forbid_mutation` | `20261024100100` | `20261024100100` | Trigger |
+| `app_private.guard_ballot_config` | `20261024100100` | `20261103100000` | Trigger |
+| `app_private.guard_closed_tally` | `20261024100100` | `20261103100000` | Trigger |
+| `app_private.guard_electorate` | `20261024100100` | `20261024160000` | Trigger |
+| `app_private.guard_open_response` | `20261024100100` | `20261103100000` | Trigger |
+| `app_private.guard_participation` | `20261024100100` | `20261024160000` | Trigger |
+| `app_private.guard_profile` | `20261024100100` | `20261024100100` | Trigger |
+| `app_private.guard_vote_delete` | `20261024100100` | `20261122100000` | Trigger |
+| `app_private.guard_vote_insert` | `20261024100100` | `20261024100100` | Trigger |
+| `app_private.guard_vote_update` | `20261024100100` | `20261121100000` | Trigger |
+| `app_private.has_entitlement` | `20261024100100` | `20261024100100` | Internal |
+| `app_private.is_enabled_admin` | `20261024100100` | `20261024100100` | Internal |
+| `app_private.is_enabled_member` | `20261024100100` | `20261024100100` | Internal |
+| `app_private.is_valid_timezone` | `20261024100000` | `20261024100000` | Ops CLI |
+| `app_private.jwt_claims` | `20261024100000` | `20261024100000` | Internal |
+| `app_private.lock_vote` | `20261024100100` | `20261024100100` | Internal |
+| `app_private.normalize_key` | `20261024100000` | `20261024100000` | Ops CLI |
+| `app_private.owns_participation` | `20261024100100` | `20261024100100` | Internal |
+| `app_private.require_enabled_admin` | `20261024100100` | `20261024100100` | Internal |
+| `app_private.require_enabled_member` | `20261024100100` | `20261024100100` | Internal |
+| `app_private.require_service_role` | `20261024100300` | `20261024100300` | Internal |
+| `app_private.resolve_actor` | `20261024100300` | `20261024100300` | Internal |
+| `app_private.touch_updated_at` | `20261024100100` | `20261024100100` | Trigger |
+| `app_private.verify_vote_invariants` | `20261024100100` | `20261103100000` | Ops CLI |
+| `public.consume_rate_limit` | `20261024100400` | `20261024100400` | Server key |
+| `public.enable_profile` | `20261024100300` | `20261024100300` | Server key, Ops CLI |
+| `public.provision_profile` | `20261024100300` | `20261108100000` | Server key, Ops CLI |
+
+#### Vote drafts, lifecycle and ballots
+
+| Routine | Created | Current definition | Called by |
+| --- | --- | --- | --- |
+| `app_private.apply_electorate` | `20261024120000` | `20261024120000` | Internal |
+| `app_private.apply_offices` | `20261024120000` | `20261024120000` | Internal |
+| `app_private.apply_options` | `20261024120000` | `20261024120000` | Internal |
+| `app_private.assert_keys` | `20261024120000` | `20261024120000` | Internal |
+| `app_private.blocker` | `20261024120000` | `20261024120000` | Internal |
+| `app_private.can_view_ballot` | `20261107100000` | `20261107100000` | Internal |
+| `app_private.cast_open_vote_multiple` | `20261027100000` | `20261103100000` | Internal |
+| `app_private.cast_vote_single_selection` | `20261027100000` | `20261103100000` | Internal |
+| `app_private.clean_label` | `20261024120000` | `20261024120000` | Internal |
+| `app_private.clean_multiline` | `20261024120000` | `20261024120000` | Internal |
+| `app_private.complete_if_due` | `20261024130000` | `20261024130000` | Internal |
+| `app_private.draft_blockers` | `20261024120000` | `20261103100000` | Ops CLI |
+| `app_private.end_active_vote` | `20261024130000` | `20261024130000` | Internal |
+| `app_private.freeze_vote` | `20261107100000` | `20261121100000` | Internal |
+| `app_private.json_position` | `20261024120000` | `20261024120000` | Internal |
+| `app_private.json_text` | `20261024120000` | `20261024120000` | Internal |
+| `app_private.json_uuid` | `20261024120000` | `20261024120000` | Internal |
+| `app_private.open_if_due` | `20261107100000` | `20261107100000` | Internal |
+| `app_private.vote_detail_json` | `20261024120000` | `20261121100000` | Internal |
+| `public.activate_vote` | `20261024130000` | `20261107100000` | App, Ops CLI |
+| `public.cancel_vote` | `20261024130000` | `20261024130000` | App, Ops CLI |
+| `public.cast_vote` | `20261024140000` | `20261107100000` | App, Ops CLI |
+| `public.change_vote_deadline` | `20261105100000` | `20261105100000` | App |
+| `public.complete_due_votes` | `20261024130000` | `20261107100000` | Cron |
+| `public.complete_vote_early` | `20261024130000` | `20261024130000` | App, Ops CLI |
+| `public.create_draft` | `20261024120000` | `20261103100000` | App, Ops CLI |
+| `public.delete_draft` | `20261122100000` | `20261122100000` | App |
+| `public.get_admin_vote` | `20261024120000` | `20261107100000` | App |
+| `public.get_my_participation` | `20261024140000` | `20261024140000` | App |
+| `public.get_rwa_display` | `20261024120000` | `20261101100000` | App |
+| `public.preview_draft` | `20261024120000` | `20261024120000` | App |
+| `public.reconcile_vote` | `20261024130000` | `20261024130000` | Server key |
+| `public.schedule_vote` | `20261107100000` | `20261107100000` | App, Ops CLI |
+| `public.update_draft` | `20261024120000` | `20261121110000` | App, Ops CLI |
+| `public.withdraw_vote_schedule` | `20261107100000` | `20261107100000` | App |
+
+#### Results and privacy
+
+| Routine | Created | Current definition | Called by |
+| --- | --- | --- | --- |
+| `app_private.member_vote_json` | `20261024150000` | `20261107100000` | Internal |
+| `public.get_member_vote` | `20261024150000` | `20261107100000` | App |
+| `public.get_vote_participation` | `20261024150000` | `20261024150000` | App |
+| `public.get_vote_results` | `20261024150000` | `20261103100000` | App |
+| `public.list_audit_events` | `20261024150000` | `20261118100000` | App |
+| `public.list_member_votes` | `20261024150000` | `20261107100000` | App |
+
+#### RWA settings and branding
+
+| Routine | Created | Current definition | Called by |
+| --- | --- | --- | --- |
+| `app_private.is_valid_settings_list` | `20261104100000` | `20261104100000` | Ops CLI |
+| `public.get_public_rwa_identity` | `20261101100000` | `20261103110000` | Server key |
+| `public.get_rwa_branding` | `20261101100000` | `20261103110000` | App |
+| `public.get_rwa_profile` | `20261031100000` | `20261104100000` | App |
+| `public.update_rwa_profile` | `20261031100000` | `20261104100000` | App, Ops CLI |
+
+#### Residents, accounts and roles
+
+| Routine | Created | Current definition | Called by |
+| --- | --- | --- | --- |
+| `app_private.assert_assignable_profile` | `20261024110000` | `20261024110000` | Internal |
+| `app_private.clean_text` | `20261024110000` | `20261024110000` | Internal |
+| `app_private.household_json` | `20261024110000` | `20261024110000` | Internal |
+| `app_private.is_enabled_committee` | `20261108100000` | `20261108100000` | Internal |
+| `app_private.profile_json` | `20261024110000` | `20261108100000` | Internal |
+| `app_private.require_enabled_committee` | `20261108100000` | `20261108100000` | Internal |
+| `public.check_register_import` | `20261106100000` | `20261108100000` | App |
+| `public.create_household` | `20261024110000` | `20261024110000` | App |
+| `public.get_enabled_rwa_admin_names` | `20261123100000` | `20261123100000` | App |
+| `public.get_self_registration_households` | `20261109100000` | `20261109100000` | Server key |
+| `public.import_register_household` | `20261106100000` | `20261106100000` | App |
+| `public.normalize_household_identifier` | `20261024110000` | `20261024110000` | App |
+| `public.provision_profile_with_household` | `20261110100000` | `20261110100000` | Server key |
+| `public.self_register_resident` | `20261109100000` | `20261109100000` | Server key |
+| `public.update_household` | `20261024110000` | `20261024110000` | App |
+| `public.update_profile` | `20261024110000` | `20261108100000` | App |
+
+#### Admin tables, search and pagination
+
+| Routine | Created | Current definition | Called by |
+| --- | --- | --- | --- |
+| `public.get_admin_vote_table_page` | `20261119100000` | `20261120100000` | App |
+| `public.get_audit_list_page` | `20261118100000` | `20261118100000` | App |
+| `public.get_list_page` | `20261114100000` | `20261114100000` | App |
+| `public.get_resident_table_page` | `20261115100000` | `20261117100000` | App |
+
+#### Operations and support access
+
+| Routine | Created | Current definition | Called by |
+| --- | --- | --- | --- |
+| `app_private.guard_app_support_household` | `20261112100000` | `20261112100000` | Trigger |
+| `app_private.guard_app_support_profile` | `20261112100000` | `20261112100000` | Trigger |
+| `app_private.guard_audit_delete` | `20261024160000` | `20261024160000` | Trigger |
+| `app_private.purge_expired_vote` | `20261024160000` | `20261024160000` | Internal |
+| `app_private.retention_delete_allowed` | `20261024160000` | `20261024160000` | Internal |
+| `app_private.vote_retention_expired` | `20261024160000` | `20261024160000` | Internal |
+| `public.health_ping` | `20261024160000` | `20261024160000` | Server key |
+| `public.operational_status` | `20261024160000` | `20261024160000` | Server key, Ops CLI |
+| `public.run_maintenance` | `20261024160000` | `20261024160000` | Cron |
+| `public.set_app_support_access` | `20261112100000` | `20261112100000` | Server key |
+
+#### Superseded layers still in use
+
+A later migration renamed these definitions (moving public ones into `app_private`, so clients cannot call them directly) and added a new routine with the original name that calls the old one. They are live code, not leftovers.
+
+| Original name | Now | Renamed in |
+| --- | --- | --- |
+| `app_private.vote_detail_json` | `app_private.vote_detail_json_base` | `20261027100000` |
+| `app_private.member_vote_json` | `app_private.member_vote_json_base` | `20261027100000` |
+| `public.cast_vote` | `app_private.cast_vote_single_selection` | `20261027100000` |
+| `app_private.vote_detail_json` | `app_private.vote_detail_json_before_scheduling` | `20261107100000` |
+| `app_private.member_vote_json` | `app_private.member_vote_json_before_scheduling` | `20261107100000` |
+| `public.cast_vote` | `app_private.cast_vote_before_scheduling` | `20261107100000` |
+| `public.get_member_vote` | `app_private.get_member_vote_before_scheduling` | `20261107100000` |
+| `public.get_admin_vote` | `app_private.get_admin_vote_before_scheduling` | `20261107100000` |
+| `public.complete_due_votes` | `app_private.complete_due_votes_before_scheduling` | `20261107100000` |
+
+#### Tables, view, roles and scheduled jobs
+
+| Object | Kind | Created | Later changed by |
+| --- | --- | --- | --- |
+| `public.profiles` | Table | `20261024100000` | `20261024100200`, `20261108100000`, `20261109100000`, `20261112100000` |
+| `public.rwa_settings` | Table | `20261024100000` | `20261024100200`, `20261030100000`, `20261031100000`, `20261101100000`, `20261102100000`, `20261103110000`, `20261104100000`, `20261124100000` |
+| `public.households` | Table | `20261024100000` | `20261024100200` |
+| `public.votes` | Table | `20261024100000` | `20261024100200`, `20261027100000`, `20261103100000`, `20261107100000`, `20261121100000` |
+| `public.offices` | Table | `20261024100000` | `20261024100200`, `20261024120000` |
+| `public.candidates` | Table | `20261024100000` | `20261024100200`, `20261024120000` |
+| `public.poll_options` | Table | `20261024100000` | `20261024100200`, `20261024120000` |
+| `public.electorate` | Table | `20261024100000` | `20261024100200` |
+| `public.participation` | Table | `20261024100000` | `20261024100200` |
+| `public.open_responses` | Table | `20261024100000` | `20261024100200`, `20261027100000` |
+| `public.closed_tallies` | Table | `20261024100000` | `20261024100200` |
+| `public.audit_events` | Table | `20261024100000` | `20261024100200`, `20261030100000`, `20261031100000`, `20261105100000`, `20261107100000`, `20261109100000`, `20261112100000`, `20261122100000` |
+| `public.rate_limit_buckets` | Table | `20261024100000` | `20261024100200` |
+| `cp_owner` | Role | `20261024100000` | — |
+| `cp_scheduler` | Role | `20261024130000` | — |
+| `civic-pulse-complete-due-votes` | Cron job | `20261024130000` | — |
+| `civic-pulse-maintenance` | Cron job | `20261024160000` | — |
+| `public.resident_directory` | View | `20261111100000` | — |
 
 ## 10. Retention, backup, and recovery
 
