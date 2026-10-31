@@ -250,12 +250,14 @@ Product website, demo and provisioning map (S05-S07):
 - `src/shared/host-routes.ts`: which paths the main host serves (website pages, `robots.txt`, `sitemap.xml`, health) and which email-sending routes the shared, writable demo host refuses.
 - `src/proxy.ts` rewrites main-host pages to `src/app/site/{page,contact/page,privacy/page}.tsx`; `src/server/http/route.ts` (`enforceHostKind`) answers main-host APIs `NOT_FOUND` and demo email routes `DEMO_EMAIL_DISABLED` before any handler runs.
 - `src/server/site/main-host.ts`, `src/server/site/discovery.ts`, `src/components/site/{main-shell,demo-banner}.tsx`: main-site links, host-aware robots/sitemap/metadata, the product shell (no session or RWA data) and the demo banner. `src/app/app-shell.tsx` chooses the shell by host kind; `src/app/not-found.tsx` is host-aware.
+- `src/app/site/page.tsx`: server-rendered editorial product homepage, with Features/Pricing/How it works/Demo sections and an explicitly fictional completed PUBLIC poll illustration. `src/styles/globals.css` scopes its premium styling and the main shell's 1280px container to product-site data attributes; resident/admin shells and backend permissions are unchanged. Demo actions still derive from the active directory entry, falling back to a contact walkthrough when absent.
 - `src/shared/demo.ts`, `src/server/demo/session.ts`, `src/app/api/demo/session/route.ts`, `src/components/demo/demo-persona-sign-in.tsx`: one-click persona sign-in on the demo host (password derived from the demo service-role key, never sent to the browser and self-repaired after a reset, so simultaneous visitors do not cancel each other; global rate limit).
 - `scripts/ops/supabase-project.ts`: shared guard that every credential points at the one confirmed project, plus service-role and Auth-lookup helpers.
 - `scripts/ops/demo.ts`: `npm run ops -- demo-reset` (shortcut `npm run demo:reset`), which erases and reseeds the marked demo project only.
 - `scripts/test/live.mjs`: `npm run test:live` wrapper. Runs the live Vitest suites, then `npm run demo:reset` whenever the cross-customer paired test (which uses the demo as project B) could have run.
 - `scripts/ops/provision.ts`: `npm run ops -- provision`, which prepares one fresh customer project step by step (migrations, settings, Auth, first administrator) and prints its directory entry.
 - Tests: `tests/unit/{host-routes,demo-session,ops-demo,ops-provision}.test.ts`; hosted `tests/e2e/site-demo-live.spec.ts` (`SITE_DEMO_HTTP_TEST=1`).
+- `tests/e2e/site-home.spec.ts`: read-only homepage links, configured/missing demo, fictional preview, keyboard/appearance persistence, 320-1440px reflow, 200% text and axe checks. Opt in with `SITE_HOME_HTTP_TEST=1`, `SITE_HTTP_MAIN_ORIGIN`, and optionally `SITE_HTTP_DEMO_ORIGIN`; no demo sign-in or database writes.
 
 Register import and scheduling implementation map:
 

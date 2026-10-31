@@ -16,9 +16,11 @@ resolution/configuration design is specified, including Vercel's shared-secret
 limits. S03 adds locally tested, request-scoped tenant routing behind
 `TENANT_ROUTING_ENABLED`, which defaults to false. No directory, tenant secrets
 or customer hosts are configured on staging. A separate retained Vercel test
-project serves the product website (`site.`), the synthetic demo (`demo.`) and
-one synthetic customer (`tenant-a.`) on placeholder `arp-civic-pulse.vercel.app`
-hosts; the actual domain is unconfirmed and the pilot cap is 10 customer RWAs.
+project serves the [product website](https://arp-civic-pulse.vercel.app), the
+synthetic demo (`demo.`) and one synthetic customer (`tenant-a.`) on placeholder
+`arp-civic-pulse.vercel.app` hosts. The former `site.` host redirects to the
+bare product-site domain; the actual domain is unconfirmed and the pilot cap
+is 10 customer RWAs.
 S03-S07 are complete on that test project: `npm run ops -- provision` was
 verified on two fresh temporary projects (since deleted); each customer still
 needs custom SMTP before activation. S08 is in progress with an upgrade-path
@@ -254,8 +256,9 @@ tests/integration/migration-upgrade.test.ts
                    Upgrade-path regression from the previous reviewed migration baseline
 src/app/user-guide Native public index and Resident/RWA Admin guide pages
 src/app/tech-guide Unlisted public developer reference
-src/app/site       Main-host product website pages (proxy rewrites the main host here)
-src/components/site Product website shell and the demo banner
+src/app/site       Main-host editorial product homepage, contact and privacy (host rewrites)
+src/components/site Product website shell (centered 1280px container) and the demo banner
+tests/e2e/site-home.spec.ts Opt-in read-only homepage accessibility, reflow and navigation checks
 src/server/demo    Demo persona sign-in (session.ts)
 scripts/ops        Operator CLI: backups, migration-status, demo-reset (demo.ts), provision (provision.ts)
 src/components/guides Native content, contents navigation, screenshots and diagrams

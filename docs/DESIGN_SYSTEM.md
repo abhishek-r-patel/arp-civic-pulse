@@ -35,6 +35,40 @@ documented rules, implemented rollout, verification and user approval distinct.
 - Design administration as carefully for phones as the resident journey.
 - Use restrained surfaces, borders and whitespace rather than decorative charts, gradients, nested cards or motion-heavy effects.
 
+### Public product website
+
+The main-host homepage has a screen-specific editorial treatment in response
+to the modern, luxurious homepage brief. It retains Platinum/Obsidian tokens,
+self-hosted Sora/Manrope, the Open Conversation mark and the existing appearance
+menu. This is not a new theme or a rollout to resident/admin voting screens.
+
+- Main-host header, content and footer share a centered 1280px container with
+  16px phone/32px tablet and desktop gutters. Contact/privacy retain their inner
+  readable form/article widths. RWA screens keep the full-width shell.
+- The homepage alone uses a responsive 40-72px display, 28-44px section titles,
+  tighter heading tracking, 16px feature-card corners and 32px showcase corners.
+  Body text and controls keep their existing accessible sizes and 48px targets.
+- Use generous section spacing, a split desktop hero, restrained token-derived
+  radial artwork behind the preview, six feature cards, three numbered workflow
+  steps, a tailored annual-plan section and a closing demo/contact invitation.
+  Stack naturally on phones; no fixed-height copy, motion or external imagery.
+- The preview is a non-interactive, explicitly fictional **completed PUBLIC**
+  poll, not live tenant data, a customer testimonial, or an active PRIVATE tally.
+  Its bars are decorative; sample counts and participation denominators remain
+  visible text. Privacy copy links to operator/inference limitations.
+- Preserve Features/Pricing anchors and all contact/privacy navigation. Demo
+  links appear only for an active configured demo; otherwise offer a contact
+  walkthrough and explain that the demo is being prepared. No invented prices,
+  adoption statistics, approvals or production-readiness claims.
+
+The implementation is scoped by `data-product-site`/`data-product-home` in
+`src/styles/globals.css`, with content in `src/app/site/page.tsx` and shared
+main-host navigation in `src/components/site/main-shell.tsx`. The public-site
+workflow is not illustrated in the native Resident/Admin guides; their screenshots
+and in-app instructions are unchanged. Automated browser coverage lives in
+`tests/e2e/site-home.spec.ts`; design implementation and local checks are not
+deployment verification or a user sign-off of the final visuals.
+
 ## 02 Colour Palette
 | Name | Hex | Use for |
 |----------------|---------|--------------------------------------------------------|

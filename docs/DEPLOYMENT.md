@@ -4,7 +4,7 @@
 
 This repository is **deployed to staging using Vercel's Production target, not real production or approved for real voting**. The architecture prefers Vercel for Next.js and Supabase PostgreSQL/Auth/Cron. The staging account is recorded below; no production Supabase project, production hosting plan, region, domain, budget or production ingress is approved by this configuration. No existing hosted project is assumed to be production.
 
-Do not promote a deployment or admit real residents until the open gates in [PILOT_READINESS.md](./PILOT_READINESS.md) are closed. The application now implements local per-RWA OTP IP budgets using Vercel's overwritten `X-Forwarded-For`; hosted spoof/burst verification, applying the newly configured staging setting in a deployment, and pilot threshold validation remain open. `TRUSTED_PROXY_CONFIG=vercel` is required in production, and Vercel system environment variables must be enabled so `VERCEL=1` is available. The application does not support an upstream proxy in front of Vercel. This guide does not grant approval of A1-A7, providers, regions, retention or recovery objectives.
+Do not promote a deployment or admit real residents until the open gates in [PILOT_READINESS.md](./PILOT_READINESS.md) are closed. The application now implements local per-RWA OTP IP budgets using Vercel's overwritten `X-Forwarded-For`; hosted spoof/burst verification and pilot threshold validation remain open. `TRUSTED_PROXY_CONFIG=vercel` is required in production, and Vercel system environment variables must be enabled so `VERCEL=1` is available. The application does not support an upstream proxy in front of Vercel. This guide does not grant approval of A1-A7, providers, regions, retention or recovery objectives.
 
 ### Tenant routing: disabled on staging; separate hosted test project
 
@@ -18,11 +18,30 @@ uses one `APP_ORIGIN` and one disposable Supabase project; no tenant directory,
 customer subdomains or tenant credentials are configured on it.
 
 **Hosted S04 test project (31 October 2026, retained).** With operator
-approval, a separate Hobby project, `arp-civic-pulse-tenant-test` in team
-`arp-civic-pulse`, serves synthetic hosts
-<https://tenant-a.arp-civic-pulse.vercel.app> and
-<https://tenant-b.arp-civic-pulse.vercel.app>. Both are subdomains of the
-team slug, so they are same-site, which makes them a realistic cookie test.
+approval, a separate Hobby project, `demo-arp-civic-pulse` (named
+`arp-civic-pulse-tenant-test` until it was renamed on 31 October 2026; project
+ID `prj_q5xGBRUH5542l8SLvJDU9spFBld1` unchanged) in team
+`arp-civic-pulse`, serves the public site at
+<https://arp-civic-pulse.vercel.app>, demo at
+<https://demo.arp-civic-pulse.vercel.app> and synthetic customer host
+<https://tenant-a.arp-civic-pulse.vercel.app>. The demo/customer hosts share
+the parent `arp-civic-pulse.vercel.app`, so they are same-site, which makes
+the customer host a realistic cookie test. The former
+`tenant-b.arp-civic-pulse.vercel.app` test host was detached
+from this project on 31 October 2026 after project B became the demo; it now
+returns 404.
+
+The main hostname changed from `site.arp-civic-pulse.vercel.app` to the bare
+`arp-civic-pulse.vercel.app` on 31 October 2026. The former host permanently
+redirects (308), preserving paths. The write-only directory was rebuilt from
+the documented mapping and existing local public project keys, with the new
+`main` host. Demo/customer IDs, backends and service-key references remain
+the same.
+Deployment `dpl_6XMtT429CQ8uE8nzABjzDbnPNcZA` is Ready, rebuilt from the prior
+demo/site deployment without uploading local changes. The new main-host
+journey passed on Chromium and WebKit; canonical metadata, sitemap and the
+demo's main-site link use the bare domain. No Supabase changes or data reset
+were performed.
 It has Production-only, sensitive variables:
 - `TENANT_ROUTING_ENABLED=true`
 - a two-entry `TENANT_DIRECTORY_JSON`, mapping host A to disposable project
@@ -38,9 +57,14 @@ deployed from the uncommitted local S04 working tree with
 the repository's staging `.vercel` link was untouched. `.vercelignore`
 excludes `.env*`, `.certs` and keys. Protection stays
 `all_except_custom_domains`: the tenant hosts are public, while the
-per-deployment URL redirects to Vercel SSO (302). The project's own default
-`arp-civic-pulse-tenant-test.vercel.app` host is not in the directory and
-returns the app's 404. Redeploy after any variable change.
+per-deployment URL redirects to Vercel SSO (302). The project's original
+default `arp-civic-pulse-tenant-test.vercel.app` host is still attached after
+the rename; it is not in the directory and returns the app's 404. The rename
+did not add `demo-arp-civic-pulse.vercel.app` automatically. It was added on
+31 October 2026 and configured to redirect (308) to the canonical demo host.
+The project Node.js setting was changed from 26.x to 24.x on 31 October to
+match `package.json` `engines`; deployments already built on 24.x. The old
+`tenant-b` domain was detached. Redeploy after any variable change.
 
 These hosted checks passed. The opt-in spec
 `tests/e2e/tenant-origin-live.spec.ts` ran with `TENANT_HTTP_REMOTE=1` against
@@ -83,14 +107,17 @@ Still open:
 - SMTP delivery for project B
 - production approvals
 
-**Product website and demo (S05/S06).** The tenant-test project's directory
-was then changed to three entries:
+**Product website and demo (S05/S06, original host setup).** The tenant-test
+project's directory was initially changed to three entries:
 - `site.arp-civic-pulse.vercel.app`: `main`, the product website with no RWA
   backend
 - `demo.arp-civic-pulse.vercel.app`: `demo`, project `hnqajjjemqepxuoqbsqx`
   (former project B), tenant `22222222-…`, reseeded with
   `npm run ops -- demo-reset` as the fictional "Green Meadows" association
 - `tenant-a.arp-civic-pulse.vercel.app`: `customer`, project A as before
+
+The main entry was later moved to `arp-civic-pulse.vercel.app`; `site.` now
+redirects there. See the current hosted-project record above.
 
 Both new hosts were added as Vercel project domains. `tenant-b` is no longer
 listed and returns 404, so the two-customer specs above
@@ -213,13 +240,22 @@ forward-only. No `--include-all` or migration-history rewrite was used.
   - The old origin, a wrong origin and spoofed `X-Forwarded-Host` are rejected
     with 403.
   - Per-deployment URLs still redirect to Vercel SSO.
-- Vercel project `arp-civic-pulse-staging` remains connected to `main` as its
-  Production branch, with `previewDeploymentsDisabled=true`. All eight
-  Preview-only environment entries were removed. The nine original Production
-  entries remain, alongside four Sentry entries and `TRUSTED_PROXY_CONFIG`
-  (14 Production entries total). `TRUSTED_PROXY_CONFIG=vercel` was added on
-  31 October 2026 after the latest deployment; no deployment has yet consumed
-  it. No credentials were transferred to a different project.
+- Vercel project `staging-arp-civic-pulse` (renamed from
+  `arp-civic-pulse-staging` on 31 October 2026; same project ID
+  `prj_83Fgo8WRN0SnSZnynUkvFm2kxjv7`, domains and settings) remains connected
+  to `main` as its Production branch, with `previewDeploymentsDisabled=true`.
+  The new `staging-arp-civic-pulse.vercel.app` project-name host was added on
+  31 October 2026 as a 308 redirect to the canonical staging host. The old
+  `arp-civic-pulse-staging.vercel.app` host is still attached and redirects.
+  All eight Preview-only environment entries were removed. The nine original
+  Production entries remain, alongside four Sentry entries and
+  `TRUSTED_PROXY_CONFIG` (14 Production entries total).
+  `TRUSTED_PROXY_CONFIG=vercel` was added on 31 October 2026 and first applied
+  by the automatic Git deployment of `9ff6ec6`
+  (`dpl_77LqZJAnv6NkVif4CfD79sxXnnJV`, Ready). After it, health returned `ok`
+  and a wrong-code verification returned 422 (`CODE_INVALID_OR_EXPIRED`)
+  instead of failing closed. Spoof/burst checks were not run. No credentials
+  were transferred to a different project.
 - 31 October 2026: Sentry settings were added to the same project for
   Production and Preview: `NEXT_PUBLIC_SENTRY_DSN` (public config),
   `SENTRY_ORG`, `SENTRY_PROJECT` and the operator-entered build-only
@@ -366,7 +402,7 @@ Configure these in the hosting environment manager, scoped separately to Product
 | `NEXT_PUBLIC_SUPABASE_URL` | Approved project's bare HTTPS API origin, not a database connection URL or `/rest/v1` URL. Public/build-time value. |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Same project's publishable key or legacy **anon** key. Public/build-time value, never a secret/service-role/user token. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Same project's server-only privileged credential, accessible only to the application runtime/build environment that requires it. Never prefix it with `NEXT_PUBLIC_`. |
-| `TENANT_ROUTING_ENABLED` | Optional host-based routing switch; defaults to `false`. Enabled only on the separate synthetic `arp-civic-pulse-tenant-test` project. Do not enable for staging or real hosts before the domain and remaining release gates are complete (pilot cap: 10 customers). |
+| `TENANT_ROUTING_ENABLED` | Optional host-based routing switch; defaults to `false`. Enabled only on the separate synthetic `demo-arp-civic-pulse` project (formerly `arp-civic-pulse-tenant-test`). Do not enable for staging or real hosts before the domain and remaining release gates are complete (pilot cap: 10 customers). |
 | `TENANT_DIRECTORY_JSON` | Required only when routing is enabled; version-1 exact-host directory with project origins and secret references, never secret values. |
 | `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` | One server-only privileged credential per immutable tenant UUID referenced by the directory; all remain accessible to shared function code. |
 | `RATE_LIMIT_HMAC_KEY` | Independent random production secret, at least 32 characters. Store in the approved secret manager; generate separately for each environment. |
@@ -376,7 +412,7 @@ Configure these in the hosting environment manager, scoped separately to Product
 | `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | Optional build-time source-map upload. The token is a non-revealable build secret; without it the build emits no source maps. |
 | `MAINTENANCE_MODE` | `1` for initial restricted deployment/recovery; `0` only for an authorized validation or release window. |
 | `PDF_EXPORT_ENABLED` | `0` to defer optional PDF; `1` only after hosted font/render/runtime checks. |
-| `TRUSTED_PROXY_CONFIG` | Set to `vercel` in Production and Preview for OTP functionality. Enables the Vercel-overwritten `X-Forwarded-For` source; OTP requests fail closed if configuration, `VERCEL=1` or one valid IP is unavailable. Staging and tenant-test Production are configured; staging needs a new deployment before the setting reaches runtime. Hosted spoof/burst checks and pilot capacity validation remain open. |
+| `TRUSTED_PROXY_CONFIG` | Set to `vercel` in Production and Preview for OTP functionality. Enables the Vercel-overwritten `X-Forwarded-For` source; OTP requests fail closed if configuration, `VERCEL=1` or one valid IP is unavailable. Configured and deployed on staging and demo/tenant-test Production (31 October 2026). Hosted spoof/burst checks and pilot capacity validation remain open. |
 
 Use the secret manager's generator for `RATE_LIMIT_HMAC_KEY` or generate 32 random bytes on an approved workstation; do not put its value in command arguments, logs, chat or version control.
 

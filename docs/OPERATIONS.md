@@ -14,6 +14,9 @@ The staging host uses only Vercel's Production target at
 <https://staging.arp-civic-pulse.vercel.app> (the former
 `arp-civic-pulse-staging.vercel.app` host permanently redirects there), backed by the disposable Supabase
 project. Preview deployments and Preview-only app variables are disabled/removed.
+The renamed project-name host
+<https://staging-arp-civic-pulse.vercel.app> also permanently redirects (308)
+to this canonical origin.
 Keep Production `APP_ORIGIN` and Supabase Auth Site URL aligned with this exact
 origin and redeploy after origin changes; protection settings do not rewrite it.
 See the [current deployment record](./DEPLOYMENT.md#current-staging-configuration-production-target-only).
@@ -38,21 +41,29 @@ disposable database into the real register.
 | `GOOGLE_ANALYTICS_ID`, `GOOGLE_SITE_VERIFICATION` | public pages | Optional public identifiers. GA4 is consent-gated on privacy/contact only; verification is not proof of Google property ownership. Set at build/runtime and rebuild after changes. |
 | `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | the app, build | Optional Sentry error monitoring with 10% sampled tracing, active only on Vercel Production/Preview. Events are scrubbed in `src/shared/observability/sentry.ts`, including tag values. System faults (`type: system`), unexpected errors, page crashes and invalid API replies are reported. Each report is tagged with the error ID (`error_id`) plus `area`, `error_code`, `error_category`, `cause_*`, `route`, `host` and `tenant`. Search Sentry for `error_id:<ID>` using the ID a person quotes; see [Debug a reported error ID](#debug-a-reported-error-id). The auth token is a build-only secret for source maps. |
 
-### Tenant routing configuration (tenant-test project only)
+### Tenant routing configuration (demo project only)
 
 S03 implements a server-only `TENANT_DIRECTORY_JSON` host allowlist and separate
 `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` variables for tenant credentials.
 `TENANT_ROUTING_ENABLED` defaults to `false`. The staging project has no tenant
 directory, host entries or tenant secrets configured. Only the separate
-`arp-civic-pulse-tenant-test` project routes hosts, all synthetic:
-`site.arp-civic-pulse.vercel.app` (main product website),
+`demo-arp-civic-pulse` Vercel project (formerly `arp-civic-pulse-tenant-test`)
+routes hosts, all synthetic:
+`arp-civic-pulse.vercel.app` (main product website),
 `demo.arp-civic-pulse.vercel.app` (demo, disposable project B) and
 `tenant-a.arp-civic-pulse.vercel.app` (customer, disposable project A).
-`tenant-b` was retired when project B became the demo, so the two-customer
-hosted isolation specs need a second customer project before they can run
-again. Do not enable routing for real customers or treat the staging database
-as a real tenant until the actual domain is approved and the remaining release
-gates close.
+The former `site.arp-civic-pulse.vercel.app` permanently redirects (308) to
+the bare main-site host, preserving paths. Main-site canonical metadata,
+sitemap and demo backlinks follow the `main` directory entry; do not add the
+redirect host as a second `main` entry (only one is permitted).
+The renamed project-name host
+<https://demo-arp-civic-pulse.vercel.app> permanently redirects (308) to the
+canonical demo host. The project is configured for Node.js 24.x. The former
+`tenant-b.arp-civic-pulse.vercel.app` domain was detached on 31 October 2026
+and now returns 404. The two-customer hosted isolation specs need a second
+customer project before they can run again. Do not enable routing for real
+customers or treat the staging database as a real tenant until the actual
+domain is approved and the remaining release gates close.
 
 Each version-1 directory entry binds one exact lowercase hostname to a
 `main`/`demo`/`customer` environment kind and explicit

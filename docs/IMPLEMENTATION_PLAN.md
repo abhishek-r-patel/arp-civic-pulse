@@ -263,7 +263,8 @@ purchases, production writes, migrations, resets, commits or deployment.
 	tenant. Paired disposable-project Auth tests prove independent login,
 	refresh, suspension and sign-out. The real tenant-host HTTP test passes
 	locally and against the retained hosted test project
-	(`tenant-a`/`tenant-b.arp-civic-pulse.vercel.app`). That hosted run proves
+	(`tenant-a`/`tenant-b.arp-civic-pulse.vercel.app`; tenant-b was detached
+	from the project after the test on 31 October 2026). That hosted run proves
 	host-only `__Host-` cookie isolation, wrong-Origin and forwarded-header
 	rejection, unknown-host 404 and SSO-protected per-deployment URLs. Both
 	projects use six-digit email OTPs. SMTP delivery for project B, the actual
@@ -275,10 +276,13 @@ purchases, production writes, migrations, resets, commits or deployment.
 	host; do not enable marketing tracking on authentication/voting flows. **Done
 	when:** main/demo/customer/unknown-host journeys pass responsive browser checks,
 	and no customer information appears on another host or the main website.
-	The main host (`site.arp-civic-pulse.vercel.app`) serves the product,
+	The main host (`arp-civic-pulse.vercel.app`) serves the product,
 	privacy and contact pages ("contact us for a quote") with per-host metadata,
-	sitemap and robots, no RWA backend, and `NOT_FOUND` for other APIs. The
-	hosted `tests/e2e/site-demo-live.spec.ts` passes on Chromium and WebKit,
+	sitemap and robots, no RWA backend, and `NOT_FOUND` for other APIs.
+	The former `site.arp-civic-pulse.vercel.app` redirects (308) to the bare host,
+	preserving paths; the new main-host journey passed on both browsers on
+	31 October 2026.
+	The hosted `tests/e2e/site-demo-live.spec.ts` passes on Chromium and WebKit,
 	including a 360 px phone width. No analytics are added. The actual domain
 	and `SALES_CONTACT_EMAIL` remain open.
 - [x] **S06 - Provision the synthetic demo.** Create the authorized dedicated demo

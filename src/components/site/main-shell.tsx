@@ -22,16 +22,16 @@ export function MainShell({
     "inline-flex touch-target items-center text-accent underline";
 
   return (
-    <div>
+    <div data-product-site>
       <a
         href={`#${mainContentId}`}
         className="sr-only touch-target rounded-control bg-surface px-4 py-3 font-semibold text-primary focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50"
       >
         Skip to main content
       </a>
-      <header className="border-b border-border bg-surface">
-        <div className="mx-auto grid w-full max-w-content gap-1 px-4 py-2 md:px-6">
-          <div className="flex items-center justify-between gap-3">
+      <header className="border-b border-border bg-surface/80">
+        <div className="product-container flex flex-wrap items-center justify-between gap-x-8 gap-y-2 py-4">
+          <div className="flex min-w-0 flex-1 items-center gap-3 lg:flex-none">
             <Link
               href="/"
               aria-label="Civic Pulse home"
@@ -39,40 +39,68 @@ export function MainShell({
             >
               <Image
                 src="/icon.svg"
-                width={32}
-                height={32}
+                width={40}
+                height={40}
                 alt=""
-                className="size-8 shrink-0"
+                className="size-10 shrink-0"
               />
               <span className="font-heading text-lg font-semibold">
                 Civic Pulse
               </span>
             </Link>
-            <ThemeSwitcher />
           </div>
-          <nav aria-label="Main" className="flex flex-wrap gap-1">
+          <nav
+            aria-label="Main"
+            className="order-3 flex w-full flex-wrap items-center gap-2 lg:order-none lg:w-auto"
+          >
             <NavLink href="/">Product</NavLink>
+            <Link href="/#features" className="product-nav-link">
+              Features
+            </Link>
+            <Link href="/#pricing" className="product-nav-link">
+              Pricing
+            </Link>
             {demoOrigin ? (
-              <a
-                href={demoOrigin}
-                className="inline-flex touch-target items-center rounded-control px-3 py-2 text-body font-semibold text-primary hover:bg-primary/5"
-              >
+              <a href={demoOrigin} className="product-nav-link">
                 Try the demo
               </a>
             ) : null}
-            <NavLink href="/contact">Contact sales</NavLink>
+            <Link href="/contact" className="product-primary">
+              Contact sales
+            </Link>
           </nav>
+          <div className="order-2 lg:order-none">
+            <ThemeSwitcher />
+          </div>
         </div>
       </header>
       <main
         id={mainContentId}
         tabIndex={-1}
-        className="mx-auto w-full max-w-content px-4 py-8 focus:outline-none md:px-6 md:py-12"
+        className="product-container py-8 focus:outline-none md:py-12"
       >
         {children}
       </main>
-      <footer className="border-t border-border px-4 py-6 md:px-6">
-        <div className="mx-auto flex max-w-content flex-col gap-x-8 gap-y-3 md:flex-row md:items-center">
+      <footer className="border-t border-border bg-surface py-8 md:py-10">
+        <div className="product-container flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div>
+            <Link
+              href="/"
+              className="inline-flex touch-target items-center gap-3 font-heading text-lg font-semibold text-primary"
+            >
+              <Image
+                src="/icon.svg"
+                width={32}
+                height={32}
+                alt=""
+                className="size-8"
+              />
+              Civic Pulse
+            </Link>
+            <p className="mt-2 text-caption text-muted">
+              Thoughtful decisions. Connected communities.
+            </p>
+          </div>
           <nav
             aria-label="Information"
             className="flex flex-wrap gap-x-6 gap-y-2 text-caption"
@@ -92,7 +120,9 @@ export function MainShell({
               Contact
             </Link>
           </nav>
-          <p className="max-w-full text-center text-caption text-muted md:ml-auto md:shrink-0 md:text-right">
+        </div>
+        <div className="product-container mt-6">
+          <p className="border-t border-border pt-6 text-caption text-muted">
             Civic Pulse By Abhishek Patel
           </p>
         </div>
