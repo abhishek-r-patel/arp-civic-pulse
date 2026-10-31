@@ -533,7 +533,7 @@ apply only to injected runner values, approval presence is not authenticity,
 and provider/SMTP/ingress/Cron/backup/recovery gates remain open. See
 [Operations](./OPERATIONS.md#read-only-rwa-configuration-inspection).
 
-**Security release blocker:** code request and verification now have local per-RWA IP budgets (30 and 100 per 15 minutes) using atomic HMAC buckets. Production code accepts the Vercel-overwritten `X-Forwarded-For` only with `TRUSTED_PROXY_CONFIG=vercel` and `VERCEL=1`, and fails closed on missing or invalid values. Before release, configure and redeploy the selected Vercel environment, verify direct-origin protection and spoofed-header/burst behavior on the hosted test project, and validate the shared-NAT thresholds during the pilot. On 31 October 2026 the tenant-test project was configured and redeployed, and a wrong-code verification reached validation (422) instead of failing closed; the spoof, burst and direct-origin checks are still not done and staging is not configured. The real production host/plan and ingress approval remain open; the self-registration endpoint still lacks an IP budget.
+**Security release blocker:** code request and verification now have local per-RWA IP budgets (30 and 100 per 15 minutes) using atomic HMAC buckets. Production code accepts the Vercel-overwritten `X-Forwarded-For` only with `TRUSTED_PROXY_CONFIG=vercel` and `VERCEL=1`, and fails closed on missing or invalid values. Before release, configure and redeploy the selected Vercel environment, verify direct-origin protection and spoofed-header/burst behavior on the hosted test project, and validate the shared-NAT thresholds during the pilot. On 31 October 2026 the tenant-test project was configured and redeployed, and a wrong-code verification reached validation (422) instead of failing closed; the spoof, burst and direct-origin checks are still not done. Staging Production now has `TRUSTED_PROXY_CONFIG=vercel`, added after its latest deployment, so a new deployment is still required before the setting reaches runtime. The real production host/plan and ingress approval remain open; the self-registration endpoint still lacks an IP budget.
 
 Operational remote database connections now require verified TLS, and backup manifests are validated before use. The real provider CA/hostname and off-site backup/restore path still need deployment evidence; local integration tests do not establish that evidence.
 
@@ -564,6 +564,8 @@ only with the same disposable database. Hosted Preview deployments are disabled,
 all eight Preview-only variables were removed, Production `APP_ORIGIN` and
 Supabase Auth Site URL are aligned, and redeployment
 `dpl_6cEy2UQrC2ZDFxupXbhy14VMWR5x` of committed `a0823d8` is Ready.
+`TRUSTED_PROXY_CONFIG=vercel` was added to Production after that deployment;
+no redeployment has yet applied it.
 Current protection settings were preserved; the canonical sign-in/health URLs
 were publicly reachable during checks. Same-origin empty-body authentication
 requests now reach validation (422), wrong-origin requests still fail CSRF (403),

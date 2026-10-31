@@ -4,7 +4,7 @@
 
 This repository is **deployed to staging using Vercel's Production target, not real production or approved for real voting**. The architecture prefers Vercel for Next.js and Supabase PostgreSQL/Auth/Cron. The staging account is recorded below; no production Supabase project, production hosting plan, region, domain, budget or production ingress is approved by this configuration. No existing hosted project is assumed to be production.
 
-Do not promote a deployment or admit real residents until the open gates in [PILOT_READINESS.md](./PILOT_READINESS.md) are closed. The application now implements local per-RWA OTP IP budgets using Vercel's overwritten `X-Forwarded-For`; hosted spoof/burst verification, Vercel configuration, and pilot threshold validation remain open. `TRUSTED_PROXY_CONFIG=vercel` is required in production, and Vercel system environment variables must be enabled so `VERCEL=1` is available. The application does not support an upstream proxy in front of Vercel. This guide does not grant approval of A1-A7, providers, regions, retention or recovery objectives.
+Do not promote a deployment or admit real residents until the open gates in [PILOT_READINESS.md](./PILOT_READINESS.md) are closed. The application now implements local per-RWA OTP IP budgets using Vercel's overwritten `X-Forwarded-For`; hosted spoof/burst verification, applying the newly configured staging setting in a deployment, and pilot threshold validation remain open. `TRUSTED_PROXY_CONFIG=vercel` is required in production, and Vercel system environment variables must be enabled so `VERCEL=1` is available. The application does not support an upstream proxy in front of Vercel. This guide does not grant approval of A1-A7, providers, regions, retention or recovery objectives.
 
 ### Tenant routing: disabled on staging; separate hosted test project
 
@@ -215,8 +215,11 @@ forward-only. No `--include-all` or migration-history rewrite was used.
   - Per-deployment URLs still redirect to Vercel SSO.
 - Vercel project `arp-civic-pulse-staging` remains connected to `main` as its
   Production branch, with `previewDeploymentsDisabled=true`. All eight
-  Preview-only environment entries were removed; the nine Production entries
-  remain. No credentials were transferred to a different project.
+  Preview-only environment entries were removed. The nine original Production
+  entries remain, alongside four Sentry entries and `TRUSTED_PROXY_CONFIG`
+  (14 Production entries total). `TRUSTED_PROXY_CONFIG=vercel` was added on
+  31 October 2026 after the latest deployment; no deployment has yet consumed
+  it. No credentials were transferred to a different project.
 - 31 October 2026: Sentry settings were added to the same project for
   Production and Preview: `NEXT_PUBLIC_SENTRY_DSN` (public config),
   `SENTRY_ORG`, `SENTRY_PROJECT` and the operator-entered build-only
@@ -267,7 +270,7 @@ Site URL too. The records below are historical and superseded where they differ.
 ### Historical protected staging: 27 October 2026
 
 - Project: [arp-civic-pulse-staging](https://vercel.com/arp-e93d/arp-civic-pulse-staging), Vercel team `arp-e93d`, Hobby, Node.js 24.x, actual function region `iad1`. This is not approval of a production plan or region.
-- Canonical staging origin: <https://arp-civic-pulse-staging-git-main-arp-e93d.vercel.app>. `APP_ORIGIN` matches it at build and runtime; use this hostname for staging mutations.
+- Canonical staging origin at that time: <https://arp-civic-pulse-staging-git-main-arp-e93d.vercel.app>. This deployment URL is historical and is not the current staging host.
 - Artifact: GitHub commit `8ac9d1c6f6724c5e10e80e4203a2d960a39a216c`, deployment `dpl_BNBFMs6wHRMuDXck8299oRq5aJBf`, created 27 October 2026. The operator selected the committed GitHub version, not the additional uncommitted local features.
 - The operator confirmed that the Supabase project in ignored `.env.local` is disposable and staging-only. Only the four required app credentials were transferred, alongside `APP_ORIGIN`, `LOG_LEVEL=info`, `MAINTENANCE_MODE=0` and `PDF_EXPORT_ENABLED=0`. All eight variables are scoped to **Preview only**; privileged app secrets are non-revealable. No database URL, password, management token or live-test email was uploaded.
 - Vercel Authentication is enabled (`all_except_custom_domains`). An unauthenticated HTTPS request to staging health was redirected to Vercel SSO (302); no public custom domain was added.
@@ -373,7 +376,7 @@ Configure these in the hosting environment manager, scoped separately to Product
 | `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | Optional build-time source-map upload. The token is a non-revealable build secret; without it the build emits no source maps. |
 | `MAINTENANCE_MODE` | `1` for initial restricted deployment/recovery; `0` only for an authorized validation or release window. |
 | `PDF_EXPORT_ENABLED` | `0` to defer optional PDF; `1` only after hosted font/render/runtime checks. |
-| `TRUSTED_PROXY_CONFIG` | Set to `vercel` in Production and Preview for OTP functionality. Enables the Vercel-overwritten `X-Forwarded-For` source; OTP requests fail closed if configuration, `VERCEL=1` or one valid IP is unavailable. Set up Vercel system environment variables and redeploy. Set on the tenant-test project (Production) on 31 October 2026; not yet set on staging. Hosted spoof/burst checks and pilot capacity validation remain open. |
+| `TRUSTED_PROXY_CONFIG` | Set to `vercel` in Production and Preview for OTP functionality. Enables the Vercel-overwritten `X-Forwarded-For` source; OTP requests fail closed if configuration, `VERCEL=1` or one valid IP is unavailable. Staging and tenant-test Production are configured; staging needs a new deployment before the setting reaches runtime. Hosted spoof/burst checks and pilot capacity validation remain open. |
 
 Use the secret manager's generator for `RATE_LIMIT_HMAC_KEY` or generate 32 random bytes on an approved workstation; do not put its value in command arguments, logs, chat or version control.
 
