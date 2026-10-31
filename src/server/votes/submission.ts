@@ -2,7 +2,8 @@ import "server-only";
 import { z } from "zod";
 import { VOTE_RATE_LIMITS, enforceRateLimit } from "@/server/auth/rate-limit";
 import { requireAccount } from "@/server/authorization/account";
-import { createAdminClient } from "@/server/db/clients";
+import { getRequestTenantContext } from "@/server/config/tenant-context";
+import { createAdminClient, createUserClient } from "@/server/db/clients";
 import { ApiError } from "@/server/http/errors";
 import { callRoutine, type RegisterDeps } from "@/server/register/shared";
 import type { Submission } from "@/shared/contracts/ballots";
@@ -28,8 +29,16 @@ const acceptedSchema = z.object({
 
 /** A verified, enabled member. Entitlement to a particular vote is the database's call. */
 export async function memberDeps(): Promise<RegisterDeps> {
-  const { account, client } = await requireAccount();
-  return { client, admin: createAdminClient(), actor: account };
+  const tenant = await getRequestTenantContext();
+  const { account, client } = await requireAccount(
+    await createUserClient(tenant),
+  );
+  return {
+    tenant,
+    client,
+    admin: await createAdminClient(tenant),
+    actor: account,
+  };
 }
 
 export interface SubmissionAck {

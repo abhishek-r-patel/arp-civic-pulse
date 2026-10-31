@@ -1,7 +1,10 @@
 // Deliberately excludes member lists, ballots, results and administrative URLs.
 import type { MetadataRoute } from "next";
-import { PUBLIC_PAGES, siteOrigin } from "@/shared/metadata";
+import { hostDiscovery } from "@/server/site/discovery";
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  return PUBLIC_PAGES.map((page) => ({ url: `${siteOrigin()}${page.path}` }));
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const { origin, pages } = await hostDiscovery();
+  return pages.map((page) => ({
+    url: page.path === "/" ? origin : `${origin}${page.path}`,
+  }));
 }

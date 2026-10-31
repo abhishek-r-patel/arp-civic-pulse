@@ -5,6 +5,10 @@ import { cache } from "react";
 import { z } from "zod";
 import { getSessionState } from "@/server/authorization/account";
 import { createAdminClient, createUserClient } from "@/server/db/clients";
+import {
+  getRequestTenantContext,
+  type TenantContext,
+} from "@/server/config/tenant-context";
 import { ApiError } from "@/server/http/errors";
 import { log } from "@/server/observability/logger";
 import {
@@ -80,17 +84,22 @@ export async function getEnabledRwaAdminNames(
 }
 
 /** One read per request for the shell and the page that renders inside it. */
-export const loadCurrentBranding = cache(async () =>
-  getRwaBranding(await createUserClient()),
+export const loadCurrentBranding = cache(async (tenant?: TenantContext) =>
+  getRwaBranding(
+    await createUserClient(tenant ?? (await getRequestTenantContext())),
+  ),
 );
 
 /** Public-page identity, read with the server-only service role. */
-export async function getPublicRwaIdentity(): Promise<PublicRwaIdentity | null> {
+export async function getPublicRwaIdentity(
+  tenant?: TenantContext,
+): Promise<PublicRwaIdentity | null> {
   try {
+    const resolvedTenant = tenant ?? (await getRequestTenantContext());
     return parseProjection(
       publicRwaIdentitySchema,
       await callRoutine<unknown>(
-        createAdminClient(),
+        await createAdminClient(resolvedTenant),
         "get_public_rwa_identity",
         {},
       ),
@@ -109,25 +118,28 @@ export const loadPublicRwaIdentity = cache(getPublicRwaIdentity);
  * signed-in account, otherwise the public identity, otherwise the defaults.
  * Wording must never take a page down, so failures fall back to "Household".
  */
-export const loadHouseholdTerms = cache(async (): Promise<HouseholdTerms> => {
-  try {
-    const session = await getSessionState();
-    if (session.state === "account") {
-      const branding = await loadCurrentBranding();
-      return buildHouseholdTerms(
-        branding.householdLabel,
-        branding.identifierKind,
-      );
+export const loadHouseholdTerms = cache(
+  async (tenantContext?: TenantContext): Promise<HouseholdTerms> => {
+    try {
+      const tenant = tenantContext ?? (await getRequestTenantContext());
+      const session = await getSessionState(tenant);
+      if (session.state === "account") {
+        const branding = await loadCurrentBranding(tenant);
+        return buildHouseholdTerms(
+          branding.householdLabel,
+          branding.identifierKind,
+        );
+      }
+      const identity = await loadPublicRwaIdentity(tenant);
+      return identity
+        ? buildHouseholdTerms(identity.householdLabel)
+        : DEFAULT_HOUSEHOLD_TERMS;
+    } catch {
+      log("warn", "settings.household_terms_unavailable", {});
+      return DEFAULT_HOUSEHOLD_TERMS;
     }
-    const identity = await loadPublicRwaIdentity();
-    return identity
-      ? buildHouseholdTerms(identity.householdLabel)
-      : DEFAULT_HOUSEHOLD_TERMS;
-  } catch {
-    log("warn", "settings.household_terms_unavailable", {});
-    return DEFAULT_HOUSEHOLD_TERMS;
-  }
-});
+  },
+);
 
 /*
  * Household choices for administrator forms: when Default Households are

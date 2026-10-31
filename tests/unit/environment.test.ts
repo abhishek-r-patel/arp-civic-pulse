@@ -8,6 +8,7 @@ const validProduction = {
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "public-key-placeholder",
   SUPABASE_SERVICE_ROLE_KEY: "server-key-placeholder",
   RATE_LIMIT_HMAC_KEY: "x".repeat(32),
+  TRUSTED_PROXY_CONFIG: "vercel",
 };
 
 function messageFor(source: Record<string, string | undefined>): string {
@@ -27,7 +28,41 @@ describe("parseEnvironment", () => {
       NODE_ENV: "development",
       APP_ORIGIN: "http://localhost:3000",
       LOG_LEVEL: "info",
+      TENANT_ROUTING_ENABLED: false,
     });
+  });
+
+  it("requires a directory for routed production and rejects legacy shared backend keys", () => {
+    const routed = {
+      NODE_ENV: "production",
+      APP_ORIGIN: "https://example.test",
+      RATE_LIMIT_HMAC_KEY: "x".repeat(32),
+      TRUSTED_PROXY_CONFIG: "vercel",
+      TENANT_ROUTING_ENABLED: "true",
+      TENANT_DIRECTORY_JSON: JSON.stringify({
+        version: 1,
+        entries: [{ host: "example.test", kind: "main", state: "active" }],
+      }),
+    };
+
+    expect(parseEnvironment(routed).TENANT_ROUTING_ENABLED).toBe(true);
+    expect(
+      messageFor({
+        ...routed,
+        TENANT_DIRECTORY_JSON: undefined,
+      }),
+    ).toContain("TENANT_DIRECTORY_JSON");
+    expect(
+      messageFor({
+        ...routed,
+        NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
+      }),
+    ).toContain("must be unset when tenant routing is enabled");
+    expect(
+      messageFor({
+        TENANT_DIRECTORY_JSON: routed.TENANT_DIRECTORY_JSON,
+      }),
+    ).toContain("TENANT_ROUTING_ENABLED");
   });
 
   it("treats blank values as unset", () => {
@@ -54,6 +89,15 @@ describe("parseEnvironment", () => {
     ]) {
       expect(message).toContain(key);
     }
+  });
+
+  it("accepts only the Vercel trusted proxy configuration", () => {
+    expect(
+      messageFor({
+        ...validProduction,
+        TRUSTED_PROXY_CONFIG: "untrusted",
+      }),
+    ).toContain("TRUSTED_PROXY_CONFIG");
   });
 
   it("rejects insecure production origins and short rate-limit keys", () => {

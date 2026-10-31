@@ -90,7 +90,7 @@ export function RegisterImportForm({
       setProgress(index + 1);
       if (!result.ok) {
         setErrors([
-          `Row ${index + 2}: ${result.message} No further rows were processed. Check the register again before retrying; this row may be partly or fully saved. Reference: ${result.requestId ?? result.code}.`,
+          `Row ${index + 2}: ${result.message} No further rows were processed. Check the register again before retrying; this row may be partly or fully saved. ${result.requestId ? `Error ID: ${result.requestId}` : `Error code: ${result.code}`}.`,
         ]);
         completed = false;
         setChecked(false);

@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { operationalDatabaseClient } from "../../scripts/ops/database";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import {
   activateVoteFor,
@@ -59,10 +59,7 @@ const castFor = (userId: string, voteId: string, submission: unknown) =>
   ]);
 
 async function sql<T>(query: string, params: unknown[] = []): Promise<T[]> {
-  const client = new Client({
-    connectionString: process.env.LIVE_DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-  });
+  const client = operationalDatabaseClient(process.env.LIVE_DATABASE_URL ?? "");
   await client.connect();
   try {
     return (await client.query(query, params)).rows as T[];
@@ -82,10 +79,7 @@ const participationCount = async (voteId: string) =>
   );
 
 async function suspend(profileId: string) {
-  const client = new Client({
-    connectionString: process.env.LIVE_DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-  });
+  const client = operationalDatabaseClient(process.env.LIVE_DATABASE_URL ?? "");
   await client.connect();
   try {
     await client.query("begin");

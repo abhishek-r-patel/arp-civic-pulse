@@ -3,7 +3,7 @@
 ## 01 Scope and Governing Decisions
 [PRD.md](./PRD.md) defines product behavior and acceptance criteria. [DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md) defines visual and accessibility behavior. This document defines the target implementation; it does not override product requirements or claim the current scaffold has already been migrated.
 
-- One mobile-first Next.js application for one RWA, initially 500 households and about 100 concurrent users.
+- Current application: one mobile-first Next.js deployment for one RWA, with a historical target of 500 households and about 100 concurrent users. Planned SaaS retains the shared app with a separate Supabase project per RWA; SaaS capacity is not approved by that historical target.
 - Preserve **Supabase** for PostgreSQL, Auth, RLS, guarded SQL functions and scheduled database maintenance, and **Tailwind CSS** for styling.
 - **Supabase PostgreSQL is the source of truth** for eligibility, accepted participation, responses, totals and audit history. On-screen results and exports are derived views, never independent editable records.
 - PDF is an optional printable results export and may be deferred beyond version 1. No voting, completion or recovery operation depends on a PDF.
@@ -11,6 +11,38 @@
 - PRIVATE voting provides application-level privacy under PRD assumption A2, not cryptographic anonymity against infrastructure operators.
 - Obtain approval of PRD assumptions A1-A7, providers, region, retention and recovery objectives before real voting.
 - No separate backend application, microservices, Redis, queue, AI, or application file storage for the MVP. Approved off-site backup storage is a separate operational requirement.
+
+### Planned SaaS boundary
+
+The [S01 decision record](./IMPLEMENTATION_PLAN.md#s01---product-and-commercial-boundaries)
+confirms a shared application with a separate Supabase database/Auth project per
+customer RWA, customer subdomains, a separate main website and a dedicated
+synthetic read-only demo. S03 routing code is now present but disabled; no
+current deployment has tenant isolation or routing configured. The existing
+single-project staging configuration remains unchanged.
+
+Server-controlled exact-host allowlisting, managed secret references and
+restricted operator access are confirmed boundaries. The [S02 design
+contract](./IMPLEMENTATION_PLAN.md#s02---tenant-resolution-and-configuration-contract)
+specifies the directory, environment kinds/states, fail-closed behavior and
+spoofing/isolation cases. S03 now implements a strict server-only directory and
+immutable request-scoped backend context behind `TENANT_ROUTING_ENABLED`
+(default `false`); the current staging deployment still uses one project and
+has no tenant directory, customer hosts or tenant secrets configured. Vercel
+environment variables were selected for a capped pilot, with the
+shared-runtime/fleet-wide secret blast radius documented; the pilot cap of 10
+customer RWAs was approved on 31 October 2026 and is enforced by the directory
+parser. S04 implements tenant-namespaced
+host-only session cookies and request-tenant canonical-origin CSRF checks.
+Real disposable cross-project tests pass. A retained hosted Vercel test project
+shows that the public Host selects the tenant, spoofed forwarding headers are
+rejected and per-deployment URLs are SSO-protected. The same project's S03 run
+showed that concurrent requests to two backends keep their own branding, data,
+exports, rate limits and logged tenant; see
+[the deployment record](./DEPLOYMENT.md#tenant-routing-disabled-on-staging-separate-hosted-test-project).
+Staging itself does not route tenants.
+Unknown or unavailable hosts must never fall back to another RWA. The actual
+domain, customer capacity and existing production gates remain open.
 
 ## 02 System Overview and Stack
 
@@ -54,7 +86,7 @@ Supporting services:
 | Exports | CSV in version 1; optional PDFKit in a Node.js server route, not an external PDF service |
 | Hosting | Vercel is the preferred starting option, subject to plan eligibility, region, runtime limits and cost validation |
 | Testing | Vitest, real Supabase/PostgreSQL integration tests, Playwright and axe |
-| Observability | Allowlisted application events and provider metrics without sensitive payload capture |
+| Observability | Allowlisted application events and provider metrics without sensitive payload capture; optional Sentry errors and 10% sampled traces, scrubbed of request headers, cookies, bodies, query strings, user identity, emails, phone numbers and tokens (no Session Replay) |
 
 Pin supported dependency versions in a lockfile and review licenses/advisories. Do not introduce an ORM, custom authentication system or generic repository framework without a demonstrated need.
 
@@ -101,6 +133,14 @@ versioned aggregate report, exposed by `npm run ops -- config-check`.
 permissions, rollback, privacy and CLI exit behavior. No web route or schema
 migration is added.
 
+`tests/integration/migration-upgrade.test.ts` verifies migration
+`20261124100000` upgrades a disposable database from the previous schema baseline,
+preserves RWA settings and enables the new accent through the guarded profile
+routine. Fleet migration reporting remains an operator-run release check.
+`scripts/ops/migration-status.ts` validates the confirmed per-RWA database
+target for the read-only migration-version report; it never applies SQL.
+`tests/unit/ops-migration-status.test.ts` covers target/refusal behavior.
+
 Concept-fidelity correction: `src/components/votes/vote-list-card.tsx` owns the
 server-rendered rich card and compact upcoming row; `src/app/page.tsx` owns status
 links, compact type/history controls and the three-column overview. Existing
@@ -120,6 +160,12 @@ Approved appearance review implementation:
 - `src/components/ui/theme-switcher.tsx`: native header Light/Dark/System menu with Escape/outside dismissal; available before and after authentication.
 - `src/app/layout.tsx` and `src/styles/globals.css`: self-hosted Sora/Manrope, root appearance attribute, Platinum/Obsidian tokens, dark RWA accent variants and light print overrides. Shared button foreground tokens remain contrast-safe.
 - `tests/unit/theme.test.ts`: startup recovery and contrast gates; `tests/e2e/theme.spec.ts`: real-browser mode, persistence, blocked storage, keyboard, accessibility, responsive, self-hosted-font and print checks.
+- `tests/e2e/tenant-origin-live.spec.ts`: opt-in real-HTTP checks of tenant-specific OTP cookies, same-email session isolation, host-bound Origin/CSRF, forwarded-header spoofing, unknown hosts and independent sign-out against the two disposable Supabase projects. It runs locally through Host overrides. With `TENANT_HTTP_REMOTE=1` and `PLAYWRIGHT_NO_WEB_SERVER=1`, it runs against hosted tenant hosts over HTTPS with production `__Host-` cookie names.
+- Error IDs and structured failure logging:
+  - `src/shared/observability/error-id.ts`: readable `AREA-XXXXX-XXXXX` IDs and the path-to-area map.
+  - `src/server/observability/request-context.ts`: the per-request `AsyncLocalStorage` log context.
+  - `src/components/ui/page-error-id.ts`: the `PAGE-` ID and Sentry report for `src/app/error.tsx` and the new `src/app/global-error.tsx`.
+  - `tests/unit/error-logging.test.ts`: covers IDs, catalogue completeness, cause sanitising, failure logs, Sentry tags and tag scrubbing.
 - `scripts/docs/capture.spec.ts` captures current Platinum/Obsidian persona screens from synthetic accounts; the former root-level pictures `68`-`74` are archived with the old guide. No production data is used.
 
 After the user approved the concept-aligned Votes screen, the shared style was
@@ -170,6 +216,7 @@ src\
     config\
   shared\
     contracts\
+    observability\
     validation\
   styles\
     globals.css
@@ -187,6 +234,27 @@ docs\
 ```
 
 Keep Supabase user-session and privileged provisioning clients separate. Do not introduce a second frontend/backend package or speculative abstraction layers.
+
+Tenant-routing source map:
+
+- `src/server/config/tenant-directory.ts` validates the versioned directory envelope and isolates invalid or conflicting entries to their affected hosts; project URLs are restricted to canonical HTTPS `*.supabase.co` origins.
+- `src/server/config/tenant-context.ts` resolves the exact request host to an immutable context without placing service-role values in that context. Request lookup is React request-cached; there is no mutable process-wide current tenant.
+- `src/server/db/clients.ts` binds user and privileged Supabase clients to the supplied context. The privileged credential is read only from its referenced server environment variable.
+- `src/proxy.ts` resolves page hosts before session refresh; API handlers resolve through the request Host header. On Vercel, the hosted S04 test project showed that the public host, not forwarded headers, selects the tenant. Tenant routing stays disabled on staging/production until the domain, cap and external release gates are closed.
+- Process-wide state audited in S03: React `cache()` lookups are per request; the parsed environment is identical for all tenants; rate-limit buckets are stored in each tenant's own database (only the HMAC key is shared); PDF fonts are static assets. The CSV/PDF render semaphores in `src/server/exports/results-export.ts` are shared by every tenant in one function instance. They hold no tenant data, but one busy RWA can briefly delay another's exports (a fairness limit, not a data-isolation risk). The browser never talks to Supabase directly.
+- `tests/e2e/support/tenant-http.ts`: shared guarded helpers for the tenant HTTP specs. They accept only the two disposable project refs (or, for a freshly provisioned project, an explicit `TENANT_HTTP_PROJECT_A_REF`/`_B_REF` override) and never print keys, codes or cookies.
+- `tests/e2e/tenant-isolation-live.spec.ts`: opt-in (`TENANT_HTTP_TEST=1`) cross-surface check. It seeds one completed synthetic PUBLIC vote per project, then runs interleaved concurrent requests on both hosts. It asserts that branding, vote lists, vote details, CSV exports, error IDs and rate-limit buckets stay with their own tenant, and that the other tenant's vote returns 404. It needs two customer hosts; since project B became the demo, the second host is a temporarily provisioned project (S07).
+
+Product website, demo and provisioning map (S05-S07):
+
+- `src/shared/host-routes.ts`: which paths the main host serves (website pages, `robots.txt`, `sitemap.xml`, health) and which requests the read-only demo host accepts.
+- `src/proxy.ts` rewrites main-host pages to `src/app/site/{page,contact/page,privacy/page}.tsx`; `src/server/http/route.ts` (`enforceHostKind`) answers main-host APIs `NOT_FOUND` and demo writes `DEMO_READ_ONLY` before any handler runs.
+- `src/server/site/main-host.ts`, `src/server/site/discovery.ts`, `src/components/site/{main-shell,demo-banner}.tsx`: main-site links, host-aware robots/sitemap/metadata, the product shell (no session or RWA data) and the demo banner. `src/app/app-shell.tsx` chooses the shell by host kind; `src/app/not-found.tsx` is host-aware.
+- `src/shared/demo.ts`, `src/server/demo/session.ts`, `src/app/api/demo/session/route.ts`, `src/components/demo/demo-persona-sign-in.tsx`: one-click persona sign-in on the demo host (password derived from the demo service-role key, never sent to the browser and self-repaired after a reset, so simultaneous visitors do not cancel each other; global rate limit).
+- `scripts/ops/supabase-project.ts`: shared guard that every credential points at the one confirmed project, plus service-role and Auth-lookup helpers.
+- `scripts/ops/demo.ts`: `npm run ops -- demo-reset`, which erases and reseeds the marked demo project only.
+- `scripts/ops/provision.ts`: `npm run ops -- provision`, which prepares one fresh customer project step by step (migrations, settings, Auth, first administrator) and prints its directory entry.
+- Tests: `tests/unit/{host-routes,demo-session,ops-demo,ops-provision}.test.ts`; hosted `tests/e2e/site-demo-live.spec.ts` (`SITE_DEMO_HTTP_TEST=1`).
 
 Register import and scheduling implementation map:
 
@@ -304,6 +372,9 @@ pages use server rendering through the session-aware shell, not a client-only
 SPA. `/register` is public but deliberately `noindex` and outside the sitemap.
 Private routes inherit `noindex, nofollow`; robots and sitemap are not
 authorization. Do not include register, ballot or results URLs in discovery.
+With tenant routing on, discovery is per host: the main host lists only its
+product pages, the demo host disallows all crawling, and customer hosts list
+their own public pages with relative canonical URLs.
 
 | File | Responsibility |
 |---|---|
@@ -389,13 +460,14 @@ Use stable identifiers, foreign keys, nonnegative counter constraints, explicit 
 - Normalize emails using one documented policy without provider-specific rewriting. Reject duplicate household IDs and ambiguous representative assignments.
 - Return generic code-request acknowledgements without revealing registration. Invalid/expired codes get actionable retry guidance without exposing account existence.
 - Configure custom SMTP, expiry, resend cooldown, attempt/request limits and sender authentication. Never log OTPs or email contents.
+- OTP request and verification add per-RWA shared atomic IP budgets (30 requests and 100 verifications per 15 minutes) alongside the email budgets. `src/server/auth/trusted-client-ip.ts` trusts only a single valid Vercel-overwritten `X-Forwarded-For` value when `TRUSTED_PROXY_CONFIG=vercel` and `VERCEL=1`; missing, ambiguous or invalid source data fails closed. Raw IPs are HMACed before the limiter and never stored or logged. Pilot capacity and hosted spoofing tests remain release gates.
 - Use `@supabase/ssr` for the Next.js cookie/session integration. Verify identity server-side using supported Auth verification methods; do not trust an unverified cookie session object as authorization.
-- Apply secure cookie settings and the SDK's supported refresh behavior. Do not invent a parallel opaque-session system or claim all SDK cookies are HttpOnly without validating the chosen integration.
+- Apply secure cookie settings and the SDK's supported refresh behavior. Session cookies use a tenant-specific name, are HttpOnly and omit Domain; production names use the `__Host-` prefix. Do not invent a parallel opaque-session system.
 - Check current application suspension/role on each protected operation and inside guarded database functions. A still-valid JWT must not bypass suspension or changed entitlement.
 - Implementation: `src/proxy.ts` refreshes an expiring session before render (Server Components cannot set cookies) and forwards the new cookies to the page and browser; this is session upkeep, not authorization. Session cookies are hardened in one place (`src/server/auth/session-cookies.ts`): HttpOnly, SameSite=Lax, Secure in production, capped at 14 days as a sliding inactivity window (provisional until A4).
 - Sign-out and administrative Auth actions do not necessarily invalidate every issued JWT immediately. Enforce application access independently and test existing-token scenarios.
 - Native time-boxed sessions, inactivity limits and single-session enforcement require Supabase Pro or higher. Do not promise those controls on Free; approve the persistent-session policy under A4.
-- Server-proxied Auth calls must follow Supabase's supported trusted-IP forwarding configuration where needed. Never trust arbitrary client forwarding headers or let all residents accidentally share an untested server-IP limit.
+- Server-proxied Auth calls use Vercel's documented overwritten `X-Forwarded-For` only on the configured Vercel runtime. Do not trust arbitrary forwarding headers or place an unapproved upstream proxy in front; shared-NAT IP thresholds require pilot validation.
 - Privileged Auth credentials remain server-only and isolated to provisioning/administrative Auth operations and resident self-registration. Never use them for ordinary ballots, results or exports.
 
 ## 07 Atomic Voting and PRIVATE Privacy
@@ -474,7 +546,13 @@ Use same-origin endpoints and explicit response projections. Server actions may 
 
 - Match existing routes where practical and reconcile [API.md](./API.md) during implementation; these are target responsibilities, not a claim of current endpoint availability.
 - Bound body/string/list sizes and paginate register/audit/named-response screens. Exports include the complete authorized dataset, not just the displayed page.
-- Use stable error codes, safe messages, optional safe field errors and random support IDs. Never echo ballot choices in errors.
+- Use stable error codes, safe messages, optional safe field errors and random, readable error IDs (`AREA-XXXXX-XXXXX`). Never echo ballot choices in errors.
+- Error handling is centralised:
+  - `src/server/http/errors.ts` is the catalogue: status, safe message, category, `user`/`system` type, log level and operator hint per code, plus an identifier-only `cause` and an optional `report: false`.
+  - `src/server/http/route.ts` creates the error ID (`src/shared/observability/error-id.ts`) and runs each handler inside a request log context (`src/server/observability/request-context.ts`). Nested logs and Sentry reports (`src/server/observability/error-reporting.ts`) therefore carry the same ID, area, route, host and tenant.
+  - Every failure is logged once as `request.failed` (or `request.unhandled`). System faults go to Sentry, tagged `error_id` and grouped by code and route.
+  - `src/server/db/errors.ts` records the SQLSTATE/status as the cause.
+  - Page crashes use `src/app/error.tsx` and `src/app/global-error.tsx`, through `src/components/ui/page-error-id.ts`, with a `PAGE-` ID.
 - Use 401 for unauthenticated, 403 for denied capabilities, 404 for inaccessible vote IDs, 409 for PRIVATE duplicates/stale revision/lifecycle conflicts, 422 for validation, 429 for limits and 503 for temporary dependencies.
 - Distinguish unknown submission outcome from rejection. A duplicate response directs the UI to confirm participation.
 - Loading, empty and failure states remain explicit; no broad catches returning empty results or success-shaped defaults.

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { History, Settings } from "lucide-react";
 import { SignOutButton } from "@/components/access/sign-out-button";
 import { getSessionState } from "@/server/authorization/account";
+import { getRequestTenantContext } from "@/server/config/tenant-context";
 import { getCsrfToken } from "@/server/http/csrf-cookie";
 import { NavLink } from "./nav-link";
 import { Breadcrumbs } from "./breadcrumbs";
@@ -19,13 +20,17 @@ import { HouseholdTermsProvider } from "./household-terms";
 import { RwaContactBlock } from "./rwa-branding";
 import { ThemeSwitcher } from "./theme-switcher";
 import { canViewAdministration } from "@/shared/contracts/register";
+import { MainShell } from "@/components/site/main-shell";
+import { DemoBanner } from "@/components/site/demo-banner";
 
 export const MAIN_CONTENT_ID = "main-content";
 
 // Branding must never take the shell down: fall back to the product name.
-async function shellBranding() {
+async function shellBranding(
+  tenant: Awaited<ReturnType<typeof getRequestTenantContext>>,
+) {
   try {
-    return await loadCurrentBranding();
+    return await loadCurrentBranding(tenant);
   } catch {
     log("warn", "settings.branding_unavailable", {});
     return null;
@@ -38,12 +43,17 @@ async function shellBranding() {
 export async function AppShell({
   children,
 }: Readonly<{ children: ReactNode }>) {
-  const session = await getSessionState();
+  const tenant = await getRequestTenantContext();
+  // The product website has no RWA backend: never load sessions or settings there.
+  if (tenant.kind === "main") {
+    return <MainShell mainContentId={MAIN_CONTENT_ID}>{children}</MainShell>;
+  }
+  const session = await getSessionState(tenant);
   const csrfToken =
     session.state === "anonymous" ? undefined : await getCsrfToken();
   const account = session.state === "account" ? session.account : null;
-  const branding = account ? await shellBranding() : null;
-  const publicIdentity = account ? null : await loadPublicRwaIdentity();
+  const branding = account ? await shellBranding(tenant) : null;
+  const publicIdentity = account ? null : await loadPublicRwaIdentity(tenant);
   const rwaAlias = branding?.alias ?? publicIdentity?.alias ?? null;
   const headerTitle = rwaAlias ? `Civic Pulse for ${rwaAlias}` : "Civic Pulse";
   const initials =
@@ -54,7 +64,7 @@ export async function AppShell({
       .map((part) => Array.from(part)[0] ?? "")
       .join("") ?? "";
   const palette = (branding ?? publicIdentity)?.accentPalette;
-  const terms = await loadHouseholdTerms();
+  const terms = await loadHouseholdTerms(tenant);
 
   return (
     <HouseholdTermsProvider terms={terms}>
@@ -66,6 +76,7 @@ export async function AppShell({
           Skip to main content
         </a>
         <header className="border-b border-border bg-surface">
+          {tenant.kind === "demo" ? <DemoBanner /> : null}
           {/* Row one: title and signed-in identity. Row two: tabs on the left
               and icon utilities with Sign Out on the right. */}
           <div className="mx-auto grid w-full max-w-content gap-1 px-4 py-2 md:px-6">
@@ -204,7 +215,11 @@ export async function AppShell({
             </p>
           </div>
           <PublicAnalytics
-            measurementId={getEnvironment().GOOGLE_ANALYTICS_ID}
+            measurementId={
+              tenant.kind === "demo"
+                ? undefined
+                : getEnvironment().GOOGLE_ANALYTICS_ID
+            }
           />
         </footer>
       </div>

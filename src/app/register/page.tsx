@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
 import { getSessionState } from "@/server/authorization/account";
 import { createAdminClient } from "@/server/db/clients";
+import { getRequestTenantContext } from "@/server/config/tenant-context";
+import { ApiError } from "@/server/http/errors";
 import { getCsrfToken } from "@/server/http/csrf-cookie";
 import { loadSelfRegistrationHouseholds } from "@/server/register/self-registration";
 import {
@@ -19,20 +21,30 @@ export const metadata = privateMetadata(
 );
 
 export default async function RegisterPage() {
-  const session = await getSessionState();
+  const tenant = await getRequestTenantContext();
+  const session = await getSessionState(tenant);
   if (session.state === "account") {
     redirect("/");
   }
   const csrfToken = await getCsrfToken();
   const [identity, terms, households] = await Promise.all([
-    loadPublicRwaIdentity(),
-    loadHouseholdTerms(),
-    // createAdminClient throws synchronously when Supabase is not configured;
-    // keep it inside the promise so the page shows the unavailable notice
-    // instead of failing to render.
+    loadPublicRwaIdentity(tenant),
+    loadHouseholdTerms(tenant),
+    // Keep unavailable tenant credentials inside this branch so the page can
+    // render its registration-unavailable notice.
     Promise.resolve()
-      .then(() => loadSelfRegistrationHouseholds(createAdminClient()))
-      .catch(() => null),
+      .then(async () =>
+        loadSelfRegistrationHouseholds(await createAdminClient(tenant)),
+      )
+      .catch((error: unknown) => {
+        if (
+          error instanceof ApiError &&
+          error.code === "DEPENDENCY_UNAVAILABLE"
+        ) {
+          return null;
+        }
+        throw error;
+      }),
   ]);
   const organisation = identity
     ? `${identity.fullName} (${identity.alias})`
@@ -44,7 +56,16 @@ export default async function RegisterPage() {
         title="Register"
         description={`Create an account for ${organisation} Voting App - Civic Pulse. Each email address and ${terms.household} can be registered once.`}
       />
-      {households ? (
+      {tenant.kind === "demo" ? (
+        <Notice heading="Registration is turned off in the demo">
+          This demo uses fictional residents. On a real association&apos;s site,
+          new residents register here and an administrator enables them.{" "}
+          <a href="/sign-in" className="underline">
+            Sign in as a sample resident
+          </a>{" "}
+          instead.
+        </Notice>
+      ) : households ? (
         <SelfRegistrationForm
           csrfToken={csrfToken}
           terms={terms}

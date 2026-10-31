@@ -7,6 +7,7 @@ import {
 } from "@/server/votes/member";
 import type { RegisterDeps } from "@/server/register/shared";
 import type { MemberVoteSummary } from "@/shared/contracts/member-votes";
+import { testTenantContext } from "../fixtures/tenant-context";
 
 vi.mock("@/server/auth/rate-limit", () => ({
   VOTE_RATE_LIMITS: { readByProfile: {} },
@@ -48,6 +49,7 @@ function world(counts: (number | null)[], error: object | null = null) {
     }),
   };
   const deps: RegisterDeps = {
+    tenant: testTenantContext,
     client: client as unknown as SupabaseClient,
     admin: client as unknown as SupabaseClient,
     actor: { id: ACTOR, representativeName: "Example", isAdmin: true },

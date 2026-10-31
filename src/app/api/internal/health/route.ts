@@ -12,7 +12,9 @@ async function databaseReachable(): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const { data, error, status } = await createAdminClient()
+    const { data, error, status } = await (
+      await createAdminClient()
+    )
       .rpc("health_ping")
       .abortSignal(controller.signal);
     if (!error && data === true) {
@@ -35,8 +37,16 @@ async function databaseReachable(): Promise<boolean> {
 // failed. Hitting this is not a keep-alive: it exists for monitors, not to hold
 // a paused project awake.
 export const { GET, POST, PUT, PATCH, DELETE } = route({
-  GET: async ({ requestId }) =>
-    !isMaintenanceMode() && (await databaseReachable())
+  GET: async ({ requestId, tenant }) => {
+    if (isMaintenanceMode()) {
+      return ok({ status: "unavailable" }, requestId, 503);
+    }
+    // The main product website has no RWA database to check.
+    if (tenant?.kind === "main") {
+      return ok({ status: "ok" }, requestId);
+    }
+    return (await databaseReachable())
       ? ok({ status: "ok" }, requestId)
-      : ok({ status: "unavailable" }, requestId, 503),
+      : ok({ status: "unavailable" }, requestId, 503);
+  },
 });

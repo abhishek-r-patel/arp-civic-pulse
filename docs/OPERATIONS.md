@@ -11,7 +11,8 @@ npm run ops -- <command> [options]      # Node uses --conditions=react-server an
 ## 1. Settings that belong to operations
 
 The staging host uses only Vercel's Production target at
-<https://arp-civic-pulse-staging.vercel.app>, backed by the disposable Supabase
+<https://staging.arp-civic-pulse.vercel.app> (the former
+`arp-civic-pulse-staging.vercel.app` host permanently redirects there), backed by the disposable Supabase
 project. Preview deployments and Preview-only app variables are disabled/removed.
 Keep Production `APP_ORIGIN` and Supabase Auth Site URL aligned with this exact
 origin and redeploy after origin changes; protection settings do not rewrite it.
@@ -23,16 +24,174 @@ disposable database into the real register.
 | --------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `BACKUP_DATABASE_URL`                   | `backup`, `auth-orphans`, `recovery-record` | A **direct** (not transaction-pooled) connection for a dedicated backup login. See 3.1.                                                                          |
 | `CONFIG_DATABASE_URL`                   | `config-check` | Operator-only direct/session PostgreSQL connection for read-only inspection. Requires unfiltered application reads and existing private-helper/status execution privileges; normally use the approved database-owner operator credential. Never put it in the application host or browser. |
+| `MIGRATION_PROJECT_REF` / `MIGRATION_DATABASE_URL` | `migration-status` | Operator-only project reference and verified-TLS database connection. The command is read-only and refuses a URL that does not match `--confirm`; never put this credential in Vercel. |
 | `BACKUP_ENCRYPTION_KEY`                 | all backup commands    | 64 hex characters (`npm run ops -- generate-key`). Keep it in the approved secret store, **never beside the backups or in the database**. Lose it and every backup is unreadable.          |
 | `BACKUP_DIR`                            | `backup`, `prune`, `status` | The destination folder. The operator makes it off-site (a synced/mounted folder, an object-store mount, a removable drive that leaves the building). **Which one is not decided.** |
 | `BACKUP_MAX_AGE_HOURS`                  | `status`               | Alert if the newest backup is older than this.                                                                                                                                           |
 | `RESTORE_DATABASE_URL`                  | `restore`              | An **isolated** database that already has the reviewed migrations applied. Never the live one.                                                                                           |
 | `MAINTENANCE_MODE=1`                    | the app                | Pages show a maintenance notice (HTTP 503), every API route answers 503, and `/api/internal/health` reports `unavailable`.                                                                |
 | `PDF_EXPORT_ENABLED=0`                  | the app                | Switches the PDF download off (the control disappears; the endpoint answers `EXPORT_FORMAT_UNAVAILABLE`). On by default.                                                                  |
+| `TRUSTED_PROXY_CONFIG=vercel`           | the app                | Production OTP code requests/verification use Vercel's overwritten `X-Forwarded-For` for per-RWA HMAC budgets (30/100 per 15 minutes). Requires Vercel system variables (`VERCEL=1`); missing or invalid input fails closed. Do not place another proxy in front of Vercel; hosted spoof/burst checks and pilot threshold validation remain open. |
 | `PG_BIN_DIR`                            | backup tools           | Folder holding `pg_dump`/`pg_restore` (PostgreSQL 17 client tools, matching Supabase). Optional if they are on `PATH`.                                                                     |
 | `RESEND_API_KEY`, `CONTACT_EMAIL_FROM`, `CONTACT_EMAIL_TO` | contact route | Optional server-only support-mail settings; set all three together. Separate from Supabase OTP SMTP. Restore from the secret/configuration store, not a database backup. |
 | `APP_SUPPORT_EMAIL`                     | the app, `config-check` | Optional server-only developer/support contact eligible for RWA-controlled App Support Access. Setting it does **not** grant access; an enabled RWA Admin must turn it on from Settings and can turn it off at any time. When on, the identity signs in through normal email OTP with household-free, read-only (`rwa-readonly`) access. Never browser-visible. |
 | `GOOGLE_ANALYTICS_ID`, `GOOGLE_SITE_VERIFICATION` | public pages | Optional public identifiers. GA4 is consent-gated on privacy/contact only; verification is not proof of Google property ownership. Set at build/runtime and rebuild after changes. |
+| `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | the app, build | Optional Sentry error monitoring with 10% sampled tracing, active only on Vercel Production/Preview. Events are scrubbed in `src/shared/observability/sentry.ts`, including tag values. System faults (`type: system`), unexpected errors, page crashes and invalid API replies are reported. Each report is tagged with the error ID (`error_id`) plus `area`, `error_code`, `error_category`, `cause_*`, `route`, `host` and `tenant`. Search Sentry for `error_id:<ID>` using the ID a person quotes; see [Debug a reported error ID](#debug-a-reported-error-id). The auth token is a build-only secret for source maps. |
+
+### Tenant routing configuration (tenant-test project only)
+
+S03 implements a server-only `TENANT_DIRECTORY_JSON` host allowlist and separate
+`TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` variables for tenant credentials.
+`TENANT_ROUTING_ENABLED` defaults to `false`. The staging project has no tenant
+directory, host entries or tenant secrets configured. Only the separate
+`arp-civic-pulse-tenant-test` project routes hosts, all synthetic:
+`site.arp-civic-pulse.vercel.app` (main product website),
+`demo.arp-civic-pulse.vercel.app` (demo, disposable project B) and
+`tenant-a.arp-civic-pulse.vercel.app` (customer, disposable project A).
+`tenant-b` was retired when project B became the demo, so the two-customer
+hosted isolation specs need a second customer project before they can run
+again. Do not enable routing for real customers or treat the staging database
+as a real tenant until the actual domain is approved and the remaining release
+gates close.
+
+Each version-1 directory entry binds one exact lowercase hostname to a
+`main`/`demo`/`customer` environment kind and explicit
+provisioning/active/unavailable state. `main` has no RWA backend; demo and each
+customer require distinct canonical HTTPS `*.supabase.co` origins, a publishable
+key and a service-role reference derived from the immutable UUID. Unknown hosts,
+invalid entries, incomplete credentials and unavailable tenants fail closed;
+no fallback is permitted. With routing off, Vercel Preview runtimes also accept
+their own `VERCEL_URL`/`VERCEL_BRANCH_URL` hosts; Production does not. An invalid envelope or empty/all-invalid directory
+prevents startup; an invalid entry only disables its associated host when other
+valid entries remain.
+
+Vercel Secret values are readable by deployed function code. In this shared
+deployment every configured tenant credential is within the application's
+runtime reach; operators with deployment access are technically able to deploy
+code that accesses all tenants. Keep deployment and environment-variable
+permissions limited to named operators and audit changes, but do not describe
+that policy as technical tenant isolation. Changes take effect only in new
+deployments; confirm successful deployment and host-specific health before
+activating a tenant. The 64 KB total Node deployment environment limit is shared
+by the directory and all credentials. The approved pilot cap is **10 customer
+hosts** plus one main and one demo host (`MAX_CUSTOMER_TENANTS` in
+`src/server/config/tenant-directory.ts`); a directory over a limit is rejected
+as a whole. See
+[Vercel environment variables](https://vercel.com/docs/environment-variables).
+
+The main host has no RWA backend: it serves the product website only, every
+`/api/*` route except `/api/internal/health` answers `NOT_FOUND`, and RWA pages
+such as `/sign-in` are 404. The demo host is read-only: only `GET`/`HEAD`/
+`OPTIONS`, demo persona sign-in and sign-out are allowed; every other write
+answers `DEMO_READ_ONLY` (403).
+
+### Demo site
+
+The demo host shows a fictional association, Green Meadows, from its own
+dedicated Supabase project. Visitors pick **Sample resident** or **Sample
+committee member** on the sign-in page; no email or code is involved and changes
+are refused. Reset it weekly (active votes close 28 days after a reset and the
+scheduled vote opens after 7 days) and after any suspected tampering:
+
+```powershell
+# DEMO_PROJECT_REF, DEMO_SUPABASE_URL, DEMO_SERVICE_ROLE_KEY and DEMO_DATABASE_URL
+# must all point at the demo project; never print them.
+$env:PGSSLROOTCERT = "$PWD\.certs\supabase-db-ca.crt"
+npm run ops --silent -- demo-reset --confirm <DEMO_PROJECT_REF>
+```
+
+It erases every app table and Auth user in that project and reseeds 12
+households, the two personas and six votes (scheduled, draft, cancelled, open
+public poll, open secret election, completed). It refuses unless `--confirm`
+matches, every credential points at that project, the project is not
+`NEXT_PUBLIC_SUPABASE_URL`, and the database carries the demo marker. Use
+`--initialize` once, only for a new, dedicated demo project. Output is counts
+only. Known limits: a visitor can copy the persona's session and call the
+database directly to cast a ballot (the next reset repairs it); the seed
+administrator cannot sign in.
+
+All visitors share each persona. The server signs them in with a password it
+derives from the demo project's service-role key, so simultaneous visitors never
+cancel each other (one-time codes did). The password never leaves the server.
+After a reset or key rotation the first sign-in finds a mismatch, sets the
+password through the Auth admin API, logs `demo.persona_password_set` and
+signs in again; no manual step is needed. A `DEMO-` error ID whose log shows
+`DEMO_PERSONA_MISSING` means the demo needs a reset; `AUTH_UNAVAILABLE` with an
+Auth cause (for example `over_request_rate_limit`) means Supabase Auth refused
+the sign-in. Keep the Email provider's password sign-in enabled in the demo
+project.
+
+### Check a customer's migration version
+
+Set `MIGRATION_PROJECT_REF` and `MIGRATION_DATABASE_URL` only in the approved
+operator environment. `MIGRATION_DATABASE_URL` must use verified TLS and point
+to that exact Supabase project; on Windows, set `PGSSLROOTCERT` to the approved
+Supabase database CA. Run:
+
+```powershell
+npm run ops -- migration-status --confirm $env:MIGRATION_PROJECT_REF
+```
+
+The read-only report compares the repository migration versions with
+`supabase_migrations.schema_migrations` for that one project. It prints only
+the project reference, version counts/latest versions, pending versions and
+unknown remote versions—not the database URL or credentials. `current` exits
+zero; an uninitialized/untracked project, pending migrations or unknown remote
+versions exits nonzero. Run once per RWA during a fleet release and retain the
+sanitized reports in the approved release record. This is a migration-history
+check, not proof of schema drift absence, policy correctness or active-vote
+compatibility; continue the required dry-run, SQL review and staging checks.
+
+### Provision a customer RWA
+
+Each customer gets a **new, empty** Supabase project; never copy data from the
+demo or another RWA. Pick a new tenant UUID once and reuse it on every retry.
+
+```powershell
+# PROVISION_PROJECT_REF/SUPABASE_URL/SERVICE_ROLE_KEY/DATABASE_URL/PUBLISHABLE_KEY
+# and PROVISION_ADMIN_EMAIL for that project; SUPABASE_ACCESS_TOKEN (optional) to
+# apply and verify Auth settings. Set them in the shell, never on the command line.
+$env:PGSSLROOTCERT = "$PWD\.certs\supabase-db-ca.crt"
+npm run ops --silent -- provision --confirm <ref> --tenant-id <uuid> `
+  --host <rwa host> --rwa-name "<association name>" --admin-name "<name>" `
+  [--timezone Asia/Kolkata] [--apply-migrations] [--activate]
+```
+
+Every step checks before it writes, so re-run after any failure:
+
+1. **Guards.** Refuses the demo project (by `DEMO_PROJECT_REF`, the directory or
+   the database marker), a project or host that `TENANT_DIRECTORY_JSON` gives to
+   another tenant, a secret key passed as the publishable key, and a project with
+   app tables but no migration history or with migrations this release does not
+   know.
+2. **Migrations.** Reports pending migrations; with `--apply-migrations` it runs
+   `supabase db push` and re-checks the history. Run it through `npm run ops`:
+   the push starts `npx` directly (no shell), so the database URL never appears
+   in a command line.
+3. **Settings.** Initializes the association name and time zone once; a project
+   already holding another name is blocked.
+4. **First administrator.** Finds or creates the Auth identity, then enables it
+   through `deployment_bootstrap_admin`. A different enabled administrator means
+   the project was already handed over and is blocked.
+5. **Auth.** With `SUPABASE_ACCESS_TOKEN` it sets sign-up off, email sign-in
+   on, Site URL and the only redirect URL to the RWA host and six-digit codes,
+   then verifies them. Supabase refuses email-template changes until the
+   project has custom SMTP (free projects return 400), so the repository
+   sign-in subject and template are set only after SMTP exists; until then the
+   step is `blocked` and activation is refused. Add SMTP in the Supabase
+   dashboard, then re-run. Without a token the step is reported as manual. The
+   token needs Organization Projects, Project Settings and Auth Config
+   read-write plus Organizations, Projects, API Keys and API Key Secrets read;
+   give it a short expiry and revoke it after use.
+
+The JSON report lists each step, `blockers`, `handover` tasks and the
+`directoryEntry`. The entry is `provisioning` unless `--activate` is passed and
+there are no blockers; activation with blockers exits 1. Then: set the Vercel
+sensitive secret named by `serviceRoleKeyRef`, add the host as a Vercel domain,
+add the entry to `TENANT_DIRECTORY_JSON`, redeploy, check
+`https://<host>/api/internal/health`, and have the administrator sign in. The
+RWA's real policy approvals and retention periods are recorded with them before
+the first vote; provisioning never records approvals.
 
 ## 2. Monitoring
 
@@ -111,6 +270,47 @@ records and frozen scheduled/active electorates are never overwritten by import.
 The probe aborts its outstanding database HTTP request after three seconds and clears its timer when the check finishes. Failures are reported through allowlisted operational logging without provider messages or credentials; the public response remains only a status and support ID.
 
 Run `status` and the health check from a scheduler you control (Windows Task Scheduler, cron, or a monitoring service) and alert on a non-zero exit. **Manual: no scheduler is configured by this repository.**
+
+### Debug a reported error ID
+
+Every failure screen shows an **Error ID** that residents and RWA administrators can quote. Admin bulk actions show it in their stop message. The ID's prefix tells you which part of the product failed:
+
+| Prefix | Area | Source to look in |
+|---|---|---|
+| `AUTH-` | Sign-in code, verify, sign-out | `src/server/auth/`, `src/app/api/auth/` |
+| `VOTE-` | Resident vote list/detail, submission, participation, results | `src/server/votes/`, `src/app/api/votes/` |
+| `EXPORT-` | CSV/PDF result downloads | `src/server/exports/` |
+| `VOTEADMIN-` | Admin drafts, preview, schedule, activate, deadline, complete, cancel, participation | `src/server/votes/drafts.ts`, `lifecycle.ts`, `src/app/api/admin/votes/` |
+| `REGISTER-` | Admin accounts, households and import | `src/server/register/`, `src/app/api/admin/{accounts,households}/` |
+| `SIGNUP-` | Public resident self-registration | `src/server/register/self-registration.ts` |
+| `SETTINGS-` | RWA settings and App Support Access | `src/server/settings/` |
+| `AUDIT-` | Audit history | `src/app/api/admin/audit/` |
+| `CONTACT-` | Public contact form and email delivery | `src/server/contact.ts` |
+| `DEMO-` | Demo persona sign-in | `src/server/demo/session.ts`, `src/app/api/demo/session/` |
+| `HEALTH-` | Health probe | `src/app/api/internal/health/` |
+| `API-` | Any other API route | `src/app/api/` |
+| `PAGE-` | A page crashed while loading (browser error boundary) | Sentry only; follow its `digest` tag to the server log |
+| `BROWSER-` or `iad1::…`-style | The server or platform sent a non-JSON reply (timeout, crash page) | Sentry `api.invalid_response`; a Vercel-style ID is searchable in Vercel logs |
+
+Steps:
+
+1. **Find the log lines.** Go to Vercel → project → **Logs**, choose the time range and search for the ID. API IDs appear on every line of that request:
+   - `request.failed` is a known error; `request.unhandled` is an unexpected crash.
+   - Any earlier lines from deeper code, such as `provisioning.auth_stage_failed` or `auth.code.provider_unavailable`, carry the same `requestId`.
+2. **Read the line.** Each one gives:
+   - `errorCode`, `errorCategory` and `errorType`. `user` means expected behaviour such as a wrong code or no access; `system` means a fault you must look at.
+   - `hint`: a plain-English meaning and first check.
+   - `causeSource`/`causeCode`/`causeStatus`: which dependency failed and its identifier, for example `database` `57014` for a statement timeout, `supabase_auth` with an HTTP status, `trusted_proxy` with `CLIENT_IP_MISSING`/`CLIENT_IP_INVALID`, or `tenant_config` `SERVICE_KEY_MISSING`.
+   - `reason`, for conflicts.
+   - `route`, `method`, `host`, `tenant` and `durationMs`.
+3. **Open Sentry for system faults.** Search `error_id:<ID>` in the project's Issues. The event shows the exact code location (source maps) and the same tags. Issues are grouped by error code and route, so the event count shows how many people hit the same fault.
+4. **Act on the category:**
+   - `dependency`: check the named provider (Supabase status and usage, Resend, Vercel variables), then retry.
+   - `data_integrity`: stop and follow [6. Incidents](#6-incidents).
+   - `internal`: fix the code at the Sentry stack location.
+   - `security`/`rate_limit`: repeated hits from one host or tenant may be abuse.
+
+Logs never contain emails, names, codes, cookies, request bodies, query strings, choices or provider messages. The error ID alone cannot identify a person; ask the reporter for the time and the screen they were on if you need more context. Vercel keeps runtime logs only for a limited plan-dependent period, so look up reported IDs promptly. Sentry keeps system faults longer. Ordinary `user`-type errors are not sent to Sentry.
 
 ### Read-only RWA configuration inspection
 

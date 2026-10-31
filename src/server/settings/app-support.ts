@@ -4,6 +4,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { cache } from "react";
 import { z } from "zod";
 import { getEnvironment } from "@/server/config/environment";
+import {
+  getRequestTenantContext,
+  type TenantContext,
+} from "@/server/config/tenant-context";
 import { createUserClient } from "@/server/db/clients";
 import { ApiError } from "@/server/http/errors";
 import { log } from "@/server/observability/logger";
@@ -57,14 +61,17 @@ export async function getAppSupportStatus(
 }
 
 /** One read per request for the management banner; an outage hides the banner, never the page. */
-export const loadAppSupportActive = cache(async (): Promise<boolean> => {
-  try {
-    return await supportEnabled(await createUserClient());
-  } catch {
-    log("warn", "app_support.status_unavailable", {});
-    return false;
-  }
-});
+export const loadAppSupportActive = cache(
+  async (tenant?: TenantContext): Promise<boolean> => {
+    try {
+      const resolvedTenant = tenant ?? (await getRequestTenantContext());
+      return await supportEnabled(await createUserClient(resolvedTenant));
+    } catch {
+      log("warn", "app_support.status_unavailable", {});
+      return false;
+    }
+  },
+);
 
 export async function setAppSupportAccess(
   deps: RegisterDeps,

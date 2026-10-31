@@ -199,7 +199,7 @@ npm run dev`}</code>
             ],
             [
               "src/server/auth/; src/server/http/",
-              "OTP, cookies, limiter, Origin/CSRF, request parsing, errors and pagination.",
+              "OTP, cookies, Vercel-only trusted client-IP budgets, Origin/CSRF, request parsing, errors and pagination.",
             ],
             [
               "src/shared/contracts/; src/shared/validation/; src/shared/http/",
@@ -210,8 +210,8 @@ npm run dev`}</code>
               "Shared semantic design tokens, fields, accessible dialogs, table controls and pagination.",
             ],
             [
-              "supabase/migrations/",
-              "Ordered schema, RLS/grants, guarded routines and upgrades; read later replacements, not only initial definitions.",
+              "supabase/migrations/; supabase/README.md",
+              "Ordered schema, RLS/grants, guarded routines and upgrades, grouped by area in the Supabase README. Read later replacements, not only initial definitions: docs/DATABASE.md section 9 maps each table and routine to its current migration.",
             ],
             [
               "scripts/ops/; scripts/deploy/check.ts",
@@ -661,8 +661,12 @@ npm run dev`}</code>
         <p>
           Migrations are immutable once applied. Filename dates are ordering
           identifiers, not evidence that a migration is deployed or approved.
-          Verify target history separately. Add a new reviewed migration for
-          persistent changes and test both fresh schema and upgrade paths.
+          Verify target history separately with the read-only npm run ops --
+          migration-status --confirm &lt;ref&gt;. Add a new reviewed migration
+          for persistent changes and test both fresh schema and upgrade paths.
+          supabase/README.md groups every migration by area, and
+          docs/DATABASE.md section 9 maps each table, routine, role and Cron job
+          to the migration holding its current definition and to its caller.
         </p>
         <FileTable
           rows={[
@@ -730,6 +734,10 @@ npm run dev`}</code>
               "Server-only privileged provisioning and versioned limiter digests. Never use the privileged client for ordinary ballot/result reads.",
             ],
             [
+              "TRUSTED_PROXY_CONFIG",
+              "Set to vercel for production OTP. Trusts one Vercel-overwritten X-Forwarded-For value for per-IP budgets (30 requests/100 verifications per 15 minutes); missing or invalid values fail closed.",
+            ],
+            [
               "APP_SUPPORT_EMAIL",
               "Server support contact; grants nothing until an enabled RWA Admin explicitly enables support access.",
             ],
@@ -767,8 +775,10 @@ npm run dev`}</code>
           Use npm run deploy:check with injected production configuration; it
           intentionally does not load .env.local. A passing build/preflight
           cannot verify SMTP, provider identity, Cron, trusted ingress or
-          governance. TRUSTED_PROXY_CONFIG remains reserved; trusted-client-IP
-          enforcement and spoofing evidence remain unresolved release work.
+          governance. Production OTP requires TRUSTED_PROXY_CONFIG=vercel with
+          Vercel system variables enabled, or code requests and verification
+          fail closed. Hosted spoof/burst checks and pilot threshold validation
+          remain unresolved release work.
         </p>
         <p>
           On an approved workstation, npm run ops -- config-check uses
@@ -862,6 +872,10 @@ npm run dev`}</code>
             [
               "Auth/profile update partially succeeded",
               "register/accounts.ts + provisioning.ts, saved profile/access and Auth outcome; follow recovery without deleting an uncertain identity.",
+            ],
+            [
+              "OTP returns AUTH_UNAVAILABLE with a trusted_proxy cause",
+              "Confirm TRUSTED_PROXY_CONFIG=vercel, Vercel system variables are enabled (VERCEL=1), and the request has one valid Vercel-overwritten X-Forwarded-For value. Do not trust a client-supplied forwarding header or add an upstream proxy.",
             ],
             [
               "Local PostgreSQL certificate failure",

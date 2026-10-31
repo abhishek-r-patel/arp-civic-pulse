@@ -533,14 +533,14 @@ apply only to injected runner values, approval presence is not authenticity,
 and provider/SMTP/ingress/Cron/backup/recovery gates remain open. See
 [Operations](./OPERATIONS.md#read-only-rwa-configuration-inspection).
 
-**Security release blocker:** production ingress is undecided and trusted-client-IP rate limiting is not implemented. The email-only budgets can be bypassed by rotating addresses. Do not release until the selected proxy's client-IP guarantees, direct-origin restrictions, limiter implementation and spoofing/burst tests are complete. Merely setting `TRUSTED_PROXY_CONFIG` does not enable this control.
+**Security release blocker:** code request and verification now have local per-RWA IP budgets (30 and 100 per 15 minutes) using atomic HMAC buckets. Production code accepts the Vercel-overwritten `X-Forwarded-For` only with `TRUSTED_PROXY_CONFIG=vercel` and `VERCEL=1`, and fails closed on missing or invalid values. Before release, configure and redeploy the selected Vercel environment, verify direct-origin protection and spoofed-header/burst behavior on the hosted test project, and validate the shared-NAT thresholds during the pilot. The real production host/plan and ingress approval remain open; the self-registration endpoint still lacks an IP budget.
 
 Operational remote database connections now require verified TLS, and backup manifests are validated before use. The real provider CA/hostname and off-site backup/restore path still need deployment evidence; local integration tests do not establish that evidence.
 
 **27 October protected-staging evidence:** the committed GitHub app plus the
 deployment packaging fix (`8ac9d1c`) is Ready on Vercel Preview using the
 operator-confirmed disposable Supabase project. See the
-[staging deployment record](./DEPLOYMENT.md#protected-staging-27-october-2026).
+[staging deployment record](./DEPLOYMENT.md#historical-protected-staging-27-october-2026).
 Hosted health, maintenance, signed-out access boundaries and wrong-Origin
 rejection passed; authenticated voting/export acceptance, full
 migration history, hosted capacity and recovery remain unverified. Read-only SQL
@@ -556,8 +556,10 @@ See the [SMTP verification record](./DEPLOYMENT.md#staging-otp-verification-28-o
 This is not approval of the personal Gmail sender for production, the unchanged
 one-hour OTP expiry, sending capacity, or any production release gate.
 
-**Current 28 October staging-only follow-up:** the canonical site is now
-<https://arp-civic-pulse-staging.vercel.app>, using Vercel's Production target
+**Current 28 October staging-only follow-up:** the canonical site was then
+<https://arp-civic-pulse-staging.vercel.app> (moved on 31 October to
+<https://staging.arp-civic-pulse.vercel.app>; see the
+[deployment record](./DEPLOYMENT.md#current-staging-configuration-production-target-only)), using Vercel's Production target
 only with the same disposable database. Hosted Preview deployments are disabled,
 all eight Preview-only variables were removed, Production `APP_ORIGIN` and
 Supabase Auth Site URL are aligned, and redeployment
@@ -590,7 +592,7 @@ requires a separate Vercel project and non-disposable Supabase project.
 | 1   | Real approvals **A1–A7**, provider and region, recorded by the real approving authority (today they exist only as **fixtures on the disposable project**)                               | ⬜     |
 | 2   | Approved session policy (the app caps the session cookie at 14 days of inactivity as a provisional default; confirm or change it, and decide whether Pro-tier idle/absolute timeouts are needed), bylaw confirmation of the NOTA winner rule (A5) and early-completion rule, retention periods and backup expiry, RPO/RTO                                                                | ⬜     |
 | 3   | Custom SMTP provider with enough sending/peak capacity, and its Auth limits (Gmail was deferred; the built-in hosted mail cannot carry a code to arbitrary users)                      | ⬜     |
-| 4   | Hosting plan eligibility and cost, TLS, trusted-proxy configuration (`TRUSTED_PROXY_CONFIG`; the per-IP limiter is not implemented until this is approved)                              | ⬜     |
+| 4   | Hosting plan eligibility and cost, TLS, Vercel trusted-proxy configuration, hosted spoof/burst verification, and pilot validation of shared-NAT OTP thresholds (30 requests/100 verifications per IP per 15 minutes) | ⬜     |
 | 5   | Real-device checks: Safari on iPhone, Chrome on Android, and the supported laptop browsers (including keyboard use of radios and the skip link in Safari), CSV and **PDF** download and print on real phones and a laptop | ⬜     |
 | 6   | Manual accessibility: screen reader (VoiceOver, TalkBack, NVDA), keyboard-only, forced contrast, reduced motion, 200–400% zoom on the core journeys                                      | ⬜     |
 | 7   | Backup to the real off-site store with the real key, then a **full restore of the hosted project into a second project** and a documented RPO/RTO                                       | ⬜     |
@@ -599,7 +601,7 @@ requires a separate Vercel project and non-disposable Supabase project.
 | 10  | Load test repeated on the real plan                                                                                                                                                   | ⬜     |
 | 11  | Key and credential hygiene: the database password that was shown in a chat earlier and the CLI access token must be rotated or deleted; the disposable project reset or deleted        | ⬜     |
 | 12 | Public launch: approve legal operator/contact details, exact privacy/retention/provider terms and canonical domain; configure contact sender/recipient/Resend and prove real inbox receipt. If enabling GA4/Search Console, approve the integrations, verify consent/isolation and disable Enhanced Measurement, complete property verification and submit the public sitemap. | ⬜ |
-| 13 | Resident self-registration: record A4 approval covering it (including its duplicate-email/household disclosure); apply `20261109100000` to staging/production through the release process; manual keyboard and screen-reader checks of the flat picker; the trusted-IP release blocker also applies to this endpoint. (Integration, hosted-project application and screenshots: done 27 October on the disposable project.) | ⬜ |
+| 13 | Resident self-registration: record A4 approval covering it (including its duplicate-email/household disclosure); apply `20261109100000` to staging/production through the release process; manual keyboard and screen-reader checks of the flat picker; implement and verify its trusted-IP budget before release. (Integration, hosted-project application and screenshots: done 27 October on the disposable project.) | ⬜ |
 | 14 | One-step account and household onboarding: apply `20261110100000` to staging/production through the release process; manual keyboard and screen-reader checks of the Add Account picker and account-page move dialog. (Integration, live browser flow and screenshots: done 27 October on the disposable project.) | ⬜ |
 
 ## 4. Pilot evaluation (after the gates above, with real residents)

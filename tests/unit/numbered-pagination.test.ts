@@ -8,6 +8,7 @@ import { numberedPage, readPageNumber } from "@/server/http/numbered-page";
 import { decodeCursor } from "@/server/http/cursor";
 import { callRoutine, type RegisterDeps } from "@/server/register/shared";
 import { z } from "zod";
+import { testTenantContext } from "../fixtures/tenant-context";
 
 vi.mock("@/server/register/shared", () => ({ callRoutine: vi.fn() }));
 vi.mock("next/navigation", () => ({
@@ -18,6 +19,7 @@ const client = createClient(
   "synthetic-public-key",
 );
 const deps: RegisterDeps = {
+  tenant: testTenantContext,
   client,
   admin: client,
   actor: {

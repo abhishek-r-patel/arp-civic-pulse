@@ -1,4 +1,5 @@
 import { mkdir } from "node:fs/promises";
+import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { operationalDatabaseClient } from "./database.ts";
 import {
@@ -189,6 +190,53 @@ async function main(): Promise<number> {
       return alerts.length === 0 ? 0 : 1;
     }
 
+    case "migration-status": {
+      const { migrationDatabaseTarget, migrationStatusReport } =
+        await import("./migration-status.ts");
+      const { localMigrationVersions, remoteMigrations } =
+        await import("./provision.ts");
+      const target = migrationDatabaseTarget(
+        process.env.MIGRATION_PROJECT_REF,
+        need("MIGRATION_DATABASE_URL"),
+        option("confirm"),
+      );
+      let report: ReturnType<typeof migrationStatusReport>;
+      const local = await localMigrationVersions(
+        path.join(process.cwd(), "supabase", "migrations"),
+      );
+
+      const db = operationalDatabaseClient(target.databaseUrl);
+      await db.connect();
+      try {
+        await db.query("begin transaction read only");
+        try {
+          const remote = await remoteMigrations(db);
+          let hasApplicationTables = false;
+          if (remote === null) {
+            const marker = await db.query<{ t: string | null }>(
+              "select to_regclass('public.rwa_settings')::text as t",
+            );
+            hasApplicationTables = Boolean(marker.rows[0]?.t);
+          }
+
+          report = migrationStatusReport(
+            target.projectRef,
+            local,
+            remote,
+            hasApplicationTables,
+          );
+          await db.query("commit");
+        } catch (error) {
+          await db.query("rollback");
+          throw error;
+        }
+        console.log(JSON.stringify(report, null, 2));
+        return report.status === "current" ? 0 : 1;
+      } finally {
+        await db.end();
+      }
+    }
+
     case "auth-orphans": {
       // Removes Auth identities left behind after a profile was deleted by retention.
       // Dry run unless --apply; identities younger than 24h are never touched (provisioning may be mid-flight).
@@ -258,9 +306,41 @@ async function main(): Promise<number> {
       return 0;
     }
 
+    case "demo-reset": {
+      // Erases and reseeds the DEDICATED demo project only (docs/OPERATIONS.md, "Demo site").
+      const { demoResetTarget, resetDemo } = await import("./demo.ts");
+      const target = demoResetTarget(process.env, option("confirm"));
+      const counts = await resetDemo(target, {
+        initialize: flag("initialize"),
+      });
+      console.log(JSON.stringify({ ok: true, ...counts }));
+      return 0;
+    }
+
+    case "provision": {
+      // Prepares one fresh customer project (docs/OPERATIONS.md, "Provision a customer RWA").
+      const { provisionPlan, provisionCustomer } =
+        await import("./provision.ts");
+      const names = ["confirm", "tenant-id", "host", "rwa-name", "admin-name"];
+      const { target, request } = provisionPlan(
+        process.env,
+        Object.fromEntries(
+          [...names, "timezone"].map((name) => [name, option(name)]),
+        ),
+      );
+      const report = await provisionCustomer(target, request, {
+        applyMigrations: flag("apply-migrations"),
+        activate: flag("activate"),
+        accessToken: process.env.SUPABASE_ACCESS_TOKEN,
+        repoRoot: process.cwd(),
+      });
+      console.log(JSON.stringify(report, null, 2));
+      return report.activationRequested && !report.ready ? 1 : 0;
+    }
+
     default:
       console.error(
-        "Commands: config-check | generate-key | backup | verify --manifest | restore --manifest | prune | recovery-record --since --out | status | auth-orphans [--apply] | counts --manifest",
+        "Commands: config-check | generate-key | backup | verify --manifest | restore --manifest | prune | recovery-record --since --out | status | migration-status --confirm <ref> | auth-orphans [--apply] | counts --manifest | demo-reset --confirm <ref> [--initialize] | provision --confirm <ref> --tenant-id <uuid> --host <host> --rwa-name <name> --admin-name <name> [--timezone <tz>] [--apply-migrations] [--activate]",
       );
       return 2;
   }

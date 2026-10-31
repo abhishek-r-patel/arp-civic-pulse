@@ -1,6 +1,7 @@
 // Validates runtime server settings without exposing submitted values in diagnostics.
 import "server-only";
 import { z } from "zod";
+import { parseTenantDirectory } from "./tenant-directory.ts";
 
 /*
  * Email validation is inlined (not imported from "@/shared/...") so the
@@ -41,12 +42,23 @@ const environmentSchema = z
     NEXT_PUBLIC_SUPABASE_URL: optionalUrl,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: optionalText,
     SUPABASE_SERVICE_ROLE_KEY: optionalText,
+    TENANT_ROUTING_ENABLED: z.preprocess(
+      blankToUndefined,
+      z
+        .enum(["true", "false"])
+        .default("false")
+        .transform((value) => value === "true"),
+    ),
+    TENANT_DIRECTORY_JSON: optionalText,
     RATE_LIMIT_HMAC_KEY: optionalText,
     LOG_LEVEL: z.preprocess(
       blankToUndefined,
       z.enum(["error", "warn", "info", "debug"]).default("info"),
     ),
-    TRUSTED_PROXY_CONFIG: optionalText,
+    TRUSTED_PROXY_CONFIG: z.preprocess(
+      blankToUndefined,
+      z.enum(["vercel"]).optional(),
+    ),
     RESEND_API_KEY: optionalText,
     CONTACT_EMAIL_FROM: z.preprocess(blankToUndefined, z.email().optional()),
     CONTACT_EMAIL_TO: z.preprocess(blankToUndefined, z.email().optional()),
@@ -58,6 +70,11 @@ const environmentSchema = z
         .optional(),
     ),
     GOOGLE_SITE_VERIFICATION: optionalText,
+    // Public enquiry address shown on the main product website only.
+    SALES_CONTACT_EMAIL: z.preprocess(
+      blankToUndefined,
+      emailAddress.optional(),
+    ),
     // The only identity App Support Access may enable; RWA admins cannot change it.
     APP_SUPPORT_EMAIL: z.preprocess(blankToUndefined, emailAddress.optional()),
   })
@@ -90,20 +107,63 @@ const environmentSchema = z
       }
     }
 
+    if (
+      environment.TENANT_ROUTING_ENABLED &&
+      !environment.TENANT_DIRECTORY_JSON
+    ) {
+      fail(
+        "TENANT_DIRECTORY_JSON",
+        "is required when tenant routing is enabled",
+      );
+    }
+    if (
+      !environment.TENANT_ROUTING_ENABLED &&
+      environment.TENANT_DIRECTORY_JSON
+    ) {
+      fail(
+        "TENANT_ROUTING_ENABLED",
+        "must be true when a tenant directory is configured",
+      );
+    }
+    if (
+      environment.TENANT_ROUTING_ENABLED &&
+      (environment.NEXT_PUBLIC_SUPABASE_URL ||
+        environment.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+        environment.SUPABASE_SERVICE_ROLE_KEY)
+    ) {
+      for (const key of [
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
+      ] as const) {
+        if (environment[key]) {
+          fail(key, "must be unset when tenant routing is enabled");
+        }
+      }
+    }
+
     if (environment.NODE_ENV !== "production") {
       return;
     }
 
-    const required = [
-      "APP_ORIGIN",
-      "NEXT_PUBLIC_SUPABASE_URL",
-      "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-      "SUPABASE_SERVICE_ROLE_KEY",
-      "RATE_LIMIT_HMAC_KEY",
-    ] as const;
+    const required = ["APP_ORIGIN", "RATE_LIMIT_HMAC_KEY"] as const;
     for (const key of required) {
       if (!environment[key]) {
         fail(key, "is required in production");
+      }
+    }
+    if (!environment.TENANT_ROUTING_ENABLED) {
+      for (const key of [
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
+      ] as const) {
+        if (!environment[key]) {
+          fail(
+            key,
+            "is required in production when tenant routing is disabled",
+          );
+        }
       }
     }
 
@@ -190,6 +250,8 @@ const environmentKeys = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
+  "TENANT_ROUTING_ENABLED",
+  "TENANT_DIRECTORY_JSON",
   "RATE_LIMIT_HMAC_KEY",
   "LOG_LEVEL",
   "TRUSTED_PROXY_CONFIG",
@@ -198,6 +260,7 @@ const environmentKeys = [
   "CONTACT_EMAIL_TO",
   "GOOGLE_ANALYTICS_ID",
   "GOOGLE_SITE_VERIFICATION",
+  "SALES_CONTACT_EMAIL",
   "APP_SUPPORT_EMAIL",
 ] as const;
 
@@ -217,6 +280,16 @@ export function parseEnvironment(
       )
       .join("; ");
     throw new Error(`Invalid environment configuration: ${details}`);
+  }
+
+  if (parsed.data.TENANT_ROUTING_ENABLED) {
+    try {
+      parseTenantDirectory(parsed.data.TENANT_DIRECTORY_JSON);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "invalid tenant directory";
+      throw new Error(`Invalid environment configuration: ${message}`);
+    }
   }
 
   return parsed.data;

@@ -89,13 +89,16 @@ export async function loadSelfRegistrationHouseholds(
 ): Promise<string[]> {
   const { data, error } = await admin.rpc("get_self_registration_households");
   if (error) {
+    const mapped = toApiError(error);
     log("warn", "self_registration.households_unavailable", {
-      errorCode: toApiError(error).code,
+      errorCode: mapped.code,
     });
-    throw new ApiError("DEPENDENCY_UNAVAILABLE");
+    throw new ApiError("DEPENDENCY_UNAVAILABLE", { cause: mapped.safeCause });
   }
   if (!Array.isArray(data) || !data.every((item) => typeof item === "string")) {
-    throw new ApiError("DEPENDENCY_UNAVAILABLE");
+    throw new ApiError("DEPENDENCY_UNAVAILABLE", {
+      cause: { source: "database", code: "UNEXPECTED_RESPONSE" },
+    });
   }
   return data;
 }
@@ -143,7 +146,7 @@ export async function selfRegister(
   } catch (error) {
     // The resident can simply retry; nothing usable was created.
     if (error instanceof ApiError && error.code === "PROVISIONING_INCOMPLETE") {
-      throw new ApiError("DEPENDENCY_UNAVAILABLE");
+      throw new ApiError("DEPENDENCY_UNAVAILABLE", { cause: error.safeCause });
     }
     throw error;
   }
@@ -185,5 +188,5 @@ export async function selfRegister(
   log("warn", "self_registration.profile_stage_failed", {
     errorCode: mapped.code,
   });
-  throw new ApiError("DEPENDENCY_UNAVAILABLE");
+  throw new ApiError("DEPENDENCY_UNAVAILABLE", { cause: mapped.safeCause });
 }

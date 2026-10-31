@@ -4,6 +4,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { cache } from "react";
 import { connection } from "next/server";
 import { createUserClient } from "@/server/db/clients";
+import {
+  getRequestTenantContext,
+  type TenantContext,
+} from "@/server/config/tenant-context";
 import { toApiError } from "@/server/db/errors";
 import { ApiError } from "@/server/http/errors";
 import { log } from "@/server/observability/logger";
@@ -50,7 +54,13 @@ export async function getVerifiedUserId(
   ) {
     return null;
   }
-  throw new ApiError("AUTH_UNAVAILABLE");
+  throw new ApiError("AUTH_UNAVAILABLE", {
+    cause: {
+      source: "supabase_auth",
+      code: (error as { code?: string }).code,
+      status,
+    },
+  });
 }
 
 /*
@@ -136,22 +146,27 @@ export type SessionState =
  * Auth outage reads as "anonymous" so error and not-found pages still render;
  * protected data is never shown in that case.
  */
-export const getSessionState = cache(async (): Promise<SessionState> => {
-  // Per-request data: opt out of prerendering BEFORE the try block, so the
-  // framework's dynamic-rendering signal is never swallowed below.
-  await connection();
-  try {
-    const { account } = await requireAccount();
-    return { state: "account", account };
-  } catch (error) {
-    if (error instanceof ApiError && error.code === "FORBIDDEN") {
-      return { state: "blocked" };
+export const getSessionState = cache(
+  async (tenant?: TenantContext): Promise<SessionState> => {
+    // Per-request data: opt out of prerendering BEFORE the try block, so the
+    // framework's dynamic-rendering signal is never swallowed below.
+    await connection();
+    try {
+      const resolvedTenant = tenant ?? (await getRequestTenantContext());
+      const { account } = await requireAccount(
+        await createUserClient(resolvedTenant),
+      );
+      return { state: "account", account };
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "FORBIDDEN") {
+        return { state: "blocked" };
+      }
+      if (!(error instanceof ApiError && error.code === "AUTH_REQUIRED")) {
+        log("warn", "session.unavailable", {
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        });
+      }
+      return { state: "anonymous" };
     }
-    if (!(error instanceof ApiError && error.code === "AUTH_REQUIRED")) {
-      log("warn", "session.unavailable", {
-        errorName: error instanceof Error ? error.name : "UnknownError",
-      });
-    }
-    return { state: "anonymous" };
-  }
-});
+  },
+);

@@ -28,6 +28,7 @@ import { memberVoteListQuerySchema } from "@/shared/contracts/member-votes";
 import type { OpenResults, ClosedResults } from "@/shared/contracts/results";
 import { adminClient, hasLive, hasSql, withSql } from "./support/live";
 import { apiError, signIn, type SignedIn } from "./support/session";
+import { testTenantContext } from "../fixtures/tenant-context";
 
 /*
  * Member discovery, completed results, monitoring, audit and CSV export
@@ -45,6 +46,7 @@ describe.skipIf(!hasLive || !hasSql)("live: results and monitoring", () => {
   let households: string[];
 
   const asDeps = (user: SignedIn, isAdmin: boolean): RegisterDeps => ({
+    tenant: testTenantContext,
     client: user.client,
     admin,
     actor: { id: user.id, representativeName: user.name, isAdmin },

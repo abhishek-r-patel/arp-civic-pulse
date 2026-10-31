@@ -1,12 +1,15 @@
 // Server-only public identity and breadcrumb schema; never describes private records.
-import { PUBLIC_PAGES, siteOrigin } from "@/shared/metadata";
+import { hostDiscovery } from "@/server/site/discovery";
+import type { PublicPagePath } from "@/shared/metadata";
 
-export function PublicStructuredData({
+export async function PublicStructuredData({
   path,
-}: Readonly<{ path: (typeof PUBLIC_PAGES)[number]["path"] }>) {
-  const origin = siteOrigin();
-  const page = PUBLIC_PAGES.find((entry) => entry.path === path);
-  if (!page) throw new Error("Unknown public schema route");
+}: Readonly<{ path: PublicPagePath }>) {
+  const { origin, kind, pages } = await hostDiscovery();
+  const page = pages.find((entry) => entry.path === path);
+  // The demo is not indexed, so it publishes no schema.
+  if (!page) return null;
+  const home = kind === "main" ? "/" : "/sign-in";
   const schema = {
     "@context": "https://schema.org",
     "@graph": [
@@ -28,9 +31,9 @@ export function PublicStructuredData({
             "@type": "ListItem",
             position: 1,
             name: "Civic Pulse",
-            item: `${origin}/sign-in`,
+            item: `${origin}${home}`,
           },
-          ...(path === "/sign-in"
+          ...(path === home
             ? []
             : [
                 {

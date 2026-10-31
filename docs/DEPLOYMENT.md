@@ -2,9 +2,139 @@
 
 ## 1. Status and approval boundary
 
-This repository is **deployed to staging using Vercel's Production target, not real production or approved for real voting**. The architecture prefers Vercel for Next.js and Supabase PostgreSQL/Auth/Cron. The staging account is recorded below; no production Supabase project, production hosting plan, region, domain, budget or trusted ingress is approved by this configuration. No existing hosted project is assumed to be production.
+This repository is **deployed to staging using Vercel's Production target, not real production or approved for real voting**. The architecture prefers Vercel for Next.js and Supabase PostgreSQL/Auth/Cron. The staging account is recorded below; no production Supabase project, production hosting plan, region, domain, budget or production ingress is approved by this configuration. No existing hosted project is assumed to be production.
 
-Do not promote a deployment or admit real residents until the open gates in [PILOT_READINESS.md](./PILOT_READINESS.md) are closed. In particular, `TRUSTED_PROXY_CONFIG` is reserved and **does not implement trusted-client-IP limiting**. Approve ingress, implement and test spoof-resistant IP enforcement before release; setting the variable is not a workaround. This guide does not grant approval of A1-A7, providers, regions, retention or recovery objectives.
+Do not promote a deployment or admit real residents until the open gates in [PILOT_READINESS.md](./PILOT_READINESS.md) are closed. The application now implements local per-RWA OTP IP budgets using Vercel's overwritten `X-Forwarded-For`; hosted spoof/burst verification, Vercel configuration, and pilot threshold validation remain open. `TRUSTED_PROXY_CONFIG=vercel` is required in production, and Vercel system environment variables must be enabled so `VERCEL=1` is available. The application does not support an upstream proxy in front of Vercel. This guide does not grant approval of A1-A7, providers, regions, retention or recovery objectives.
+
+### Tenant routing: disabled on staging; separate hosted test project
+
+The [S02 tenant contract](./IMPLEMENTATION_PLAN.md#s02---tenant-resolution-and-configuration-contract)
+specifies exact allowlisted hosts for the main site, reserved demo and customer
+RWAs; separate Supabase projects; explicit provisioning/active/unavailable
+states; and no fallback for unknown or unavailable hosts. S03 implements
+request-scoped resolution and client factories, gated by
+`TENANT_ROUTING_ENABLED` (default `false`). The staging deployment still
+uses one `APP_ORIGIN` and one disposable Supabase project; no tenant directory,
+customer subdomains or tenant credentials are configured on it.
+
+**Hosted S04 test project (31 October 2026, retained).** With operator
+approval, a separate Hobby project, `arp-civic-pulse-tenant-test` in team
+`arp-civic-pulse`, serves synthetic hosts
+<https://tenant-a.arp-civic-pulse.vercel.app> and
+<https://tenant-b.arp-civic-pulse.vercel.app>. Both are subdomains of the
+team slug, so they are same-site, which makes them a realistic cookie test.
+It has Production-only, sensitive variables:
+- `TENANT_ROUTING_ENABLED=true`
+- a two-entry `TENANT_DIRECTORY_JSON`, mapping host A to disposable project
+  `nycbbzgsilnxrgkwlwno` (also the staging database) and host B to
+  `hnqajjjemqepxuoqbsqx`
+- the two `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` values
+- a project-specific `RATE_LIMIT_HMAC_KEY`, `APP_ORIGIN` set to host A
+  (metadata only in directory mode) and `LOG_LEVEL=info`
+
+It has no Git connection, no Preview variables and no Sentry settings. It was
+deployed from the uncommitted local S04 working tree with
+`vercel deploy --prod`, using `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` overrides so
+the repository's staging `.vercel` link was untouched. `.vercelignore`
+excludes `.env*`, `.certs` and keys. Protection stays
+`all_except_custom_domains`: the tenant hosts are public, while the
+per-deployment URL redirects to Vercel SSO (302). The project's own default
+`arp-civic-pulse-tenant-test.vercel.app` host is not in the directory and
+returns the app's 404. Redeploy after any variable change.
+
+These hosted checks passed. The opt-in spec
+`tests/e2e/tenant-origin-live.spec.ts` ran with `TENANT_HTTP_REMOTE=1` against
+the real HTTPS hosts, using admin-generated codes so no email was sent:
+- OTP verification succeeds on each host, and production `__Host-` cookies
+  carry tenant-specific names.
+- A session from one host gets 401 on the other.
+- A wrong Origin gets `403 CSRF_FAILED`.
+- A valid host A cookie/token with `Origin`, `X-Forwarded-Host` and
+  `X-Forwarded-Proto` pointing at host B gets 403.
+- The unlisted default host gets 404.
+- Signing out on host A leaves the host B session valid.
+
+This closes S04's hosted origin/session gate only.
+
+**S03 cross-surface isolation (31 October 2026).** The tenant-test project was
+redeployed from the uncommitted working tree that includes readable error IDs.
+Project B now has synthetic settings named "Tenant B Synthetic RWA".
+`tests/e2e/tenant-isolation-live.spec.ts` and the origin spec both passed
+against the hosted HTTPS hosts. The isolation spec:
+- seeds one completed synthetic PUBLIC vote in each project, with the same admin
+  email in both
+- runs three rounds of interleaved concurrent requests on both hosts
+- confirms each host shows only its own RWA name, vote list, vote detail and CSV
+  export, and that the other tenant's vote returns 404
+- confirms responses carry readable error IDs (for example `VOTEADMIN-…`)
+- confirms 10 wrong codes on host A trigger 429 there, while the same email on
+  host B still gets the ordinary 422
+
+Vercel runtime logs from that run labelled every `request.failed` line with the
+correct tenant: 22 for host A (`11111111-…`), 10 for host B (`22222222-…`). The
+unlisted default host was logged as `unresolved`. Repeating these checks after
+a host becomes unavailable, or after credential rotation, is covered only by
+local unit tests so far.
+
+Still open:
+- the actual domain (the cap is now 10 customers; see below)
+- redeploy with `TRUSTED_PROXY_CONFIG=vercel` and verify spoofed-header/burst behavior for the new OTP IP budgets
+- validate shared-NAT thresholds during the pilot
+- SMTP delivery for project B
+- production approvals
+
+**Product website and demo (S05/S06).** The tenant-test project's directory
+was then changed to three entries:
+- `site.arp-civic-pulse.vercel.app`: `main`, the product website with no RWA
+  backend
+- `demo.arp-civic-pulse.vercel.app`: `demo`, project `hnqajjjemqepxuoqbsqx`
+  (former project B), tenant `22222222-…`, reseeded with
+  `npm run ops -- demo-reset` as the fictional "Green Meadows" association
+- `tenant-a.arp-civic-pulse.vercel.app`: `customer`, project A as before
+
+Both new hosts were added as Vercel project domains. `tenant-b` is no longer
+listed and returns 404, so the two-customer specs above
+(`tenant-origin-live`, `tenant-isolation-live`) cannot run until a second
+customer project is provisioned. `SALES_CONTACT_EMAIL` is not set, so the main
+Contact page says enquiries are not open yet. Placeholder `vercel.app` hosts
+stand in for the real domain. The hosted spec
+`tests/e2e/site-demo-live.spec.ts` (`SITE_DEMO_HTTP_TEST=1`) passed 3 of 3:
+- the main host serves the product, contact, privacy, robots and sitemap
+  pages, 404s `/sign-in` and answers its contact API `NOT_FOUND`
+- the demo shows its banner, disallows crawling, turns registration and
+  contact off, signs in each persona with one click and refuses a ballot
+  submission with `403 DEMO_READ_ONLY`
+- the committee persona sees administration screens read-only
+
+**Customer provisioning (S07).** On the Supabase free tier (two active
+projects), the demo project was paused, then two fresh synthetic projects
+(`civic-pulse-s07-a`, `civic-pulse-s07-b`, Mumbai) were created and checked one
+at a time with `npm run ops -- provision` and a scoped management token. Each
+needed three passes: blocked on 44 pending migrations; migrations, settings and
+first admin done but activation refused because SMTP is missing; then every
+step `already`, with one row each for user, profile, admin and settings. Each
+was temporarily added to the directory as `tenant-b` (tenant `33333333-…`,
+`state: active` as a test-only override of the SMTP blocker) with its secret,
+redeployed, and both two-customer specs passed against `tenant-a`. Each project
+was then deleted, `tenant-b` and its secret removed, the demo restored and
+redeployed, and `site-demo-live.spec.ts` passed 10/10 (Chromium + WebKit).
+The directory is back to the three entries above, so `tenant-b` again does
+not resolve. The tenant HTTP helpers accept the new project through
+`TENANT_HTTP_PROJECT_B_REF` (see `tests/e2e/support/tenant-http.ts`).
+
+The selected pilot design stores a server-only tenant directory and separate
+per-RWA service-role credentials in Vercel environment variables. Function code
+can access every configured tenant secret, so a shared deployment has a
+fleet-wide secret blast radius and Vercel deployment administrators have
+technical capability to reach every configured backend. This is not
+per-tenant credential isolation. Vercel applies environment changes only to
+new deployments and documents a 64 KB aggregate environment-variable limit for
+Node.js deployments; see [Vercel environment variables](https://vercel.com/docs/environment-variables).
+The approved pilot cap is 10 customer RWAs (plus one main and one demo host),
+enforced by the directory parser. Do not onboard a real customer or enable
+routing on staging or production until the actual domain is approved and the
+remaining release gates close. New customer projects are prepared with
+`npm run ops -- provision` ([operations](./OPERATIONS.md#provision-a-customer-rwa)).
 
 ### Current staging configuration: Production target only
 
@@ -61,13 +191,41 @@ subsequently applied, and the Amber migration version collision was resolved
 forward-only. No `--include-all` or migration-history rewrite was used.
 
 - Canonical URL and Production `APP_ORIGIN`:
-  <https://arp-civic-pulse-staging.vercel.app>, without a trailing slash in the
+  <https://staging.arp-civic-pulse.vercel.app>, without a trailing slash in the
   environment value. Use this origin for sign-in and all browser mutations.
   Switching Vercel environments or protection does not rewrite `APP_ORIGIN`.
+- 31 October 2026 host move (operator-approved): the Vercel team slug was
+  renamed from `arp-e93d` to `arp-civic-pulse`, so older `*-arp-e93d.vercel.app`
+  deployment URLs and dashboard links below are historical. The domain
+  `staging.arp-civic-pulse.vercel.app` was added, Production `APP_ORIGIN` was
+  updated, and committed `10fc15b` was redeployed as
+  `dpl_gaaY7oo64XNkhGQBbGcuMYcuQnRT` (Ready). The former
+  `arp-civic-pulse-staging.vercel.app` host now permanently redirects (308) to
+  the new host. The operator updated the disposable project's Supabase Auth Site
+  URL to the new origin, and the Management API confirmed it; the local
+  access token cannot write Auth configuration. Hosted checks:
+  - Health returns 200 and sign-in renders.
+  - A same-origin request with a cookie-bound token returns 204 on sign-out.
+  - The old origin, a wrong origin and spoofed `X-Forwarded-Host` are rejected
+    with 403.
+  - Per-deployment URLs still redirect to Vercel SSO.
 - Vercel project `arp-civic-pulse-staging` remains connected to `main` as its
   Production branch, with `previewDeploymentsDisabled=true`. All eight
   Preview-only environment entries were removed; the nine Production entries
   remain. No credentials were transferred to a different project.
+- 31 October 2026: Sentry settings were added to the same project for
+  Production and Preview: `NEXT_PUBLIC_SENTRY_DSN` (public config),
+  `SENTRY_ORG`, `SENTRY_PROJECT` and the operator-entered build-only
+  `SENTRY_AUTH_TOKEN` (EU-region Sentry project `arp-civic-pulse`). Preview
+  copies are inert while previews stay disabled. A synthetic event sent with the
+  DSN reached Sentry; in-app capture and source-map upload are unverified until
+  the next Production build. A CLI Preview deploy attempted that day failed
+  before building because Preview intentionally has no app variables; nothing
+  was served. Single-tenant mode now also accepts a Preview deployment's own
+  `VERCEL_URL`/`VERCEL_BRANCH_URL` hosts (only when `VERCEL_ENV=preview`), so a
+  future Preview would render instead of returning 404. This is local and
+  unit-tested only; Preview app variables were deliberately not restored, so no
+  Preview deployment has exercised it.
 - [vercel.json](../vercel.json) adds a durable Git policy:
   `git.deploymentEnabled` disables `**` and enables `main`. Vercel enables a
   branch when any matching rule is true, so `main` still builds while feature
@@ -201,24 +359,40 @@ Configure these in the hosting environment manager, scoped separately to Product
 | `NEXT_PUBLIC_SUPABASE_URL` | Approved project's bare HTTPS API origin, not a database connection URL or `/rest/v1` URL. Public/build-time value. |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Same project's publishable key or legacy **anon** key. Public/build-time value, never a secret/service-role/user token. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Same project's server-only privileged credential, accessible only to the application runtime/build environment that requires it. Never prefix it with `NEXT_PUBLIC_`. |
+| `TENANT_ROUTING_ENABLED` | Optional host-based routing switch; defaults to `false`. Enabled only on the separate synthetic `arp-civic-pulse-tenant-test` project. Do not enable for staging or real hosts before the domain and remaining release gates are complete (pilot cap: 10 customers). |
+| `TENANT_DIRECTORY_JSON` | Required only when routing is enabled; version-1 exact-host directory with project origins and secret references, never secret values. |
+| `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` | One server-only privileged credential per immutable tenant UUID referenced by the directory; all remain accessible to shared function code. |
 | `RATE_LIMIT_HMAC_KEY` | Independent random production secret, at least 32 characters. Store in the approved secret manager; generate separately for each environment. |
 | `APP_SUPPORT_EMAIL` | Optional server-only developer/support contact for RWA-controlled App Support Access. Leave unset unless the RWA wants in-app developer help; setting it grants nothing until an RWA Admin turns access on. Never prefix with `NEXT_PUBLIC_`. |
 | `LOG_LEVEL` | Normally `info`; logs remain allowlisted and must not capture bodies, selections, OTPs, tokens or cookies. |
+| `NEXT_PUBLIC_SENTRY_DSN` | Optional public Sentry DSN. Scope to **Production and Preview** only; the app also keeps Sentry off unless Vercel reports one of those environments at build time. Rebuild after changes. |
+| `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | Optional build-time source-map upload. The token is a non-revealable build secret; without it the build emits no source maps. |
 | `MAINTENANCE_MODE` | `1` for initial restricted deployment/recovery; `0` only for an authorized validation or release window. |
 | `PDF_EXPORT_ENABLED` | `0` to defer optional PDF; `1` only after hosted font/render/runtime checks. |
-| `TRUSTED_PROXY_CONFIG` | Reserved; not an enabled security control. Remains a release blocker as described above. |
+| `TRUSTED_PROXY_CONFIG` | Set to `vercel` in Production and Preview for OTP functionality. Enables the Vercel-overwritten `X-Forwarded-For` source; OTP requests fail closed if configuration, `VERCEL=1` or one valid IP is unavailable. Set up Vercel system environment variables and redeploy. Hosted spoof/burst checks and pilot capacity validation remain open. |
 
 Use the secret manager's generator for `RATE_LIMIT_HMAC_KEY` or generate 32 random bytes on an approved workstation; do not put its value in command arguments, logs, chat or version control.
 
 The following belong **only** to an approved deployment/operations runner, not Vercel's application environment:
 
 - `SUPABASE_ACCESS_TOKEN`: least-privilege management token only if using management/CLI operations.
+- `MIGRATION_PROJECT_REF`: the confirmed project reference for the read-only
+  `npm run ops -- migration-status` report; operator-only, never a Vercel app
+  variable.
 - `MIGRATION_DATABASE_URL`: approved production direct or supported session-pooler migration connection, with `sslmode=verify-full` and the provider CA; never transaction pooling. Restrict database access to the migration operator/runner. Never use a backup login to migrate.
 - Backup runner: `BACKUP_DATABASE_URL`, `BACKUP_ENCRYPTION_KEY`, `BACKUP_DIR`, `BACKUP_MAX_AGE_HOURS`, optionally `PG_BIN_DIR` and approved CA configuration. Follow [OPERATIONS.md](./OPERATIONS.md).
 - Recovery rehearsal runner: `RESTORE_DATABASE_URL`, pointing to an isolated, already-migrated recovery environment, never production.
 - Configuration inspection workstation/runner: `CONFIG_DATABASE_URL` for `npm run ops -- config-check`, using approved operator database access over verified TLS. No app login is required, but database authentication is; never expose this credential through Vercel, a public route or browser. See [read-only inspection](./OPERATIONS.md#read-only-rwa-configuration-inspection).
 
 SMTP credentials belong in Supabase's provider settings, not application/public variables.
+
+- Operator workstation for the demo and new customers: `DEMO_*` variables for
+  `npm run ops -- demo-reset` and `PROVISION_*` (plus optional
+  `SUPABASE_ACCESS_TOKEN`) for `npm run ops -- provision`. Neither set is read
+  by the running application; never add them to Vercel. See
+  [operations](./OPERATIONS.md#demo-site).
+- `SALES_CONTACT_EMAIL` (optional, server configuration): the enquiry address
+  shown on the main product website's Contact page.
 
 `npm run deploy:check` reads **only injected environment variables**, does not auto-load `.env.local`, and forces production validation. It exits nonzero on unsafe/missing configuration and reports names/rules without printing values. It does not authenticate keys, prove project isolation, validate approvals or enable IP limiting. Startup independently rechecks configuration through instrumentation. Never use CI's synthetic placeholders for a real deployment.
 
@@ -435,6 +609,43 @@ Deployment sequence:
 7. Validate SMTP with approved operator accounts; perform ballot/export acceptance checks in staging rather than generating fake production votes.
 8. Enable privacy-safe monitoring and alert delivery: health availability, Cron lag, database capacity, invariant/submission failures, email errors, exports and backup freshness. Do not use monitoring as a free-tier keep-alive. Configure the external backup scheduler/off-site destination separately; Vercel's ephemeral filesystem is not backup storage.
 9. Record deployment URL, artifact/revision, time, environment, migration versions and approving operator in the approved release record. Never include secrets.
+
+### Shared-app fleet release gate
+
+One application deployment serves every routed customer database. Keep an
+operator-only release matrix for each backend with its immutable tenant ID,
+project reference, last applied migration version, candidate minimum schema
+version and verification result; never include connection strings or keys.
+Until fleet aggregation is automated, run the read-only
+`npm run ops -- migration-status --confirm <ref>` command once per backend and
+record its sanitized output in the release matrix. The command reports
+repository versus remote migration versions; still use the Supabase CLI dry run
+to review pending SQL. A healthy `/api/internal/health` response does not
+establish schema compatibility.
+
+Use expand/contract releases:
+
+1. Keep the existing shared application running while applying only reviewed,
+   backward-compatible schema expansions to each backend. Confirm each
+   migration history before moving to the next backend.
+2. If any backend fails or is behind the candidate's required minimum, stop the
+   migration wave and do not deploy the candidate. Keep the previous application
+   running only while it remains compatible with every schema already changed;
+   otherwise put the service in maintenance mode and investigate.
+3. Deploy the shared application only after every routed backend satisfies its
+   declared minimum schema and the two-backend isolation/version-skew checks
+   pass. Do not mix an app revision that calls newly added routines with a
+   backend that lacks them.
+4. Remove or contract obsolete schema only in a later release, after all
+   supported application revisions no longer use it, with no active-vote
+   impact and a separately reviewed migration.
+
+Prefer postponing schema changes that alter ballot, electorate, tally or
+deadline behavior while any election is active. Never change those guarantees
+to make a release fit a window. An application rollback is allowed only to a
+retained build compatible with every already-applied schema; otherwise ship a
+forward fix or keep maintenance enabled. Never reverse an applied migration or
+restore an older database to undo a release after acknowledged votes.
 
 For HTTPS checks, use a trusted shell without disabling certificate validation:
 

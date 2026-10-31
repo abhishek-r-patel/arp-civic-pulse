@@ -13,6 +13,7 @@ import {
 import { voteListQuerySchema } from "@/shared/contracts/admin-votes";
 import { adminClient, hasLive, hasSql, withSql } from "./support/live";
 import { apiError, signIn, type SignedIn } from "./support/session";
+import { testTenantContext } from "../fixtures/tenant-context";
 
 /*
  * Draft management against real Supabase Auth and PostgREST with real signed-in
@@ -26,6 +27,7 @@ describe.skipIf(!hasLive || !hasSql)("live: vote drafts", () => {
   let resident: SignedIn;
 
   const asDeps = (user: SignedIn, isAdmin: boolean): RegisterDeps => ({
+    tenant: testTenantContext,
     client: user.client,
     admin,
     actor: { id: user.id, representativeName: user.name, isAdmin },

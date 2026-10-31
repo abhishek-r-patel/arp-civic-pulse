@@ -9,6 +9,24 @@
 - **Authoritative results:** Supabase PostgreSQL is the source of truth. Completed outcomes are shown in the application and exported as CSV. A readable, printable PDF export is optional and may be deferred beyond version 1; it is not a backup, authoritative record or signature-replacement workflow.
 - **Terminology:** PUBLIC and PRIVATE are voting types. Draft, Scheduled, Active, Completed and Cancelled are separate lifecycle statuses. Neither voting type implies a lifecycle status.
 
+### SaaS direction: S01, 31 October 2026
+
+The [SaaS product and commercial boundaries](./IMPLEMENTATION_PLAN.md#s01---product-and-commercial-boundaries)
+record confirmed development direction: operator-assisted customer onboarding,
+a separate Supabase project per RWA behind a shared application, a separate
+product/pricing/contact website, a synthetic read-only demo and manual annual
+billing. The deployed application remains single-RWA. S03 adds a locally tested,
+disabled-by-default server routing foundation; no customer hosts or directory
+are configured, and the website, demo and billing controls are not implemented.
+
+S01 remains partially complete. The selected starting policies (both vote types,
+a 10-RWA pilot cap and a 7-day billing grace default) are recorded in the
+[implementation plan](./IMPLEMENTATION_PLAN.md#s01---product-and-commercial-boundaries).
+Actual domain, pricing/included services, households and peak voters per RWA,
+and service/offboarding terms are pending. The historical MVP capacity and free-tier budget objectives below
+are not an approved SaaS service commitment, commercial pricing or evidence of
+fleet capacity. A1-A7 still require per-RWA approval before real voting.
+
 ## 02 Problem
 RWAs run votes through WhatsApp groups, show-of-hands at meetings, paper slips and spreadsheets. In practice:
 - Nobody can be sure each household voted only once, or that only eligible households voted.

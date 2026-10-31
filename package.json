@@ -26,6 +26,7 @@
     "ops": "node --conditions=react-server --env-file-if-exists=.env.local scripts/ops/cli.ts"
   },
   "dependencies": {
+    "@sentry/nextjs": "11.10.0",
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.118.0",
     "csv-parse": "7.0.3",

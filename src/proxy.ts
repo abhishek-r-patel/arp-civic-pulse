@@ -7,7 +7,13 @@ import {
   isValidCsrfContext,
 } from "@/server/http/csrf";
 import { refreshSessionCookies } from "@/server/auth/proxy-session";
+import {
+  tenantContextForProxy,
+  type TenantContext,
+} from "@/server/config/tenant-context";
+import { ApiError } from "@/server/http/errors";
 import { MAINTENANCE_PAGE, isMaintenanceMode } from "@/server/maintenance";
+import { mainHostRoute } from "@/shared/host-routes";
 
 /*
  * Ensures every page request has a CSRF context (docs/API.md section 3.2) and
@@ -21,6 +27,17 @@ import { MAINTENANCE_PAGE, isMaintenanceMode } from "@/server/maintenance";
  * session upkeep only; authorization is decided later, per request, on the server.
  */
 export async function proxy(request: NextRequest) {
+  let tenant: TenantContext;
+  try {
+    tenant = tenantContextForProxy(request.headers.get("host"));
+  } catch (error) {
+    if (!(error instanceof ApiError)) throw error;
+    return new NextResponse(null, {
+      status: error.status,
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  }
+
   if (isMaintenanceMode()) {
     return new NextResponse(MAINTENANCE_PAGE, {
       status: 503,
@@ -30,6 +47,14 @@ export async function proxy(request: NextRequest) {
         "Retry-After": "300",
       },
     });
+  }
+
+  // The main product website has no RWA backend, sessions or forms: it only
+  // maps its public pages to `src/app/site` and 404s everything else.
+  if (tenant.kind === "main") {
+    return NextResponse.rewrite(
+      new URL(mainHostRoute(request.nextUrl.pathname), request.url),
+    );
   }
 
   const production = process.env.NODE_ENV === "production";
@@ -42,7 +67,7 @@ export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(CSRF_CONTEXT_HEADER, context);
 
-  const refreshed = await refreshSessionCookies(request);
+  const refreshed = await refreshSessionCookies(request, tenant);
   if (refreshed) {
     requestHeaders.set("cookie", refreshed.cookieHeader);
   }

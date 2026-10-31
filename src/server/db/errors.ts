@@ -3,6 +3,7 @@ import {
   ApiError,
   isApiErrorCode,
   type ApiErrorCode,
+  type ErrorCause,
 } from "@/server/http/errors";
 
 /*
@@ -52,28 +53,47 @@ const SAFE_REASONS = new Set([
   "DEADLINE_UNCHANGED",
 ]);
 
+const SQL_TOKEN = /^[A-Z][A-Z0-9_]{2,63}$/u;
+
+/*
+ * The SQLSTATE (or PostgREST code) and HTTP status for logs and Sentry. A
+ * protected routine's token is appended (`P0001:INVARIANT_VIOLATION`) only
+ * when it looks like a token, so free-form database text is never recorded.
+ */
+function databaseCause({ code, message, status }: DatabaseFailure): ErrorCause {
+  return {
+    source: "database",
+    code:
+      code === "P0001" && message && SQL_TOKEN.test(message)
+        ? `P0001:${message}`
+        : (code ?? "none"),
+    status,
+  };
+}
+
 export function toApiError(failure: DatabaseFailure): ApiError {
   const { code, message = "", details, status } = failure;
+  const cause = databaseCause(failure);
 
   if (code === "P0001") {
     const mapped = TOKEN_TO_CODE[message] ?? message;
     // INVARIANT_VIOLATION and unknown tokens fall through to a safe 500.
     if (mapped !== "INTERNAL_ERROR" && isApiErrorCode(mapped)) {
       return details && SAFE_REASONS.has(details)
-        ? new ApiError(mapped, { context: { reason: details } })
-        : new ApiError(mapped);
+        ? new ApiError(mapped, { context: { reason: details }, cause })
+        : new ApiError(mapped, { cause });
     }
-    return new ApiError("INTERNAL_ERROR");
+    return new ApiError("INTERNAL_ERROR", { cause });
   }
   if (code === "42501") {
-    return new ApiError("FORBIDDEN");
+    return new ApiError("FORBIDDEN", { cause });
   }
   // A bounded lock wait or statement timeout is temporary, never a domain outcome.
   if (code === "55P03" || code === "57014") {
-    return new ApiError("DEPENDENCY_UNAVAILABLE");
+    return new ApiError("DEPENDENCY_UNAVAILABLE", { cause });
   }
   if (code === "23505") {
-    return new ApiError("REGISTER_CONFLICT");
+    return new ApiError("REGISTER_CONFLICT", { cause });
   }
   // Connectivity, timeouts and gateway failures are temporary, not domain outcomes.
   if (
@@ -82,7 +102,7 @@ export function toApiError(failure: DatabaseFailure): ApiError {
     status >= 500 ||
     code?.startsWith("08")
   ) {
-    return new ApiError("DEPENDENCY_UNAVAILABLE");
+    return new ApiError("DEPENDENCY_UNAVAILABLE", { cause });
   }
-  return new ApiError("INTERNAL_ERROR");
+  return new ApiError("INTERNAL_ERROR", { cause });
 }

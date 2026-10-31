@@ -33,3 +33,5 @@ revoke all on function public.get_enabled_rwa_admin_names()
   from public, anon, service_role;
 grant execute on function public.get_enabled_rwa_admin_names()
   to authenticated;
+
+reset role;

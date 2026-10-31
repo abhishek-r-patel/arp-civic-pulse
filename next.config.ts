@@ -1,11 +1,11 @@
-// Security headers; optional public analytics uses narrowly scoped Google endpoints.
+// Security headers, scrubbed Sentry build integration and optional public analytics.
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const isProduction = process.env.NODE_ENV === "production";
 const analyticsEnabled = Boolean(process.env.GOOGLE_ANALYTICS_ID);
 
-function supabaseOrigin(): string | undefined {
-  const value = process.env.NEXT_PUBLIC_SUPABASE_URL;
+function originOf(value: string | undefined): string | undefined {
   if (!value) {
     return undefined;
   }
@@ -16,6 +16,15 @@ function supabaseOrigin(): string | undefined {
   }
 }
 
+function supabaseOrigin(): string | undefined {
+  return originOf(process.env.NEXT_PUBLIC_SUPABASE_URL);
+}
+
+// Browser Sentry events go straight to the DSN's ingest origin (never the key).
+function sentryOrigin(): string | undefined {
+  return originOf(process.env.NEXT_PUBLIC_SENTRY_DSN);
+}
+
 // Next.js injects inline bootstrap scripts, so script-src needs 'unsafe-inline'
 // until a nonce-based policy is adopted. Everything else stays restrictive.
 const contentSecurityPolicy = [
@@ -24,7 +33,7 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   "font-src 'self'",
-  `connect-src 'self'${supabaseOrigin() ? ` ${supabaseOrigin()}` : ""}${isProduction ? "" : " ws: wss:"}${analyticsEnabled ? " https://www.google-analytics.com https://region1.google-analytics.com https://www.googletagmanager.com" : ""}`,
+  `connect-src 'self'${supabaseOrigin() ? ` ${supabaseOrigin()}` : ""}${sentryOrigin() ? ` ${sentryOrigin()}` : ""}${isProduction ? "" : " ws: wss:"}${analyticsEnabled ? " https://www.google-analytics.com https://region1.google-analytics.com https://www.googletagmanager.com" : ""}`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -53,6 +62,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Sentry runs only where Vercel reports Production or Preview at build time.
+  env: { NEXT_PUBLIC_SENTRY_ENVIRONMENT: process.env.VERCEL_ENV ?? "" },
   // PDFKit and fontkit read their data files at run time; bundling them breaks that.
   serverExternalPackages: ["pdfkit", "fontkit"],
   // The PDF renderer loads the bundled fonts from disk: keep them in a traced build output.
@@ -72,4 +83,13 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  telemetry: false,
+  widenClientFileUpload: true,
+  // Without an upload token, emit no source maps rather than leave them public.
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+});

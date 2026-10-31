@@ -4,7 +4,30 @@ Mobile-first voting and polls for a single Resident Welfare Association (RWA).
 
 The application implements registered-member email OTP access, household/account administration with reviewed CSV import, PUBLIC polls and PRIVATE elections with immediate or scheduled opening, protected results, CSV/PDF exports, and operational backup/recovery tooling. Production use remains blocked by the approvals and external-environment checks in [pilot readiness](./docs/PILOT_READINESS.md).
 
-The [staging site](https://arp-civic-pulse-staging.vercel.app) uses Vercel's
+The [SaaS action plan](./docs/IMPLEMENTATION_PLAN.md#saas-action-plan---31-october-2026)
+tracks the planned shared application, separate Supabase projects per RWA,
+customer subdomains and synthetic-only `demo.yourapp.in` environment. It contains
+confirmed S01 starting policies and unresolved decisions, not a deployed SaaS
+offering or production approval. S01 is partially complete: operator-assisted
+onboarding, a read-only synthetic demo, manual annual billing and responsibility
+boundaries are confirmed. Resolve the remaining commercial, capacity and
+voting-scope decisions before marking S01 complete. S02's fail-closed tenant
+resolution/configuration design is specified, including Vercel's shared-secret
+limits. S03 adds locally tested, request-scoped tenant routing behind
+`TENANT_ROUTING_ENABLED`, which defaults to false. No directory, tenant secrets
+or customer hosts are configured on staging. A separate retained Vercel test
+project serves the product website (`site.`), the synthetic demo (`demo.`) and
+one synthetic customer (`tenant-a.`) on placeholder `arp-civic-pulse.vercel.app`
+hosts; the actual domain is unconfirmed and the pilot cap is 10 customer RWAs.
+S03-S07 are complete on that test project: `npm run ops -- provision` was
+verified on two fresh temporary projects (since deleted); each customer still
+needs custom SMTP before activation. S08 is in progress with an upgrade-path
+regression, a documented shared-app rollout gate and read-only migration
+reporting; S09 is in progress. S10's manual-billing policy is recorded, but
+implementation waits for a ledger store choice; S11-S12 remain pending. None
+of this is release approval.
+
+The [staging site](https://staging.arp-civic-pulse.vercel.app) uses Vercel's
 **Production target only**, backed by the disposable Supabase project. Automatic
 Preview deployments are disabled; only `main` deploys automatically. This is not
 real production: that requires separate Vercel/Supabase projects and approvals.
@@ -162,19 +185,19 @@ Open <http://localhost:3000>. Use synthetic data only; never copy production reg
 
 ## Scripts
 
-| Command                                   | Purpose                                                                                                         |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `npm run dev`                             | Development server                                                                                              |
-| `npm run build` / `npm run start`         | Production build and server                                                                                     |
-| `npm run deploy:check`                    | Validate injected production configuration without loading local environment files or printing values           |
-| `npm run lint`                            | ESLint (Next.js core-web-vitals and TypeScript rules)                                                           |
-| `npm run format` / `npm run format:check` | Prettier with the Tailwind class-order plugin                                                                   |
-| `npm run typecheck`                       | `tsc --noEmit` under strict settings                                                                            |
-| `npm test`                                | Vitest unit tests in `tests/unit`                                                                               |
-| `npm run test:integration`                | Real-PostgreSQL tests in `tests/integration` (needs `INTEGRATION_DATABASE_URL`, see `supabase/README.md`)       |
-| `npm run test:live`                       | Real hosted Supabase Auth/PostgREST tests in `tests/live` (needs a disposable project in `.env.local`)          |
-| `npm run test:e2e`                        | Playwright and axe checks in `tests/e2e` (run `npx playwright install` first)                                   |
-| `npm run ops -- <command>`                | Backup, verify, restore rehearsal, status, orphan Auth cleanup (see [docs/OPERATIONS.md](./docs/OPERATIONS.md)) |
+| Command                                   | Purpose                                                                                                                                                                         |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                             | Development server                                                                                                                                                              |
+| `npm run build` / `npm run start`         | Production build and server                                                                                                                                                     |
+| `npm run deploy:check`                    | Validate injected production configuration without loading local environment files or printing values                                                                           |
+| `npm run lint`                            | ESLint (Next.js core-web-vitals and TypeScript rules)                                                                                                                           |
+| `npm run format` / `npm run format:check` | Prettier with the Tailwind class-order plugin                                                                                                                                   |
+| `npm run typecheck`                       | `tsc --noEmit` under strict settings                                                                                                                                            |
+| `npm test`                                | Vitest unit tests in `tests/unit`                                                                                                                                               |
+| `npm run test:integration`                | Real-PostgreSQL tests in `tests/integration`, including the migration upgrade-path regression (needs `INTEGRATION_DATABASE_URL`, see `supabase/README.md`)                      |
+| `npm run test:live`                       | Real hosted Supabase Auth/PostgREST tests in `tests/live` (needs a disposable project in `.env.local`)                                                                          |
+| `npm run test:e2e`                        | Playwright and axe checks in `tests/e2e` (run `npx playwright install` first)                                                                                                   |
+| `npm run ops -- <command>`                | Backup, verify, restore rehearsal, status, migration-version reporting, orphan Auth cleanup, demo reset, customer provisioning (see [docs/OPERATIONS.md](./docs/OPERATIONS.md)) |
 
 Browser journeys that sign in for real (`tests/e2e/*-live.spec.ts`) run only with `LIVE_AUTH=1`. On managed Windows machines, system policy can close Microsoft Edge shortly after Playwright starts it ("DevTools remote debugging is disallowed by the system admin"); use Playwright's own Chromium (`npx playwright install chromium`) instead of `PLAYWRIGHT_CHROMIUM_CHANNEL=msedge`.
 
@@ -189,12 +212,18 @@ Browser journeys that sign in for real (`tests/e2e/*-live.spec.ts`) run only wit
 
 New here? Follow the step-by-step [local setup guide](./docs/LOCAL_SETUP.md).
 
-Server configuration is validated when the server starts (`src/instrumentation.ts` → `src/server/config/environment.ts`); production fails clearly on missing or unsafe values. See [.env.example](./.env.example) for placeholder-only variables.
+Server configuration is validated when the server starts (`src/instrumentation.ts` → `src/server/config/environment.ts`); production fails clearly on missing or unsafe values. The same startup hook and `src/instrumentation-client.ts` initialize optional, scrubbed Sentry error monitoring on Vercel Production/Preview only. Every failure shows a readable **Error ID** such as `VOTE-7K3QX-M2PTA`. Its prefix names the product area, and the same ID appears in Vercel logs and Sentry; see [Debug a reported error ID](./docs/OPERATIONS.md#debug-a-reported-error-id). See [.env.example](./.env.example) for placeholder-only variables.
 
 - `NEXT_PUBLIC_*` values are visible in browsers and must never hold a secret.
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only and reserved for controlled Auth provisioning and resident self-registration, never ballots, results or exports.
+- Host-based routing is disabled by default. `TENANT_ROUTING_ENABLED`,
+  `TENANT_DIRECTORY_JSON` and UUID-keyed tenant secrets are configured only on
+  the retained tenant-test Vercel project, never on staging or production until
+  the domain and Vercel ingress trust are approved. `SALES_CONTACT_EMAIL` sets
+  the main website's contact address; `DEMO_*` and `PROVISION_*` are operator
+  shell variables for `demo-reset` and `provision`. See the [working checklist](./docs/IMPLEMENTATION_PLAN.md#working-checklist).
 - `APP_SUPPORT_EMAIL` is an optional server-only developer/support contact; it only becomes usable when an RWA Admin turns App Support Access on, and never appears in a browser.
-- `SUPABASE_ACCESS_TOKEN` and `MIGRATION_DATABASE_URL` are deployment-only and not read by the running application.
+- `SUPABASE_ACCESS_TOKEN`, `MIGRATION_DATABASE_URL` and `MIGRATION_PROJECT_REF` are deployment/operations-only and not read by the running application.
 - SMTP, OTP settings and Cron are configured in Supabase/provider settings and reviewed migrations.
 
 ## Layout
@@ -220,8 +249,14 @@ src/shared         Browser-safe contracts and validation
 src/styles         Tailwind theme and design tokens (globals.css)
 supabase           config.toml and migrations (reviewed, versioned SQL)
 tests              unit, integration, e2e, fixtures
+tests/integration/migration-upgrade.test.ts
+                   Upgrade-path regression from the previous reviewed migration baseline
 src/app/user-guide Native public index and Resident/RWA Admin guide pages
 src/app/tech-guide Unlisted public developer reference
+src/app/site       Main-host product website pages (proxy rewrites the main host here)
+src/components/site Product website shell and the demo banner
+src/server/demo    Demo persona sign-in (session.ts)
+scripts/ops        Operator CLI: backups, migration-status, demo-reset (demo.ts), provision (provision.ts)
 src/components/guides Native content, contents navigation, screenshots and diagrams
 src/shared/guides/screenshots.ts Curated synthetic screenshot inventory
 public/guides      Current referenced PNGs and generated dimensions.json

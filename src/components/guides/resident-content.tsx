@@ -96,6 +96,12 @@ export function residentSections(terms: HouseholdTerms): GuideSection[] {
               guarantee delivery. A generic message does not confirm whether an
               account exists.
             </li>
+            <li>
+              If you see <strong>Too many requests</strong>, wait about 15
+              minutes and try again. Many neighbours signing in over the same
+              shared Wi-Fi count together, so switching to mobile data may also
+              help.
+            </li>
           </Steps>
           <Screenshot image="signIn" />
           <Screenshot image="code" />

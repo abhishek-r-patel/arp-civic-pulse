@@ -44,6 +44,10 @@ function incomplete(
 ): ApiError {
   return new ApiError("PROVISIONING_INCOMPLETE", {
     context: { stage, ...(authIdentity && { authIdentity }) },
+    cause: {
+      source: stage === "AUTH" ? "supabase_auth" : "database",
+      code: `${stage}_STAGE_FAILED`,
+    },
   });
 }
 
@@ -60,7 +64,13 @@ export async function findAuthUserIdByEmail(
       log("warn", "provisioning.identity_lookup_failed", {
         status: error.status ?? 0,
       });
-      throw new ApiError("DEPENDENCY_UNAVAILABLE");
+      throw new ApiError("DEPENDENCY_UNAVAILABLE", {
+        cause: {
+          source: "supabase_auth",
+          code: "IDENTITY_LOOKUP_FAILED",
+          status: error.status,
+        },
+      });
     }
     const match = data.users.find(
       (user) => user.email?.toLowerCase() === email,
@@ -75,7 +85,9 @@ export async function findAuthUserIdByEmail(
   log("warn", "provisioning.identity_lookup_incomplete", {
     errorCode: "LOOKUP_LIMIT",
   });
-  throw new ApiError("DEPENDENCY_UNAVAILABLE");
+  throw new ApiError("DEPENDENCY_UNAVAILABLE", {
+    cause: { source: "supabase_auth", code: "IDENTITY_LOOKUP_LIMIT" },
+  });
 }
 
 export async function ensureAuthIdentity(

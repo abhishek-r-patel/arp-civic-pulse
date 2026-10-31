@@ -18,6 +18,7 @@ import {
   importRequestSchema,
   parseRegisterCsv,
 } from "@/shared/contracts/register-import";
+import { testTenantContext } from "../fixtures/tenant-context";
 
 vi.mock("@/server/register/provisioning", () => ({
   findAuthUserIdByEmail: vi.fn(),
@@ -94,6 +95,7 @@ describe("register import orchestration", () => {
   const accountId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
   const client = {} as SupabaseClient;
   const deps: RegisterDeps = {
+    tenant: testTenantContext,
     client,
     admin: client,
     actor: {

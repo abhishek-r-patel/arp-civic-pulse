@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { publicMetadata } from "@/shared/metadata";
 import { PublicStructuredData } from "@/components/ui/public-structured-data";
 import { SignInForm } from "@/components/access/sign-in-form";
+import { DemoPersonaSignIn } from "@/components/demo/demo-persona-sign-in";
+import { getRequestTenantContext } from "@/server/config/tenant-context";
 import { SignOutButton } from "@/components/access/sign-out-button";
 import { PageHeader } from "@/components/ui/layout";
 import { Notice } from "@/components/ui/notice";
@@ -21,6 +23,7 @@ export default async function SignInPage() {
     redirect("/");
   }
   const csrfToken = await getCsrfToken();
+  const demo = (await getRequestTenantContext()).kind === "demo";
   const [identity, terms] = await Promise.all([
     loadPublicRwaIdentity(),
     loadHouseholdTerms(),
@@ -50,17 +53,21 @@ export default async function SignInPage() {
             <SignOutButton csrfToken={csrfToken} />
           </div>
         </Notice>
+      ) : demo ? (
+        <DemoPersonaSignIn csrfToken={csrfToken} />
       ) : (
         <SignInForm csrfToken={csrfToken} />
       )}
 
-      <p className="text-body text-muted">
-        New resident?{" "}
-        <a href="/register" className="text-accent underline">
-          Register
-        </a>
-        .
-      </p>
+      {demo ? null : (
+        <p className="text-body text-muted">
+          New resident?{" "}
+          <a href="/register" className="text-accent underline">
+            Register
+          </a>
+          .
+        </p>
+      )}
 
       {csrfToken === undefined ? (
         <Notice tone="error" heading="This page could not be prepared">

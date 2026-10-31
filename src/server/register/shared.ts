@@ -8,12 +8,18 @@ import {
   requireCommittee,
   type Account,
 } from "@/server/authorization/account";
-import { createAdminClient } from "@/server/db/clients";
+import {
+  getRequestTenantContext,
+  type TenantContext,
+} from "@/server/config/tenant-context";
+import { createAdminClient, createUserClient } from "@/server/db/clients";
 import { toApiError } from "@/server/db/errors";
 import { ApiError } from "@/server/http/errors";
 import type { AccountStatus } from "@/shared/contracts/register";
 
 export interface RegisterDeps {
+  /** Immutable host-resolved context shared by both clients. */
+  tenant: TenantContext;
   /** The administrator's own session: reads follow RLS, routines re-check the caller. */
   client: SupabaseClient;
   /** Server-only privileged client: Auth administration and the limiter only. */
@@ -23,14 +29,30 @@ export interface RegisterDeps {
 
 /** Verifies the caller is a current enabled administrator, then builds the dependencies. */
 export async function registerDeps(): Promise<RegisterDeps> {
-  const { account, client } = await requireAdmin();
-  return { client, admin: createAdminClient(), actor: account };
+  const tenant = await getRequestTenantContext();
+  const { account, client } = await requireAdmin(
+    await createUserClient(tenant),
+  );
+  return {
+    tenant,
+    client,
+    admin: await createAdminClient(tenant),
+    actor: account,
+  };
 }
 
 /** Read-only management access; callers must retain admin guards for mutations. */
 export async function committeeReadDeps(): Promise<RegisterDeps> {
-  const { account, client } = await requireCommittee();
-  return { client, admin: createAdminClient(), actor: account };
+  const tenant = await getRequestTenantContext();
+  const { account, client } = await requireCommittee(
+    await createUserClient(tenant),
+  );
+  return {
+    tenant,
+    client,
+    admin: await createAdminClient(tenant),
+    actor: account,
+  };
 }
 
 export async function enforceMutationLimit(deps: RegisterDeps): Promise<void> {

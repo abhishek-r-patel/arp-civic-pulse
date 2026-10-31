@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   SESSION_COOKIE_MAX_AGE_SECONDS,
   hardenSessionCookie,
-  isSupabaseAuthCookie,
+  isTenantSessionCookie,
+  sessionCookieName,
 } from "@/server/auth/session-cookies";
 
 const DAY = 86_400;
@@ -18,6 +19,7 @@ describe("hardenSessionCookie", () => {
         secure: false,
         sameSite: "none",
         path: "/elsewhere",
+        domain: ".example.test",
       },
       true,
     );
@@ -27,6 +29,7 @@ describe("hardenSessionCookie", () => {
       sameSite: "lax",
       path: "/",
     });
+    expect("domain" in options).toBe(false);
     expect(
       hardenSessionCookie("sb-x-auth-token", "v", { maxAge: DAY }, false)
         .secure,
@@ -81,23 +84,33 @@ describe("hardenSessionCookie", () => {
   });
 });
 
-describe("isSupabaseAuthCookie", () => {
-  it("recognises the SDK's session cookie and its chunks only", () => {
-    for (const name of [
-      "sb-abc-auth-token",
-      "sb-abc-auth-token.0",
-      "sb-abc-auth-token.1",
-    ]) {
-      expect(isSupabaseAuthCookie(name), name).toBe(true);
-    }
-    for (const name of [
-      "cp_csrf",
-      "__Host-cp_csrf",
-      "session",
-      "sb-abc-other",
-      "theme",
-    ]) {
-      expect(isSupabaseAuthCookie(name), name).toBe(false);
-    }
+describe("tenant session cookie names", () => {
+  it("uses a host-only __Host name per tenant in production", () => {
+    const alpha = sessionCookieName(
+      "11111111-1111-4111-8111-111111111111",
+      true,
+    );
+    const beta = sessionCookieName(
+      "22222222-2222-4222-8222-222222222222",
+      true,
+    );
+
+    expect(alpha).toBe(
+      "__Host-cp-11111111-1111-4111-8111-111111111111-auth-token",
+    );
+    expect(beta).not.toBe(alpha);
+    expect(isTenantSessionCookie(alpha, alpha)).toBe(true);
+    expect(isTenantSessionCookie(`${alpha}.0`, alpha)).toBe(true);
+    expect(isTenantSessionCookie(beta, alpha)).toBe(false);
+    expect(isTenantSessionCookie(`${alpha}-code-verifier`, alpha)).toBe(false);
+  });
+
+  it("uses a non-prefixed name for local HTTP and rejects unsafe identifiers", () => {
+    expect(sessionCookieName("single-rwa", false)).toBe(
+      "cp-single-rwa-auth-token",
+    );
+    expect(() => sessionCookieName("tenant.with.dot", true)).toThrow(
+      "Invalid tenant ID for session cookie",
+    );
   });
 });

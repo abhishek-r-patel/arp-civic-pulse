@@ -8,6 +8,7 @@ import { ApiError } from "@/server/http/errors";
 import { log } from "@/server/observability/logger";
 import { AUTH_RATE_LIMITS, enforceRateLimit } from "@/server/auth/rate-limit";
 import { CODE_RESEND_SECONDS } from "@/shared/contracts/auth";
+import type { TenantContext } from "@/server/config/tenant-context";
 
 /*
  * OTP request, verification and sign-out on top of Supabase Auth, which owns
@@ -15,10 +16,14 @@ import { CODE_RESEND_SECONDS } from "@/shared/contracts/auth";
  * here. Provider responses are never forwarded to clients.
  */
 export interface AuthDependencies {
+  /** Immutable host-resolved backend context shared by both clients. */
+  tenant: TenantContext;
   /** Server client carrying (and receiving) the caller's SDK cookie session. */
   client: SupabaseClient;
   /** Server-only privileged client, used solely for the supplemental limiter. */
   admin: SupabaseClient;
+  /** Vercel-overwritten client IP; used only as an HMAC rate-limit subject. */
+  clientIp?: string;
   /** Injectable for tests. */
   wait?: (milliseconds: number) => Promise<void>;
   clock?: () => number;
@@ -60,6 +65,7 @@ export async function requestCode(
   const startedAt = (deps.clock ?? Date.now)();
 
   try {
+    await enforceTrustedIpBudget(deps, AUTH_RATE_LIMITS.codeRequestByIp);
     await enforceRateLimit(
       deps.admin,
       AUTH_RATE_LIMITS.codeRequestByEmail,
@@ -76,7 +82,9 @@ export async function requestCode(
       log("error", "auth.code.provider_unavailable", {
         status: error.status ?? 0,
       });
-      throw new ApiError("AUTH_UNAVAILABLE");
+      throw new ApiError("AUTH_UNAVAILABLE", {
+        cause: authCause(error),
+      });
     }
     if (error) {
       // Unknown, disabled or throttled by Auth: indistinguishable from success.
@@ -96,6 +104,7 @@ export async function verifyCode(
   email: string,
   code: string,
 ): Promise<Account> {
+  await enforceTrustedIpBudget(deps, AUTH_RATE_LIMITS.verifyByIp);
   await enforceRateLimit(
     deps.admin,
     AUTH_RATE_LIMITS.verifyByEmail,
@@ -116,7 +125,7 @@ export async function verifyCode(
       });
     }
     if (isTemporary(error)) {
-      throw new ApiError("AUTH_UNAVAILABLE");
+      throw new ApiError("AUTH_UNAVAILABLE", { cause: authCause(error) });
     }
     return rejectCode();
   }
@@ -135,6 +144,23 @@ export async function verifyCode(
     });
   }
   return account;
+}
+
+async function enforceTrustedIpBudget(
+  deps: AuthDependencies,
+  policy:
+    | typeof AUTH_RATE_LIMITS.codeRequestByIp
+    | typeof AUTH_RATE_LIMITS.verifyByIp,
+): Promise<void> {
+  if (!deps.clientIp) {
+    if (process.env.NODE_ENV === "production") {
+      throw new ApiError("AUTH_UNAVAILABLE", {
+        cause: { source: "trusted_proxy", code: "CLIENT_IP_UNAVAILABLE" },
+      });
+    }
+    return;
+  }
+  await enforceRateLimit(deps.admin, policy, "ip", deps.clientIp);
 }
 
 function rejectCode(): never {
@@ -160,5 +186,16 @@ export async function signOut(
   ) {
     return;
   }
-  throw new ApiError("AUTH_UNAVAILABLE");
+  throw new ApiError("AUTH_UNAVAILABLE", {
+    cause: authCause(error as { code?: string; status?: number }),
+  });
+}
+
+// Supabase Auth's error code and HTTP status only; its message is never kept.
+function authCause(error: { code?: string | undefined; status?: number }): {
+  source: "supabase_auth";
+  code: string | undefined;
+  status: number | undefined;
+} {
+  return { source: "supabase_auth", code: error.code, status: error.status };
 }

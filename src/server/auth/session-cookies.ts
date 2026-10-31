@@ -17,7 +17,22 @@ const VERIFIER_MAX_AGE_SECONDS = 10 * 60;
 export interface SessionCookieOptions {
   maxAge?: number;
   expires?: Date;
+  domain?: string;
   [key: string]: unknown;
+}
+
+export function sessionCookieName(tenantId: string, secure: boolean): string {
+  if (!/^[a-z0-9-]+$/u.test(tenantId)) {
+    throw new Error("Invalid tenant ID for session cookie");
+  }
+  return `${secure ? "__Host-" : ""}cp-${tenantId}-auth-token`;
+}
+
+export function isTenantSessionCookie(
+  name: string,
+  sessionName: string,
+): boolean {
+  return name === sessionName || name.startsWith(`${sessionName}.`);
 }
 
 export function hardenSessionCookie(
@@ -37,8 +52,9 @@ export function hardenSessionCookie(
           SESSION_COOKIE_MAX_AGE_SECONDS,
         );
   }
-  const { expires: _expires, ...rest } = options;
+  const { expires: _expires, domain: _domain, ...rest } = options;
   void _expires;
+  void _domain;
   return {
     ...rest,
     ...(maxAge !== undefined && { maxAge }),
@@ -48,8 +64,4 @@ export function hardenSessionCookie(
     sameSite: "lax",
     path: "/",
   };
-}
-
-export function isSupabaseAuthCookie(name: string): boolean {
-  return name.startsWith("sb-") && name.includes("-auth-token");
 }

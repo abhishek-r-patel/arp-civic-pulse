@@ -17,6 +17,7 @@ import {
   withSql,
 } from "./support/live";
 import { apiError, signIn, type SignedIn } from "./support/session";
+import { testTenantContext } from "../fixtures/tenant-context";
 
 /*
  * Member submission against real Supabase Auth, PostgREST and RLS, with real
@@ -34,6 +35,7 @@ describe.skipIf(!hasLive || !hasSql)("live: member submission", () => {
   let householdId: string;
 
   const asDeps = (user: SignedIn, isAdmin: boolean): RegisterDeps => ({
+    tenant: testTenantContext,
     client: user.client,
     admin,
     actor: { id: user.id, representativeName: user.name, isAdmin },
