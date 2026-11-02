@@ -106,17 +106,14 @@ test("README and repository docs introduce no broken local links or Markdown anc
       const [path, fragment] = target.split("#");
       const resolved = path ? resolve(root, dirname(file), decodeURIComponent(path)) : join(root, file);
       let resolvedSource = "";
-      try {
-        resolvedSource = await readFile(resolved, "utf8");
-      } catch (error) {
-        if (
-          typeof error !== "object" ||
-          error === null ||
-          !("code" in error) ||
-          error.code !== "EISDIR"
-        ) {
+      if (fragment && resolved.endsWith(".md")) {
+        try {
+          resolvedSource = await readFile(resolved, "utf8");
+        } catch (error) {
           throw new Error(`${file}: missing ${target}`, { cause: error });
         }
+      } else {
+        await assert.doesNotReject(stat(resolved), `${file}: missing ${target}`);
       }
       if (fragment && resolved.endsWith(".md")) {
         const anchor = decodeURIComponent(fragment);
