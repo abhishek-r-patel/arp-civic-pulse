@@ -45,6 +45,8 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
       welcomeMessage: "",
       householdLabel: "Household",
       identifierKind: "NUMBER",
+      pdfCardsPerPage: 8,
+      pdfVotersPerPage: 50,
     });
 
     const forbidden = await dbError(
@@ -149,6 +151,8 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
       welcomeMessage: "",
       householdLabel: "Household",
       identifierKind: "NUMBER",
+      pdfCardsPerPage: 8,
+      pdfVotersPerPage: 50,
       defaultHouseholds: [],
       rwaPositions: [
         "President",
@@ -177,6 +181,8 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
               welcomeMessage: "Welcome to our community portal.",
               householdLabel: "Flat",
               identifierKind: "ID",
+              pdfCardsPerPage: 4,
+              pdfVotersPerPage: 25,
               defaultHouseholds: ["H-101", "H-102"],
               rwaPositions: ["President", "Treasurer"],
             }),
@@ -192,16 +198,26 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
       welcomeMessage: "Welcome to our community portal.",
       householdLabel: "Flat",
       identifierKind: "ID",
+      pdfCardsPerPage: 4,
+      pdfVotersPerPage: 25,
       defaultHouseholds: ["H-101", "H-102"],
       rwaPositions: ["President", "Treasurer"],
     });
 
     const currentName = await db.asOwner((client) =>
-      client.query<{ name: string }>(
-        "select name from public.rwa_settings where id = 1",
+      client.query<{
+        name: string;
+        pdf_cards_per_page: number;
+        pdf_voters_per_page: number;
+      }>(
+        "select name, pdf_cards_per_page, pdf_voters_per_page from public.rwa_settings where id = 1",
       ),
     );
-    expect(currentName.rows[0]?.name).toBe("Lakeview Residents Association");
+    expect(currentName.rows[0]).toEqual({
+      name: "Lakeview Residents Association",
+      pdf_cards_per_page: 4,
+      pdf_voters_per_page: 25,
+    });
 
     // Members see the new display values immediately.
     const branding = await db.asRole(
@@ -218,6 +234,8 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
       welcomeMessage: "Welcome to our community portal.",
       householdLabel: "Flat",
       identifierKind: "ID",
+      pdfCardsPerPage: 4,
+      pdfVotersPerPage: 25,
     });
     // The suggestion lists are administrator-only.
     expect(branding.rows[0]?.get_rwa_branding).not.toHaveProperty(
@@ -246,6 +264,8 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
         "welcomeMessage",
         "householdLabel",
         "identifierKind",
+        "pdfCardsPerPage",
+        "pdfVotersPerPage",
         "defaultHouseholds",
         "rwaPositions",
       ],
@@ -264,6 +284,8 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
       welcomeMessage: "",
       householdLabel: "Household",
       identifierKind: "NUMBER",
+      pdfCardsPerPage: 8,
+      pdfVotersPerPage: 50,
       defaultHouseholds: [],
       rwaPositions: ["President"],
     };
@@ -304,6 +326,12 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
       { householdLabel: "x".repeat(41) },
       { householdLabel: "<b>Flat</b>" },
       { identifierKind: "CODE" },
+      { pdfCardsPerPage: 0 },
+      { pdfCardsPerPage: 9 },
+      { pdfCardsPerPage: 2.5 },
+      { pdfVotersPerPage: 0 },
+      { pdfVotersPerPage: 51 },
+      { pdfVotersPerPage: 2.5 },
       { email: "not-an-email" },
       { defaultHouseholds: "H-101" },
       { defaultHouseholds: [101] },
@@ -344,6 +372,8 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
               welcomeMessage: "",
               householdLabel: "Household",
               identifierKind: "NUMBER",
+              pdfCardsPerPage: 8,
+              pdfVotersPerPage: 50,
               defaultHouseholds: [],
               rwaPositions: [],
             }),
@@ -354,6 +384,8 @@ describe.skipIf(!hasDatabase)("RWA profile settings", () => {
       address: "",
       email: "",
       phone: "",
+      pdfCardsPerPage: 8,
+      pdfVotersPerPage: 50,
       defaultHouseholds: [],
       rwaPositions: [],
     });

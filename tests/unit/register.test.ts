@@ -934,6 +934,8 @@ describe("createAccount with a household", () => {
     welcomeMessage: "",
     householdLabel: "Flat",
     identifierKind: "NUMBER",
+    pdfCardsPerPage: 8,
+    pdfVotersPerPage: 50,
     defaultHouseholds,
     rwaPositions: [],
   });

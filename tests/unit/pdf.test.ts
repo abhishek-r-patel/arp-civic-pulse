@@ -363,6 +363,58 @@ describe("renderResultsPdf", () => {
     ).rejects.toThrow("A PRIVATE PDF requires its completed voter roster.");
   });
 
+  it("limits PRIVATE office cards and voter rows to configured page counts", async () => {
+    const pdf = await renderResultsPdf(projectResults(closedRaw()), generated, {
+      pdfCardsPerPage: 1,
+      pdfVotersPerPage: 1,
+      privateVoters: [
+        {
+          representativeName: "Asha Rao",
+          householdIdentifier: "A-101",
+          email: "asha@example.test",
+        },
+        {
+          representativeName: "Ravi Nair",
+          householdIdentifier: "B-102",
+          email: "ravi@example.test",
+        },
+      ],
+    });
+    const read = await readPdf(pdf);
+    expect(read.pages).toHaveLength(4);
+    expect(squash(read.pages[0] ?? "")).toContain("Chair");
+    expect(squash(read.pages[0] ?? "")).not.toContain("Treasurer");
+    expect(squash(read.pages[1] ?? "")).toContain("Treasurer");
+    expect(squash(read.pages[1] ?? "")).toContain("RESULTSBYOFFICE·CONTINUED");
+    expect(squash(read.pages[2] ?? "")).toContain("A-101");
+    expect(squash(read.pages[2] ?? "")).not.toContain("B-102");
+    expect(squash(read.pages[3] ?? "")).toContain("B-102");
+    expect(squash(read.pages[3] ?? "")).not.toContain("A-101");
+  });
+
+  it("limits PUBLIC voter rows to the configured count per page", async () => {
+    const results = projectResults(
+      openRaw(3, (i) => ["Alice Rao", "Bob Iyer", "Dave Nair"][i] as string),
+    );
+    if (results.votingType !== "PUBLIC") {
+      throw new Error("Expected a PUBLIC results fixture.");
+    }
+    const pdf = await renderResultsPdf(results, generated, {
+      pdfVotersPerPage: 1,
+      publicResponses: results.namedResponses.map((response, index) => ({
+        ...response,
+        email: `resident${index + 1}@example.test`,
+      })),
+    });
+    const read = await readPdf(pdf);
+    expect(read.pages).toHaveLength(4);
+    expect(squash(read.pages[1] ?? "")).toContain("H-0000");
+    expect(squash(read.pages[1] ?? "")).not.toContain("H-0001");
+    expect(squash(read.pages[2] ?? "")).toContain("H-0001");
+    expect(squash(read.pages[2] ?? "")).not.toContain("H-0002");
+    expect(squash(read.pages[3] ?? "")).toContain("H-0002");
+  });
+
   it("keeps seven two-column office cards on the first page", async () => {
     const raw = closedRaw();
     const template = raw.offices[0];

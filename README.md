@@ -2,7 +2,7 @@
 
 Mobile-first voting and polls for a single Resident Welfare Association (RWA).
 
-The application implements registered-member email OTP access, household/account administration with reviewed CSV import, PUBLIC polls and PRIVATE elections with immediate or scheduled opening, protected in-app results, management-only PDF/CSV downloads, and operational backup/recovery tooling. PRIVATE PDFs include a separate voter participation roster for RWA Admin/ReadOnly, never ballot choices. Production use remains blocked by the approvals and external-environment checks in [pilot readiness](./docs/PILOT_READINESS.md).
+The application implements registered-member email OTP access, household/account administration with reviewed CSV import, PUBLIC polls and PRIVATE elections with immediate or scheduled opening, protected in-app results, management-only PDF/CSV downloads with per-RWA PDF pagination settings, and operational backup/recovery tooling. PRIVATE PDFs include a separate voter participation roster for RWA Admin/ReadOnly, never ballot choices. Production use remains blocked by the approvals and external-environment checks in [pilot readiness](./docs/PILOT_READINESS.md).
 
 The [SaaS action plan](./docs/IMPLEMENTATION_PLAN.md#saas-action-plan---31-october-2026)
 tracks the planned shared application, separate Supabase projects per RWA,

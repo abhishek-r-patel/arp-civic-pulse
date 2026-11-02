@@ -10,7 +10,7 @@ import { seedWorld, type World } from "./support/fixtures";
 
 /*
  * Upgrade-path regression: bring the prior schema forward on an isolated
- * PostgreSQL database and verify existing configuration plus the new palette.
+ * PostgreSQL database and verify existing configuration plus additive settings.
  */
 describe.skipIf(!hasDatabase)("migration upgrade compatibility", () => {
   let db: TestDatabase;
@@ -97,19 +97,75 @@ describe.skipIf(!hasDatabase)("migration upgrade compatibility", () => {
       accentPalette: "AMBER",
     });
 
+    const paginationMigration = readFileSync(
+      new URL(
+        "../../supabase/migrations/20261125100000_rwa_pdf_pagination_settings.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    await db.asDeployment(async (client) => {
+      await client.query("begin");
+      try {
+        await client.query(paginationMigration);
+        await client.query("commit");
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    });
+
+    const defaults = await db.asRole(
+      "authenticated",
+      { sub: world.admin.id },
+      (client) =>
+        client.query<{ get_rwa_profile: Record<string, unknown> }>(
+          "select public.get_rwa_profile()",
+        ),
+    );
+    expect(defaults.rows[0]?.get_rwa_profile).toMatchObject({
+      pdfCardsPerPage: 8,
+      pdfVotersPerPage: 50,
+    });
+
+    const paginated = await db.asRole(
+      "authenticated",
+      { sub: world.admin.id },
+      (client) =>
+        client.query<{ update_rwa_profile: Record<string, unknown> }>(
+          "select public.update_rwa_profile($1::jsonb)",
+          [profileSettings("AMBER", [4, 25])],
+        ),
+      { commit: true },
+    );
+    expect(paginated.rows[0]?.update_rwa_profile).toMatchObject({
+      pdfCardsPerPage: 4,
+      pdfVotersPerPage: 25,
+    });
+
     const after = await db.asOwner((client) =>
-      client.query<{ full_name: string; accent_palette: string }>(
-        "select full_name, accent_palette from public.rwa_settings where id = 1",
+      client.query<{
+        full_name: string;
+        accent_palette: string;
+        pdf_cards_per_page: number;
+        pdf_voters_per_page: number;
+      }>(
+        "select full_name, accent_palette, pdf_cards_per_page, pdf_voters_per_page from public.rwa_settings where id = 1",
       ),
     );
     expect(after.rows[0]).toEqual({
       full_name: "Lakeview Residents Association",
       accent_palette: "AMBER",
+      pdf_cards_per_page: 4,
+      pdf_voters_per_page: 25,
     });
   });
 
-  function profileSettings(accentPalette: "PLUM" | "AMBER"): string {
-    return JSON.stringify({
+  function profileSettings(
+    accentPalette: "PLUM" | "AMBER",
+    pagination?: readonly [number, number],
+  ): string {
+    const profile = {
       fullName: "Lakeview Residents Association",
       alias: "Lakeview RWA",
       address: "12 Example Road",
@@ -128,6 +184,15 @@ describe.skipIf(!hasDatabase)("migration upgrade compatibility", () => {
         "Joint-Secretary",
         "Treasurer",
       ],
-    });
+    };
+    return JSON.stringify(
+      pagination
+        ? {
+            ...profile,
+            pdfCardsPerPage: pagination[0],
+            pdfVotersPerPage: pagination[1],
+          }
+        : profile,
+    );
   }
 });

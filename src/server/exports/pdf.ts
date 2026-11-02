@@ -12,6 +12,14 @@ import {
   VOTE_STATUS_LABELS,
   VOTING_TYPE_LABELS,
 } from "@/shared/contracts/voting";
+import {
+  DEFAULT_PDF_CARDS_PER_PAGE,
+  DEFAULT_PDF_VOTERS_PER_PAGE,
+  PDF_CARDS_PER_PAGE_MAX,
+  PDF_CARDS_PER_PAGE_MIN,
+  PDF_VOTERS_PER_PAGE_MAX,
+  PDF_VOTERS_PER_PAGE_MIN,
+} from "@/shared/contracts/rwa-profile";
 
 /*
  * A4 portrait, locally generated PDF of a COMPLETED result. PUBLIC and PRIVATE
@@ -893,6 +901,7 @@ class Writer {
     opening: string,
     closing: string,
     publicResponses: readonly PublicPdfResponseRow[],
+    votersPerPage: number,
   ): void {
     const branding = this.brandedReport;
     if (!branding) {
@@ -1163,6 +1172,7 @@ class Writer {
       publicResponses,
       (row) => row.optionLabels.join("; "),
       "No responses to list.",
+      votersPerPage,
     );
   }
 
@@ -1172,6 +1182,8 @@ class Writer {
     opening: string,
     closing: string,
     voters: readonly PrivateVoterRow[],
+    cardsPerPage: number,
+    votersPerPage: number,
   ): void {
     const branding = this.brandedReport as BrandedReport;
     this.y = 86;
@@ -1258,51 +1270,64 @@ class Writer {
 
     const gap = RESULT_CARD_GAP;
     const cardWidth = (PRIVATE_WIDTH - gap) / 2;
-    for (let index = 0; index < results.offices.length; index += 2) {
-      const first = results.offices[index];
-      const second = results.offices[index + 1];
-      if (!first) continue;
-      const firstHeight = this.officeCardHeight(first, cardWidth);
-      const secondHeight = second
-        ? this.officeCardHeight(second, cardWidth)
-        : 0;
-      const rowHeight = Math.max(firstHeight, secondHeight);
+    let officeIndex = 0;
+    let cardsOnPage = 0;
+    const drawOfficeContinuation = () => {
+      this.newPage();
+      this.drawTextAt(
+        "RESULTS BY OFFICE · CONTINUED",
+        PRIVATE_LEFT,
+        this.y,
+        PRIVATE_WIDTH,
+        8,
+        branding.accent,
+        true,
+      );
+      this.y += 14;
+      cardsOnPage = 0;
+    };
+    while (officeIndex < results.offices.length) {
+      if (cardsOnPage >= cardsPerPage) drawOfficeContinuation();
+      const first = results.offices[officeIndex];
+      if (!first) {
+        officeIndex += 1;
+        continue;
+      }
+      let second =
+        cardsOnPage + 1 < cardsPerPage
+          ? results.offices[officeIndex + 1]
+          : undefined;
+      let firstHeight = this.officeCardHeight(first, cardWidth);
+      let secondHeight = second ? this.officeCardHeight(second, cardWidth) : 0;
+      let rowHeight = Math.max(firstHeight, secondHeight);
       const pageCapacity = PRIVATE_CONTENT_BOTTOM - 108;
+      if (
+        (rowHeight > pageCapacity ||
+          this.y + rowHeight > PRIVATE_CONTENT_BOTTOM) &&
+        this.y > 112
+      ) {
+        drawOfficeContinuation();
+        second =
+          cardsPerPage > 1 ? results.offices[officeIndex + 1] : undefined;
+        firstHeight = this.officeCardHeight(first, cardWidth);
+        secondHeight = second ? this.officeCardHeight(second, cardWidth) : 0;
+        rowHeight = Math.max(firstHeight, secondHeight);
+      }
+      const cardCount = second ? 2 : 1;
       if (rowHeight > pageCapacity) {
-        if (this.y > 112) {
-          this.newPage();
-          this.drawTextAt(
-            "RESULTS BY OFFICE · CONTINUED",
-            PRIVATE_LEFT,
-            this.y,
-            PRIVATE_WIDTH,
-            8,
-            branding.accent,
-            true,
-          );
-          this.y += 14;
-        }
         this.drawPrivateOfficeFallback(first, results.eligibleCount);
         if (second) {
           this.drawPrivateOfficeFallback(second, results.eligibleCount);
         }
+        cardsOnPage += cardCount;
+        officeIndex += cardCount;
         continue;
       }
-      if (this.y + rowHeight > PRIVATE_CONTENT_BOTTOM) {
-        this.newPage();
-        this.drawTextAt(
-          "RESULTS BY OFFICE · CONTINUED",
-          PRIVATE_LEFT,
-          this.y,
-          PRIVATE_WIDTH,
-          8,
-          branding.accent,
-          true,
-        );
-        this.y += 14;
-      }
       const rowY = this.y;
-      this.drawPrivateOfficeCard(first, PRIVATE_LEFT, rowY, cardWidth);
+      const firstX = second
+        ? PRIVATE_LEFT
+        : PRIVATE_LEFT + (PRIVATE_WIDTH - cardWidth) / 2;
+      this.drawPrivateOfficeCard(first, firstX, rowY, cardWidth);
       if (second) {
         this.drawPrivateOfficeCard(
           second,
@@ -1312,6 +1337,8 @@ class Writer {
         );
       }
       this.y += rowHeight + 9;
+      cardsOnPage += cardCount;
+      officeIndex += cardCount;
     }
 
     this.newPage();
@@ -1342,6 +1369,7 @@ class Writer {
       voters,
       null,
       "No representatives voted.",
+      votersPerPage,
     );
   }
 
@@ -1351,6 +1379,7 @@ class Writer {
     voters: readonly Row[],
     choice: ((voter: Row) => string) | null,
     emptyMessage: string,
+    votersPerPage: number,
   ): void {
     const branding = this.brandedReport as BrandedReport;
     const widths = choice
@@ -1427,6 +1456,7 @@ class Writer {
       return;
     }
 
+    let votersOnPage = 0;
     voters.forEach((voter, index) => {
       const values = [
         voter.householdIdentifier,
@@ -1441,8 +1471,12 @@ class Writer {
         11.5,
         ...wrapped.map((lines) => lines.length * lineHeight + padding * 2),
       );
-      if (this.y + rowHeight > PRIVATE_CONTENT_BOTTOM) {
+      if (
+        votersOnPage >= votersPerPage ||
+        this.y + rowHeight > PRIVATE_CONTENT_BOTTOM
+      ) {
         drawContinuation();
+        votersOnPage = 0;
       }
       const rowY = this.y;
       if (index % 2 === 0) {
@@ -1474,6 +1508,7 @@ class Writer {
         .stroke()
         .restore();
       this.y += rowHeight;
+      votersOnPage += 1;
     });
   }
 
@@ -1806,6 +1841,8 @@ export async function renderResultsPdf(
   generatedAt: Date,
   options: {
     compress?: boolean;
+    pdfCardsPerPage?: number;
+    pdfVotersPerPage?: number;
     // Household wording; defaults to "Household"/"Household Number".
     terms?: HouseholdTerms;
     // Current RWA contact lines printed under the organization name.
@@ -1818,6 +1855,18 @@ export async function renderResultsPdf(
 ): Promise<Buffer> {
   const { vote } = results;
   const terms = options.terms ?? DEFAULT_HOUSEHOLD_TERMS;
+  const cardsPerPage = options.pdfCardsPerPage ?? DEFAULT_PDF_CARDS_PER_PAGE;
+  const votersPerPage = options.pdfVotersPerPage ?? DEFAULT_PDF_VOTERS_PER_PAGE;
+  if (
+    !Number.isInteger(cardsPerPage) ||
+    cardsPerPage < PDF_CARDS_PER_PAGE_MIN ||
+    cardsPerPage > PDF_CARDS_PER_PAGE_MAX ||
+    !Number.isInteger(votersPerPage) ||
+    votersPerPage < PDF_VOTERS_PER_PAGE_MIN ||
+    votersPerPage > PDF_VOTERS_PER_PAGE_MAX
+  ) {
+    throw new Error("PDF pagination preferences are invalid.");
+  }
   const completed = completedAt(results);
   const zone = vote.timezone;
   // A printed record outlives the year it was made in: pass an epoch "now" so the year is always shown.
@@ -1844,6 +1893,8 @@ export async function renderResultsPdf(
       localDateTimeWithoutZone(vote.activatedAt, zone),
       localDateTimeWithoutZone(completed, zone),
       privateVoters,
+      cardsPerPage,
+      votersPerPage,
     );
     writer.decorate(results.disclaimer);
     return writer.finish();
@@ -1859,6 +1910,7 @@ export async function renderResultsPdf(
         ...response,
         email: "",
       })),
+    votersPerPage,
   );
   writer.decorate(results.disclaimer);
   return writer.finish();

@@ -143,7 +143,7 @@ It erases every app table and Auth user in that project and reseeds a fresh copy
 
 | Area | Seeded |
 | --- | --- |
-| RWA profile | Full name, alias, address, email, phone, website, Forest accent, welcome message, Flat label, 22 listed flats, three committee positions |
+| RWA profile | Full name, alias, address, email, phone, website, Forest accent, welcome message, Flat label, PDF pagination (8 cards and 50 voters per page), 22 listed flats, three committee positions |
 | Accounts | Seed admin and RWA admin persona; committee (read-only) persona; resident persona plus 14 more enabled residents; one resident whose flat is ineligible; one suspended; one deleted; two pending self-registrations (flats D-101, D-102); D-201 and D-202 listed but unclaimed |
 | Open votes | Single choice (resident persona not yet voted); up to two choices (persona voted, then changed it); any number of choices; Block A only (partial electorate); deadline extended with a reason; secret election with none of the above (persona voted); secret by-election closing in two days |
 | Finished votes | Completed early with a leader; tie completed at its deadline; completed with no responses; secret election with a leader, a tie and no winner (all none of the above); cancelled with a reason |

@@ -16,6 +16,10 @@ import {
   parseSettingsList,
   RWA_ACCENT_PALETTES,
   RWA_ACCENT_PALETTE_LABELS,
+  PDF_CARDS_PER_PAGE_MAX,
+  PDF_CARDS_PER_PAGE_MIN,
+  PDF_VOTERS_PER_PAGE_MAX,
+  PDF_VOTERS_PER_PAGE_MIN,
   RWA_POSITIONS_MAX_ITEMS,
   WELCOME_MESSAGE_MAX_LENGTH,
 } from "@/shared/contracts/rwa-profile";
@@ -51,8 +55,8 @@ function withListErrorsOnFields(
 }
 
 /*
- * Admin form for the RWA profile, household/identifier display wording and the
- * administrator-only default household and position suggestion lists.
+ * Admin form for the RWA profile, PDF pagination preferences, household and
+ * identifier wording, and administrator-only suggestion lists.
  */
 export function RwaProfileForm({
   csrfToken,
@@ -128,6 +132,8 @@ export function RwaProfileForm({
           website: "RWA Website",
           accentPalette: "Accent Colour",
           welcomeMessage: "Welcome Message",
+          pdfCardsPerPage: "PDF Cards per Page",
+          pdfVotersPerPage: "PDF Voters per Page",
           householdLabel: "Household Label",
           identifierKind: "Identifier Label",
           defaultHouseholds: `Default ${preview.Households}`,
@@ -277,6 +283,44 @@ export function RwaProfileForm({
         value={profile.welcomeMessage}
         onChange={(event) => update("welcomeMessage", event.target.value)}
         error={fieldErrorFor(failure, "welcomeMessage")}
+      />
+      <TextField
+        id="pdfCardsPerPage"
+        name="pdfCardsPerPage"
+        type="number"
+        label="PDF Cards per Page"
+        hint={`Whole number from ${PDF_CARDS_PER_PAGE_MIN} to ${PDF_CARDS_PER_PAGE_MAX}. PRIVATE office cards use this limit; PUBLIC has one summary card.`}
+        min={PDF_CARDS_PER_PAGE_MIN}
+        max={PDF_CARDS_PER_PAGE_MAX}
+        step={1}
+        value={
+          Number.isFinite(profile.pdfCardsPerPage)
+            ? profile.pdfCardsPerPage
+            : ""
+        }
+        onChange={(event) =>
+          update("pdfCardsPerPage", event.currentTarget.valueAsNumber)
+        }
+        error={fieldErrorFor(failure, "pdfCardsPerPage")}
+      />
+      <TextField
+        id="pdfVotersPerPage"
+        name="pdfVotersPerPage"
+        type="number"
+        label="PDF Voters per Page"
+        hint={`Whole number from ${PDF_VOTERS_PER_PAGE_MIN} to ${PDF_VOTERS_PER_PAGE_MAX}. Applies to PUBLIC response tables and PRIVATE voter rosters.`}
+        min={PDF_VOTERS_PER_PAGE_MIN}
+        max={PDF_VOTERS_PER_PAGE_MAX}
+        step={1}
+        value={
+          Number.isFinite(profile.pdfVotersPerPage)
+            ? profile.pdfVotersPerPage
+            : ""
+        }
+        onChange={(event) =>
+          update("pdfVotersPerPage", event.currentTarget.valueAsNumber)
+        }
+        error={fieldErrorFor(failure, "pdfVotersPerPage")}
       />
       <TextField
         id="householdLabel"

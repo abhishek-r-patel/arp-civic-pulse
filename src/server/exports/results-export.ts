@@ -331,6 +331,8 @@ export async function exportResults(
                 rwaContact: { address, email, phone },
                 rwaAlias: branding.alias,
                 accentPalette: branding.accentPalette,
+                pdfCardsPerPage: branding.pdfCardsPerPage,
+                pdfVotersPerPage: branding.pdfVotersPerPage,
                 ...(privateVoters ? { privateVoters } : {}),
                 ...(publicResponses ? { publicResponses } : {}),
               }),

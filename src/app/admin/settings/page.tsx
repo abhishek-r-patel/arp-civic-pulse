@@ -1,5 +1,5 @@
-// Administrator-controlled RWA identity, contact, display wording,
-// administrator-only suggestion lists and read-only App Support Access.
+// Administrator-controlled RWA identity, PDF pagination, display wording,
+// suggestion lists and read-only App Support Access.
 import { AppSupportAccessControl } from "@/components/admin/app-support-access";
 import { RwaProfileForm } from "@/components/admin/rwa-profile-form";
 import { ManagementFields } from "@/components/admin/management-fields";
@@ -10,7 +10,8 @@ import { ChevronDown } from "lucide-react";
 
 export const metadata = {
   title: "Settings",
-  description: "Configure the RWA organization profile and display wording.",
+  description:
+    "Configure the RWA organization profile, display wording and PDF pagination.",
   alternates: { canonical: "/admin/settings" },
 };
 
@@ -69,6 +70,11 @@ export default async function RwaSettingsPage() {
             suggestions for administrators only, when adding a household or an
             office in a PRIVATE vote.
           </p>
+          <p>
+            <span className="font-semibold">PDF pagination:</span> sets the
+            maximum result cards (1–8) and voter rows (1–50) printed per page. A
+            page may contain fewer when content needs more room.
+          </p>
         </div>
       </details>
       <ManagementFields canManage={deps.actor.isAdmin}>
@@ -87,6 +93,8 @@ export default async function RwaSettingsPage() {
             identifierKind: deps.identifierKind,
             defaultHouseholds: deps.defaultHouseholds,
             rwaPositions: deps.rwaPositions,
+            pdfCardsPerPage: deps.pdfCardsPerPage,
+            pdfVotersPerPage: deps.pdfVotersPerPage,
           }}
         />
         <AppSupportAccessControl

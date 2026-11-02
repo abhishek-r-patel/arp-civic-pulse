@@ -15,8 +15,9 @@ import {
 /*
  * RWA profile contracts. The full profile is the administrator settings
  * projection. Signed-in members receive the same display values as branding,
- * and public pages only the identity projection; neither carries approvals,
- * retention or other administrator settings.
+ * with the non-sensitive pagination preferences required for PDF rendering,
+ * and public pages only the identity projection. None carries approvals,
+ * retention or administrator-only suggestion lists.
  */
 export const RWA_ACCENT_PALETTES = [
   "TEAL",
@@ -38,6 +39,12 @@ export const RWA_ACCENT_PALETTE_LABELS: Record<RwaAccentPalette, string> = {
 };
 
 export const WELCOME_MESSAGE_MAX_LENGTH = 300;
+export const PDF_CARDS_PER_PAGE_MIN = 1;
+export const PDF_CARDS_PER_PAGE_MAX = 8;
+export const DEFAULT_PDF_CARDS_PER_PAGE = PDF_CARDS_PER_PAGE_MAX;
+export const PDF_VOTERS_PER_PAGE_MIN = 1;
+export const PDF_VOTERS_PER_PAGE_MAX = 50;
+export const DEFAULT_PDF_VOTERS_PER_PAGE = PDF_VOTERS_PER_PAGE_MAX;
 
 const rwaAliasSchema = singleLineText(80);
 const rwaWebsiteSchema = z
@@ -123,6 +130,16 @@ export const rwaProfileSchema = z.strictObject({
   welcomeMessage: optionalMultilineText(WELCOME_MESSAGE_MAX_LENGTH),
   householdLabel: householdLabelSchema,
   identifierKind: identifierKindSchema,
+  pdfCardsPerPage: z
+    .number()
+    .int()
+    .min(PDF_CARDS_PER_PAGE_MIN)
+    .max(PDF_CARDS_PER_PAGE_MAX),
+  pdfVotersPerPage: z
+    .number()
+    .int()
+    .min(PDF_VOTERS_PER_PAGE_MIN)
+    .max(PDF_VOTERS_PER_PAGE_MAX),
   defaultHouseholds: settingsList(
     DEFAULT_HOUSEHOLDS_MAX_ITEMS,
     DEFAULT_HOUSEHOLD_MAX_LENGTH,

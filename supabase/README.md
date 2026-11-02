@@ -77,7 +77,7 @@ What members and administrators may see while a vote runs and after it ends.
 
 ### RWA settings and branding
 
-The single RWA settings row: name, contact details, household wording, colours and suggestion lists.
+The single RWA settings row: name, contact details, household wording, colours, PDF pagination preferences and suggestion lists.
 
 | Migration | Purpose |
 | --- | --- |
@@ -88,6 +88,7 @@ The single RWA settings row: name, contact details, household wording, colours a
 | `20261103110000_household_label_and_identifier_kind` | Replaces the identifier label with a household label and a Number/ID identifier kind (backfilled), drops the old label RPCs, and returns the new values from the profile, branding and public identity routines |
 | `20261104100000_rwa_default_lists` | Administrator-only household and office suggestion lists |
 | `20261124100000_add_amber_accent_palette` | Adds the Amber accent to the RWA settings constraint and guarded update validation |
+| `20261125100000_rwa_pdf_pagination_settings` | Adds validated per-RWA PDF card and voter page limits and returns them through the profile/branding RPCs |
 
 ### Residents, accounts and roles
 

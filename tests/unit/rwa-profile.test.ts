@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_PDF_CARDS_PER_PAGE,
+  DEFAULT_PDF_VOTERS_PER_PAGE,
   DEFAULT_RWA_POSITIONS,
   formatSettingsList,
   parseSettingsList,
@@ -23,6 +25,8 @@ const profile = {
   welcomeMessage: "",
   householdLabel: "Household",
   identifierKind: "NUMBER",
+  pdfCardsPerPage: DEFAULT_PDF_CARDS_PER_PAGE,
+  pdfVotersPerPage: DEFAULT_PDF_VOTERS_PER_PAGE,
   defaultHouseholds: [],
   rwaPositions: [...DEFAULT_RWA_POSITIONS],
 };
@@ -102,6 +106,35 @@ describe("RWA profile contract", () => {
     expect(
       rwaProfileSchema.parse({ ...profile, email: " ADMIN@RWA.COM " }).email,
     ).toBe("admin@rwa.com");
+  });
+
+  it("bounds PDF card and voter counts to positive whole numbers", () => {
+    expect(
+      rwaProfileSchema.parse({
+        ...profile,
+        pdfCardsPerPage: 1,
+        pdfVotersPerPage: 1,
+      }),
+    ).toMatchObject({ pdfCardsPerPage: 1, pdfVotersPerPage: 1 });
+    expect(
+      rwaProfileSchema.parse({
+        ...profile,
+        pdfCardsPerPage: 8,
+        pdfVotersPerPage: 50,
+      }),
+    ).toMatchObject({ pdfCardsPerPage: 8, pdfVotersPerPage: 50 });
+    for (const change of [
+      { pdfCardsPerPage: 0 },
+      { pdfCardsPerPage: 9 },
+      { pdfCardsPerPage: 1.5 },
+      { pdfVotersPerPage: 0 },
+      { pdfVotersPerPage: 51 },
+      { pdfVotersPerPage: 2.5 },
+    ]) {
+      expect(
+        rwaProfileSchema.safeParse({ ...profile, ...change }).success,
+      ).toBe(false);
+    }
   });
 
   it("allows blank address, email and phone but requires the core fields", () => {
