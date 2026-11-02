@@ -188,6 +188,7 @@ Use the existing 8px-led scale with a 4px half-step: 4, 8, 16, 24, 32, 48, 64px.
 
 ### Component states
 - **PDF badges:** Leave a visible gap after the PUBLIC eye icon before its type label; preserve the existing Completed check icon and spacing.
+- **PDF turnout:** Keep the participation count, centered accent progress bar on a neutral track, and percentage on one horizontal row in both result PDFs. Omit the bar when no electorate was eligible.
 - **RWA Settings PDF pagination:** Use positive whole-number fields with Cards per Page (1–8, default 8) and Voters per Page (1–50, default 50). The PRIVATE office grid keeps two columns and centers a single card; PUBLIC has one summary card. Both voter tables split at the configured count or earlier when page height requires it.
 - Shared page headers use a quiet bottom divider and compact heading/action hierarchy, not decorative enclosing cards. Empty states use unframed bands. All form controls retain 16px text/48px targets with improved padding and focus/disabled contrast. Notices use a restrained left rule and body-scale heading, keeping icon/text/live-region semantics. Tables retain semantic headers and stacked mobile rows, with quiet header tint and hover/selection feedback.
 - On the Residents page, keep the heading and Import CSV/Add Resident actions together on the first row; place its supporting description below at full content width so it is not squeezed beside the actions. Allow wrapping on narrow screens without horizontal overflow.

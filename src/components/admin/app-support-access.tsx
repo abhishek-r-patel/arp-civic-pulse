@@ -7,6 +7,7 @@ import { LifeBuoy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ErrorSummary } from "@/components/ui/error-summary";
 import { Notice } from "@/components/ui/notice";
+import { useHouseholdTerms } from "@/components/ui/household-terms";
 import type { AppSupportStatus } from "@/shared/contracts/app-support";
 import { apiRequest, type ApiFailure } from "@/shared/http/api-client";
 
@@ -18,6 +19,7 @@ export function AppSupportAccessControl({
   initialStatus: AppSupportStatus;
 }>) {
   const router = useRouter();
+  const terms = useHouseholdTerms();
   const [status, setStatus] = useState(initialStatus);
   const [failure, setFailure] = useState<ApiFailure | null>(null);
   const [pending, setPending] = useState(false);
@@ -51,9 +53,10 @@ export function AppSupportAccessControl({
       <p className="text-body">
         Let the Civic Pulse developer sign in to help check your setup. Support
         can view the register, settings, votes, participation, results and audit
-        history, but cannot change anything or vote. Support has no household.
-        PRIVATE vote choices stay secret. Turning access on or off is recorded
-        in the audit history. Turn it off when you no longer need help.
+        history, but cannot change anything or vote. Support has no assigned{" "}
+        {terms.household}. PRIVATE vote choices stay secret. Turning access on
+        or off is recorded in the audit history. Turn it off when you no longer
+        need help.
       </p>
       <ErrorSummary failure={failure} />
       {status.configured ? (

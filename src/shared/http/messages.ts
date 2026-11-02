@@ -1,4 +1,8 @@
 import type { ApiFailure } from "@/shared/http/api-client";
+import {
+  DEFAULT_HOUSEHOLD_TERMS,
+  type HouseholdTerms,
+} from "@/shared/contracts/household-terms";
 
 /*
  * Plain-language messages for API failures. Server messages are already safe;
@@ -16,12 +20,8 @@ const CONFLICT_REASONS: Record<string, string> = {
     "At least one enabled administrator must remain. Make someone else an administrator first.",
   DELETED_PROFILE:
     "This account has been deleted and can no longer be changed.",
-  HOUSEHOLD_REQUIRED:
-    "Residents need an assigned household. Assign one first, or keep the RWA Admin or RWA ReadOnly role.",
   APP_SUPPORT_MANAGED:
     "This is the App Support account. Turn it on or off from Settings, under App Support Access.",
-  APP_SUPPORT_ACCOUNT:
-    "The App Support account cannot represent a household or vote. Choose a different account.",
   APP_SUPPORT_EMAIL_IN_USE:
     "The configured app support email already belongs to an RWA account, so App Support Access cannot use it. Ask the app developer to use a different support email.",
   APP_SUPPORT_NOT_CONFIGURED:
@@ -34,8 +34,17 @@ const CONFLICT_REASONS: Record<string, string> = {
   CANCELLED: "This vote has already been cancelled.",
 };
 
-export function describeFailure(failure: ApiFailure): string {
+export function describeFailure(
+  failure: ApiFailure,
+  terms: HouseholdTerms = DEFAULT_HOUSEHOLD_TERMS,
+): string {
   const reason = failure.context.reason;
+  if (reason === "HOUSEHOLD_REQUIRED") {
+    return `Residents need an assigned ${terms.household}. Assign one first, or keep the RWA Admin or RWA ReadOnly role.`;
+  }
+  if (reason === "APP_SUPPORT_ACCOUNT") {
+    return `The App Support account has no assigned ${terms.household} and cannot vote. Choose a different account.`;
+  }
   if (typeof reason === "string" && CONFLICT_REASONS[reason]) {
     return CONFLICT_REASONS[reason];
   }
@@ -64,6 +73,16 @@ export function describeFailure(failure: ApiFailure): string {
     default:
       return failure.message;
   }
+}
+
+export function describeFieldFailure(
+  error: ApiFailure["fieldErrors"][number],
+  terms: HouseholdTerms = DEFAULT_HOUSEHOLD_TERMS,
+): string {
+  if (error.field === "enable" && error.code === "custom") {
+    return `Residents need an assigned ${terms.household} before they can be enabled.`;
+  }
+  return error.message;
 }
 
 export function fieldErrorFor(

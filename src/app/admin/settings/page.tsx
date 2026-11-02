@@ -6,6 +6,7 @@ import { ManagementFields } from "@/components/admin/management-fields";
 import { PageHeader } from "@/components/ui/layout";
 import { adminRwaSettingsPageContext } from "@/server/register/page-context";
 import { getAppSupportStatus } from "@/server/settings/app-support";
+import { buildHouseholdTerms } from "@/shared/contracts/household-terms";
 import { ChevronDown } from "lucide-react";
 
 export const metadata = {
@@ -18,6 +19,7 @@ export const metadata = {
 export default async function RwaSettingsPage() {
   const deps = await adminRwaSettingsPageContext();
   const appSupport = await getAppSupportStatus(deps);
+  const terms = buildHouseholdTerms(deps.householdLabel, deps.identifierKind);
 
   return (
     <div data-form-page className="mx-auto grid w-full max-w-ballot gap-8">
@@ -56,19 +58,21 @@ export default async function RwaSettingsPage() {
             everywhere immediately, including existing votes and results.
           </p>
           <p>
-            <span className="font-semibold">Household label:</span> replaces the
-            word “household” on every page, in exports and in the menu.
+            <span className="font-semibold">Household label:</span> sets the
+            term used for each {terms.household} throughout pages, exports and
+            menus.
           </p>
           <p>
             <span className="font-semibold">Identifier label:</span> names each
-            household’s identifier, such as “Flat Number” or “Villa ID”.
+            {` ${terms.household}`}&apos;s identifier, currently “
+            {terms.identifierLabel}”.
           </p>
           <p>
             <span className="font-semibold">
-              Default households and RWA positions:
+              Default {terms.Households} and RWA positions:
             </span>{" "}
-            suggestions for administrators only, when adding a household or an
-            office in a PRIVATE vote.
+            suggestions for administrators only, when adding a {terms.household}{" "}
+            or an office in a PRIVATE vote.
           </p>
           <p>
             <span className="font-semibold">PDF pagination:</span> sets the

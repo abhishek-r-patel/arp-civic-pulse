@@ -3,6 +3,8 @@ import { z } from "zod";
 import { submissionSchema } from "@/shared/contracts/ballots";
 import { voteListQuerySchema } from "@/shared/contracts/admin-votes";
 import { ApiError, validationError } from "@/server/http/errors";
+import type { ApiFailure } from "@/shared/http/api-client";
+import { describeFailure, describeFieldFailure } from "@/shared/http/messages";
 import {
   errorResponse,
   noContent,
@@ -11,9 +13,47 @@ import {
 } from "@/server/http/response";
 import { parseJsonBody, parseParams, parseQuery } from "@/server/http/request";
 import { route } from "@/server/http/route";
+import { buildHouseholdTerms } from "@/shared/contracts/household-terms";
 
 const A = "11111111-1111-4111-8111-111111111111";
 const REQUEST_ID = "8f6e7c5e-6e38-4c6e-9c0a-5f8f6c1f2a10";
+
+describe("configured terms in error messages", () => {
+  const terms = buildHouseholdTerms("Flat", "ID");
+  const failure: ApiFailure = {
+    ok: false,
+    status: 409,
+    code: "REGISTER_CONFLICT",
+    message: "This change conflicts with the current register.",
+    fieldErrors: [],
+    context: { reason: "HOUSEHOLD_REQUIRED" },
+    requestId: null,
+    retryAfterSeconds: null,
+  };
+
+  it("uses configured terms in household and App Support conflict messages", () => {
+    expect(describeFailure(failure, terms)).toContain("assigned flat");
+    expect(
+      describeFailure(
+        { ...failure, context: { reason: "APP_SUPPORT_ACCOUNT" } },
+        terms,
+      ),
+    ).toContain("assigned flat");
+  });
+
+  it("uses configured terms in the resident enablement field error", () => {
+    expect(
+      describeFieldFailure(
+        {
+          field: "enable",
+          code: "custom",
+          message: "Residents need a household before they can be enabled.",
+        },
+        terms,
+      ),
+    ).toBe("Residents need an assigned flat before they can be enabled.");
+  });
+});
 
 async function body(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;

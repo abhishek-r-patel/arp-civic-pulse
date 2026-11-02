@@ -3,7 +3,8 @@
 import { useEffect, useRef } from "react";
 import { CircleAlert } from "lucide-react";
 import type { ApiFailure } from "@/shared/http/api-client";
-import { describeFailure } from "@/shared/http/messages";
+import { describeFailure, describeFieldFailure } from "@/shared/http/messages";
+import { useHouseholdTerms } from "./household-terms";
 
 /*
  * Form-level error summary. It takes focus when a failed submission produces
@@ -18,6 +19,7 @@ export function ErrorSummary({
   fieldLabels?: Readonly<Record<string, string>>;
 }>) {
   const region = useRef<HTMLDivElement>(null);
+  const terms = useHouseholdTerms();
 
   useEffect(() => {
     if (failure) {
@@ -46,7 +48,9 @@ export function ErrorSummary({
             ? "Please fix the highlighted fields"
             : "This could not be completed"}
         </p>
-        <p className="text-body text-primary">{describeFailure(failure)}</p>
+        <p className="text-body text-primary">
+          {describeFailure(failure, terms)}
+        </p>
         {failure.code === "AUTH_REQUIRED" ||
         failure.code === "SESSION_EXPIRED" ? (
           <p>
@@ -68,7 +72,7 @@ export function ErrorSummary({
                 >
                   {fieldLabels[error.field] ?? error.field}
                 </a>
-                : {error.message}
+                : {describeFieldFailure(error, terms)}
               </li>
             ))}
           </ul>

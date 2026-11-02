@@ -895,6 +895,72 @@ class Writer {
     ]);
   }
 
+  private drawTurnoutPanel(
+    submittedCount: string,
+    eligibleCount: string,
+    percent: string | null,
+    terms: HouseholdTerms,
+  ): number {
+    const branding = this.brandedReport as BrandedReport;
+    const hasEligibleHouseholds = eligibleCount !== "0";
+    const height = 24;
+    const countText = hasEligibleHouseholds
+      ? `${submittedCount} of ${eligibleCount} ${terms.households} participated`
+      : `No ${terms.households} were eligible for this vote.`;
+    const countX = PRIVATE_LEFT + 10;
+    const countWidth = this.width(segmentRuns(countText, true), 8.2);
+    const percentX = PRIVATE_LEFT + PRIVATE_WIDTH - 64;
+    const barX = countX + countWidth + 14;
+    const barRight = percentX - 12;
+    const barWidth = Math.max(0, barRight - barX);
+    this.doc
+      .save()
+      .lineWidth(0.6)
+      .strokeColor("#d8dee2")
+      .roundedRect(PRIVATE_LEFT, this.y, PRIVATE_WIDTH, height, 4)
+      .fillAndStroke("#f5f7f7", "#d8dee2")
+      .restore();
+    this.drawTextAt(
+      countText,
+      countX,
+      this.y + 7,
+      countWidth + 4,
+      8.2,
+      INK,
+      true,
+    );
+    this.drawTextAt(
+      percentText(percent),
+      percentX,
+      this.y + 4,
+      54,
+      12,
+      branding.accent,
+      true,
+      "right",
+    );
+
+    if (hasEligibleHouseholds && percent !== null && barWidth > 0) {
+      const barHeight = 4;
+      const barY = this.y + 10;
+      const filledWidth =
+        barWidth * Math.min(1, Math.max(0, Number(percent) / 100));
+      this.doc
+        .save()
+        .roundedRect(barX, barY, barWidth, barHeight, barHeight / 2)
+        .fill("#e6e6e6")
+        .restore();
+      if (filledWidth > 0) {
+        this.doc
+          .save()
+          .roundedRect(barX, barY, filledWidth, barHeight, barHeight / 2)
+          .fill(branding.accent)
+          .restore();
+      }
+    }
+    return height;
+  }
+
   drawPublicResults(
     results: PublicResults,
     terms: HouseholdTerms,
@@ -961,34 +1027,11 @@ class Writer {
       this.y += height + 7;
     }
 
-    const participationHeight = 24;
-    this.doc
-      .save()
-      .lineWidth(0.6)
-      .strokeColor("#d8dee2")
-      .roundedRect(PRIVATE_LEFT, this.y, PRIVATE_WIDTH, participationHeight, 4)
-      .fillAndStroke("#f5f7f7", "#d8dee2")
-      .restore();
-    this.drawTextAt(
-      results.eligibleCount === "0"
-        ? `No ${terms.households} were eligible for this vote.`
-        : `${results.submittedCount} of ${results.eligibleCount} ${terms.households} participated`,
-      PRIVATE_LEFT + 10,
-      this.y + 7,
-      PRIVATE_WIDTH - 90,
-      8.2,
-      INK,
-      true,
-    );
-    this.drawTextAt(
-      percentText(results.turnout.percent),
-      PRIVATE_LEFT + PRIVATE_WIDTH - 64,
-      this.y + 4,
-      54,
-      12,
-      branding.accent,
-      true,
-      "right",
+    const participationHeight = this.drawTurnoutPanel(
+      results.submittedCount,
+      results.eligibleCount,
+      results.turnout.percent,
+      terms,
     );
     this.y += participationHeight + 10;
 
@@ -1229,32 +1272,11 @@ class Writer {
       this.y += height + 7;
     }
 
-    const participationHeight = 24;
-    this.doc
-      .save()
-      .lineWidth(0.6)
-      .strokeColor("#d8dee2")
-      .roundedRect(PRIVATE_LEFT, this.y, PRIVATE_WIDTH, participationHeight, 4)
-      .fillAndStroke("#f5f7f7", "#d8dee2")
-      .restore();
-    this.drawTextAt(
-      `${results.submittedCount} of ${results.eligibleCount} ${terms.households} participated`,
-      PRIVATE_LEFT + 10,
-      this.y + 7,
-      PRIVATE_WIDTH - 90,
-      8.2,
-      INK,
-      true,
-    );
-    this.drawTextAt(
-      percentText(results.turnout.percent),
-      PRIVATE_LEFT + PRIVATE_WIDTH - 64,
-      this.y + 4,
-      54,
-      12,
-      branding.accent,
-      true,
-      "right",
+    const participationHeight = this.drawTurnoutPanel(
+      results.submittedCount,
+      results.eligibleCount,
+      results.turnout.percent,
+      terms,
     );
     this.y += participationHeight + 12;
     this.drawTextAt(
