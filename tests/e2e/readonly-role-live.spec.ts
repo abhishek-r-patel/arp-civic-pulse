@@ -91,12 +91,12 @@ test("committee observers can read management pages and still cast their own bal
   );
   await page.goto(`/votes/${vote.id}/results`);
   const csvDownload = page.waitForEvent("download");
-  await page.getByRole("link", { name: "Download CSV" }).click();
+  await page.getByRole("button", { name: "Download CSV" }).click();
   expect((await csvDownload).suggestedFilename()).toMatch(/\.csv$/u);
-  const pdfLink = page.getByRole("link", { name: "Download PDF" });
-  if ((await pdfLink.count()) > 0) {
+  const pdfButton = page.getByRole("button", { name: "Download PDF" });
+  if ((await pdfButton.count()) > 0) {
     const pdfDownload = page.waitForEvent("download");
-    await pdfLink.click();
+    await pdfButton.click();
     expect((await pdfDownload).suggestedFilename()).toMatch(/\.pdf$/u);
   }
 });

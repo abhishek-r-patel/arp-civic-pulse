@@ -17,6 +17,11 @@ import { formatInZone } from "@/shared/time/zoned";
  * as the screen, the API and the CSV, complete in memory, so a failure can
  * still be reported cleanly before any success header is sent.
  *
+/*
+ * A4 portrait, locally generated PDF of a COMPLETED result. PUBLIC results use
+ * the grayscale report; PRIVATE elections use the branded results and
+ * management-only participation report. Both render completely in memory.
+ *
  * Text is laid out here, not by PDFKit's wrapper, so long names and
  * identifiers wrap, table rows continue across pages under a repeated header,
  * and every character is checked against the bundled fonts first: Inter for
@@ -73,6 +78,10 @@ const PAGE = {
   bottom: 64,
 };
 const BODY_WIDTH = PAGE.width - PAGE.left - PAGE.right;
+const PRIVATE_LEFT = 24;
+const PRIVATE_WIDTH = PAGE.width - PRIVATE_LEFT * 2;
+const PRIVATE_FOOTER_RULE_Y = PAGE.height - 102;
+const PRIVATE_CONTENT_BOTTOM = PRIVATE_FOOTER_RULE_Y - 16;
 // Neutral grays only (equal red, green and blue): prints and photocopies identically in black and white.
 const INK = "#000000";
 const MUTED = "#444444";
@@ -80,6 +89,29 @@ const RULE = "#999999";
 const SHADE = "#e6e6e6";
 const BAR_LEADER = "#1a1a1a";
 const BAR_DEFAULT = "#808080";
+const ACCENT_COLORS = {
+  TEAL: "#0c6953",
+  BLUE: "#1d4ed8",
+  FOREST: "#166534",
+  PLUM: "#6b21a8",
+  SLATE: "#334155",
+  AMBER: "#92400e",
+} as const;
+
+export interface PrivateVoterRow {
+  representativeName: string;
+  householdIdentifier: string;
+  email: string;
+}
+
+type PrivateResults = Extract<VoteResults, { votingType: "PRIVATE" }>;
+type PrivateOffice = PrivateResults["offices"][number];
+
+interface PrivateReportBranding {
+  alias: string;
+  accent: string;
+  contact: { address: string; email: string; phone: string };
+}
 
 interface Run {
   face: FaceId;
@@ -132,13 +164,20 @@ class Writer {
   private face = "";
   private fontSize = 0;
   private readonly title: string;
+  private readonly privateReport?: PrivateReportBranding;
 
   constructor(
     private readonly rwaName: string,
     title: string,
-    info: { generatedAt: Date; voteTitle: string; compress: boolean },
+    info: {
+      generatedAt: Date;
+      voteTitle: string;
+      compress: boolean;
+      privateReport?: PrivateReportBranding;
+    },
   ) {
     this.title = title;
+    this.privateReport = info.privateReport;
     this.doc = new PDFDocument({
       size: "A4",
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
@@ -174,7 +213,7 @@ class Writer {
       size: "A4",
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
     });
-    this.y = PAGE.top;
+    this.y = this.privateReport ? 86 : PAGE.top;
   }
 
   // Measuring is the hot path (every word of every row); results repeat a lot.
@@ -285,8 +324,46 @@ class Writer {
       cursor += this.width([run], size);
     }
   }
+
+  drawTextAt(
+    text: string,
+    x: number,
+    y: number,
+    width: number,
+    size: number,
+    color: string = INK,
+    bold = false,
+    align: "left" | "right" | "center" = "left",
+  ): number {
+    if (!text) return 0;
+    const lineHeight = size * 1.25;
+    const lines = this.wrap(text, bold, size, width);
+    lines.forEach((line, index) => {
+      const lineWidth = this.width(line, size);
+      const lineX =
+        align === "right"
+          ? x + width - lineWidth
+          : align === "center"
+            ? x + (width - lineWidth) / 2
+            : x;
+      this.drawLine(
+        line,
+        lineX,
+        y + index * lineHeight,
+        size,
+        color,
+        "left",
+        width,
+      );
+    });
+    return lines.length * lineHeight;
+  }
+
   ensure(height: number): boolean {
-    if (this.y + height > PAGE.height - PAGE.bottom) {
+    const bottom = this.privateReport
+      ? PRIVATE_CONTENT_BOTTOM
+      : PAGE.height - PAGE.bottom;
+    if (this.y + height > bottom) {
       this.newPage();
       return true;
     }
@@ -510,12 +587,643 @@ class Writer {
     });
   }
 
+  private officeCardRows(office: PrivateOffice) {
+    return [
+      ...office.candidates.map((candidate) => ({
+        label: candidate.name,
+        count: candidate.count,
+        percent: candidate.eligiblePercent,
+        leader: office.leaderCandidateIds.includes(candidate.id),
+      })),
+      {
+        label: "NOTA (None of the Above)",
+        count: office.nota.count,
+        percent: office.nota.eligiblePercent,
+        leader: false,
+      },
+    ];
+  }
+
+  private officeCardHeight(office: PrivateOffice, width: number): number {
+    const nameWidth = width - 94;
+    const leaders = office.candidates
+      .filter((candidate) => office.leaderCandidateIds.includes(candidate.id))
+      .map((candidate) => candidate.name);
+    const detail =
+      office.outcome === "NO_WINNER"
+        ? "No candidate elected"
+        : leaders.join("; ");
+    const detailHeight =
+      Math.max(1, this.wrap(detail, true, 8, width - 16).length) * 10;
+    const rowsHeight = this.officeCardRows(office).reduce((total, row) => {
+      const lineCount = Math.max(
+        1,
+        this.wrap(row.label, row.leader, 7.2, nameWidth).length,
+      );
+      return total + Math.max(11, lineCount * 8.5 + 2);
+    }, 0);
+    return 40 + detailHeight + rowsHeight + 8;
+  }
+
+  private drawPrivateOfficeCard(
+    office: PrivateOffice,
+    x: number,
+    y: number,
+    width: number,
+  ): number {
+    const branding = this.privateReport as PrivateReportBranding;
+    const height = this.officeCardHeight(office, width);
+    const leaders = office.candidates
+      .filter((candidate) => office.leaderCandidateIds.includes(candidate.id))
+      .map((candidate) => candidate.name);
+    const detail =
+      office.outcome === "NO_WINNER"
+        ? "No candidate elected"
+        : leaders.join("; ");
+    const status =
+      office.outcome === "LEADER"
+        ? "ELECTED"
+        : office.outcome === "TIE"
+          ? "TIED"
+          : "NO WINNER";
+
+    this.doc
+      .save()
+      .lineWidth(0.65)
+      .strokeColor("#c8d0d5")
+      .roundedRect(x, y, width, height, 4)
+      .fillAndStroke("#ffffff", "#c8d0d5")
+      .restore();
+    this.doc
+      .save()
+      .roundedRect(x, y, width, 3, 1.5)
+      .fill(branding.accent)
+      .restore();
+
+    this.drawTextAt(
+      office.name,
+      x + 8,
+      y + 8,
+      width - 86,
+      9.2,
+      branding.accent,
+      true,
+    );
+    this.drawTextAt(
+      status,
+      x + width - 72,
+      y + 9,
+      64,
+      6.4,
+      branding.accent,
+      true,
+      "right",
+    );
+    const detailY = y + 22;
+    const detailHeight = this.drawTextAt(
+      detail,
+      x + 8,
+      detailY,
+      width - 16,
+      8,
+      INK,
+      true,
+    );
+    let rowY = detailY + Math.max(detailHeight, 10) + 4;
+    this.doc
+      .save()
+      .lineWidth(0.45)
+      .strokeColor("#d8dee2")
+      .moveTo(x + 8, rowY - 2)
+      .lineTo(x + width - 8, rowY - 2)
+      .stroke()
+      .restore();
+
+    const rows = this.officeCardRows(office);
+    const nameWidth = width - 94;
+    for (const [index, row] of rows.entries()) {
+      const lines = this.wrap(row.label, row.leader, 7.2, nameWidth);
+      const rowHeight = Math.max(11, lines.length * 8.5 + 2);
+      if (row.leader) {
+        this.doc
+          .save()
+          .fillColor(branding.accent)
+          .fillOpacity(0.13)
+          .roundedRect(x + 6, rowY, width - 12, rowHeight, 2)
+          .fill()
+          .restore();
+        this.doc
+          .save()
+          .roundedRect(x + 6, rowY, 2, rowHeight, 1)
+          .fill(branding.accent)
+          .restore();
+      } else if (index % 2 === 1) {
+        this.doc
+          .save()
+          .rect(x + 8, rowY, width - 16, rowHeight)
+          .fill("#f5f6f6")
+          .restore();
+      }
+      this.drawTextAt(
+        row.label,
+        x + 11,
+        rowY + 1,
+        nameWidth - 3,
+        7.2,
+        INK,
+        row.leader,
+      );
+      this.drawTextAt(
+        row.count,
+        x + width - 79,
+        rowY + 1,
+        31,
+        7.2,
+        INK,
+        false,
+        "right",
+      );
+      this.drawTextAt(
+        percentText(row.percent),
+        x + width - 43,
+        rowY + 1,
+        35,
+        7.2,
+        MUTED,
+        false,
+        "right",
+      );
+      rowY += rowHeight;
+    }
+    return height;
+  }
+
+  private drawPrivateOfficeFallback(
+    office: PrivateOffice,
+    eligibleCount: string,
+  ): void {
+    const leaders = office.candidates
+      .filter((candidate) => office.leaderCandidateIds.includes(candidate.id))
+      .map((candidate) => candidate.name);
+    this.heading(office.name, 11);
+    this.paragraph(
+      office.outcome === "NO_WINNER"
+        ? "No winner: no candidate received a vote."
+        : office.outcome === "TIE"
+          ? `Tie. These candidates received the same highest count: ${leaders.join("; ")}.`
+          : `Elected candidate: ${leaders[0] ?? ""}`,
+      { bold: true },
+    );
+    this.bars([
+      ...office.candidates.map((candidate) => ({
+        label: candidate.name,
+        value: barValue(
+          candidate.count,
+          eligibleCount,
+          candidate.eligiblePercent,
+        ),
+        percent: candidate.eligiblePercent,
+        tone: office.leaderCandidateIds.includes(candidate.id)
+          ? ("leader" as const)
+          : ("default" as const),
+      })),
+      {
+        label: "NOTA (None of the Above)",
+        value: barValue(
+          office.nota.count,
+          eligibleCount,
+          office.nota.eligiblePercent,
+        ),
+        percent: office.nota.eligiblePercent,
+        tone: "muted" as const,
+      },
+    ]);
+  }
+
+  drawPrivateResults(
+    results: PrivateResults,
+    terms: HouseholdTerms,
+    opening: string,
+    closing: string,
+    voters: readonly PrivateVoterRow[],
+  ): void {
+    const branding = this.privateReport as PrivateReportBranding;
+    this.y = 86;
+    let height = this.drawTextAt(
+      results.vote.title,
+      PRIVATE_LEFT,
+      this.y,
+      PRIVATE_WIDTH,
+      20,
+      INK,
+      true,
+    );
+    this.y += height + 5;
+    height = this.drawTextAt(
+      `Opens at ${opening} · Closed at ${closing}`,
+      PRIVATE_LEFT,
+      this.y,
+      PRIVATE_WIDTH,
+      8.2,
+      MUTED,
+    );
+    this.y += height + 6;
+
+    if (results.vote.instructions) {
+      this.drawTextAt(
+        "VOTE BACKGROUND",
+        PRIVATE_LEFT,
+        this.y,
+        PRIVATE_WIDTH,
+        6.6,
+        MUTED,
+        true,
+      );
+      this.y += 9;
+      height = this.drawTextAt(
+        results.vote.instructions,
+        PRIVATE_LEFT,
+        this.y,
+        PRIVATE_WIDTH,
+        8,
+        INK,
+      );
+      this.y += height + 7;
+    }
+
+    const participationHeight = 24;
+    this.doc
+      .save()
+      .lineWidth(0.6)
+      .strokeColor("#d8dee2")
+      .roundedRect(PRIVATE_LEFT, this.y, PRIVATE_WIDTH, participationHeight, 4)
+      .fillAndStroke("#f5f7f7", "#d8dee2")
+      .restore();
+    this.drawTextAt(
+      `${results.submittedCount} of ${results.eligibleCount} ${terms.households} participated`,
+      PRIVATE_LEFT + 10,
+      this.y + 7,
+      PRIVATE_WIDTH - 90,
+      8.2,
+      INK,
+      true,
+    );
+    this.drawTextAt(
+      percentText(results.turnout.percent),
+      PRIVATE_LEFT + PRIVATE_WIDTH - 64,
+      this.y + 4,
+      54,
+      12,
+      branding.accent,
+      true,
+      "right",
+    );
+    this.y += participationHeight + 12;
+    this.drawTextAt(
+      `${results.disclaimer} This report is derived from the authoritative database, not a backup.`,
+      PRIVATE_LEFT,
+      this.y,
+      PRIVATE_WIDTH,
+      6.1,
+      MUTED,
+    );
+    this.y += 9;
+    this.drawTextAt(
+      "RESULTS BY OFFICE",
+      PRIVATE_LEFT,
+      this.y,
+      PRIVATE_WIDTH,
+      8,
+      branding.accent,
+      true,
+    );
+    this.y += 13;
+
+    const gap = 10;
+    const cardWidth = (PRIVATE_WIDTH - gap) / 2;
+    for (let index = 0; index < results.offices.length; index += 2) {
+      const first = results.offices[index];
+      const second = results.offices[index + 1];
+      if (!first) continue;
+      const firstHeight = this.officeCardHeight(first, cardWidth);
+      const secondHeight = second
+        ? this.officeCardHeight(second, cardWidth)
+        : 0;
+      const rowHeight = Math.max(firstHeight, secondHeight);
+      const pageCapacity = PRIVATE_CONTENT_BOTTOM - 108;
+      if (rowHeight > pageCapacity) {
+        if (this.y > 112) {
+          this.newPage();
+          this.drawTextAt(
+            "RESULTS BY OFFICE · CONTINUED",
+            PRIVATE_LEFT,
+            this.y,
+            PRIVATE_WIDTH,
+            8,
+            branding.accent,
+            true,
+          );
+          this.y += 14;
+        }
+        this.drawPrivateOfficeFallback(first, results.eligibleCount);
+        if (second) {
+          this.drawPrivateOfficeFallback(second, results.eligibleCount);
+        }
+        continue;
+      }
+      if (this.y + rowHeight > PRIVATE_CONTENT_BOTTOM) {
+        this.newPage();
+        this.drawTextAt(
+          "RESULTS BY OFFICE · CONTINUED",
+          PRIVATE_LEFT,
+          this.y,
+          PRIVATE_WIDTH,
+          8,
+          branding.accent,
+          true,
+        );
+        this.y += 14;
+      }
+      const rowY = this.y;
+      this.drawPrivateOfficeCard(first, PRIVATE_LEFT, rowY, cardWidth);
+      if (second) {
+        this.drawPrivateOfficeCard(
+          second,
+          PRIVATE_LEFT + cardWidth + gap,
+          rowY,
+          cardWidth,
+        );
+      }
+      this.y += rowHeight + 9;
+    }
+
+    this.newPage();
+    height = this.drawTextAt(
+      results.vote.title,
+      PRIVATE_LEFT,
+      this.y,
+      PRIVATE_WIDTH,
+      20,
+      INK,
+      true,
+    );
+    this.y += height + 3;
+    height = this.drawTextAt(
+      "REPRESENTATIVES WHO VOTED",
+      PRIVATE_LEFT,
+      this.y,
+      PRIVATE_WIDTH,
+      8.5,
+      branding.accent,
+      true,
+      "center",
+    );
+    this.y += height + 3;
+    this.drawPrivateVoterTable(results.vote.title, terms, voters);
+  }
+
+  private drawPrivateVoterTable(
+    voteTitle: string,
+    terms: HouseholdTerms,
+    voters: readonly PrivateVoterRow[],
+  ): void {
+    const branding = this.privateReport as PrivateReportBranding;
+    const widths = [125, 175, PRIVATE_WIDTH - 300];
+    const headers = [
+      terms.identifierLabel.toUpperCase(),
+      "REPRESENTATIVE",
+      "EMAIL",
+    ];
+    const headerHeight = 17;
+    const fontSize = 6.4;
+    const lineHeight = 7.5;
+    const padding = 2;
+    const xForColumn = (index: number) =>
+      PRIVATE_LEFT +
+      widths.slice(0, index).reduce((sum, width) => sum + width, 0);
+    const drawHeader = () => {
+      this.doc
+        .save()
+        .roundedRect(PRIVATE_LEFT, this.y, PRIVATE_WIDTH, headerHeight, 3)
+        .fill(branding.accent)
+        .restore();
+      headers.forEach((header, index) =>
+        this.drawTextAt(
+          header,
+          xForColumn(index) + 6,
+          this.y + 5,
+          (widths[index] as number) - 12,
+          fontSize,
+          "#ffffff",
+          true,
+        ),
+      );
+      this.y += headerHeight;
+    };
+    const drawContinuation = () => {
+      this.newPage();
+      const titleHeight = this.drawTextAt(
+        voteTitle,
+        PRIVATE_LEFT,
+        this.y,
+        PRIVATE_WIDTH,
+        12,
+        INK,
+        true,
+      );
+      this.y += titleHeight + 2;
+      const subtitleHeight = this.drawTextAt(
+        "REPRESENTATIVES WHO VOTED · CONTINUED",
+        PRIVATE_LEFT,
+        this.y,
+        PRIVATE_WIDTH,
+        7.5,
+        branding.accent,
+        true,
+        "center",
+      );
+      this.y += subtitleHeight + 3;
+      drawHeader();
+    };
+
+    drawHeader();
+    if (voters.length === 0) {
+      this.drawTextAt(
+        "No representatives voted.",
+        PRIVATE_LEFT + 6,
+        this.y + 5,
+        PRIVATE_WIDTH - 12,
+        8,
+        MUTED,
+      );
+      return;
+    }
+
+    voters.forEach((voter, index) => {
+      const values = [
+        voter.householdIdentifier,
+        voter.representativeName,
+        voter.email,
+      ];
+      const wrapped = values.map((value, column) =>
+        this.wrap(value, false, fontSize, (widths[column] as number) - 12),
+      );
+      const rowHeight = Math.max(
+        11.5,
+        ...wrapped.map((lines) => lines.length * lineHeight + padding * 2),
+      );
+      if (this.y + rowHeight > PRIVATE_CONTENT_BOTTOM) {
+        drawContinuation();
+      }
+      const rowY = this.y;
+      if (index % 2 === 0) {
+        this.doc
+          .save()
+          .rect(PRIVATE_LEFT, rowY, PRIVATE_WIDTH, rowHeight)
+          .fill("#f2f5f4")
+          .restore();
+      }
+      wrapped.forEach((lines, column) =>
+        lines.forEach((line, lineIndex) =>
+          this.drawLine(
+            line,
+            xForColumn(column) + 6,
+            rowY + padding + lineIndex * lineHeight,
+            fontSize,
+            INK,
+            "left",
+            (widths[column] as number) - 12,
+          ),
+        ),
+      );
+      this.doc
+        .save()
+        .lineWidth(0.4)
+        .strokeColor("#d8dee2")
+        .moveTo(PRIVATE_LEFT, rowY + rowHeight)
+        .lineTo(PRIVATE_LEFT + PRIVATE_WIDTH, rowY + rowHeight)
+        .stroke()
+        .restore();
+      this.y += rowHeight;
+    });
+  }
+
+  private decoratePrivatePage(pageNumber: number, pageCount: number): void {
+    const branding = this.privateReport;
+    if (!branding) return;
+    const rightX = PAGE.width - PRIVATE_LEFT - 275;
+    const leftWidth = rightX - PRIVATE_LEFT - 12;
+
+    this.doc
+      .save()
+      .roundedRect(PRIVATE_LEFT, 18, 30, 30, 6)
+      .fill(branding.accent)
+      .restore();
+    this.doc
+      .save()
+      .lineWidth(1.2)
+      .strokeColor("#ffffff")
+      .roundedRect(PRIVATE_LEFT + 7, 24, 16, 12, 2)
+      .stroke()
+      .moveTo(PRIVATE_LEFT + 11, 36)
+      .lineTo(PRIVATE_LEFT + 9, 40)
+      .lineTo(PRIVATE_LEFT + 16, 36)
+      .stroke()
+      .restore();
+    this.drawTextAt("Civic Pulse", PRIVATE_LEFT + 38, 21, 180, 11, INK, true);
+    this.drawTextAt(
+      branding.alias,
+      PRIVATE_LEFT + 38,
+      37,
+      leftWidth - 38,
+      7.5,
+      MUTED,
+    );
+    this.drawTextAt("Results", rightX, 21, 275, 10.5, INK, true, "right");
+    this.drawTextAt(
+      "PRIVATE Voting",
+      rightX,
+      37,
+      275,
+      7.5,
+      branding.accent,
+      true,
+      "right",
+    );
+    this.doc
+      .save()
+      .lineWidth(0.6)
+      .strokeColor(RULE)
+      .moveTo(PRIVATE_LEFT, 63)
+      .lineTo(PAGE.width - PRIVATE_LEFT, 63)
+      .stroke()
+      .moveTo(PRIVATE_LEFT, PRIVATE_FOOTER_RULE_Y)
+      .lineTo(PAGE.width - PRIVATE_LEFT, PRIVATE_FOOTER_RULE_Y)
+      .stroke()
+      .restore();
+
+    const footerTop = PRIVATE_FOOTER_RULE_Y + 8;
+    const fullNameHeight = this.drawTextAt(
+      this.rwaName,
+      PRIVATE_LEFT,
+      footerTop,
+      leftWidth,
+      7.2,
+      INK,
+      true,
+    );
+    this.drawTextAt(
+      "This is a computer-generated letter and does not require a signature",
+      rightX,
+      footerTop,
+      275,
+      6.2,
+      MUTED,
+      false,
+      "right",
+    );
+    let nextY = footerTop + Math.max(fullNameHeight, 9);
+    const address = branding.contact.address.replace(/\s+/gu, " ").trim();
+    if (address) {
+      const height = this.drawTextAt(
+        address,
+        PRIVATE_LEFT,
+        nextY,
+        leftWidth,
+        6.3,
+        MUTED,
+      );
+      nextY += Math.max(height, 8);
+    }
+    const contact = [branding.contact.email, branding.contact.phone]
+      .filter(Boolean)
+      .join(" · ");
+    const contactY = nextY;
+    const contactHeight = contact
+      ? this.drawTextAt(contact, PRIVATE_LEFT, contactY, leftWidth, 6.3, MUTED)
+      : 0;
+    this.drawTextAt(
+      `Page ${pageNumber} of ${pageCount}`,
+      rightX,
+      contactY + Math.max(0, contactHeight - 8),
+      275,
+      7,
+      INK,
+      true,
+      "right",
+    );
+  }
+
   /** Header/footer with page numbers, once the total page count is known. */
   decorate(footerNote: string): void {
     const range = this.doc.bufferedPageRange();
     for (let i = 0; i < range.count; i += 1) {
       this.doc.switchToPage(range.start + i);
       this.resetState();
+      if (this.privateReport) {
+        this.decoratePrivatePage(i + 1, range.count);
+        continue;
+      }
       const topRuns =
         this.wrap(
           `${this.rwaName} · ${this.title}`,
@@ -596,6 +1304,21 @@ function completedAt(results: VoteResults): string {
   return results.vote.completedAt;
 }
 
+function localDateTimeWithoutZone(instant: string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-IN", {
+    timeZone,
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).formatToParts(new Date(instant));
+  const read = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${read("day")} ${read("month")} ${read("year")}, ${read("hour")}:${read("minute")} ${read("dayPeriod").toUpperCase()}`;
+}
+
 export async function renderResultsPdf(
   results: VoteResults,
   generatedAt: Date,
@@ -605,6 +1328,9 @@ export async function renderResultsPdf(
     terms?: HouseholdTerms;
     // Current RWA contact lines printed under the organization name.
     rwaContact?: { address: string; email: string; phone: string };
+    rwaAlias?: string;
+    accentPalette?: keyof typeof ACCENT_COLORS;
+    privateVoters?: readonly PrivateVoterRow[];
   } = {},
 ): Promise<Buffer> {
   const { vote } = results;
@@ -619,7 +1345,36 @@ export async function renderResultsPdf(
     generatedAt,
     voteTitle: vote.title,
     compress: options.compress ?? true,
+    ...(vote.votingType === "PRIVATE"
+      ? {
+          privateReport: {
+            alias: options.rwaAlias ?? vote.rwaName,
+            accent: ACCENT_COLORS[options.accentPalette ?? "TEAL"],
+            contact: options.rwaContact ?? {
+              address: "",
+              email: "",
+              phone: "",
+            },
+          },
+        }
+      : {}),
   });
+
+  if (results.votingType === "PRIVATE") {
+    const privateVoters = options.privateVoters;
+    if (privateVoters === undefined) {
+      throw new Error("A PRIVATE PDF requires its completed voter roster.");
+    }
+    writer.drawPrivateResults(
+      results,
+      terms,
+      localDateTimeWithoutZone(vote.activatedAt, zone),
+      localDateTimeWithoutZone(completed, zone),
+      privateVoters,
+    );
+    writer.decorate(results.disclaimer);
+    return writer.finish();
+  }
 
   writer.paragraph("Civic Pulse · Result of a completed vote", {
     size: 9,
@@ -749,56 +1504,6 @@ export async function renderResultsPdf(
           n.optionLabels.join("; "),
         ],
       );
-    }
-  } else {
-    writer.heading("Results by office");
-    writer.paragraph(copy.PRIVATE, {
-      size: 8.5,
-      color: MUTED,
-    });
-    writer.paragraph(
-      "NOTA (None of the Above) is counted separately and cannot win. The candidate with the highest count among candidates is elected, even if NOTA receives more votes. No candidate is elected if no candidate receives a vote; tied candidate totals remain a tie.",
-      { size: 8.5, color: MUTED },
-    );
-    for (const office of results.offices) {
-      writer.heading(office.name, 11.5);
-      const leaders = office.candidates
-        .filter((c) => office.leaderCandidateIds.includes(c.id))
-        .map((c) => c.name);
-      writer.paragraph(
-        office.outcome === "NO_WINNER"
-          ? "No winner: no candidate received a vote."
-          : office.outcome === "TIE"
-            ? `Tie. These candidates received the same highest count: ${leaders.join("; ")}.`
-            : `Elected candidate: ${leaders[0] ?? ""}`,
-        { bold: true },
-      );
-      writer.gap(4);
-      writer.bars([
-        ...office.candidates.map((c) => {
-          const leading =
-            office.outcome !== "NO_WINNER" &&
-            office.leaderCandidateIds.includes(c.id);
-          return {
-            label: leading
-              ? `${c.name} (${office.outcome === "TIE" ? "Tied" : "Elected"})`
-              : c.name,
-            value: barValue(c.count, results.eligibleCount, c.eligiblePercent),
-            percent: c.eligiblePercent,
-            tone: leading ? ("leader" as const) : ("default" as const),
-          };
-        }),
-        {
-          label: "NOTA (None of the Above)",
-          value: barValue(
-            office.nota.count,
-            results.eligibleCount,
-            office.nota.eligiblePercent,
-          ),
-          percent: office.nota.eligiblePercent,
-          tone: "muted",
-        },
-      ]);
     }
   }
 

@@ -1,13 +1,46 @@
-/*
- * Which download formats this deployment offers for a completed result. CSV is
- * always available. PDF is included in version 1 but can be switched off per
- * deployment (PDF_EXPORT_ENABLED=0) if the host cannot run the renderer; the
- * controls then disappear and the endpoint answers EXPORT_FORMAT_UNAVAILABLE.
- */
+// PDF is mandatory; an operator may enable CSV per RWA for completed results.
+import { ApiError } from "@/server/http/errors";
+import type { TenantContext } from "@/server/config/tenant-context";
+import { canViewAdministration } from "@/shared/contracts/register";
+
 export type ExportFormat = "csv" | "pdf";
 
 export function availableExportFormats(
+  tenant: Pick<TenantContext, "kind" | "tenantId">,
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): ExportFormat[] {
-  return env.PDF_EXPORT_ENABLED === "0" ? ["csv"] : ["csv", "pdf"];
+  const key =
+    tenant.kind === "single"
+      ? "CSV_EXPORT_ENABLED"
+      : tenant.tenantId
+        ? `TENANT_${tenant.tenantId.replaceAll("-", "").toUpperCase()}_CSV_EXPORT_ENABLED`
+        : undefined;
+  const setting = key ? env[key]?.trim() : undefined;
+
+  if (
+    setting !== undefined &&
+    setting !== "" &&
+    setting !== "true" &&
+    setting !== "false"
+  ) {
+    throw new ApiError("DEPENDENCY_UNAVAILABLE", {
+      cause: {
+        source:
+          tenant.kind === "single" ? "deployment_config" : "tenant_config",
+        code: "CSV_EXPORT_FLAG_INVALID",
+      },
+    });
+  }
+
+  return setting === "true" ? ["csv", "pdf"] : ["pdf"];
+}
+
+export function availableResultExportFormats(
+  tenant: Pick<TenantContext, "kind" | "tenantId">,
+  actor: { isAdmin: boolean; isReadonly?: boolean },
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): ExportFormat[] {
+  return canViewAdministration(actor)
+    ? availableExportFormats(tenant, env)
+    : [];
 }

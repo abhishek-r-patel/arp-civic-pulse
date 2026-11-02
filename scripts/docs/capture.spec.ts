@@ -951,7 +951,7 @@ test("capture the illustrated documentation journeys", async ({ browser }) => {
     );
     await m.goto(`/votes/${closedDraft.id}/results`);
     await expect(m.getByText("Your vote is private", { exact: true })).toBeVisible();
-    await expect(m.getByRole("link", { name: "Download CSV", exact: true })).toBeVisible();
+    await expect(m.getByRole("button", { name: "Download CSV", exact: true })).toBeVisible();
     await capture(m, "36-closed-results");
     const multiDraft = await asUser<{ id: string }>(
       admin.id,
@@ -1278,7 +1278,7 @@ test("capture the RWA ReadOnly persona", async ({ browser }) => {
     await expect(page.getByRole("heading", { name: "Download" })).toBeVisible();
     await capture(page, "27-other-household-public-results");
     const download = page.waitForEvent("download");
-    await page.getByRole("link", { name: "Download CSV" }).click();
+    await page.getByRole("button", { name: "Download CSV" }).click();
     expect((await download).suggestedFilename()).toMatch(/\.csv$/u);
     await page.goto(`/votes/${completedPrivate.id}/results`);
     await capture(page, "28-completed-private-results");

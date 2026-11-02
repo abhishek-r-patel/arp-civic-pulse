@@ -536,9 +536,12 @@ export function adminSections(terms: HouseholdTerms): GuideSection[] {
               manually.
             </li>
             <li>
-              Download CSV, or PDF if enabled. Files contain the full authorised
-              result, not only the current page. Protect named PUBLIC reports;
-              downloaded files cannot be recalled.
+              Download the required PDF; CSV appears only when the deployment
+              operator enables it for this RWA. Files contain the full
+              authorised result, not only the current page. Protect named PUBLIC
+              reports; downloaded files cannot be recalled. If PDF cannot
+              represent a character, use CSV when available or contact the
+              deployment operator.
             </li>
             <li>
               Open Audit History to inspect Who, Target, Action, Details and

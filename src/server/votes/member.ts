@@ -13,7 +13,7 @@ import {
 } from "@/server/register/shared";
 import { reconcileOverdue } from "@/server/votes/lifecycle";
 import { getRwaBranding } from "@/server/settings/rwa-profile";
-import { availableExportFormats } from "@/server/exports/formats";
+import { availableResultExportFormats } from "@/server/exports/formats";
 import type { PageInfo } from "@/shared/contracts/pagination";
 import {
   memberVoteDetailSchema,
@@ -171,7 +171,9 @@ export async function getMemberVote(
   }
   // The database says whether a completed result can be downloaded; this deployment says in which formats.
   const exportFormats =
-    vote.exportFormats.length > 0 ? availableExportFormats() : [];
+    vote.exportFormats.length > 0
+      ? availableResultExportFormats(deps.tenant, deps.actor)
+      : [];
   return {
     ...vote,
     rwaName: await currentRwaName(deps),

@@ -184,7 +184,7 @@ Use the existing 8px-led scale with a 4px half-step: 4, 8, 16, 24, 32, 48, 64px.
 - **Dropdowns:** Keep each menu anchored to its trigger and exactly within the trigger's width, including on narrow screens. Use a keyboard-operable listbox with visible focus/active state; support arrows, Home/End, type-to-select, Enter/Space and Escape, and dismiss on outside click. Do not rely on native select popup sizing.
 - **Confirmation dialog:** Centre horizontally and vertically in the viewport on phones, tablets and desktops, including after scrolling the underlying page. Keep at least 16px horizontal gutters, a bounded width and a 90dvh maximum height with internal scrolling so long content and actions remain reachable. Focus is trapped, Esc closes it, and the destructive action is named explicitly ("Cancel vote"). Dropdowns, autocomplete lists and menus remain anchored to their triggering controls rather than becoming centred modals.
 - **Feedback:** An inline Success or Error banner for form results. Skeleton loaders for lists, and every list has an empty state with a next step.
-- **Print and optional PDF:** Follow section 15 when implemented. PDF availability is not a prerequisite for viewing completed results.
+- **Print and PDF:** Only RWA Admin/ReadOnly can download completed results; residents view results in-app. PDF is always available to management, while CSV appears only when the deployment operator enables it for that RWA. PUBLIC PDFs remain grayscale and list authorized named responses without email. PRIVATE PDFs use the RWA accent in a shared Civic Pulse/RWA header and footer, put title, local opening/closing times (no timezone suffix), turnout and two-column office cards on the results page, and highlight elected candidate rows. The next page repeats the election title and centers **REPRESENTATIVES WHO VOTED** above a compact table ordered by the configured identifier label, representative name and current account email. More than 50 voters continue on further pages with repeated table headers. The roster is management-only, includes only submitted voters, and never includes choices or submission times; the PDF remains readable in grayscale.
 
 ### Component states
 - Shared page headers use a quiet bottom divider and compact heading/action hierarchy, not decorative enclosing cards. Empty states use unframed bands. All form controls retain 16px text/48px targets with improved padding and focus/disabled contrast. Notices use a restrained left rule and body-scale heading, keeping icon/text/live-region semantics. Tables retain semantic headers and stacked mobile rows, with quiet header tint and hover/selection feedback.
@@ -393,15 +393,14 @@ Public pages use the same Tailwind tokens, including `text-section` and
 - Use short, restrained transitions; respect reduced motion. Do not animate tallies, auto-advance selections or use celebratory effects that suggest a preferred outcome.
 - Automated axe checks supplement, not replace, manual keyboard, screen-reader, zoom and real-device checks.
 
-## 15 CSV, Optional PDF and Print
+## 15 PDF, Optional CSV and Print
 - Supabase PostgreSQL is authoritative; the screen and exports use the same completed-result projection.
-- CSV is available only for authorised Completed votes. Show "Download PDF" only if the optional PDF feature is implemented; do not show a permanently disabled placeholder.
-- A missing PDF feature does not block voting, results viewing or pilot readiness.
-- Export generation shows progress and prevents duplicate in-progress requests. Errors keep results visible and provide safe retry.
-- If PDF is included, support A4 portrait, grayscale, wrapped long text, repeated headers, page numbers and the complete maximum-electorate response list without clipping.
-- Reports include RWA/title/type, question or offices, timezone-labelled activation/completion times, turnout/denominators, totals, NOTA/ties/no-votes, generation time and early-completion context.
-- PUBLIC exports include authorised names, household identifiers and choices without emails. PRIVATE exports contain aggregates only, never household/voter lists.
-- Validate long names and approved scripts in the application and, when included, PDF. Font availability alone does not prove readable shaping/rendering.
+- Only RWA Admin/ReadOnly can download completed results. Residents see results in-app and receive no download controls. PDF is mandatory for management; show CSV only when the operator enabled it for that RWA.
+- Completed-result downloads use a separate button per available format. Lock only the format currently in progress; announce preparation and transfer progress accessibly. Keep results visible on failure, show the safe error and Error ID, and provide retry. The full authorized file downloads, not only the current page.
+- Support A4 portrait, wrapped long text, repeated headers, page numbers and the complete electorate without clipping. PUBLIC PDFs remain grayscale; PRIVATE PDFs use the RWA accent and remain legible in grayscale.
+- PRIVATE PDF page 1 shows title, local opening/closing times without a timezone suffix, one-line participation and two-column office cards with highlighted leaders. Page 2 repeats the title and centers **REPRESENTATIVES WHO VOTED** above a compact table; the first column uses the configured identifier label. Sort by identifier. More than 50 voters continue on additional pages with repeated table headers.
+- Reports include RWA/title/type, question or offices, turnout/denominators, totals, NOTA/ties/no-votes, generation context and early-completion reason where applicable. PUBLIC exports include authorized names, identifiers and choices without emails. The separate PRIVATE PDF roster includes only submitted voters, frozen names/identifiers and current Auth emails; it never includes choices or submission times. PRIVATE CSV remains aggregate-only.
+- Validate long names and approved scripts in the application and PDF. Font availability alone does not prove readable shaping/rendering.
 - Printable exports are derived outcomes, not backups, signatures or legal certifications. No signature-replacement workflow is required for version 1.
 
 ## 16 Tailwind Rules and Design Acceptance
@@ -412,5 +411,5 @@ Public pages use the same Tailwind tokens, including `text-section` and
 - Before release, verify both voting types and member/admin journeys at specified widths, including long labels, enlarged text, keyboard focus and mobile-keyboard/sticky-action behavior.
 - Verify OTP paste/autofill/leading zeros, PUBLIC vote replacement and active aggregate refresh, PRIVATE one-time submission/hidden active totals, cancellation and early-completion confirmations, and no PRIVATE selection receipt.
 - Check every implemented component's states and actual contrast combinations, plus manual assistive-technology checks.
-- Verify CSV authorization/completeness and export failures; PDF-specific checks apply only when the feature is included.
+- Verify PDF authorization, font coverage, completeness and export failures for every RWA. Verify CSV authorization/completeness only when the operator enabled CSV for that tenant.
 - This documentation update does not itself migrate components, Tailwind configuration or application behavior.

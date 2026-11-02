@@ -13,7 +13,7 @@ import { VoteInstructions } from "@/components/votes/vote-instructions";
 import { ApiError } from "@/server/http/errors";
 import { readPageNumber } from "@/server/http/numbered-page";
 import { memberPageContext } from "@/server/register/page-context";
-import { availableExportFormats } from "@/server/exports/formats";
+import { availableResultExportFormats } from "@/server/exports/formats";
 import { getMemberVote, getResults } from "@/server/votes/member";
 import { listQuerySchema } from "@/shared/contracts/pagination";
 import { idParamsSchema } from "@/shared/contracts/register";
@@ -146,7 +146,9 @@ export default async function ResultsPage({
         page={page}
         basePath={`/votes/${id}/results`}
         formats={
-          data.vote.status === "COMPLETED" ? availableExportFormats() : []
+          data.vote.status === "COMPLETED"
+            ? availableResultExportFormats(deps.tenant, deps.actor)
+            : []
         }
         identifierLabel={deps.identifierLabel}
       />

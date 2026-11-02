@@ -50,6 +50,10 @@ const environmentSchema = z
         .transform((value) => value === "true"),
     ),
     TENANT_DIRECTORY_JSON: optionalText,
+    CSV_EXPORT_ENABLED: z.preprocess(
+      blankToUndefined,
+      z.enum(["true", "false"]).default("false"),
+    ),
     RATE_LIMIT_HMAC_KEY: optionalText,
     LOG_LEVEL: z.preprocess(
       blankToUndefined,
@@ -114,6 +118,15 @@ const environmentSchema = z
       fail(
         "TENANT_DIRECTORY_JSON",
         "is required when tenant routing is enabled",
+      );
+    }
+    if (
+      environment.TENANT_ROUTING_ENABLED &&
+      environment.CSV_EXPORT_ENABLED === "true"
+    ) {
+      fail(
+        "CSV_EXPORT_ENABLED",
+        "must be false in tenant-routing mode; configure CSV per tenant instead",
       );
     }
     if (
@@ -252,6 +265,7 @@ const environmentKeys = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "TENANT_ROUTING_ENABLED",
   "TENANT_DIRECTORY_JSON",
+  "CSV_EXPORT_ENABLED",
   "RATE_LIMIT_HMAC_KEY",
   "LOG_LEVEL",
   "TRUSTED_PROXY_CONFIG",

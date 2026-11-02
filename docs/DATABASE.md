@@ -6,7 +6,7 @@
 
 Use Supabase PostgreSQL as the authoritative store, with Supabase Auth, row-level security (RLS), guarded SQL RPCs, and versioned Supabase migrations. Normal database calls use a server-side Supabase client carrying the verified user's session; do not use raw `pg` or a service-role client for ordinary voting/results access. Require TLS, encrypted storage/backups, and the supported network restrictions for each connection path. Assume clients can call the Supabase API directly, even though browser application journeys go through Next.js.
 
-The design implements assumptions A1-A7 provisionally. Production activation requires recorded approvals, including retention/recovery policy, PRIVATE VOTING assurance, publication timing, the session policy, bylaws confirming NOTA handling, and early completion. Under A7, optional printable exports are not signatures, legal certification, backups, or authoritative records; replacing physical signatures is not a version 1 requirement.
+The design implements assumptions A1-A7 provisionally. Production activation requires recorded approvals, including retention/recovery policy, PRIVATE VOTING assurance, publication timing, the session policy, bylaws confirming NOTA handling, and early completion. PDF and operator-enabled CSV exports are derived records, not signatures, legal certification, backups, or authoritative records; replacing physical signatures is not a version 1 requirement.
 
 ### Required boundaries
 
@@ -17,7 +17,7 @@ The design implements assumptions A1-A7 provisionally. Production activation req
 - Freeze ballot configuration, electorate and representative identity snapshots at activation. The deadline is set at activation and may then only be moved by an administrator, with a reason, while the vote is active. The RWA name is also saved as an internal snapshot, but screens and exports show the current RWA name.
 - One atomic, durable participation per entitlement. PUBLIC submissions retain a replaceable current selection set until closure; PRIVATE ballots are one-time. Terminal votes cannot reopen.
 - Derive results, turnout, percentages, and reports from authoritative records; do not store duplicate editable results.
-- CSV export is required for version 1. PDF is optional; its controls and acceptance checks apply only when implemented. Neither voting nor recovery depends on PDF generation.
+- PDF export is required for completed votes. CSV is optional per RWA and enabled only by the deployment operator. Neither format is the database source of truth or a recovery mechanism.
 
 There are no tenant, campaign, nomination, signature, attachment, notification, report-file, or individual closed-ballot tables. Supabase Auth owns authentication identities, OTPs, and sessions; do not add parallel application authentication tables. No Redis or separate identity service is required.
 
@@ -322,7 +322,7 @@ All snapshot fields are null in drafts and non-null after activation, enforced b
 
 PK `(vote_id, household_id)` is also a composite FK to `electorate(vote_id, household_id)`. It is the authoritative exactly-once record and uncertainty-recovery lookup. No selected option, candidate, ballot identifier, request identifier, IP address, or session identifier is stored here.
 
-Participation timestamps must never appear with PRIVATE choice data. RWA Admins and RWA ReadOnly observers may monitor participation; Residents may query their own status. PRIVATE result/export projections exclude household and participation lists.
+Participation timestamps must never appear with PRIVATE choice data. RWA Admins and RWA ReadOnly observers may monitor participation; Residents may query their own status. The result RPC remains aggregate-only for PRIVATE elections. A separate management-only PDF renderer combines its completed participation list with current Auth emails at generation time; emails are not stored in `profiles`, frozen in the electorate, or exposed by the participation API, and the PDF never maps people to choices.
 
 ### 3.11 `open_responses`
 
@@ -771,7 +771,7 @@ Test anonymous/member/admin direct REST/RPC access, suspended profiles with exis
 - Disable request-body, SQL bind-parameter, cookie, email-content, and selection capture across the app, proxy, APM, error tracking, and database instrumentation. Operational logs contain allowlisted outcomes and safe support IDs only.
 - Do not store PRIVATE request payloads, per-response counter history, change feeds, ballot receipts, cross-office submission IDs, or tally snapshots. Do not allow administrators to sample active counters for differencing.
 - PRIVATE aggregate-only storage prevents ordinary stored identity-to-choice mappings but is not cryptographic anonymity. WAL/PITR, privileged instrumentation, backups at different instants, or a compromised process can correlate transactions/counter deltas. Low-turnout results can allow inference. Obtain A2 approval without promising stronger secrecy.
-- On-demand CSV and optional PDF generation use the same authorization/projection as results; no public files, bearer download links, retained report copies, or emailed attachments. PRIVATE reports exclude household/voter lists; PUBLIC reports include frozen name, household, and choice, not email. Exports are derived outcomes, never the authoritative database or a recovery substitute.
+- On-demand PDF and operator-enabled CSV generation use the same authorization/projection as results; no public files, bearer download links, retained report copies, or emailed attachments. PRIVATE reports exclude household/voter lists; PUBLIC reports include frozen name, household, and choice, not email. Exports are derived outcomes, never the authoritative database or a recovery substitute.
 - Apply approved lifecycle-aware retention. Never remove participation while a vote can accept submissions. Do not delete identity snapshots independently of their still-required PUBLIC decision record.
 - Downloaded/printed records cannot be remotely revoked or erased and are not signatures or legal certification.
 
@@ -794,7 +794,7 @@ If existing real accounts/votes exist, explicitly map legacy identities to Auth-
 - Record real approvals and configure matching provider retention before enabling activation.
 - Do not seed demo votes, synthetic participation, candidate counts, real OTPs, or active sessions into production.
 
-Use server-only privileged Auth credentials solely for provisioning/administrative Auth calls and the server-side resident self-registration workflow. Supabase Auth public signup remains disabled. Provisioning is retry-safe: create or identify the approved Auth user, then create/validate the profile and household assignment and append the application audit event in a database transaction. New profiles default to `SUSPENDED` during setup; enable them only after the intended assignment is valid (an administrator may intentionally have no household). An Auth user without a valid enabled profile has no application access. If a step fails, surface the partial state for controlled retry/cleanup; do not acknowledge completed provisioning or delete a pre-existing identity as a blind rollback.
+Use server-only privileged Auth credentials for provisioning/administrative Auth calls, resident self-registration, and the narrowly scoped management-only PRIVATE PDF lookup of current emails for submitted representatives. That lookup follows session-backed result and participation authorization and does not read choices. Supabase Auth public signup remains disabled. Provisioning is retry-safe: create or identify the approved Auth user, then create/validate the profile and household assignment and append the application audit event in a database transaction. New profiles default to `SUSPENDED` during setup; enable them only after the intended assignment is valid (an administrator may intentionally have no household). An Auth user without a valid enabled profile has no application access. If a step fails, surface the partial state for controlled retry/cleanup; do not acknowledge completed provisioning or delete a pre-existing identity as a blind rollback.
 
 ### Local/test/staging fixtures
 

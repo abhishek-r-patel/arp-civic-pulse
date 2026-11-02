@@ -527,6 +527,8 @@ describe.skipIf(!hasDatabase)(
         expect(done).toMatchObject({
           status: "COMPLETED",
           canSubmit: false,
+          // The raw RPC uses a non-empty completion sentinel; the application
+          // service replaces it with tenant-scoped available formats.
           exportFormats: ["csv"],
         });
       });

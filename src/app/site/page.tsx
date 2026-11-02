@@ -43,7 +43,7 @@ const FEATURES = [
   {
     title: "Results you can share",
     icon: FileCheck2,
-    text: "Clear results after closure, CSV and PDF downloads for your records, and an audit history that cannot be edited or deleted.",
+    text: "Clear results after closure, printable PDF reports, operator-enabled CSV downloads, and an audit history that cannot be edited or deleted.",
   },
   {
     title: "Your own private site",
@@ -267,7 +267,7 @@ export default async function MainHomePage() {
               "Your own site and separate database",
               "PUBLIC polls and PRIVATE elections",
               "Setup of your first administrator",
-              "CSV and PDF results downloads",
+              "Printable PDF reports and CSV downloads when enabled",
               "Support by email",
             ].map((item) => (
               <li

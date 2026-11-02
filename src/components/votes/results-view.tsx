@@ -1,11 +1,11 @@
-// Theme-consistent authorized result sections; active privacy and export projections are unchanged.
+// Theme-consistent result sections with role-filtered completed-result downloads.
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Trophy } from "lucide-react";
+import { Download, LoaderCircle, Trophy } from "lucide-react";
 import { VoteStatusBadge, VotingTypeBadge } from "@/components/ui/badges";
-import { buttonClasses } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Notice } from "@/components/ui/notice";
@@ -25,6 +25,54 @@ import type {
 } from "@/shared/contracts/results";
 import { formatInZone } from "@/shared/time/zoned";
 
+type ExportFormat = "csv" | "pdf";
+
+type ExportDownloadState =
+  | { phase: "preparing" }
+  | { phase: "downloading"; receivedBytes: number; totalBytes: number | null }
+  | { phase: "failed"; message: string; requestId: string | null }
+  | { phase: "complete" };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export async function exportFailureFromResponse(
+  response: Response,
+): Promise<{ message: string; requestId: string | null }> {
+  let message = "The download could not be prepared. Try again.";
+  let requestId =
+    response.headers.get("x-request-id") ?? response.headers.get("x-vercel-id");
+
+  try {
+    const payload: unknown = await response.json();
+    if (isRecord(payload)) {
+      if (typeof payload.requestId === "string") {
+        requestId = payload.requestId;
+      }
+      if (
+        isRecord(payload.error) &&
+        typeof payload.error.message === "string"
+      ) {
+        message = payload.error.message;
+      }
+    }
+  } catch {
+    // Platform error pages may not use the application's JSON error envelope.
+  }
+
+  return { message, requestId };
+}
+
+export function exportFilenameFromDisposition(
+  disposition: string | null,
+  format: ExportFormat,
+): string {
+  const filename = /filename="([^"]+)"/iu.exec(disposition ?? "")?.[1];
+  return filename && /^[A-Za-z0-9._-]+$/u.test(filename)
+    ? filename
+    : `civic-pulse-results.${format}`;
+}
 /*
  * Active polls show only the aggregates permitted for their voting type and
  * refresh automatically. Completed results use the shared API/export projection.
@@ -344,6 +392,121 @@ export function ResultsView({
   const terms = useHouseholdTerms();
   const { vote } = results;
   const active = vote.status === "ACTIVE";
+  const [downloadStates, setDownloadStates] = useState<
+    Partial<Record<ExportFormat, ExportDownloadState>>
+  >({});
+  const downloadsInFlight = useRef(new Set<ExportFormat>());
+
+  function setDownloadState(format: ExportFormat, state: ExportDownloadState) {
+    setDownloadStates((current) => ({ ...current, [format]: state }));
+  }
+
+  async function downloadResult(format: ExportFormat) {
+    if (downloadsInFlight.current.has(format)) return;
+    downloadsInFlight.current.add(format);
+    setDownloadState(format, { phase: "preparing" });
+    let requestId: string | null = null;
+
+    try {
+      const response = await fetch(`/api/votes/${vote.id}/exports/${format}`, {
+        method: "GET",
+        headers: {
+          Accept: format === "csv" ? "text/csv" : "application/pdf",
+        },
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      requestId =
+        response.headers.get("x-request-id") ??
+        response.headers.get("x-vercel-id");
+
+      if (!response.ok) {
+        const failure = await exportFailureFromResponse(response);
+        setDownloadState(format, { phase: "failed", ...failure });
+        return;
+      }
+
+      const expectedType = format === "csv" ? "text/csv" : "application/pdf";
+      const contentType = response.headers
+        .get("content-type")
+        ?.split(";", 1)[0]
+        ?.trim()
+        .toLowerCase();
+      if (contentType !== expectedType || !response.body) {
+        setDownloadState(format, {
+          phase: "failed",
+          message:
+            "The server returned an unexpected download response. Try again.",
+          requestId,
+        });
+        return;
+      }
+
+      const contentLength = Number(response.headers.get("content-length"));
+      const totalBytes =
+        Number.isSafeInteger(contentLength) && contentLength > 0
+          ? contentLength
+          : null;
+      const reader = response.body.getReader();
+      const chunks: BlobPart[] = [];
+      let receivedBytes = 0;
+      setDownloadState(format, {
+        phase: "downloading",
+        receivedBytes,
+        totalBytes,
+      });
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          receivedBytes += value.byteLength;
+          setDownloadState(format, {
+            phase: "downloading",
+            receivedBytes,
+            totalBytes,
+          });
+        }
+      } finally {
+        reader.releaseLock();
+      }
+
+      if (receivedBytes === 0) {
+        setDownloadState(format, {
+          phase: "failed",
+          message: "The downloaded file was empty. Try again.",
+          requestId,
+        });
+        return;
+      }
+
+      const blob = new Blob(chunks, { type: expectedType });
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = exportFilenameFromDisposition(
+        response.headers.get("content-disposition"),
+        format,
+      );
+      anchor.hidden = true;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      setDownloadState(format, { phase: "complete" });
+    } catch {
+      setDownloadState(format, {
+        phase: "failed",
+        message: requestId
+          ? "The download was interrupted. Check your connection and try again."
+          : "We could not reach the server. Check your connection and try again.",
+        requestId,
+      });
+    } finally {
+      downloadsInFlight.current.delete(format);
+    }
+  }
 
   useEffect(() => {
     if (!active) {
@@ -454,20 +617,120 @@ export function ResultsView({
             {results.votingType === "PUBLIC"
               ? ", including every named response"
               : ""}
-            . Once downloaded, copies can&apos;t be recalled.
+            .
+            {results.votingType === "PRIVATE" ? (
+              <>
+                {" "}
+                The PDF also lists representatives who voted, their{" "}
+                {identifierLabel}, and current account email addresses.
+              </>
+            ) : null}{" "}
+            Once downloaded, copies can&apos;t be recalled.
           </p>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            {formats.map((format) => (
-              <a
-                key={format}
-                href={`/api/votes/${vote.id}/exports/${format}`}
-                download
-                className={buttonClasses("secondary")}
-              >
-                <Download aria-hidden="true" className="size-5" />
-                Download {format === "csv" ? "CSV" : "PDF"}
-              </a>
-            ))}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {formats.map((format) => {
+              const label = format.toUpperCase();
+              const state = downloadStates[format];
+              const busy =
+                state?.phase === "preparing" || state?.phase === "downloading";
+              const progressState =
+                state?.phase === "downloading" ? state : null;
+              const progressPercent =
+                progressState?.totalBytes && progressState.totalBytes > 0
+                  ? Math.min(
+                      100,
+                      Math.floor(
+                        (progressState.receivedBytes /
+                          progressState.totalBytes) *
+                          100,
+                      ),
+                    )
+                  : null;
+              const errorId = `export-${format}-error`;
+
+              return (
+                <div key={format} className="grid content-start gap-2">
+                  <Button
+                    variant="secondary"
+                    loading={busy}
+                    aria-describedby={
+                      state?.phase === "failed" ? errorId : undefined
+                    }
+                    onClick={() => void downloadResult(format)}
+                  >
+                    {busy ? (
+                      <LoaderCircle
+                        aria-hidden="true"
+                        className="size-5 animate-spin motion-reduce:animate-none"
+                      />
+                    ) : (
+                      <Download aria-hidden="true" className="size-5" />
+                    )}
+                    {busy
+                      ? `${state.phase === "preparing" ? "Preparing" : "Downloading"} ${label}…`
+                      : state?.phase === "complete"
+                        ? `Download ${label} again`
+                        : `Download ${label}`}
+                  </Button>
+
+                  {busy ? (
+                    <div className="grid gap-1">
+                      <p
+                        role="status"
+                        aria-live="polite"
+                        className="text-caption text-muted"
+                      >
+                        {state.phase === "preparing"
+                          ? `Preparing ${label} download…`
+                          : progressPercent === null
+                            ? `Downloading ${label}…`
+                            : `Downloading ${label}… ${progressPercent}%`}
+                      </p>
+                      <progress
+                        aria-label={`${label} download progress`}
+                        className="h-2 w-full accent-accent"
+                        max={progressState?.totalBytes ?? 100}
+                        value={
+                          progressPercent === null || progressState === null
+                            ? undefined
+                            : progressState.receivedBytes
+                        }
+                      />
+                    </div>
+                  ) : null}
+
+                  {state?.phase === "failed" ? (
+                    <div id={errorId}>
+                      <Notice tone="error" heading={`${label} download failed`}>
+                        <p>{state.message}</p>
+                        {state.requestId ? (
+                          <p className="mt-2 text-caption text-muted">
+                            Error ID:{" "}
+                            <span className="font-mono font-semibold text-primary select-all">
+                              {state.requestId}
+                            </span>
+                          </p>
+                        ) : null}
+                        <Button
+                          className="mt-3"
+                          variant="secondary"
+                          onClick={() => void downloadResult(format)}
+                        >
+                          <Download aria-hidden="true" className="size-5" />
+                          Retry {label} download
+                        </Button>
+                      </Notice>
+                    </div>
+                  ) : null}
+
+                  {state?.phase === "complete" ? (
+                    <p role="status" className="text-caption text-muted">
+                      {label} download started. Check your browser downloads.
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         </section>
       ) : null}

@@ -2,7 +2,7 @@
 
 Mobile-first voting and polls for a single Resident Welfare Association (RWA).
 
-The application implements registered-member email OTP access, household/account administration with reviewed CSV import, PUBLIC polls and PRIVATE elections with immediate or scheduled opening, protected results, CSV/PDF exports, and operational backup/recovery tooling. Production use remains blocked by the approvals and external-environment checks in [pilot readiness](./docs/PILOT_READINESS.md).
+The application implements registered-member email OTP access, household/account administration with reviewed CSV import, PUBLIC polls and PRIVATE elections with immediate or scheduled opening, protected in-app results, management-only PDF/CSV downloads, and operational backup/recovery tooling. PRIVATE PDFs include a separate voter participation roster for RWA Admin/ReadOnly, never ballot choices. Production use remains blocked by the approvals and external-environment checks in [pilot readiness](./docs/PILOT_READINESS.md).
 
 The [SaaS action plan](./docs/IMPLEMENTATION_PLAN.md#saas-action-plan---31-october-2026)
 tracks the planned shared application, separate Supabase projects per RWA,
@@ -218,7 +218,7 @@ New here? Follow the step-by-step [local setup guide](./docs/LOCAL_SETUP.md).
 Server configuration is validated when the server starts (`src/instrumentation.ts` → `src/server/config/environment.ts`); production fails clearly on missing or unsafe values. The same startup hook and `src/instrumentation-client.ts` initialize optional, scrubbed Sentry error monitoring on Vercel Production/Preview only. Every failure shows a readable **Error ID** such as `VOTE-7K3QX-M2PTA`. Its prefix names the product area, and the same ID appears in Vercel logs and Sentry; see [Debug a reported error ID](./docs/OPERATIONS.md#debug-a-reported-error-id). See [.env.example](./.env.example) for placeholder-only variables.
 
 - `NEXT_PUBLIC_*` values are visible in browsers and must never hold a secret.
-- `SUPABASE_SERVICE_ROLE_KEY` is server-only and reserved for controlled Auth provisioning and resident self-registration, never ballots, results or exports.
+- `SUPABASE_SERVICE_ROLE_KEY` is server-only for controlled Auth provisioning, self-registration and resolving the current email addresses of voters in completed PRIVATE PDFs. The latter runs only after management-role, completed-result and participation authorization; it never reads or returns ballot choices.
 - Host-based routing is disabled by default. `TENANT_ROUTING_ENABLED`,
   `TENANT_DIRECTORY_JSON` and UUID-keyed tenant secrets are configured only on
   the retained tenant-test Vercel project, never on staging or production until

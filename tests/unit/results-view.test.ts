@@ -1,7 +1,11 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { ResultsView } from "@/components/votes/results-view";
+import {
+  exportFailureFromResponse,
+  exportFilenameFromDisposition,
+  ResultsView,
+} from "@/components/votes/results-view";
 import { projectResults, rawResultsSchema } from "@/shared/contracts/results";
 
 vi.mock("next/navigation", () => ({
@@ -9,6 +13,43 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("PUBLIC results layout", () => {
+  it("reads safe export failures and request IDs from the API envelope", async () => {
+    const requestId = "EXPORT-7K3QX-M2PTA";
+    const response = new Response(
+      JSON.stringify({
+        error: {
+          code: "EXPORT_FAILED",
+          message: "The download could not be prepared. Try again shortly.",
+        },
+        requestId,
+      }),
+      {
+        status: 503,
+        headers: {
+          "content-type": "application/json",
+          "x-request-id": requestId,
+        },
+      },
+    );
+
+    await expect(exportFailureFromResponse(response)).resolves.toEqual({
+      message: "The download could not be prepared. Try again shortly.",
+      requestId,
+    });
+  });
+
+  it("uses safe fallback filenames when the response has no usable filename", () => {
+    expect(
+      exportFilenameFromDisposition(
+        'attachment; filename="civic-pulse-results-2026-05-01-ab12cd34.csv"',
+        "csv",
+      ),
+    ).toBe("civic-pulse-results-2026-05-01-ab12cd34.csv");
+    expect(
+      exportFilenameFromDisposition('attachment; filename="../secret"', "pdf"),
+    ).toBe("civic-pulse-results.pdf");
+  });
+
   it("groups the outcome and totals in a card and keeps named responses unframed", () => {
     const results = projectResults(
       rawResultsSchema.parse({
@@ -65,10 +106,20 @@ describe("PUBLIC results layout", () => {
         results,
         page: null,
         basePath: "/votes/example/results",
-        formats: [],
+        formats: ["csv", "pdf"],
         identifierLabel: "Flat Number",
       }),
     );
+
+    const downloadIndex = html.indexOf('aria-labelledby="download"');
+    const downloadSection = html.slice(
+      downloadIndex,
+      html.indexOf("</section>", downloadIndex),
+    );
+    expect(downloadSection).toContain("Download CSV");
+    expect(downloadSection).toContain("Download PDF");
+    expect(downloadSection).toContain("<button");
+    expect(downloadSection).not.toContain('href="/api/votes/');
 
     expect(html).toContain(
       '<div class="mx-auto grid w-full gap-4"><section aria-labelledby="totals"',

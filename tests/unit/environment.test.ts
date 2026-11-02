@@ -29,6 +29,7 @@ describe("parseEnvironment", () => {
       APP_ORIGIN: "http://localhost:3000",
       LOG_LEVEL: "info",
       TENANT_ROUTING_ENABLED: false,
+      CSV_EXPORT_ENABLED: "false",
     });
   });
 
@@ -58,6 +59,9 @@ describe("parseEnvironment", () => {
         NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
       }),
     ).toContain("must be unset when tenant routing is enabled");
+    expect(messageFor({ ...routed, CSV_EXPORT_ENABLED: "true" })).toContain(
+      "CSV_EXPORT_ENABLED",
+    );
     expect(
       messageFor({
         TENANT_DIRECTORY_JSON: routed.TENANT_DIRECTORY_JSON,

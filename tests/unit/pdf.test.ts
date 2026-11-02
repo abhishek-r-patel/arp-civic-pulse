@@ -12,6 +12,7 @@ import {
   RESULTS_DISCLAIMER,
   type RawResults,
 } from "@/shared/contracts/results";
+import { buildHouseholdTerms } from "@/shared/contracts/household-terms";
 
 const ID = (n: number) =>
   `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -251,29 +252,125 @@ describe("renderResultsPdf", () => {
     expect(pdf.includes(Buffer.from("Inter"))).toBe(true);
   });
 
-  it("carries only aggregates for a PRIVATE vote, with the instructions and no identity", async () => {
+  it("renders a branded PRIVATE summary and setting-labelled voter roster without choices", async () => {
     const results = projectResults(closedRaw());
-    const pdf = await renderResultsPdf(results, generated);
+    const pdf = await renderResultsPdf(results, generated, {
+      terms: buildHouseholdTerms("Flat", "ID"),
+      rwaAlias: "Lakeview RWA",
+      rwaContact: {
+        address: "1 Example Road, Sample City",
+        email: "contact@example.test",
+        phone: "+91 123 456 7890",
+      },
+      privateVoters: [
+        {
+          representativeName: "Asha Rao",
+          householdIdentifier: "A-101",
+          email: "asha@example.test",
+        },
+        {
+          representativeName: "Ravi Nair",
+          householdIdentifier: "B-102",
+          email: "ravi@example.test",
+        },
+      ],
+    });
     await keep("closed.pdf", pdf);
-    const text = squash((await readPdf(pdf)).text);
+    const read = await readPdf(pdf);
+    expect(read.pages).toHaveLength(2);
+    const text = squash(read.text);
     for (const expected of [
+      "Repaint the clubhouse?",
+      "Opens at 20 Apr 2026, 10:30 AM",
+      "Closed at 1 May 2026, 5:30 PM",
+      "3 of 4 flats participated",
+      RESULTS_DISCLAIMER,
+      "This report is derived from the authoritative database, not a backup.",
+      "REPRESENTATIVES WHO VOTED",
+      "FLAT ID",
+      "REPRESENTATIVE",
+      "EMAIL",
       "Chair",
       "Treasurer",
+      "Asha; Ravi",
       "NOTA (None of the Above)",
-      "Tie. These candidates received the same highest count: Asha; Ravi",
-      "No winner: no candidate received a vote.",
+      "No candidate elected",
       "Choose one per office.",
-      "Asha (Tied) 1/4 25%",
-      "Ravi (Tied) 1/4 25%",
-      "Meera 0/4 0%",
-      "NOTA (None of the Above) 3/4 75%",
-      "Only totals are shown, never who chose what.",
+      "A-101 Asha Rao asha@example.test",
+      "B-102 Ravi Nair ravi@example.test",
+      "This is a computer-generated letter and does not require a signature",
+      "Page 1 of 2",
+      "Page 2 of 2",
     ]) {
       expect(text, expected).toContain(squash(expected));
     }
+    expect(text).not.toContain("IST");
     expect(text).not.toContain("Who chose what");
     expect(text).not.toContain("People who run the system");
-    expect(text).not.toMatch(/H-\d{4}/u);
+    expect(text).not.toContain("Asha (Tied)");
+  });
+
+  it("refuses to render a PRIVATE PDF without its voter roster", async () => {
+    await expect(
+      renderResultsPdf(projectResults(closedRaw()), generated),
+    ).rejects.toThrow("A PRIVATE PDF requires its completed voter roster.");
+  });
+
+  it("keeps seven two-column office cards on the first page", async () => {
+    const raw = closedRaw();
+    const template = raw.offices[0];
+    if (!template) {
+      throw new Error("Expected a PRIVATE office fixture.");
+    }
+    raw.offices = Array.from({ length: 7 }, (_, index) => ({
+      ...template,
+      id: ID(100 + index),
+      name: `Office ${index + 1}`,
+      position: index + 1,
+      candidates: template.candidates.map((candidate, candidateIndex) => ({
+        ...candidate,
+        id: ID(200 + index * 10 + candidateIndex),
+      })),
+    }));
+    const results = projectResults(raw);
+    const read = await readPdf(
+      await renderResultsPdf(results, generated, { privateVoters: [] }),
+    );
+    expect(read.pages).toHaveLength(2);
+    const firstPage = squash(read.pages[0] ?? "");
+    for (let index = 1; index <= 7; index += 1) {
+      expect(firstPage).toContain(`Office${index}`);
+    }
+  });
+
+  it("fits 50 voter rows on the roster page and continues larger lists with repeated headers", async () => {
+    const results = projectResults(closedRaw());
+    const voters = Array.from({ length: 50 }, (_, index) => ({
+      representativeName: `Resident ${String(index + 1).padStart(2, "0")}`,
+      householdIdentifier: `A-${String(index + 1).padStart(3, "0")}`,
+      email: `resident${String(index + 1).padStart(2, "0")}@example.test`,
+    }));
+    const fifty = await readPdf(
+      await renderResultsPdf(results, generated, { privateVoters: voters }),
+    );
+    expect(fifty.pages).toHaveLength(2);
+    expect(squash(fifty.pages[1] ?? "")).toContain("resident50@example.test");
+
+    const sixty = await readPdf(
+      await renderResultsPdf(results, generated, {
+        privateVoters: [
+          ...voters,
+          ...voters.slice(0, 10).map((voter, index) => ({
+            ...voter,
+            householdIdentifier: `B-${String(index + 1).padStart(3, "0")}`,
+            email: `extra${String(index + 1).padStart(2, "0")}@example.test`,
+          })),
+        ],
+      }),
+    );
+    expect(sixty.pages.length).toBeGreaterThan(2);
+    expect(squash(sixty.text)).toContain("REPRESENTATIVESWHOVOTED·CONTINUED");
+    expect(squash(sixty.text)).toContain("extra10@example.test");
   });
 
   it("labels an early completion with its reason", async () => {
@@ -319,9 +416,13 @@ describe("renderResultsPdf", () => {
   });
 
   it("uses neutral grays only: every color has equal red, green and blue", async () => {
-    const pdf = await renderResultsPdf(projectResults(closedRaw()), generated, {
-      compress: false,
-    });
+    const pdf = await renderResultsPdf(
+      projectResults(openRaw(3, (i) => `Resident ${i}`)),
+      generated,
+      {
+        compress: false,
+      },
+    );
     const content = pdf.toString("latin1");
     const colors = [
       ...content.matchAll(/([0-9.]+) ([0-9.]+) ([0-9.]+) (?:scn|SCN)/gu),

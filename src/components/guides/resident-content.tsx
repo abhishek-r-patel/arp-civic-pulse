@@ -305,11 +305,13 @@ export function residentSections(terms: HouseholdTerms): GuideSection[] {
               not only the visible page.
             </li>
             <li>
-              Choose <strong>CSV</strong> for a spreadsheet or{" "}
-              <strong>PDF</strong> for a printable copy if enabled. If PDF
-              cannot represent a character, use CSV. A failed download does not
-              invalidate a vote; return to results and retry later rather than
-              repeatedly starting downloads.
+              Choose the required <strong>PDF</strong> for a printable copy. CSV
+              is shown only when the deployment operator enables it for this
+              RWA. If PDF cannot represent a character, use CSV when available;
+              if CSV is disabled, contact your administrator to ask the
+              deployment operator about enabling it. A failed download does not
+              invalidate a vote; results remain visible and you can retry
+              safely.
             </li>
           </Steps>
           <Screenshot image="publicResults" />

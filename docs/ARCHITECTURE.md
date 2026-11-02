@@ -6,7 +6,7 @@
 - Current application: one mobile-first Next.js deployment for one RWA, with a historical target of 500 households and about 100 concurrent users. Planned SaaS retains the shared app with a separate Supabase project per RWA; SaaS capacity is not approved by that historical target.
 - Preserve **Supabase** for PostgreSQL, Auth, RLS, guarded SQL functions and scheduled database maintenance, and **Tailwind CSS** for styling.
 - **Supabase PostgreSQL is the source of truth** for eligibility, accepted participation, responses, totals and audit history. On-screen results and exports are derived views, never independent editable records.
-- PDF is an optional printable results export and may be deferred beyond version 1. No voting, completion or recovery operation depends on a PDF.
+- PDF is the required printable results export for RWA Admin/ReadOnly; CSV is also management-only and optional per RWA under deployment-operator control. Residents view results in-app. The completed PRIVATE PDF adds a separate submitted-voter roster with current Auth emails, never choices.
 - PUBLIC and PRIVATE are voting types, separate from Draft, Scheduled, Active, Completed and Cancelled lifecycle statuses.
 - PRIVATE voting provides application-level privacy under PRD assumption A2, not cryptographic anonymity against infrastructure operators.
 - Obtain approval of PRD assumptions A1-A7, providers, region, retention and recovery objectives before real voting.
@@ -73,7 +73,7 @@ Supabase Auth + PostgreSQL
 Supporting services:
   Custom SMTP -> resident login codes
   Encrypted off-site backups and privacy-safe monitoring
-  Optional PDFKit rendering in Next.js
+  Required PDFKit rendering in Next.js; CSV when enabled for the tenant
 ```
 
 | Area | Decision |
@@ -85,7 +85,7 @@ Supporting services:
 | Authentication | Supabase Auth email OTP with an admin-managed register and custom SMTP |
 | Validation | Zod on requests/forms plus database constraints and function validation |
 | Maintenance | Supabase Cron (`pg_cron`) calling narrowly scoped SQL maintenance functions |
-| Exports | CSV in version 1; optional PDFKit in a Node.js server route, not an external PDF service |
+| Exports | Required PDFKit and operator-enabled per-RWA CSV in a Node.js server route, not an external PDF service |
 | Hosting | Vercel is the preferred starting option, subject to plan eligibility, region, runtime limits and cost validation |
 | Testing | Vitest, real Supabase/PostgreSQL integration tests, Playwright and axe |
 | Observability | Allowlisted application events and provider metrics without sensitive payload capture; optional Sentry errors and 10% sampled traces, scrubbed of request headers, cookies, bodies, query strings, user identity, emails, phone numbers and tokens (no Session Replay) |
@@ -246,6 +246,7 @@ Tenant-routing source map:
 - `src/server/db/clients.ts` binds user and privileged Supabase clients to the supplied context. The privileged credential is read only from its referenced server environment variable.
 - `src/proxy.ts` resolves page hosts before session refresh; API handlers resolve through the request Host header. On Vercel, the hosted S04 test project showed that the public host, not forwarded headers, selects the tenant. Tenant routing stays disabled on staging/production until the domain, cap and external release gates are closed.
 - Process-wide state audited in S03: React `cache()` lookups are per request; the parsed environment is identical for all tenants; rate-limit buckets are stored in each tenant's own database (only the HMAC key is shared); PDF fonts are static assets. The CSV/PDF render semaphores in `src/server/exports/results-export.ts` are shared by every tenant in one function instance. They hold no tenant data, but one busy RWA can briefly delay another's exports (a fairness limit, not a data-isolation risk). The browser never talks to Supabase directly.
+- `src/server/exports/results-export.ts` restricts downloads to RWA Admin/ReadOnly and composes completed PRIVATE PDF rosters from the committee participation routine, frozen electorate identities and targeted current Auth-email lookups. `src/server/exports/pdf.ts` renders the branded PRIVATE results/roster pages while keeping PUBLIC PDF rendering separate. `tests/unit/results-export.test.ts` and `tests/unit/pdf.test.ts` cover access, identifier sorting, roster pagination and report content.
 - `tests/e2e/support/tenant-http.ts`: shared guarded helpers for the tenant HTTP specs. They accept only the two disposable project refs (or, for a freshly provisioned project, an explicit `TENANT_HTTP_PROJECT_A_REF`/`_B_REF` override) and never print keys, codes or cookies.
 - `tests/e2e/tenant-isolation-live.spec.ts`: opt-in (`TENANT_HTTP_TEST=1`) cross-surface check. It seeds one completed synthetic PUBLIC vote per project, then runs interleaved concurrent requests on both hosts. It asserts that branding, vote lists, vote details, CSV exports, error IDs and rate-limit buckets stay with their own tenant, and that the other tenant's vote returns 404. It needs two customer hosts; since project B became the demo, the second host is a temporarily provisioned project (S07).
 
@@ -334,7 +335,7 @@ remain anchored to their controls. Each dialog labels itself with its own
 - `src/components/admin/audit-table-controls.tsx` and `src/components/ui/table-filter-popover.tsx`: Audit History's URL-backed browser-local date-range, Who, Action, Target and combined Details/reason filters, including its mobile combined filter toolbar; the shared viewport-aware native popover is also used by Residents. Clearing filters preserves page size; audit pagination remains newest-first and timestamps display in the viewer's time zone.
 - `src/app/admin/votes/[id]/participation/page.tsx` and `src/components/admin/participation-filter.tsx`: participation follow-up page. It mirrors the results header: **Participation: {title}** heading, collapsible background or instructions, then type/status badges and the turnout line with an (i) "About this list" explanation in place of a header subtitle (vote read once per request via React `cache`; the title also appears in the browser tab title); the Show filter applies on selection and preserves page size.
 - `src/components/votes/vote-instructions.tsx`: shared collapsed **Background** (PUBLIC) / **Instructions for voters** (PRIVATE) disclosure placed under the results and participation page headers; renders nothing when the vote has no text.
-- `src/app/votes/[id]/results/page.tsx`: results page; the heading and browser tab title use the vote title (no RWA subtitle). In `src/components/votes/results-view.tsx`, completed results put the eligibility-freeze note behind an (i) beside **Voting ended** and keep the Download text to a short plain-language note. The record disclaimer is not shown on the results screen (active or completed); it remains in the CSV `NOTICE` row and the PDF. Completed PRIVATE offices render as bordered cards in a one-column grid that becomes two columns from the `md` breakpoint. The turnout bar uses `ResultBars fullWidth` so it spans the page width; option and candidate bars keep the ballot reading width.
+- `src/app/votes/[id]/results/page.tsx`: results page; the heading and browser tab title use the vote title (no RWA subtitle). In `src/components/votes/results-view.tsx`, completed results put the eligibility-freeze note behind an (i) beside **Voting ended**. Per-format client download controls keep results visible, lock duplicate requests for that format, show preparation/transfer progress, and offer a retry with the safe Error ID on failure; the authorized full-file endpoint and result projection are unchanged. The record disclaimer is not shown on the results screen (active or completed); it remains in the CSV `NOTICE` row and the PDF. Completed PRIVATE offices render as bordered cards in a one-column grid that becomes two columns from the `md` breakpoint. The turnout bar uses `ResultBars fullWidth` so it spans the page width; option and candidate bars keep the ballot reading width.
 - `src/app/admin/votes/page.tsx`, `src/components/admin/vote-table-view.tsx`, `src/components/admin/vote-table-controls.tsx`, `src/components/admin/vote-table-urls.ts` and `src/server/votes/drafts.ts`: Manage Votes' plain table headings and all-viewport Sort & Filter toolbar for title/type/status/closing-deadline/last-changed filters and ordering, plus a final aggregate Turnout column for Active/Completed votes. On compact screens, the vote table view keeps Vote/Status/Turnout visible and stores the optional Type/Deadline/Last Changed choices in browser local storage; desktop shows every column. The toolbar shares the Residents funnel-with-arrows and circled-X icons. `vote-table-urls.ts` holds the pure URL/clear-filter helpers shared by the server page's empty state and client controls; `tests/unit/vote-table-urls.test.ts` and `tests/unit/vote-table-controls.test.ts` cover URL, toolbar and responsive column behavior. The UI uses `get_admin_vote_table_page` to select exact, authorized page IDs and page-bounded frozen-electorate/participation counts; no choices or result totals are included, and the existing HTTP vote-list cursor contract remains unchanged.
 - `supabase/migrations/20261119100000_admin_vote_table_controls.sql`: committee-guarded sorting, filtering and exact totals/page IDs for the Manage Votes UI; no write, electorate or lifecycle behavior changes.
 - `supabase/migrations/20261120100000_admin_vote_turnout.sql`: additive replacement of the same guarded Manage Votes table routine, adding page-bounded aggregate turnout counts for Active/Completed rows only; no ballot or HTTP list projection changes.
@@ -476,7 +477,7 @@ Use stable identifiers, foreign keys, nonnegative counter constraints, explicit 
 - Sign-out and administrative Auth actions do not necessarily invalidate every issued JWT immediately. Enforce application access independently and test existing-token scenarios.
 - Native time-boxed sessions, inactivity limits and single-session enforcement require Supabase Pro or higher. Do not promise those controls on Free; approve the persistent-session policy under A4.
 - Server-proxied Auth calls use Vercel's documented overwritten `X-Forwarded-For` only on the configured Vercel runtime. Do not trust arbitrary forwarding headers or place an unapproved upstream proxy in front; shared-NAT IP thresholds require pilot validation.
-- Privileged Auth credentials remain server-only and isolated to provisioning/administrative Auth operations and resident self-registration. Never use them for ordinary ballots, results or exports.
+- Privileged Auth credentials remain server-only. Besides provisioning/self-registration, the only export use is a management-authorized lookup of current emails for submitted representatives in a completed PRIVATE PDF, after session-backed result and participation authorization. Never use them to bypass ballot/result permissions or read choices.
 
 ## 07 Atomic Voting and PRIVATE Privacy
 Each `cast_vote` call performs one guarded PostgreSQL transaction:
@@ -566,14 +567,14 @@ Use same-origin endpoints and explicit response projections. Server actions may 
 - Loading, empty and failure states remain explicit; no broad catches returning empty results or success-shaped defaults.
 
 ## 10 Exports
-- CSV is in scope for version 1. PDF may be deferred; hide unavailable controls and do not block pilot readiness for an unimplemented PDF feature.
+- PDF and any operator-enabled CSV are downloadable only by RWA Admin/ReadOnly; Residents view results in-app. Server and page enforce the same role/tenant formats.
 - The database is authoritative. Exports are generated on demand from completed results; do not store public report files, editable report copies or bearer download URLs.
 - Recheck authorization and completion for every download. Use attachment disposition, safe filenames, correct MIME types, `nosniff` and `no-store`.
-- PUBLIC exports include the full authorized named-response list without emails. PRIVATE exports contain aggregate data only, never household/voter lists.
+- PUBLIC exports include the full authorized named-response list without emails. PRIVATE CSV contains aggregates only. The management-only PRIVATE PDF separates aggregate office results from the submitted-voter roster, with frozen names/identifiers and current Auth emails; it never includes choices, timestamps or identity-to-choice mappings.
 - Escape CSV values and neutralize spreadsheet formulas in user-controlled text.
 - When PDF is added, render with PDFKit in a Node.js server route using bundled fonts per the design system. Verify approved script coverage and actual rendering, not just font presence.
 - Include RWA/title/type, ballot labels, activation/effective completion times and timezone, turnout/denominators, totals, NOTA counts/ties/no-votes, generation time and early-completion reason where applicable.
-- Support readable A4 portrait/grayscale, wrapped long text, repeated headers, page numbers and complete multi-page lists at the maximum electorate.
+- Support A4 portrait, wrapped long text, repeated headers, page numbers and complete multi-page lists. The PRIVATE PDF uses current RWA branding, two-column office cards, configured identifier labels, and repeated roster headers after 50 rows; verify it remains legible in grayscale.
 - Bound export concurrency and memory; finish rendering before returning success. Generation failure must not deliver a partial success document or mutate votes.
 - PDFs are neither database backups nor signatures/certifications. Signature-replacement workflows are not a version 1 requirement. Downloaded/printed copies cannot be remotely revoked.
 
@@ -638,7 +639,7 @@ Sources: [Supabase pricing](https://supabase.com/pricing), [SMTP](https://supaba
 | Browser | Both voting types, mobile admin/member journeys, review/confirmation, lost acknowledgement, unknown outcome, results and CSV |
 | Privacy | HTML/API/errors/logs/ordinary records expose no PRIVATE identity-to-choice mappings or active tallies |
 | Accessibility | Axe plus manual keyboard/focus/screen-reader/zoom checks; 48px targets and specified viewport widths |
-| Exports | CSV matches authoritative results; if PDF is included, full multi-page/approved-script/A4/grayscale and failure-recovery checks |
+| Exports | CSV matches authoritative results; management-only role checks, complete PRIVATE roster/no choice mapping, and full multi-page/approved-script/A4/grayscale PDF and failure-recovery checks |
 | Performance/recovery | 500 households/100 concurrent users, p95 page/API under two seconds and acknowledgement within three seconds; restored-data reconciliation |
 
 - Use real Supabase/PostgreSQL, not SQLite or transaction mocks. Test under anonymous/member/admin identities and direct Supabase calls as well as the Next.js layer.

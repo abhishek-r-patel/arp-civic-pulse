@@ -6,7 +6,7 @@
 - **Status:** Proposed MVP requirements. This document defines product scope and acceptance criteria, not a claim that the current application implements them. Assumptions A1-A7 require explicit RWA approval before real voting.
 - **Description:** Civic Pulse is a mobile-first web app that also works on tablets and laptops. It lets one Resident Welfare Association (RWA) run **PRIVATE voting** for committee elections and **PUBLIC voting** for attributable community polls, such as "Buy a water treatment plant from the corpus? Yes / No" or "Which day for the Annual GBM? Mon / Tue / Sat / Sun".
 - **Privacy distinction:** PRIVATE voting exposes only aggregate choices, never a retrievable individual ballot or an identity-to-choice mapping through the application. This is application-level privacy with the limitations in A2. PUBLIC voting publishes respondent names, households and choices only to authorized Residents, RWA Admins and RWA ReadOnly observers after completion.
-- **Authoritative results:** Supabase PostgreSQL is the source of truth. Completed outcomes are shown in the application and exported as CSV. A readable, printable PDF export is optional and may be deferred beyond version 1; it is not a backup, authoritative record or signature-replacement workflow.
+- **Authoritative results:** Supabase PostgreSQL is the source of truth. Completed outcomes are shown in the application and always have a readable, printable PDF export. CSV is an optional export enabled per RWA by the deployment operator. Neither format is a backup, authoritative record or signature-replacement workflow.
 - **Terminology:** PUBLIC and PRIVATE are voting types. Draft, Scheduled, Active, Completed and Cancelled are separate lifecycle statuses. Neither voting type implies a lifecycle status.
 
 ### SaaS direction: S01, 31 October 2026
@@ -37,7 +37,7 @@ RWAs run votes through WhatsApp groups, show-of-hands at meetings, paper slips a
 - Many residents are on phones only, and tools built for laptops frustrate them.
 
 ## 03 Goals and Success Metrics
-Let a 500-household RWA run a complete vote, from admin setup through resident voting to correct on-screen results, with zero duplicate or partial ballots. Printable PDF export is an optional enhancement.
+Let a 500-household RWA run a complete vote, from admin setup through resident voting to correct on-screen results, with zero duplicate or partial ballots. A printable PDF is required for completed results; operators may enable CSV per RWA for spreadsheet workflows.
 
 ### Product and pilot targets
 - **Setup:** An admin creates, previews and activates a vote in under 10 minutes using an already prepared household register. Measure both voting types in the pilot.
@@ -71,7 +71,7 @@ These are proposed operating defaults, not recorded RWA approvals. Development m
 | A4 | Admin-managed register with optional resident self-registration (created suspended and voting-ineligible until an RWA Admin reviews and enables it), no Supabase Auth public sign-up, and login by a six-digit email code. | Confirm all representatives can access email and approve the email provider and session policy. Approve resident self-registration, including that its specific duplicate errors reveal whether an email or household is already registered. Any approval recorded before self-registration was added does not cover it. |
 | A5 | PUBLIC polls are configured per vote for single-select or multi-select. Each household submits one ballot with at least one selected option; multi-select may have a maximum from 2 to 100 or no maximum. PRIVATE voters choose one candidate or NOTA (None of the Above) per office. NOTA is counted separately but never wins; the candidate with the highest count among candidates is elected even when NOTA has more votes. No candidate is elected if no candidate receives a vote; ties among top candidates remain ties. | Confirm bylaws, whether polls are advisory or binding, the selection rules and limits, NOTA treatment and permission for early completion with a recorded reason. A poll result does not authorise spending. |
 | A6 | Launch scale is 500 households and about 100 concurrent users. Retention is limited by an approved policy, not indefinite by default. | Approve durations and deletion rules for PUBLIC responses, participation, identity snapshots, audit records, service-retained exports and backup expiry. Approve backup frequency and recovery objectives, and validate free-tier feasibility. |
-| A7 | The database is authoritative. Optional PDF export is only a printable outcome, not a backup, digital signature, signature certificate or legal certification. Replacing physical signatures is not a version 1 requirement. | Acknowledge these limits. Any future signature-replacement claim requires separate bylaw/legal approval. |
+| A7 | The database is authoritative. Required PDF and operator-enabled CSV exports are derived outcomes, not a backup, digital signature, signature certificate or legal certification. Replacing physical signatures is not a version 1 requirement. | Acknowledge these limits. Any future signature-replacement claim requires separate bylaw/legal approval. |
 
 ## 06 Scope
 
@@ -108,7 +108,7 @@ remain archived separately for comparison.
 - Reviewed CSV import of households and representative accounts, without public signup, overwriting existing records or automatic account enablement.
 - Resident self-registration at `/register` for larger RWAs: name, email and household identifier create a suspended account and an ineligible household; administrators review and enable.
 - Atomic one-time submission, participation monitoring, completed on-screen results, CSV exports and administrative audit history.
-- PDF export is optional and may be deferred; it does not block version 1 or pilot readiness.
+- Printable PDF export is required for version 1. CSV export is opt-in per RWA and controlled by the deployment operator; it may be left disabled.
 
 ### Public launch surface
 
@@ -153,7 +153,7 @@ URL is not access protection. Standalone guide copies and old images are retired
 - **Admin setup:** Maintain the register, choose PUBLIC or PRIVATE, configure the ballot and opening/closing times, preview the ballot and privacy notice, validate, and deliberately activate.
 - **Resident using the `voter` role, PRIVATE election:** Sign in, open an eligible election, select a candidate or NOTA for every office, review, confirm and submit once without exposing choices.
 - **Resident using the `voter` role, PUBLIC poll:** Sign in, read the question, deadline and notice about live aggregate counts and post-close identity disclosure, select one or more options as configured, review and submit; replace the ballot until the poll closes.
-- **Results viewer:** During an active PUBLIC poll, review live aggregate turnout/counts without identities. During an active PRIVATE election, Residents see aggregate turnout only; RWA Admins and RWA ReadOnly observers can review household participation status for follow-up without seeing choices. After completion, authorized personas review final results, see PUBLIC named responses where permitted, and download CSV or PDF when PDF export is available.
+- **Results viewer:** During an active PUBLIC poll, review live aggregate turnout/counts without identities. During an active PRIVATE election, Residents see aggregate turnout only; RWA Admins and RWA ReadOnly observers can review household participation status for follow-up without seeing choices. After completion, residents review results in-app. Only RWA Admin/ReadOnly can download results; the PRIVATE PDF separates aggregate office results from a roster of representatives who voted, with configured identifier and current account email, and never shows choices.
 - **Admin correcting a mistake:** Edit a draft. Never silently change an active ballot; cancel an invalid active vote with a reason and create a replacement.
 - **Member recovering from a network failure:** Check whether participation was accepted before retrying. Never require the member to retrieve a PRIVATE ballot to confirm submission.
 
@@ -179,7 +179,7 @@ URL is not access protection. Standalone guide copies and old images are retired
 ### FR3 - PUBLIC poll setup
 - Require a title/question, optional context, at least two distinct non-empty options, eligible households and a future closing date/time.
 - Let the administrator configure single-select or multi-select. Every household must select at least one option; multi-select may have a maximum from 2 to 100 or no maximum. One household still submits one ballot and participates only once.
-- During voting, eligible Residents and authorized RWA Admin/ReadOnly readers can see aggregate option counts and turnout, not individual responses. Before submission, explain that the member's name, household identifier and final selection(s) will be visible to authorized viewers after completion and in downloadable records, and that the ballot can be replaced until closure.
+- During voting, eligible Residents and authorized RWA Admin/ReadOnly readers can see aggregate option counts and turnout, not individual responses. Before submission, explain that the member's name, household identifier and final selection(s) will be visible to authorized viewers in-app after completion and in management-only downloads, and that the ballot can be replaced until closure.
 
 ### FR4 - Lifecycle and freezing
 - Support Draft -> Active or Draft -> Scheduled -> Active, then Active -> Completed or Active -> Cancelled. Completed and Cancelled votes cannot reopen or accept submissions.
@@ -219,10 +219,10 @@ URL is not access protection. Standalone guide copies and old images are retired
 - Preserve completed results and historical identity snapshots despite later register edits, subject to the approved retention policy.
 
 ### FR8 - Exports
-- CSV is required for version 1. PDF is optional; show its controls only when implemented. The requirements below apply to each available format.
-- Allow results exports only for Completed votes and apply the same server-side permissions as results viewing.
-- Generate PDF and CSV from authoritative completed data, not an independently editable report dataset.
-- PUBLIC exports include the complete named-response list and totals, but no email addresses. PRIVATE exports contain aggregates only, with no voter lists, individual ballots or identity-to-choice mappings.
+- PDF export is required for every RWA but downloadable only by RWA Admin/ReadOnly. Show CSV controls only when the deployment operator has enabled CSV for that RWA; CSV is also management-only. Residents see results in-app and receive no download controls.
+- Allow exports only for Completed votes. Preserve object-level vote authorization and return `403 FORBIDDEN` to a resident for an otherwise accessible completed export; inaccessible vote IDs remain indistinguishable from nonexistent IDs.
+- Generate each available format from authoritative completed data, not an independently editable report dataset.
+- PUBLIC exports include the complete authorized named-response list and totals, but no email addresses. PRIVATE CSV contains aggregates only. The management-only PRIVATE PDF puts aggregates on the results page and a separate submitted-voter roster on the next page(s), sorted by configured household identifier. The roster includes frozen representative name/identifier and the current Auth email at generation time, but no choice or ballot data. Continue beyond 50 rows with repeated table headers; do not truncate the roster.
 - PDF/CSV generation or download failures must not change participation or results, or return a truncated report as a successful export.
 
 ## 09 Roles and Permissions
@@ -235,7 +235,8 @@ All permissions are enforced server-side on every request, including direct resu
 | Cast a vote | No | Once through own frozen household entitlement | Only through own eligible household; never for others |
 | View participation while Active | No | Own submission status only | Participation counts and household participation status |
 | View active PUBLIC aggregates | No | Entitled votes: aggregate counts and turnout, whether submitted or not | Aggregate counts and turnout |
-| View/export Completed results | No | Only votes in own frozen electorate, including PUBLIC named responses | Yes, including PUBLIC named responses |
+| View Completed results in-app | No | Only votes in own frozen electorate, including PUBLIC named responses | Yes, including PUBLIC named responses |
+| Download completed PDF/CSV | No | No | Yes; CSV only when operator-enabled |
 | Retrieve individual PRIVATE selections | No | No, including own ballot | No |
 | Manage register, drafts and lifecycle; view audit history | No | No | Yes |
 
@@ -245,7 +246,7 @@ An authenticated account remains subject to suspension and session checks; membe
 - **Core records:** RWA name/timezone, accounts/roles, households and representatives, votes and separate lifecycle status, frozen electorates, offices/candidates or options, participation, PRIVATE aggregate counters, PUBLIC named responses and audit events.
 - **Historical identity:** Freeze representative assignments and PUBLIC respondent name/household snapshots so later edits cannot rewrite the historical record.
 - **PRIVATE storage:** Retain the existing counters-only design: no per-ballot PRIVATE rows. Keep participation separately and update it atomically with counters. Do not store voter/account/household/session identifiers, shared ballot identifiers or correlatable per-response timestamps alongside PRIVATE choices.
-- **Privacy across surfaces:** Never expose PRIVATE selections through APIs, receipts, logs, request tracing, error reporting, analytics, notifications or PDF/CSV exports. Do not persist unsent selections in browser storage; keep them in page memory only.
+- **Privacy across surfaces:** Never expose PRIVATE selections or identity-to-choice mappings through APIs, receipts, logs, request tracing, error reporting, analytics, notifications or PDF/CSV exports. Only the management-only PRIVATE PDF may include a separate voter participation roster with current account emails; ordinary residents receive results in-app only. Do not persist unsent selections in browser storage; keep them in page memory only.
 - **Assurance documentation:** [ARCHITECTURE.md](./ARCHITECTURE.md) must explain how atomic submission, counters and participation separation coexist, and disclose privileged-operator and small-electorate inference limitations under A2.
 - **Retention:** Before launch, record approved retention durations, deletion triggers, backup expiry and responsibility for execution. Cover primary data, identity snapshots, audit records and service-retained exports. Downloaded PDFs/CSVs and printed copies cannot be remotely revoked or deleted and may outlive application retention.
 
@@ -277,12 +278,12 @@ An authenticated account remains subject to suspension and session checks; membe
 - Preserve unsent selections only in page memory. On export failure, leave completed results visible and offer a retry without resubmitting a ballot.
 
 ## 12 Printable PDF and CSV Requirements
-- CSV is required; PDF-specific requirements in this section apply only when the optional PDF feature is included. PDF is a derived printable outcome, never the source of truth or a database recovery mechanism.
+- PDF generation and delivery are required product behavior. CSV is a derived spreadsheet export available only when enabled for the RWA. Both formats are derived outcomes, never the source of truth or a database recovery mechanism.
 - Generate downloadable PDFs server-side using a maintained library compatible with the selected stack; no paid/external PDF service or desktop-only workflow.
-- Include the current RWA name (and, in the PDF header only, its address, email and phone), vote title/type, question or offices and candidates/options, activation and effective completion times with timezone, frozen eligibility, submitted count, turnout, final totals, percentage denominators, NOTA counts, ties/no-votes where applicable, and generation time. CSV carries the RWA full name but no address or contact details. A character the PDF fonts cannot display in these RWA values fails the PDF with the usual message to use the CSV, so keep them to supported scripts.
+- Include the current RWA name (and, in the PDF header only, its address, email and phone), vote title/type, question or offices and candidates/options, activation and effective completion times with timezone, frozen eligibility, submitted count, turnout, final totals, percentage denominators, NOTA counts, ties/no-votes where applicable, and generation time. CSV, when enabled, carries the RWA full name but no address or contact details. A character the PDF fonts cannot display fails the PDF; suggest CSV only when it is enabled, otherwise direct the user to the deployment operator.
 - Include the early-completion label/reason where applicable and state that the record is not a digital signature or legal certification.
-- PUBLIC PDFs and CSVs include the full respondent-name, household-identifier and choice list, without emails. PRIVATE reports contain aggregates only.
-- PDFs support A4 portrait, grayscale, wrapped long text, repeated table headers, page numbers and multiple pages without clipping, truncation or missing rows.
+- PUBLIC PDFs and CSVs include the full authorized respondent-name, household-identifier and choice list, without emails. PRIVATE CSV contains aggregates only. The management-only PRIVATE PDF has a separate voter roster (submitted representatives, configured identifier, and current account email at generation) with no choices or submission times.
+- PDFs support A4 portrait, wrapped long text, repeated table headers, page numbers and multiple pages without clipping, truncation or missing rows. The PRIVATE PDF uses the configured RWA accent and remains legible in grayscale; its 50-row example fits on page 2 and longer rosters continue with repeated headers.
 - Verify font coverage and legible rendering for the RWA's approved scripts, including long names and labels.
 - Downloads work from phone and laptop browsers and can be stored and printed offline.
 - CSVs carry equivalent result data and denominators in a tabular form. Escape cells to prevent spreadsheet formula injection; treat report text as untrusted input.
@@ -317,12 +318,12 @@ An authenticated account remains subject to suspension and session checks; membe
 ### Mobile, accessibility and report acceptance
 - Complete sign-in, ballot review, submission, results and CSV download on mobile Safari, Android Chrome and a laptop browser; verify the remaining supported browser coverage. Verify PDF download if included.
 - Exercise mobile register management, vote creation and lifecycle actions at the stated widths; pass core-journey WCAG 2.2 AA checks.
-- If PDF is included, test multi-page PDFs at the launch maximum electorate with long names/options and approved scripts. All PUBLIC rows render, headers repeat, no content clips, and totals match the application and CSV; verify A4/grayscale printing.
-- For every available export format, verify no PRIVATE voter identities, unauthorised export rejection and recovery from failed generation.
+- Test multi-page PDFs at the launch maximum electorate with long names/options and approved scripts. All PUBLIC rows render, PRIVATE roster rows continue without loss, headers repeat, no content clips, and totals match the application and CSV; verify A4/grayscale printing.
+- Verify that Residents can view results in-app but cannot download PDF/CSV; RWA Admin/ReadOnly can download, and the PRIVATE PDF roster contains no choices or submission times. Test unauthorized export rejection and recovery from failed generation.
 - Pass the response-time targets at launch scale and validate email capacity and operating costs.
 
 ### Launch approval
-- Record explicit approval of A1-A7, including election/NOTA rules, early completion, retention, backup/recovery objectives and the limits of optional printable exports. Signature-replacement approval is not a version 1 gate.
+- Record explicit approval of A1-A7, including election/NOTA rules, early completion, retention, backup/recovery objectives and the limits of PDF/CSV reports. Signature-replacement approval is not a version 1 gate.
 - Validate backup restoration and reconcile all accepted submissions with results.
 - Reconcile supporting [ARCHITECTURE.md](./ARCHITECTURE.md), [DATABASE.md](./DATABASE.md), [API.md](./API.md) and [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) with these requirements before release. The target stack is Supabase and Tailwind, with PostgreSQL authoritative and automated encrypted backups required. Documentation decisions do not imply the implementation or remaining detailed documents have been migrated.
 - Any lost/duplicate/partial or post-deadline accepted ballot, incorrect tally, unauthorised response disclosure or exposed PRIVATE selection blocks release.

@@ -334,7 +334,6 @@ export function configurationReport(
     operations: snapshot.operations,
     localFlags: {
       maintenanceMode: environment.MAINTENANCE_MODE === "1",
-      pdfExportEnabled: environment.PDF_EXPORT_ENABLED !== "0",
     },
     unverified: [
       "Database target must be independently matched to the intended deployment; injected environment variables are not hosted configuration evidence.",

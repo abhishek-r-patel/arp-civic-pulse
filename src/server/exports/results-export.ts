@@ -13,16 +13,24 @@ import { BASE_HEADERS } from "@/server/http/response";
 import { log } from "@/server/observability/logger";
 import { reportError } from "@/server/observability/error-reporting";
 import { getRwaBranding } from "@/server/settings/rwa-profile";
-import type { RegisterDeps } from "@/server/register/shared";
+import {
+  assertOk,
+  callRoutine,
+  loadAuthIdentities,
+  type RegisterDeps,
+} from "@/server/register/shared";
 import { buildHouseholdTerms } from "@/shared/contracts/household-terms";
+import { canViewAdministration } from "@/shared/contracts/register";
+import { participationMonitorSchema } from "@/shared/contracts/member-votes";
 import { getCompleteResults, getMemberVote } from "@/server/votes/member";
+import { enforceReadLimit } from "@/server/votes/member";
+import type { PrivateVoterRow } from "@/server/exports/pdf";
 
 /*
- * Authorized, on-demand CSV and PDF downloads (docs/API.md section 5.2).
- * Nothing is stored and no bearer link exists: every download re-checks the
- * caller and re-reads the completed result. The complete file is rendered
- * BEFORE any success header is sent, so a failure is a clean 503 and never a
- * truncated file. Concurrent renders are bounded, PDF more tightly.
+ * RWA Admin/ReadOnly-only on-demand CSV and PDF downloads (docs/API.md
+ * section 5.2). Residents view results in-app. The PRIVATE PDF composes a
+ * separate submitted-voter roster after session-backed authorization. Nothing
+ * is stored or linked; render the complete file before success headers.
  */
 // Only the CPU-heavy render is capped. Waiting callers queue for a bounded time, so a rush of
 // downloads near a deadline gets slower rather than failing.
@@ -30,6 +38,129 @@ const RENDER_SLOTS = { csv: new Semaphore(8), pdf: new Semaphore(2) } as const;
 const MAX_WAIT_MS = 15_000;
 // A pilot has hundreds of households; this only stops a runaway render.
 const MAX_BYTES = 25 * 1024 * 1024;
+const PRIVATE_ROSTER_PAGE_SIZE = 100;
+
+interface ParticipationIdentity {
+  representativeName: string;
+  householdIdentifier: string;
+  householdId: string;
+}
+
+export async function getPrivateVoterRosterForPdf(
+  deps: RegisterDeps,
+  voteId: string,
+  expectedSubmittedCount: string,
+): Promise<PrivateVoterRow[]> {
+  if (!canViewAdministration(deps.actor)) {
+    throw new ApiError("FORBIDDEN");
+  }
+  await enforceReadLimit(deps);
+
+  const participants: ParticipationIdentity[] = [];
+  let after: { key: string; householdId: string } | null = null;
+  let hasMore = true;
+  const seenCursors = new Set<string>();
+  while (hasMore) {
+    const raw = await callRoutine<unknown>(
+      deps.client,
+      "get_vote_participation",
+      {
+        p_vote_id: voteId,
+        p_submitted: true,
+        p_limit: PRIVATE_ROSTER_PAGE_SIZE,
+        p_after_key: after?.key ?? null,
+        p_after_household: after?.householdId ?? null,
+      },
+    );
+    const parsed = participationMonitorSchema.safeParse(raw);
+    if (
+      !parsed.success ||
+      parsed.data.voteId !== voteId ||
+      parsed.data.status !== "COMPLETED"
+    ) {
+      throw new ApiError("RESULTS_INTEGRITY_ERROR");
+    }
+    participants.push(
+      ...parsed.data.rows.map((row) => ({
+        representativeName: row.representativeName,
+        householdIdentifier: row.householdIdentifier,
+        householdId: row.cursor.householdId,
+      })),
+    );
+    if (BigInt(participants.length) > BigInt(expectedSubmittedCount)) {
+      throw new ApiError("RESULTS_INTEGRITY_ERROR");
+    }
+    hasMore = parsed.data.hasMore;
+    const last = parsed.data.rows.at(-1);
+    if (hasMore && !last) {
+      throw new ApiError("RESULTS_INTEGRITY_ERROR");
+    }
+    if (hasMore && last) {
+      const cursor = JSON.stringify(last.cursor);
+      if (seenCursors.has(cursor)) {
+        throw new ApiError("RESULTS_INTEGRITY_ERROR");
+      }
+      seenCursors.add(cursor);
+    }
+    after = hasMore && last ? last.cursor : null;
+  }
+
+  if (BigInt(participants.length) !== BigInt(expectedSubmittedCount)) {
+    throw new ApiError("RESULTS_INTEGRITY_ERROR");
+  }
+
+  const profileByHousehold = new Map<string, string>();
+  for (let offset = 0; offset < participants.length; offset += 100) {
+    const householdIds = participants
+      .slice(offset, offset + 100)
+      .map((participant) => participant.householdId);
+    const { data, error } = await deps.client
+      .from("electorate")
+      .select("household_id, representative_profile_id")
+      .eq("vote_id", voteId)
+      .in("household_id", householdIds)
+      .returns<
+        { household_id: string; representative_profile_id: string | null }[]
+      >();
+    assertOk(error);
+    for (const row of data ?? []) {
+      if (row.representative_profile_id) {
+        profileByHousehold.set(row.household_id, row.representative_profile_id);
+      }
+    }
+  }
+
+  const profileIds = participants.map((participant) => {
+    const profileId = profileByHousehold.get(participant.householdId);
+    if (!profileId) {
+      throw new ApiError("RESULTS_INTEGRITY_ERROR");
+    }
+    return profileId;
+  });
+  const identities = await loadAuthIdentities(deps.admin, profileIds);
+  const rows = participants.map((participant): PrivateVoterRow => {
+    const profileId = profileByHousehold.get(participant.householdId);
+    const email = profileId ? identities.get(profileId)?.email : null;
+    if (!email) {
+      throw new ApiError("RESULTS_INTEGRITY_ERROR");
+    }
+    return {
+      representativeName: participant.representativeName,
+      householdIdentifier: participant.householdIdentifier,
+      email,
+    };
+  });
+  const collator = new Intl.Collator("en", {
+    numeric: true,
+    sensitivity: "base",
+  });
+  rows.sort(
+    (left, right) =>
+      collator.compare(left.householdIdentifier, right.householdIdentifier) ||
+      collator.compare(left.representativeName, right.representativeName),
+  );
+  return rows;
+}
 
 export async function exportResults(
   deps: RegisterDeps,
@@ -37,17 +168,22 @@ export async function exportResults(
   format: string,
   requestId: string,
 ): Promise<Response> {
-  const offered = availableExportFormats();
+  const offered = availableExportFormats(deps.tenant);
   if (format !== "csv" && format !== "pdf") {
     // Authorize against the object first so an inaccessible vote stays "not found".
     await getMemberVote(deps, voteId);
     throw new ApiError("EXPORT_FORMAT_UNAVAILABLE");
   }
+  if (!canViewAdministration(deps.actor)) {
+    const vote = await getMemberVote(deps, voteId);
+    if (vote.status === "COMPLETED") {
+      throw new ApiError("FORBIDDEN");
+    }
+  }
   if (!offered.includes(format)) {
     await getMemberVote(deps, voteId);
     throw new ApiError("EXPORT_FORMAT_UNAVAILABLE");
   }
-
   await enforceRateLimit(
     deps.admin,
     VOTE_RATE_LIMITS.exportByProfile,
@@ -65,6 +201,14 @@ export async function exportResults(
       branding.householdLabel,
       branding.identifierKind,
     );
+    const privateVoters =
+      format === "pdf" && results.votingType === "PRIVATE"
+        ? await getPrivateVoterRosterForPdf(
+            deps,
+            voteId,
+            results.submittedCount,
+          )
+        : undefined;
     const release = await RENDER_SLOTS[format]
       .acquire(MAX_WAIT_MS)
       .catch(() => {
@@ -86,6 +230,9 @@ export async function exportResults(
               await renderResultsPdf(results, generatedAt, {
                 terms,
                 rwaContact: { address, email, phone },
+                rwaAlias: branding.alias,
+                accentPalette: branding.accentPalette,
+                ...(privateVoters ? { privateVoters } : {}),
               }),
             );
     } finally {
@@ -118,8 +265,9 @@ export async function exportResults(
       // The text is never dropped or replaced; the CSV carries every character.
       log("warn", "exports.pdf_unsupported_text", { requestId });
       throw new ApiError("EXPORT_FAILED", {
-        message:
-          "The PDF cannot display some characters in this record. Download the CSV instead.",
+        message: offered.includes("csv")
+          ? "The PDF cannot display some characters in this record. Download the CSV instead."
+          : "The PDF cannot display some characters in this record. Ask the deployment operator whether CSV can be enabled for this RWA.",
         cause: { source: "export", code: "PDF_UNSUPPORTED_TEXT" },
         // A known font limitation with a CSV workaround, not a fault to alert on.
         report: false,

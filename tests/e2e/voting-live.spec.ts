@@ -695,10 +695,23 @@ test.describe("results and download", () => {
     expect(api.turnout.percent).toBe("75");
     expect(api.outcome).toBe("LEADER");
 
-    // CSV (downloaded through the real button).
+    await expect(page.getByRole("button", { name: /Download/u })).toHaveCount(
+      0,
+    );
+    expect(
+      (await page.request.get(`/api/votes/${vote.id}/exports/csv`)).status(),
+    ).toBe(403);
+    expect(
+      (await page.request.get(`/api/votes/${vote.id}/exports/pdf`)).status(),
+    ).toBe(403);
+    await page.context().clearCookies();
+    await signInThroughUi(page, adminUser.email, adminUser.code);
+    await page.goto(`/votes/${vote.id}/results`);
+
+    // CSV/PDF remain downloadable by RWA Admin after resident results access.
     const [download] = await Promise.all([
       page.waitForEvent("download"),
-      page.getByRole("link", { name: "Download CSV" }).click(),
+      page.getByRole("button", { name: "Download CSV" }).click(),
     ]);
     expect(download.suggestedFilename()).toMatch(
       /^civic-pulse-results-\d{4}-\d{2}-\d{2}-[0-9a-f]{8}\.csv$/u,
@@ -733,7 +746,7 @@ test.describe("results and download", () => {
     // PDF (downloaded through the real button) carries exactly the same facts.
     const [pdfDownload] = await Promise.all([
       page.waitForEvent("download"),
-      page.getByRole("link", { name: "Download PDF" }).click(),
+      page.getByRole("button", { name: "Download PDF" }).click(),
     ]);
     expect(pdfDownload.suggestedFilename()).toMatch(
       /^civic-pulse-results-\d{4}-\d{2}-\d{2}-[0-9a-f]{8}\.pdf$/u,
@@ -751,6 +764,125 @@ test.describe("results and download", () => {
     expect(pdf).not.toContain(d.name.replace(/\s+/gu, ""));
     expect(pdf).toContain("E2Ecompletion");
     expect(pdf).not.toContain(a.email);
+
+    const requestId = "EXPORT-7K3QX-M2PTA";
+    const csvPath = `**/api/votes/${vote.id}/exports/csv`;
+    let csvAttempts = 0;
+    let releaseFirstRequest: (() => void) | undefined;
+    const firstRequestGate = new Promise<void>((resolve) => {
+      releaseFirstRequest = resolve;
+    });
+    await page.route(csvPath, async (route) => {
+      csvAttempts += 1;
+      if (csvAttempts === 1) {
+        await firstRequestGate;
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          headers: { "x-request-id": requestId },
+          body: JSON.stringify({
+            error: {
+              code: "EXPORT_FAILED",
+              message: "The download could not be prepared. Try again shortly.",
+            },
+            requestId,
+          }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.getByRole("button", { name: "Download CSV" }).click();
+    const preparingCsv = page.getByRole("button", {
+      name: "Preparing CSV…",
+    });
+    await expect(preparingCsv).toBeDisabled();
+    await expect(
+      page.getByRole("progressbar", { name: "CSV download progress" }),
+    ).toBeVisible();
+    await expect.poll(() => csvAttempts).toBe(1);
+    releaseFirstRequest?.();
+
+    const csvFailure = page
+      .getByRole("alert")
+      .filter({ hasText: "CSV download failed" });
+    await expect(csvFailure).toContainText(requestId);
+    await expect(csvFailure).toContainText("could not be prepared");
+    await expect(
+      page.getByRole("heading", { level: 1, name: /Results:/u }),
+    ).toBeVisible();
+    const retryCsv = page.getByRole("button", {
+      name: "Retry CSV download",
+    });
+    const [retriedCsv] = await Promise.all([
+      page.waitForEvent("download"),
+      retryCsv.click(),
+    ]);
+    expect(retriedCsv.suggestedFilename()).toMatch(/\.csv$/u);
+    await expect(
+      page.getByRole("status").filter({ hasText: "CSV download started" }),
+    ).toBeVisible();
+    expect(csvAttempts).toBe(2);
+    await page.unroute(csvPath);
+
+    const pdfRequestId = "EXPORT-9K3QX-M2PTA";
+    const pdfPath = `**/api/votes/${vote.id}/exports/pdf`;
+    let pdfAttempts = 0;
+    let releaseFirstPdfRequest: (() => void) | undefined;
+    const firstPdfRequestGate = new Promise<void>((resolve) => {
+      releaseFirstPdfRequest = resolve;
+    });
+    await page.route(pdfPath, async (route) => {
+      pdfAttempts += 1;
+      if (pdfAttempts === 1) {
+        await firstPdfRequestGate;
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          headers: { "x-request-id": pdfRequestId },
+          body: JSON.stringify({
+            error: {
+              code: "EXPORT_FAILED",
+              message: "The download could not be prepared. Try again shortly.",
+            },
+            requestId: pdfRequestId,
+          }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.getByRole("button", { name: "Download PDF again" }).click();
+    const preparingPdf = page.getByRole("button", {
+      name: "Preparing PDF…",
+    });
+    await expect(preparingPdf).toBeDisabled();
+    await expect(
+      page.getByRole("progressbar", { name: "PDF download progress" }),
+    ).toBeVisible();
+    await expect.poll(() => pdfAttempts).toBe(1);
+    releaseFirstPdfRequest?.();
+
+    const pdfFailure = page
+      .getByRole("alert")
+      .filter({ hasText: "PDF download failed" });
+    await expect(pdfFailure).toContainText(pdfRequestId);
+    await expect(pdfFailure).toContainText("could not be prepared");
+    const retryPdf = page.getByRole("button", {
+      name: "Retry PDF download",
+    });
+    const [retriedPdf] = await Promise.all([
+      page.waitForEvent("download"),
+      retryPdf.click(),
+    ]);
+    expect(retriedPdf.suggestedFilename()).toMatch(/\.pdf$/u);
+    await expect(
+      page.getByRole("status").filter({ hasText: "PDF download started" }),
+    ).toBeVisible();
+    expect(pdfAttempts).toBe(2);
+    await page.unroute(pdfPath);
   });
 
   test("a PRIVATE result elects the candidate even when NOTA has more votes", async ({
@@ -816,14 +948,27 @@ test.describe("results and download", () => {
       expect(main).not.toContain(resident.identifier);
     }
 
+    await expect(page.getByRole("button", { name: /Download/u })).toHaveCount(
+      0,
+    );
+    expect(
+      (await page.request.get(`/api/votes/${vote.id}/exports/pdf`)).status(),
+    ).toBe(403);
+    expect(
+      (await page.request.get(`/api/votes/${vote.id}/exports/csv`)).status(),
+    ).toBe(403);
+    await page.context().clearCookies();
+    await signInThroughUi(page, adminUser.email, adminUser.code);
+    await page.goto(`/votes/${vote.id}/results`);
+
     const csv = await (
       await page.request.get(`/api/votes/${vote.id}/exports/csv`)
     ).text();
     expect(csv).not.toContain("NAMED_RESPONSE");
     expect(csv).not.toContain(a.identifier);
-    // PDF is included: control present, PRIVATE document carries aggregates only; unknown formats are refused.
+    // The management-only PRIVATE PDF includes participants but never choices.
     await expect(
-      page.getByRole("link", { name: "Download PDF" }),
+      page.getByRole("button", { name: "Download PDF" }),
     ).toBeVisible();
     const pdfResponse = await page.request.get(
       `/api/votes/${vote.id}/exports/pdf`,
@@ -833,8 +978,9 @@ test.describe("results and download", () => {
     const closedText = await pdfText(await pdfResponse.body());
     expect(closedText).toContain("Chair");
     expect(closedText).toContain("NOTA");
-    expect(closedText).not.toContain(a.identifier);
-    expect(closedText).not.toContain(a.name.replace(/\s+/gu, ""));
+    expect(closedText).toContain(a.identifier.replace(/\s+/gu, ""));
+    expect(closedText).toContain(a.name.replace(/\s+/gu, ""));
+    expect(closedText).toContain(a.email.replace(/\s+/gu, ""));
     expect(
       (await page.request.get(`/api/votes/${vote.id}/exports/docx`)).status(),
     ).toBe(404);
@@ -867,7 +1013,7 @@ test.describe("results and download", () => {
     await expect(
       page.getByText("Cancelled; results not valid.").first(),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: /Download/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Download/ })).toHaveCount(0);
     expect(
       (await page.request.get(`/api/votes/${vote.id}/results`)).status(),
     ).toBe(409);

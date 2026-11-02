@@ -583,11 +583,13 @@ npm run dev`}</code>
           auto-repair counters when a check fails.
         </p>
         <p>
-          CSV/PDF share the projection; downloads include all authorised rows,
-          not just the visible page. PDF is optional and unsupported glyphs fail
-          with CSV guidance, not silent text loss. Process-local render slots
-          are bounded, not a global Vercel queue. Ordinary download links do not
-          provide a deduplicated progress/retry panel.
+          PDF is required for authorised completed results; CSV is included only
+          when the operator enables it for the tenant. Both use the same
+          projection and include all authorised rows, not just the visible page.
+          Unsupported PDF glyphs fail without dropping text; suggest CSV only
+          when enabled. Process-local render slots are bounded, not a global
+          Vercel queue. Per-format download buttons show progress, prevent
+          duplicate in-flight requests and offer safe retry on failure.
         </p>
       </>
     ),
@@ -756,8 +758,8 @@ npm run dev`}</code>
               "Optional public identifiers, rebuilt for target. Analytics remains consent-gated on privacy/contact only, never guides/auth/ballots.",
             ],
             [
-              "MAINTENANCE_MODE; PDF_EXPORT_ENABLED",
-              "Maintenance returns 503 across pages/data APIs; optional PDF can be disabled. Health is a bounded dependency/readiness probe.",
+              "MAINTENANCE_MODE; CSV_EXPORT_ENABLED; TENANT_<UUID32>_CSV_EXPORT_ENABLED",
+              "Maintenance returns 503 across pages/data APIs. PDF is mandatory; CSV is disabled unless the operator opts in for the single-RWA deployment or that tenant. Health is a bounded dependency/readiness probe.",
             ],
             [
               "MIGRATION_DATABASE_URL / access token; backup / restore / config URLs and keys",

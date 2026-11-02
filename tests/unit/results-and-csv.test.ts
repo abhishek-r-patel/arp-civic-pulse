@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  availableExportFormats,
+  availableResultExportFormats,
+} from "@/server/exports/formats";
+import {
   CSV_COLUMNS,
   csvCell,
   exportFilename,
@@ -39,6 +43,79 @@ const vote = (
 });
 
 const cursor = { key: "A-1", householdId: ID(9) };
+
+describe("tenant-scoped export formats", () => {
+  const firstTenant = {
+    kind: "customer" as const,
+    tenantId: "20000000-0000-4000-8000-000000000002",
+  };
+  const secondTenant = {
+    kind: "customer" as const,
+    tenantId: "30000000-0000-4000-8000-000000000003",
+  };
+  const firstTenantFlag =
+    "TENANT_20000000000040008000000000000002_CSV_EXPORT_ENABLED";
+
+  it("keeps CSV off by default and enables it only for the matching tenant", () => {
+    expect(availableExportFormats(firstTenant, {})).toEqual(["pdf"]);
+    expect(
+      availableExportFormats(firstTenant, { [firstTenantFlag]: "true" }),
+    ).toEqual(["csv", "pdf"]);
+    expect(
+      availableExportFormats(secondTenant, { [firstTenantFlag]: "true" }),
+    ).toEqual(["pdf"]);
+  });
+
+  it("uses CSV_EXPORT_ENABLED only for single-RWA deployments and never disables PDF", () => {
+    const singleRwa = { kind: "single" as const, tenantId: "single-rwa" };
+    expect(availableExportFormats(singleRwa, {})).toEqual(["pdf"]);
+    expect(
+      availableExportFormats(singleRwa, {
+        CSV_EXPORT_ENABLED: "true",
+        PDF_EXPORT_ENABLED: "0",
+      }),
+    ).toEqual(["csv", "pdf"]);
+  });
+
+  it("rejects malformed tenant CSV flags rather than silently enabling exports", () => {
+    expect(() =>
+      availableExportFormats(firstTenant, { [firstTenantFlag]: "yes" }),
+    ).toThrow(
+      expect.objectContaining({
+        safeCause: expect.objectContaining({
+          source: "tenant_config",
+          code: "CSV_EXPORT_FLAG_INVALID",
+        }),
+      }),
+    );
+  });
+
+  it("offers downloads only to RWA Admin and ReadOnly accounts", () => {
+    expect(
+      availableResultExportFormats(
+        firstTenant,
+        { isAdmin: false },
+        {
+          [firstTenantFlag]: "true",
+        },
+      ),
+    ).toEqual([]);
+    expect(
+      availableResultExportFormats(
+        firstTenant,
+        { isAdmin: true },
+        { [firstTenantFlag]: "true" },
+      ),
+    ).toEqual(["csv", "pdf"]);
+    expect(
+      availableResultExportFormats(
+        firstTenant,
+        { isAdmin: false, isReadonly: true },
+        {},
+      ),
+    ).toEqual(["pdf"]);
+  });
+});
 
 function open(overrides: Partial<RawResults> = {}): RawResults {
   return {

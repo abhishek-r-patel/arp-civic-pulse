@@ -316,6 +316,7 @@ Site URL too. The records below are historical and superseded where they differ.
 - Canonical staging origin at that time: <https://arp-civic-pulse-staging-git-main-arp-e93d.vercel.app>. This deployment URL is historical and is not the current staging host.
 - Artifact: GitHub commit `8ac9d1c6f6724c5e10e80e4203a2d960a39a216c`, deployment `dpl_BNBFMs6wHRMuDXck8299oRq5aJBf`, created 27 October 2026. The operator selected the committed GitHub version, not the additional uncommitted local features.
 - The operator confirmed that the Supabase project in ignored `.env.local` is disposable and staging-only. Only the four required app credentials were transferred, alongside `APP_ORIGIN`, `LOG_LEVEL=info`, `MAINTENANCE_MODE=0` and `PDF_EXPORT_ENABLED=0`. All eight variables are scoped to **Preview only**; privileged app secrets are non-revealable. No database URL, password, management token or live-test email was uploaded.
+- `PDF_EXPORT_ENABLED=0` above was a legacy setting for that historical artifact. Current code ignores it and always offers PDF; remove the obsolete variable from active deployment scopes.
 - Vercel Authentication is enabled (`all_except_custom_domains`). An unauthenticated HTTPS request to staging health was redirected to Vercel SSO (302); no public custom domain was added.
 - Verified on the hosted artifact: initial maintenance health was 503; after the controlled staging-only rebuild, health was 200 with exactly `data.status="ok"` and `requestId`, and `private, no-store`. Sign-in rendered with CSP, `/admin` navigated to `/sign-in`, protected member/admin APIs returned 401, and an empty wrong-Origin authentication mutation returned 403 without sending email. Protected API responses had `private, no-store` and no cross-origin allow header.
 - The build fix retains the placeholder-only `.env.example` needed by guide rendering. Its isolated local build, lint, guide generation/link checks and all 10 documentation tests passed; the hosted build is Ready.
@@ -366,7 +367,7 @@ The host remains protected staging; this is not production approval.
   ad-hoc data writes were made; migrations ran before the new code deployed.
 - Nine variables were set on the **Production** scope: the four required app
   credentials, `APP_ORIGIN` (the canonical git-main origin), `LOG_LEVEL=info`,
-  `MAINTENANCE_MODE=0`, `PDF_EXPORT_ENABLED=0`, and the new
+  `MAINTENANCE_MODE=0`, legacy `PDF_EXPORT_ENABLED=0` (ignored by current code), and the new
   `APP_SUPPORT_EMAIL` for App Support Access. The eight Preview variables are
   unchanged. No database URL, password, management token or live-test email was
   uploaded; privileged values were piped without being echoed.
@@ -393,7 +394,7 @@ The host remains protected staging; this is not production approval.
 - Vercel manages server startup; do not configure `next dev` as a production command. On an approved self-managed Node host, run `npm run build`, then `npm run start -- --hostname 127.0.0.1 --port 3000` behind an HTTPS reverse proxy and process supervisor. That alternative requires separate ingress approval.
 - `.vercelignore` excludes local environment files, local build output, dumps, encrypted backups, keys and test artifacts from CLI uploads. Its `!.env.example` exception retains only the tracked, placeholder-only example: the prebuild guide renderer validates a link to it. Never put real values in that example or remove the exclusions for `.env` and `.env.*`. `.gitignore` excludes `.vercel` metadata. Review the upload/repository before sending it to an approved host.
 - Run functions next to the database. `vercel.json` pins `"regions": ["bom1"]` (Mumbai) because the Supabase projects are in `ap-south-1`. With the earlier default `iad1`, each signed-in page made several sequential US↔India round trips (session, `getUser`, profile, page data). Measured TTFB from India was ~1.2–2.1 s on demo pages, versus ~0.45 s on the database-free main site. Hobby allows one region. If an approved production database lives elsewhere, change this value to match it. This is a latency setting, not approval of a production region or provider.
-- Keep the existing PDFKit/fontkit externalization and font tracing in `next.config.ts`. Validate a complete multi-page PDF on the actual host before enabling PDF exports; set `PDF_EXPORT_ENABLED=0` if deferring this optional feature.
+- Keep the required PDFKit/fontkit externalization and font tracing in `next.config.ts`. Validate complete multi-page PDF rendering on the approved host before admitting residents; PDF cannot be disabled by an environment flag.
 
 Vercel settings documentation: [project configuration](https://vercel.com/docs/project-configuration), [Node versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions).
 
@@ -418,7 +419,8 @@ Configure these in the hosting environment manager, scoped separately to Product
 | `NEXT_PUBLIC_SENTRY_DSN` | Optional public Sentry DSN. Scope to **Production and Preview** only; the app also keeps Sentry off unless Vercel reports one of those environments at build time. Rebuild after changes. |
 | `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | Optional build-time source-map upload. The token is a non-revealable build secret; without it the build emits no source maps. |
 | `MAINTENANCE_MODE` | `1` for initial restricted deployment/recovery; `0` only for an authorized validation or release window. |
-| `PDF_EXPORT_ENABLED` | `0` to defer optional PDF; `1` only after hosted font/render/runtime checks. |
+| `CSV_EXPORT_ENABLED` | Single-RWA deployments only; set `true` to opt in to CSV. Defaults to `false`. |
+| `TENANT_<UUID32>_CSV_EXPORT_ENABLED` | Tenant-routed deployment; set to `true` for that immutable tenant UUID to offer CSV only to that RWA. Missing/`false` means PDF only. Redeploy after changing Vercel environment variables. |
 | `TRUSTED_PROXY_CONFIG` | Set to `vercel` in Production and Preview for OTP functionality. Enables the Vercel-overwritten `X-Forwarded-For` source; OTP requests fail closed if configuration, `VERCEL=1` or one valid IP is unavailable. Configured and deployed on staging and demo/tenant-test Production (31 October 2026). Hosted spoof/burst checks and pilot capacity validation remain open. |
 
 Use the secret manager's generator for `RATE_LIMIT_HMAC_KEY` or generate 32 random bytes on an approved workstation; do not put its value in command arguments, logs, chat or version control.

@@ -444,9 +444,16 @@ passed (**5 passed, 0 failed**) after correcting the stale readiness link.
   deletion/offboarding terms, then implement the agreed process.
 - [ ] **S12 — Release gate:** obtain required approvals and complete production
   readiness evidence before any real-resident or binding-vote use.
-- [ ] **Results downloads (M1):** implement accessible per-format progress,
-  duplicate-download prevention, and recoverable error/retry behavior; exercise
-  success and failure for each enabled format.
+- [x] **Results downloads (M1):** completed results use accessible per-format
+	progress, same-format duplicate prevention, management-only PDF/CSV controls,
+	visible results with safe Error ID/retry handling, and direct-route role checks.
+	The PRIVATE PDF includes a separate submitted-voter roster with configured
+	identifier and current Auth email, never choices; rows continue across pages.
+	Focused unit/PDF tests and typecheck pass locally. The **2 November 2026** live
+	browser result below predates this approved role/privacy change and does not
+	verify the new download boundary or roster. Rerun against the documented
+	disposable project with verified database TLS before release; no production
+	deployment or settings change was made.
 - [ ] **Public registration abuse control:** decide a per-IP budget and add
   enforcement to self-registration. Existing email, household and global
   budgets do not provide this per-IP control.
@@ -480,7 +487,7 @@ passed (**5 passed, 0 failed**) after correcting the stale readiness link.
 - [ ] Verify rotation/revocation of previously exposed development database
   and CLI credentials without recording secret values.
 - [ ] Complete manual iPhone Safari, Android Chrome, keyboard, screen-reader,
-  contrast, zoom, CSV/PDF download and print acceptance; record named testers,
+	contrast, zoom, required PDF download/print and CSV when enabled; record named testers,
   dates and outcomes.
 
 #### Decisions and approvals
@@ -642,7 +649,7 @@ end-to-end verification against a live Supabase project remains outstanding.
 
 - One single-RWA, mobile-first Next.js App Router application using TypeScript, React, Tailwind CSS, Lucide React, Zod, Supabase Auth/PostgreSQL/RLS/guarded SQL functions/Cron, Vitest, Playwright, and axe.
 - Normal server database calls carry the verified user's Supabase session. Separate privileged Auth administration from ordinary ballots, results, and exports.
-- Supabase PostgreSQL is authoritative. CSV is mandatory; PDFKit-based PDF is an optional derived printable export, not a launch dependency, backup, signature, or legal certification.
+- Supabase PostgreSQL is authoritative. PDFKit-based PDF is the required printable export; CSV is an optional derived export enabled per RWA by the deployment operator. Neither format is a backup, signature, or legal certification.
 - Prefer Vercel and the approved Supabase region, with Mumbai as the documented starting preference if available. Hosting eligibility, quotas, capacity, costs, and recovery require validation and approval.
 - Preserve the zero-monthly-cost feasibility objective, excluding an optional domain, without weakening correctness, availability decisions, privacy, or recovery. Approve paid capacity if necessary.
 - No multiple RWAs, native apps, Supabase Auth public signup (resident self-registration creates suspended records only), messaging/reminders, multilingual UI, signatures, payments/spending authorization, advanced election rules, AI, Redis, queues, separate backend, external PDF renderer, or application report storage.
@@ -662,7 +669,7 @@ end-to-end verification against a live Supabase project remains outstanding.
 
 ## 2. Dependency and release sequence
 
-Default execution order is Phases 1-16. Phase 17 is optional and can be deferred beyond version 1.
+Complete implementation phases 1-15 and the required PDF phase 17 before the Phase 16 readiness gate. CSV remains operator-enabled per RWA and may be left disabled.
 
 | Phase | Primary prerequisites | Exit milestone |
 |---|---|---|
@@ -679,10 +686,10 @@ Default execution order is Phases 1-16. Phase 17 is optional and can be deferred
 | 11 | 4-6, 10 | Atomic, exactly-once guarded submission |
 | 12 | 6-7, 9-11 | Complete resident journeys and uncertainty recovery |
 | 13 | 8, 10-12 | Authoritative results and safe administrative monitoring |
-| 14 | 3, 7, 13 | Mandatory complete CSV exports |
+| 14 | 3, 7, 13 | Complete CSV exports when enabled for the RWA |
 | 15 | 4-6, 10-11; 13-14 for recovery output checks | Retention, encrypted off-site backup, and tested recovery |
-| 16 | 1-15 | Approved pilot readiness, then pilot evaluation and rollout decision |
-| 17, optional | 7, 13-14 and explicit inclusion decision | Verified PDF enhancement only if selected |
+| 17 | 7, 13-14 | Required PDF export readiness and rendering acceptance |
+| 16 | 1-15, 17 | Approved pilot readiness, then pilot evaluation and rollout decision |
 
 UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend work continues. Recovery/provider feasibility starts in Phase 1, even though its implementation is completed in Phase 15. Production activation remains gated throughout development.
 
@@ -692,7 +699,7 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Tasks**
 1. Inventory existing configuration, UI components/styles, dependencies, callers, SQL, tests, and scripts. Mark each responsibility retain/adapt/replace; distinguish placeholders from working implementations. Check whether any real identities/votes or active elections exist before planning cutover.
-2. Review A1-A7 and record actual approval status, authority/date/version, owner, and blocker. Include the NOTA winner rule, permission/reason for early completion, persistent-session policy, retention/recovery, and the revised limits of optional printable exports.
+2. Review A1-A7 and record actual approval status, authority/date/version, owner, and blocker. Include the NOTA winner rule, permission/reason for early completion, persistent-session policy, retention/recovery, required PDF limits and the operator-controlled per-RWA CSV policy.
 3. Confirm RWA name/timezone, approved household register, scripts used in names/labels, 500-household/about-100-concurrent-user capacity, and the pilot measurement checklist.
 4. Validate initial Supabase/Vercel eligibility, region, custom SMTP peak capacity, free-tier pausing/session restrictions, and automated encrypted off-site backup options. Do not select services on monthly quotas alone.
 5. Record technical configuration owners: Auth expiry/cooldown/limits, trusted IP forwarding, supplemental limiter budgets, request/list bounds, database wait bounds, export memory/concurrency, backup cadence/expiry, and RPO/RTO. Do not invent election-rule caps.
@@ -716,7 +723,7 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 2. Add the documented Supabase SDK/SSR packages, Tailwind with supported PostCSS integration, and Lucide React when their configuration/migration tasks are implemented. Review licenses/advisories.
 3. Initialize local Supabase configuration, migration location, disposable test environment, and synthetic mail capture. Document CLI/Docker prerequisites and environment isolation.
 4. Preserve existing npm scripts and extend focused integration/browser setup as needed. Configure locked dependency restore and baseline CI; no startup migrations.
-5. Keep `pg`, CSS Modules, and optional PDF tooling only while needed by existing callers or the selected feature. Schedule removal after replacement validation, not as an unrelated dependency sweep.
+5. Keep `pg`, CSS Modules, and PDF tooling only while needed by existing callers. Schedule removal after replacement validation, not as an unrelated dependency sweep.
 
 **Likely files/modules:** Root manifest/lockfile, PostCSS/framework/test/CI configuration, `supabase\config.toml`, `supabase\migrations`, placeholder environment example, development documentation.
 
@@ -950,7 +957,7 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 **Goal:** Publish reconciled completed results with correct outcomes and restricted administrative oversight.
 
 **Tasks**
-1. Implement one authorized SQL RPC projection from a consistent database snapshot. Reuse it for active PUBLIC and PRIVATE-turnout screens and completed screen/API/CSV/optional PDF; separate Supabase HTTP calls are not a shared transaction.
+1. Implement one authorized SQL RPC projection from a consistent database snapshot. Reuse it for active PUBLIC and PRIVATE-turnout screens and completed screen/API/PDF/CSV when enabled; separate Supabase HTTP calls are not a shared transaction.
 2. Verify invariants before completion/publication and block/alert on mismatch. Calculate frozen eligible/submitted counts, turnout, explicit denominators, shared rounding, and zero-denominator states.
 3. Implement PRIVATE LEADER/TIE/NO_WINNER using candidate counts only; NOTA is tallied separately and never wins. No candidate votes means NO_WINNER; ties among top candidates remain ties. Implement PUBLIC LEADER/TIE/NO_VOTES and leader option IDs without implying spending authority.
 4. Add completed-only frozen PUBLIC named responses with keyset pagination and full-dataset totals. Active PRIVATE results expose turnout only; household-level participation remains in the administrator-only monitor and is never attached to results/exports.
@@ -967,26 +974,26 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Completion criteria:** Active PUBLIC aggregates and active PRIVATE turnout expose no identities; RWA Admins and RWA ReadOnly observers can access active PRIVATE household participation for follow-up. Completed results reconcile exactly and obey publication permissions. Eligible denominators include later-suspended households; active PRIVATE candidate/NOTA totals and cancelled choices remain hidden.
 
-## Phase 14 - Mandatory complete CSV export
+## Phase 14 - Operator-enabled complete CSV export
 
-**Goal:** Complete version 1 downloads independently of optional PDF work.
+**Goal:** Provide a complete spreadsheet export only for RWAs where the deployment operator enables CSV; PDF remains the required printable export.
 
 **Tasks**
 1. Fetch the full authorized completed projection through Phase 13's consistent RPC, including all PUBLIC named responses regardless of UI page. Release database work before rendering.
 2. Implement API.md's exact rectangular CSV schema/record types, including `completionMode`/`completionReason`, poll outcome in SUMMARY, instructions/disclaimers in NOTICE, counts, denominators, and generation time.
 3. Apply UTF-8 escaping, consistent line endings, spreadsheet-formula protection, safe generated attachment filenames, MIME/nosniff/no-store headers, and complete bounded-memory rendering before success.
 4. Enforce per-account request budgets and bounded render concurrency/memory. Exports are not stored, emailed, or distributed through bearer links.
-5. Implement progress/retry without changing results or resubmitting. When PDF is deferred, hide its controls and return authorized `404 EXPORT_FORMAT_UNAVAILABLE` for unavailable formats.
+5. Implement per-format progress/retry without changing results or resubmitting. When CSV is disabled for an RWA, hide its control and return authorized `404 EXPORT_FORMAT_UNAVAILABLE` for direct CSV requests.
 
 **Likely files/modules:** `src\server\exports`, `src\server\results`, `src\app\api\votes\[id]\exports\[format]`, results download controls, CSV fixtures/tests.
 
 **Dependencies/prerequisites:** Phases 3, 7, and 13.
 
-**Database/API changes:** `GET /api/votes/{id}/exports/{format}` with required CSV support; reject pagination/identity-selection inputs. No report table/file persistence, unrelated download mutation, or mandatory PDF dependency.
+**Database/API changes:** `GET /api/votes/{id}/exports/{format}` with required PDF and operator-enabled CSV; reject pagination/identity-selection inputs. No report table/file persistence or unrelated download mutation.
 
-**Tests required:** Exact header/row schema, screen/API/CSV counts and identities, 500-household full PUBLIC list, early completion and poll/candidate ties, blank PRIVATE identity columns/no named rows, formula/header injection, authorization/terminal restrictions, renderer failure before success headers, unavailable PDF, resource limits, and phone/laptop download recovery.
+**Tests required:** Exact header/row schema, screen/API/CSV counts and identities when enabled, 500-household full PUBLIC list, early completion and poll/candidate ties, blank PRIVATE identity columns/no named rows, formula/header injection, authorization/terminal restrictions, renderer failure before success headers, unavailable CSV when disabled, resource limits, and phone/laptop download recovery.
 
-**Completion criteria:** Complete CSVs match authoritative results exactly and expose only authorized fields. Failures never return truncated successful reports or modify voting data. Version 1 exports are complete without PDF.
+**Completion criteria:** When enabled, complete CSVs match authoritative results exactly and expose only authorized fields. PDF is always offered for completed results. Failures never return truncated successful reports or modify voting data.
 
 ## Phase 15 - Retention, encrypted off-site backups, and tested recovery
 
@@ -1017,17 +1024,17 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Tasks**
 1. Run accumulated acceptance/regression checks using locked dependency restore, lint/format, strict types, unit/integration tests, build, and focused Playwright Chromium/Firefox/WebKit suites. Check upgrades, RLS/RPC grants, legacy caller removal, and dependency advisories.
-2. Verify authorization/privacy through Next.js and direct anonymous/member/admin Supabase REST/RPC/Realtime paths, existing JWTs, ordinary storage, rendered HTML, errors, audits/logs, CSV, and optional PDF only if included.
+2. Verify authorization/privacy through Next.js and direct anonymous/member/admin Supabase REST/RPC/Realtime paths, existing JWTs, ordinary storage, rendered HTML, errors, audits/logs, mandatory PDF, and CSV only for RWAs where the operator enabled it.
 3. Validate WCAG 2.2 AA core journeys with axe plus manual keyboard/focus/screen reader/contrast/zoom/reduced-motion checks. Exercise mobile administration and resident journeys on real mobile Safari, Android Chrome, and supported laptop browsers, including Chrome/Edge/Firefox/Safari where supported.
 4. Load-test 500 households/about 100 concurrent users with same-vote contention, Auth/login bursts, monitoring/results pages, and exports. Require p95 page/API under two seconds and acknowledgement within three seconds, excluding email/poor client connectivity. Tune measured query plans/indexes/RPC/capacity without weakening locks.
-5. **Pilot-readiness gate:** Record genuine A1-A7/provider/region approvals, actual session policy, bylaw confirmation of NOTA and early-completion rules, retention/recovery settings, custom SMTP/Auth peak limits, hosting eligibility/cost, CSV correctness, mobile/accessibility evidence, backup restoration/completeness, incident runbooks, and safe deployment/migration evidence.
+5. **Pilot-readiness gate:** Record genuine A1-A7/provider/region approvals, actual session policy, bylaw confirmation of NOTA and early-completion rules, retention/recovery settings, custom SMTP/Auth peak limits, hosting eligibility/cost, required PDF correctness and CSV correctness for opted-in RWAs, mobile/accessibility evidence, backup restoration/completeness, incident runbooks, and safe deployment/migration evidence.
 6. Deploy the reviewed Next.js build through staging/production on the approved hosting plan; apply deployment-only Supabase migrations and configuration outside active votes. Smoke-test with synthetic data before admitting real voters. Never use database restoration as application rollback.
 7. **Pilot evaluation after readiness:** Run at least one real PUBLIC poll and one PRIVATE election. Measure admin setup under ten minutes, first-attempt login at least 90% with non-attempts separate, unaided sign-in/first submission at least 90%, and median mobile ballot-open-to-acknowledgement under 60 seconds without collecting selections.
 8. Report the at-least-60% turnout adoption target and zero-monthly-cost feasibility objective separately from correctness gates. Review pilot findings/capacity/fixes before wider rollout; no adoption or budget target excuses an integrity/privacy failure.
 
 **Likely files/modules:** Existing CI/framework/test configuration, deployment configuration, test suites/fixtures, directly affected feature modules for verified fixes, acceptance/operations documentation.
 
-**Dependencies/prerequisites:** Phases 1-15. Phase 17 is not required; if selected for the pilot, its checks also apply. Real approvals and readiness checks precede real-pilot measurements.
+**Dependencies/prerequisites:** Phases 1-15 and required Phase 17 PDF acceptance. Real approvals and readiness checks precede real-pilot measurements.
 
 **Database/API changes:** No new product scope. Reviewed compatible fixes and deployment permissions only; preserve every acknowledged submission and historical identity during cutover.
 
@@ -1035,26 +1042,26 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Completion criteria:** Mandatory readiness evidence exists before real voting; pilot metrics are measured afterwards and guide rollout. Lost/duplicate/partial or late-admitted ballots, wrong tallies, unauthorized disclosure, or PRIVATE identity-to-choice exposure block release. Unknown recovery completeness blocks resumption.
 
-## Phase 17 - Optional PDF enhancement, outside the version 1 critical path
+## Phase 17 - Required PDF export baseline
 
-**Goal:** Add a printable derived outcome only when explicitly included, without delaying mandatory CSV or pilot readiness.
+**Goal:** Provide a complete, legible printable PDF for every RWA's authorized completed results. CSV remains an optional operator-controlled per-RWA format.
 
 **Tasks**
-1. Confirm PDF inclusion/timing and actual Node.js host runtime/memory feasibility. If deferred, leave controls absent; PDFKit's presence in the manifest does not make the feature mandatory.
-2. Reuse Phase 13's full authorized snapshot and Phase 14's export protections. Generate locally with PDFKit in a Node.js route; no external renderer, public report storage, or bearer links.
+1. Keep PDF in the available formats for every completed result for RWA Admin/ReadOnly and verify actual Node.js host runtime/memory feasibility. Residents receive in-app results but no CSV/PDF controls. The retired `PDF_EXPORT_ENABLED` flag must not disable the required format.
+2. Reuse Phase 13's authorized result snapshot and Phase 14's export protections. Generate locally with PDFKit in a Node.js route; no external renderer, public report storage, or bearer links.
 3. Bundle licensed Inter and an explicitly configured approved-script fallback such as Noto Sans Devanagari. Validate actual shaping/rendering; never silently omit unsupported characters.
-4. Implement A4 portrait/grayscale, long wrapped/continued rows, repeated headers, page numbers, complete maximum-electorate named lists, all required metadata/denominators/outcomes, and early-completion label/reason.
-5. Render the complete bounded document before successful headers and expose the PDF control only after availability/acceptance checks. Preserve completed results and safe download retry on failure.
+4. Keep PUBLIC PDFs grayscale. Implement the PRIVATE branded two-column results page and subsequent management-only roster pages with configured identifier labels, current Auth emails, repeated headers, and no choice data; preserve required metadata/denominators/outcomes and early-completion label/reason.
+5. Render the complete bounded document before successful headers. Preserve completed results and safe download retry on failure. If unsupported glyphs prevent PDF rendering, suggest CSV only when it is enabled for that RWA; otherwise direct the user to the deployment operator.
 
 **Likely files/modules:** `src\server\exports`, export route/download controls, `public\fonts`, PDF fixtures/tests, hosting resource configuration.
 
-**Dependencies/prerequisites:** Phases 7 and 13-14; explicit inclusion decision, licensed fonts, approved-script and execution-capacity validation. If PDF is added after rollout, repeat affected acceptance checks.
+**Dependencies/prerequisites:** Phases 7 and 13-14; licensed fonts, approved-script and execution-capacity validation. Complete this phase before the Phase 16 readiness gate.
 
 **Database/API changes:** Enable `pdf` on the existing export endpoint; no report entity, ballot change, database backup mechanism, or signature workflow.
 
-**Tests required:** Exact screen/API/CSV/PDF agreement, full 500-household PUBLIC list, no PRIVATE voter identities, actual long/multiscript shaping, multi-page continuation, A4/grayscale visual inspection, header/page numbering, unavailable/unauthorized requests, pre-header rendering failure, resource bounds, and physical-phone/laptop download/print checks.
+**Tests required:** Exact screen/API/CSV/PDF agreement, full 500-household PUBLIC list, complete PRIVATE roster with current emails and no identity-to-choice mapping, Residents denied downloads while Admin/ReadOnly are allowed, actual long/multiscript shaping, multi-page continuation, A4/grayscale visual inspection, header/page numbering, unavailable/unauthorized requests, pre-header rendering failure, resource bounds, and physical-phone/laptop download/print checks.
 
-**Completion criteria:** Enabled PDFs are complete, authorized, legible, and identical to authoritative completed data. They are clearly derived outcomes, not backups/signatures/certifications. If deferred, version 1 readiness is unaffected.
+**Completion criteria:** PDFs are complete, authorized, legible, and identical to authoritative completed data. They are clearly derived outcomes, not backups/signatures/certifications. PDF rendering and print acceptance are mandatory readiness evidence.
 
 ## 3. Acceptance and migration cross-check
 
@@ -1066,7 +1073,7 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 | FR5: final atomic submission | 11-12 | Real RPC locks/rollback/uniqueness, exact admission cutoff, completion races, lost-ack recovery |
 | FR6: results and counting | 10, 13 | Reconciled counters/responses, candidate/option ties, NOTA winner rule, denominators/rounding, frozen PUBLIC identities |
 | FR7: administration and audit | 5, 8, 10, 13 | Safe monitoring without choices, database audit atomicity, explicit cross-service partial failures, historical preservation |
-| FR8: exports | 14; 17 only if included | Complete CSV and optional PDF parity, full PUBLIC lists, no PRIVATE identities, failure recovery, early-completion context |
+| FR8: exports | 14, 17 | Required PDF parity and complete CSV parity when enabled, full PUBLIC lists, no PRIVATE identities, failure recovery, early-completion context |
 | Supabase/Tailwind migration | 1-8, 16 | Reviewed caller conversion, Auth-linked profiles, default-deny RLS, direct API/RPC safety, target tokens, no obsolete runtime dependencies |
 | Privacy and accessibility | 3-16; 17 if included | No ordinary identity-to-PRIVATE-choice mapping, approved A2 limits, manual/device WCAG checks, 48px targets/16px inputs |
 | Capacity, free-tier feasibility, and recovery | 1, 6, 15-16 | Exact p95 measurements, peak SMTP/Auth capacity, plan eligibility, approved costs, encrypted off-site backups, tested completeness |
