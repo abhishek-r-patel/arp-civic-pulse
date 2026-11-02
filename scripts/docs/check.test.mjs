@@ -41,7 +41,7 @@ test("every curated screenshot exists once, has exact PNG dimensions and is used
 test("persona contents have unique stable fragments and required end-to-end coverage", async () => {
   const required = {
     resident: ["registration", "sign-in", "public-voting", "private-voting", "uncertain-submission", "completed-results"],
-    admin: ["rwa-settings", "add-residents", "review-registrations", "prepare-vote", "monitor", "results-and-audit"],
+    admin: ["rwa-settings", "add-residents", "review-registrations", "prepare-vote", "monitor", "results-and-audit", "admin-failure-recovery"],
     technical: ["source-map", "ballot-trace", "database-erd", "deployment-operations", "debugging", "testing"],
   };
   for (const [persona, ids] of Object.entries(required)) {

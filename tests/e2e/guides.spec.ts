@@ -115,6 +115,35 @@ for (const [path, title] of guides) {
         "index, follow",
       );
     }
+    if (path === "/user-guide/resident") {
+      await expect(page.locator("article")).toContainText("below the message");
+      await expect(page.locator("article")).toContainText("RWA administrator");
+      await expect(page.locator("article")).toContainText(
+        "press and hold the text",
+      );
+    }
+    if (path === "/user-guide/rwa-admin") {
+      await expect(page.locator("article")).toContainText(
+        "deployment operator through the agreed support channel",
+      );
+      await expect(page.locator("article")).toContainText(
+        "never include PRIVATE choices",
+      );
+      await expect(
+        contents.getByRole("link", {
+          name: "14. Recover safely from admin failures",
+        }),
+      ).toHaveAttribute("href", "#admin-failure-recovery");
+      await expect(page.locator("article")).toContainText(
+        "completed rows are not rolled back",
+      );
+      await expect(page.locator("article")).toContainText(
+        "Review Latest and Keep My Changes",
+      );
+      await expect(page.locator("article")).toContainText(
+        "Discard My Changes and Load Latest",
+      );
+    }
     for (const width of [320, 768, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       expect(

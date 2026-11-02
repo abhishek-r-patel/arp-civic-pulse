@@ -69,8 +69,8 @@ menu. This is not a new theme or a rollout to resident/admin voting screens.
 The implementation is scoped by `data-product-site`/`data-product-home` in
 `src/styles/globals.css`, with content in `src/app/site/page.tsx` and shared
 main-host navigation in `src/components/site/main-shell.tsx`. The public-site
-workflow is not illustrated in the native Resident/Admin guides; their screenshots
-and in-app instructions are unchanged. Automated browser coverage lives in
+workflow is not illustrated in the native Resident/Admin guides; their content
+is maintained separately. Automated browser coverage lives in
 `tests/e2e/site-home.spec.ts`; design implementation and local checks are not
 deployment verification or a user sign-off of the final visuals.
 
@@ -354,8 +354,11 @@ readable 1280px workspace cap, unlike full-width management tables. Use semantic
 headings/steps, stable fragment IDs, 48px contents targets, Back to contents links,
 lazy exact-dimension screenshots and full-size image links. Contents labels have
 no extra list numbering (section titles own any numbers). Keep meaningful
-captions and all essential instructions in text. Capture confirmations as the
-popup only; do not duplicate otherwise-identical screens for dropdown values.
+captions and all essential instructions in text. Omit the shared application
+header and footer from guide screenshots so the illustrated workflow stays
+prominent, except for the first resident email sign-in screenshot
+(`resident/01-sign-in.png`). Capture confirmations as the popup only; do not
+duplicate otherwise-identical screens for dropdown values.
 The native guides follow the current theme and shared shell, not a separate
 offline HTML design. Technical Guide is public only by direct `/tech-guide`,
 unlinked from app navigation and noindex/nofollow; include accessible local flow

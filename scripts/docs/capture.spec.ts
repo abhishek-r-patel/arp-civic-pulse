@@ -71,11 +71,17 @@ async function capture(page: Page, name: string, dialogOnly = false, viewportOnl
   const target = dialogOnly ? page.getByRole("dialog") : page;
   // Masks are drawn over the image, so a dialog-only capture must not inherit page masks behind it.
   const scope = dialogOnly ? page.getByRole("dialog") : page.locator("body");
+  const screenshotStyle = [
+    "nextjs-portal { display: none !important; }",
+    ...(name === "01-sign-in"
+      ? []
+      : ["header, footer { display: none !important; }"]),
+  ].join("\n");
   const buffer = await target.screenshot({
     path: join(personaImages, `${name}.png`),
     ...(dialogOnly ? {} : { fullPage: !viewportOnly }),
     animations: "disabled",
-    style: "nextjs-portal { display: none !important; }",
+    style: screenshotStyle,
     mask: [
       scope.getByText(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu),
       scope.locator("[data-doc-mask]"),

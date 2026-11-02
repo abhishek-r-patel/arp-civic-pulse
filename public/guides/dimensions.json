@@ -1,7 +1,7 @@
 {
   "/guides/rwa-admin/47-accounts-list.png": {
     "width": 1280,
-    "height": 900
+    "height": 770
   },
   "/guides/rwa-admin/64-make-eligible.png": {
     "width": 512,
@@ -13,7 +13,7 @@
   },
   "/guides/rwa-admin/54-import-preview.png": {
     "width": 1280,
-    "height": 1366
+    "height": 1025
   },
   "/guides/rwa-admin/55-import-confirm.png": {
     "width": 512,
@@ -21,11 +21,11 @@
   },
   "/guides/rwa-admin/56-import-result.png": {
     "width": 1280,
-    "height": 1418
+    "height": 1077
   },
   "/guides/rwa-admin/25-ready-preview.png": {
     "width": 1280,
-    "height": 1454
+    "height": 1113
   },
   "/guides/rwa-admin/57-schedule-confirm.png": {
     "width": 512,
@@ -33,11 +33,11 @@
   },
   "/guides/rwa-admin/58-scheduled-admin.png": {
     "width": 1280,
-    "height": 2073
+    "height": 1732
   },
   "/guides/resident/59-scheduled-member.png": {
     "width": 390,
-    "height": 1123
+    "height": 693
   },
   "/guides/rwa-admin/60-withdraw-schedule.png": {
     "width": 512,
@@ -49,19 +49,19 @@
   },
   "/guides/resident/02-code-entry.png": {
     "width": 390,
-    "height": 1316
+    "height": 1054
   },
   "/guides/resident/77-register.png": {
     "width": 390,
-    "height": 1060
+    "height": 798
   },
   "/guides/resident/78-register-received.png": {
     "width": 390,
-    "height": 844
+    "height": 470
   },
   "/guides/rwa-admin/82-account-created-with-flat.png": {
     "width": 1280,
-    "height": 1609
+    "height": 1268
   },
   "/guides/rwa-admin/83-move-flat-dialog.png": {
     "width": 512,
@@ -69,23 +69,23 @@
   },
   "/guides/rwa-admin/84-self-registered-accounts.png": {
     "width": 1280,
-    "height": 900
+    "height": 770
   },
   "/guides/resident/03-code-error.png": {
     "width": 390,
-    "height": 1366
+    "height": 1104
   },
   "/guides/rwa-admin/48-rwa-settings.png": {
     "width": 1280,
-    "height": 2754
+    "height": 2413
   },
   "/guides/rwa-admin/16-create-account.png": {
     "width": 1280,
-    "height": 1289
+    "height": 948
   },
   "/guides/resident/74-appearance-menu.png": {
     "width": 390,
-    "height": 952
+    "height": 690
   },
   "/guides/rwa-admin/90-resident-filters.png": {
     "width": 321,
@@ -93,7 +93,7 @@
   },
   "/guides/rwa-admin/17-account.png": {
     "width": 1280,
-    "height": 1491
+    "height": 1150
   },
   "/guides/rwa-admin/18-suspend-dialog.png": {
     "width": 512,
@@ -105,7 +105,7 @@
   },
   "/guides/rwa-admin/22-voting-types.png": {
     "width": 1280,
-    "height": 1426
+    "height": 1085
   },
   "/guides/rwa-admin/91-delete-draft.png": {
     "width": 512,
@@ -113,7 +113,7 @@
   },
   "/guides/rwa-admin/24-open-editor.png": {
     "width": 1280,
-    "height": 2290
+    "height": 1949
   },
   "/guides/rwa-admin/26-activate-dialog.png": {
     "width": 512,
@@ -121,7 +121,7 @@
   },
   "/guides/rwa-admin/27-active-vote.png": {
     "width": 1280,
-    "height": 2553
+    "height": 2212
   },
   "/guides/rwa-admin/53-change-deadline.png": {
     "width": 512,
@@ -129,35 +129,35 @@
   },
   "/guides/resident/05-vote-list.png": {
     "width": 390,
-    "height": 1438
+    "height": 1008
   },
   "/guides/resident/06-open-ballot.png": {
     "width": 390,
-    "height": 1722
+    "height": 1292
   },
   "/guides/resident/08-review.png": {
     "width": 390,
-    "height": 1580
+    "height": 1150
   },
   "/guides/resident/09-outcome-unknown.png": {
     "width": 390,
-    "height": 1521
+    "height": 1091
   },
   "/guides/resident/10-not-recorded.png": {
     "width": 390,
-    "height": 1452
+    "height": 1022
   },
   "/guides/resident/11-submitted.png": {
     "width": 390,
-    "height": 1317
+    "height": 887
   },
   "/guides/resident/12-results-not-ready.png": {
     "width": 390,
-    "height": 1461
+    "height": 1031
   },
   "/guides/rwa-admin/28-participation.png": {
     "width": 1280,
-    "height": 1212
+    "height": 871
   },
   "/guides/rwa-admin/29-complete-dialog.png": {
     "width": 512,
@@ -165,39 +165,39 @@
   },
   "/guides/resident/13-open-results.png": {
     "width": 390,
-    "height": 2317
+    "height": 1887
   },
   "/guides/rwa-admin/14-desktop-results.png": {
     "width": 1280,
-    "height": 1976
+    "height": 1635
   },
   "/guides/rwa-admin/32-closed-editor.png": {
     "width": 1280,
-    "height": 2469
+    "height": 2128
   },
   "/guides/resident/33-closed-ballot.png": {
     "width": 390,
-    "height": 1774
+    "height": 1344
   },
   "/guides/resident/34-closed-review.png": {
     "width": 390,
-    "height": 1558
+    "height": 1128
   },
   "/guides/resident/35-closed-submitted.png": {
     "width": 390,
-    "height": 1291
+    "height": 861
   },
   "/guides/resident/49-closed-live-turnout.png": {
     "width": 390,
-    "height": 1424
+    "height": 994
   },
   "/guides/resident/36-closed-results.png": {
     "width": 390,
-    "height": 2069
+    "height": 1639
   },
   "/guides/resident/50-multi-select-ballot.png": {
     "width": 390,
-    "height": 1857
+    "height": 1427
   },
   "/guides/rwa-admin/37-cancel-dialog.png": {
     "width": 512,
@@ -205,10 +205,10 @@
   },
   "/guides/resident/38-cancelled-member.png": {
     "width": 390,
-    "height": 1546
+    "height": 1116
   },
   "/guides/rwa-admin/39-audit.png": {
     "width": 1280,
-    "height": 3013
+    "height": 2672
   }
 }

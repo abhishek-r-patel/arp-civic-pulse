@@ -247,7 +247,10 @@ export function residentSections(terms: HouseholdTerms): GuideSection[] {
             </li>
             <li>
               If status remains unknown, wait and contact your administrator
-              with the support/request ID if shown, never your choices or code.
+              with the Error ID if shown. It appears below the error message;
+              select the ID and copy it, or press and hold it on a phone to
+              copy. You may send a screenshot with the ID visible, but hide
+              personal details and never share ballot choices or sign-in codes.
             </li>
           </Steps>
           <Screenshot image="unknown" />
@@ -347,6 +350,14 @@ export function residentSections(terms: HouseholdTerms): GuideSection[] {
             Message accepted means the mail service accepted it, not guaranteed
             inbox delivery. Never include choices, codes, passwords or identity
             documents.
+          </p>
+          <p>
+            When an error shows an <strong>Error ID</strong>, look directly
+            below the message (or page-error notice). Select the ID and use
+            Copy; on a phone, press and hold the text to select it. Send the ID
+            or a screenshot with it visible to your RWA administrator. Before
+            sharing a screenshot, hide personal details and never include ballot
+            choices, sign-in codes or passwords.
           </p>
           <p>
             Select <strong>Sign Out</strong> on shared devices. Close downloaded

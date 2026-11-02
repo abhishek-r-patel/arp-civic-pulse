@@ -563,12 +563,76 @@ export function adminSections(terms: HouseholdTerms): GuideSection[] {
             or reset the database. Sign out on shared devices.
           </Note>
           <p>
+            When an error shows an <strong>Error ID</strong>, find it below the
+            error message or page-error notice. Select the ID and use Copy; on a
+            phone, press and hold the text to select it. Send the ID and the
+            affected route/time to your deployment operator through the agreed
+            support channel. A screenshot is optional; redact resident details
+            and never include PRIVATE choices, sign-in codes or passwords.
+          </p>
+          <p>
             For your own voting journey, follow the{" "}
             <a href="/user-guide/resident" className="text-accent underline">
               Resident guide
             </a>
             ; administrator privileges never bypass entitlement.
           </p>
+        </>
+      ),
+    },
+    {
+      id: "admin-failure-recovery",
+      title: "14. Recover safely from admin failures",
+      content: (
+        <>
+          <p>
+            Read the error message before acting. A failed request does not
+            always mean that no changes were saved. Refresh the relevant page
+            and inspect the current account, register or vote state before
+            retrying.
+          </p>
+          <Steps>
+            <li>
+              <strong>Incomplete account setup:</strong> open the resident and
+              refresh the page. Check its saved status, role and assigned
+              {` ${terms.household}`}. If a Voter has no assignment, assign an
+              available {terms.identifierLabel} before enabling the account. Do
+              not create a duplicate or delete the identity. If its status
+              remains inconsistent, stop and send the Error ID to the deployment
+              operator.
+            </li>
+            <li>
+              <strong>Bulk actions or CSV import:</strong> processing commits
+              per row; completed rows are not rolled back, and the failed row
+              may be partly or fully saved. Refresh Residents and inspect the
+              affected account status, eligibility and import outcome against
+              the register. Retry only rows confirmed as still pending; imported
+              accounts remain suspended until separately enabled.
+            </li>
+            <li>
+              <strong>Another admin changed a draft:</strong> your typed edits
+              remain on screen. Choose{" "}
+              <strong>Review Latest and Keep My Changes</strong> to merge them
+              onto the newest draft, then review the merge notes and save again.
+              Choose <strong>Discard My Changes and Load Latest</strong> to
+              replace your unsaved edits with the current draft. If the vote is
+              no longer a draft, refresh and stop; active or terminal votes
+              cannot be edited.
+            </li>
+            <li>
+              <strong>Service or result errors:</strong> refresh and inspect the
+              current vote, participation and audit state before retrying an
+              uncertain operation. If results are withheld or an integrity
+              warning appears, do not publish them, edit totals or repeat a
+              destructive action. Contact the deployment operator with the Error
+              ID and affected route/time.
+            </li>
+          </Steps>
+          <Note>
+            For an uncertain ballot submission, follow the Resident guide&apos;s
+            recovery steps and check participation before retrying. Never ask
+            for or share PRIVATE selections, sign-in codes or passwords.
+          </Note>
         </>
       ),
     },
