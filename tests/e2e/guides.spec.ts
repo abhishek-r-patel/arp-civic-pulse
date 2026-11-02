@@ -7,6 +7,7 @@ const guides = [
   ["/user-guide/resident", "Resident Guide"],
   ["/user-guide/rwa-admin", "RWA Admin Guide"],
   ["/tech-guide", "Technical Guide"],
+  ["/tech-guide/errors", "Error Logging and IDs"],
 ] as const;
 
 for (const [path, title] of guides) {
@@ -78,19 +79,35 @@ for (const [path, title] of guides) {
         )
         .toBe(true);
     }
-    if (path === "/tech-guide") {
+    if (path.startsWith("/tech-guide")) {
       await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
         "content",
         "noindex, nofollow",
       );
       await expect(
-        page.getByRole("img", {
-          name: "Civic Pulse core entity relationship diagram",
-        }),
-      ).toHaveCount(1);
-      await expect(
         page.getByRole("navigation", { name: "Guide personas" }),
       ).toHaveCount(0);
+      if (path === "/tech-guide") {
+        await expect(
+          page.getByRole("img", {
+            name: "Civic Pulse core entity relationship diagram",
+          }),
+        ).toHaveCount(1);
+        await expect(
+          page.getByRole("link", {
+            name: "Open the dedicated Error Logging and IDs reference",
+          }),
+        ).toHaveAttribute("href", "/tech-guide/errors");
+      }
+      if (path === "/tech-guide/errors") {
+        await expect(
+          page.getByRole("region", { name: "API error catalogue table" }),
+        ).toContainText("RESULTS_INTEGRITY_ERROR");
+        await expect(page.locator("article")).toContainText("VOTEADMIN-");
+        await expect(page.locator("article")).toContainText(
+          "request.unhandled",
+        );
+      }
     } else {
       await expect(page.locator('a[href="/tech-guide"]')).toHaveCount(0);
       await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
@@ -127,6 +144,7 @@ test("persona cross-links, sitemap and retired guide URLs are consistent", async
   for (const [path] of guides.slice(0, 3))
     expect(sitemap).toContain(`${path}</loc>`);
   expect(sitemap).not.toContain("/tech-guide");
+  expect(sitemap).not.toContain("/tech-guide/errors");
   for (const path of [
     "/user-guide.html",
     "/TECHNICAL_GUIDE.html",

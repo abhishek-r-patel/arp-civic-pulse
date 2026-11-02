@@ -51,11 +51,16 @@ menu. This is not a new theme or a rollout to resident/admin voting screens.
 - Use generous section spacing, a split desktop hero, restrained token-derived
   radial artwork behind the preview, six feature cards, three numbered workflow
   steps, a tailored annual-plan section and a closing demo/contact invitation.
-  Stack naturally on phones; no fixed-height copy, motion or external imagery.
-- The preview is a non-interactive, explicitly fictional **completed PUBLIC**
-  poll, not live tenant data, a customer testimonial, or an active PRIVATE tally.
-  Its bars are decorative; sample counts and participation denominators remain
-  visible text. Privacy copy links to operator/inference limitations.
+  Stack naturally on phones; keep desktop hero copy at a stable top offset when
+  the preview example changes height. No fixed-height copy, motion or external
+  imagery.
+- The preview has an accessible **PUBLIC poll / PRIVATE election** selector and
+  defaults to an explicitly fictional completed PUBLIC poll, never live tenant
+  data or a customer testimonial. Its completed PRIVATE example shows only
+  aggregate candidate/NOTA totals and turnout; never show voter names or an
+  identity-to-choice mapping. Do not present active PRIVATE candidate totals.
+  Bars are decorative and sample counts/denominators remain visible text.
+  Privacy copy links to operator/inference limitations.
 - Preserve Features/Pricing anchors and all contact/privacy navigation. Demo
   links appear only for an active configured demo; otherwise offer a contact
   walkthrough and explain that the demo is being prepared. No invented prices,

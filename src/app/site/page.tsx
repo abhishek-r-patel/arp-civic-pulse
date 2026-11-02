@@ -4,7 +4,6 @@ import {
   ArrowDown,
   ArrowRight,
   Check,
-  CheckCheck,
   FileCheck2,
   Fingerprint,
   Globe2,
@@ -16,6 +15,7 @@ import {
   Vote,
 } from "lucide-react";
 import { PublicStructuredData } from "@/components/ui/public-structured-data";
+import { VotingExamples } from "@/components/site/voting-examples";
 import { mainSiteLinks, requireMainHost } from "@/server/site/main-host";
 import { mainPublicMetadata } from "@/shared/metadata";
 
@@ -72,12 +72,6 @@ const STEPS = [
   },
 ] as const;
 
-const SAMPLE_RESULTS = [
-  { label: "Garden & walking paths", count: 54, percent: 60 },
-  { label: "Children's play area", count: 27, percent: 30 },
-  { label: "Community lounge", count: 9, percent: 10 },
-] as const;
-
 export default async function MainHomePage() {
   await requireMainHost();
   const { demoOrigin } = mainSiteLinks();
@@ -86,7 +80,7 @@ export default async function MainHomePage() {
     <div data-product-home className="grid gap-16 md:gap-24">
       <PublicStructuredData path="/" />
       <section className="product-hero grid items-center gap-12 py-8 lg:grid-cols-[1.15fr_1fr] lg:gap-16 lg:py-16">
-        <div className="grid justify-items-start gap-6">
+        <div className="grid justify-items-start gap-6 lg:self-start lg:pt-20">
           <p className="product-eyebrow inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-4 py-2 text-caption font-semibold text-accent">
             <span
               aria-hidden="true"
@@ -125,74 +119,7 @@ export default async function MainHomePage() {
           </p>
         </div>
 
-        <figure className="product-preview relative min-w-0 rounded-[2rem] border border-accent/10 p-5 sm:p-8">
-          <div className="relative rounded-2xl border border-border bg-surface p-5 shadow-panel sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-5">
-              <div className="flex items-center gap-3">
-                <span className="flex size-10 items-center justify-center rounded-xl bg-accent/10 text-accent">
-                  <House aria-hidden="true" className="size-5" />
-                </span>
-                <div>
-                  <p className="font-semibold text-primary">
-                    The Courtyard RWA
-                  </p>
-                  <p className="text-caption text-muted">
-                    Your community, connected
-                  </p>
-                </div>
-              </div>
-              <CheckCheck aria-hidden="true" className="size-5 text-accent" />
-            </div>
-            <div className="flex flex-wrap gap-2 pt-6 text-caption font-semibold">
-              <span className="inline-flex items-center gap-2 rounded-full bg-secondary/10 px-3 py-1 text-secondary">
-                <Vote aria-hidden="true" className="size-4" /> PUBLIC poll
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full bg-success/10 px-3 py-1 text-success">
-                <Check aria-hidden="true" className="size-4" /> Completed
-              </span>
-            </div>
-            <h2 className="mt-4 text-xl font-semibold text-primary">
-              A little more green.
-              <br />A little more together.
-            </h2>
-            <p className="mt-2 text-caption text-muted">
-              Which shared space should we improve next?
-            </p>
-            <ul className="mt-6 grid gap-5">
-              {SAMPLE_RESULTS.map((result, index) => (
-                <li key={result.label}>
-                  <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-caption">
-                    <span className="font-medium text-primary">
-                      {result.label}
-                    </span>
-                    <span className="text-muted tabular-nums">
-                      {result.count} / 90 &middot; {result.percent}%
-                    </span>
-                  </div>
-                  <div
-                    aria-hidden="true"
-                    className="mt-2 h-2 overflow-hidden rounded-full bg-primary/5"
-                  >
-                    <div
-                      className={`h-full rounded-full ${index === 0 ? "bg-accent" : "bg-muted/40"}`}
-                      style={{ width: `${result.percent}%` }}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-6 flex items-center gap-2 border-t border-border pt-4 text-caption text-muted">
-              <CheckCheck
-                aria-hidden="true"
-                className="size-4 shrink-0 text-accent"
-              />
-              90 of 120 eligible homes participated
-            </p>
-          </div>
-          <figcaption className="relative mt-4 text-center text-caption text-muted">
-            An illustrative poll with fictional data, not a live result.
-          </figcaption>
-        </figure>
+        <VotingExamples />
       </section>
 
       <div className="flex flex-wrap items-center justify-between gap-6 border-y border-border py-6">

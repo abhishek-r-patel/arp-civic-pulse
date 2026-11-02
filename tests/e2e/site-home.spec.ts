@@ -16,6 +16,8 @@ test.describe("product homepage", () => {
     request,
   }) => {
     await page.goto(mainOrigin);
+    const heroHeading = page.getByRole("heading", { level: 1 });
+    const publicHeadingPosition = await heroHeading.boundingBox();
     await expect(page.locator("h1")).toHaveCount(1);
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
       "Stronger communities.",
@@ -23,11 +25,41 @@ test.describe("product homepage", () => {
     await expect(page.locator("figcaption")).toContainText(
       "fictional data, not a live result",
     );
-    await expect(page.locator("figure")).toContainText("Completed");
-    await expect(page.locator("figure")).toContainText("90 of 120");
-    await expect(
-      page.locator("figure a, figure button, figure input"),
-    ).toHaveCount(0);
+    const preview = page.locator("figure[data-voting-example]");
+    await expect(preview).toContainText("Completed");
+    await expect(preview).toContainText("90 of 120");
+    const votingExample = preview.getByRole("group", {
+      name: "Voting example",
+    });
+    const publicExample = votingExample.getByRole("button", {
+      name: "PUBLIC poll",
+    });
+    const privateExample = votingExample.getByRole("button", {
+      name: "PRIVATE election",
+    });
+    await expect(publicExample).toHaveAttribute("aria-pressed", "true");
+    await privateExample.click();
+    await expect(privateExample).toHaveAttribute("aria-pressed", "true");
+    await expect(preview).toHaveAttribute("data-voting-example", "PRIVATE");
+    const privateHeadingPosition = await heroHeading.boundingBox();
+    expect(publicHeadingPosition).not.toBeNull();
+    expect(privateHeadingPosition).not.toBeNull();
+    expect(
+      Math.abs(
+        (privateHeadingPosition?.y ?? 0) - (publicHeadingPosition?.y ?? 0),
+      ),
+    ).toBeLessThanOrEqual(1);
+    await expect(preview).toContainText("Choose a committee chair");
+    await expect(preview).toContainText(
+      "82 of 120 eligible homes participated",
+    );
+    await expect(preview).toContainText("Individual ballots are never shown");
+    await expect(preview).not.toContainText("Who chose what");
+    await publicExample.click();
+    await expect(publicExample).toHaveAttribute("aria-pressed", "true");
+    await expect(preview).toHaveAttribute("data-voting-example", "PUBLIC");
+    await expect(preview.locator("a, input")).toHaveCount(0);
+    await expect(preview.getByRole("button")).toHaveCount(2);
     await expect(page.getByText(/not cryptographic anonymity/u)).toBeVisible();
     await expect(page.locator("[data-theme-control]")).toHaveCount(1);
 

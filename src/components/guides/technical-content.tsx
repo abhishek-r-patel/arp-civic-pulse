@@ -892,6 +892,11 @@ npm run dev`}</code>
           replay on sensitive workflows; a local logger policy cannot prove
           hosted observability is configured safely.
         </Note>
+        <p>
+          <a className="text-accent underline" href="/tech-guide/errors">
+            Open the dedicated Error Logging and IDs reference
+          </a>
+        </p>
       </>
     ),
   },

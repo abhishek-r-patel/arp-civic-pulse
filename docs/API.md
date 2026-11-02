@@ -555,7 +555,7 @@ Each code also has an internal **category** (`request`, `validation`, `authentic
 - `user`: an expected result of what the person did, logged at info, or warn for `CSRF_FAILED`/`RATE_LIMITED`.
 - `system`: a fault, logged at error and reported to Sentry.
 
-These, a safe cause (`causeSource`/`causeCode`/`causeStatus`, never provider messages) and a plain-English operator hint appear only in logs and Sentry, never in the response body. The catalogue lives in `src/server/http/errors.ts`.
+These, a safe cause (`causeSource`/`causeCode`/`causeStatus`, never provider messages) and a plain-English operator hint appear only in logs and Sentry, never in the response body. The catalogue lives in `src/server/http/errors.ts`. See the dedicated [Error Logging and IDs reference](./ERROR_LOGGING.md) for all current codes, ID prefixes and triage steps; the same reference is available in-app at `/tech-guide/errors`.
 
 | HTTP status | Representative codes | Meaning / recovery |
 |---|---|---|

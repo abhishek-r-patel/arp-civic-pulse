@@ -150,12 +150,13 @@ wide counts by role. Unavailable data is labelled, never replaced with sample to
 | [docs/API.md](./docs/API.md), [docs/DATABASE.md](./docs/DATABASE.md) | Supporting contracts                                         |
 | [docs/IMPLEMENTATION_PLAN.md](./docs/IMPLEMENTATION_PLAN.md)         | Sequencing                                                   |
 | [docs/OPERATIONS.md](./docs/OPERATIONS.md)                           | Backups, restore, retention, monitoring, incidents           |
+| [docs/ERROR_LOGGING.md](./docs/ERROR_LOGGING.md)                     | Error categories, codes, IDs and operator triage             |
 | [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)                           | Production deployment, secrets, migrations and verification  |
 | [docs/PILOT_READINESS.md](./docs/PILOT_READINESS.md)                 | Evidence gathered and gates still open                       |
 
 ## Learning and user documentation
 
-- Open `/tech-guide` directly on the app host for the public junior-developer guide: file/route map, feature traces, ERD, invariants, deployment, tests and safe debugging. It is intentionally unlinked from app navigation, noindex/nofollow and outside the sitemap; an unlisted URL is not access control.
+- Open `/tech-guide` directly on the app host for the public junior-developer guide: file/route map, feature traces, ERD, invariants, deployment, tests and safe debugging. Its dedicated error logging and ID reference is at `/tech-guide/errors`; the complete repository reference is [docs/ERROR_LOGGING.md](./docs/ERROR_LOGGING.md). Both technical guide routes are unlinked from app navigation, noindex/nofollow and outside the sitemap; an unlisted URL is not access control.
 - Open `/user-guide` from the footer, then `/user-guide/resident` or `/user-guide/rwa-admin`. Each public page has a table of contents and bookmarkable sections, including registration-to-results and RWA-setup-to-audit workflows. Dedicated ReadOnly pages are outside this migration's selected scope; the role remains supported by the app.
 - Developers/operators can run `npm run ops -- config-check` to inspect RWA configuration without an app login. This is a local, read-only database report, **not an unauthenticated web entry**. It requires the separately protected `CONFIG_DATABASE_URL`; see [operator setup and report limits](./docs/OPERATIONS.md#read-only-rwa-configuration-inspection).
 - For live, in-app developer help, an RWA Admin can turn **App Support Access** on or off from RWA Settings. When on, the server-only `APP_SUPPORT_EMAIL` identity gets household-free, read-only (`rwa-readonly`) access through the normal email OTP flow; it cannot vote, is RWA-controlled and audited, and is **not** a hidden login or default administrator. See [App Support Access](./docs/OPERATIONS.md#app-support-access-developer-help-rwa-controlled).
@@ -257,7 +258,7 @@ tests/integration/migration-upgrade.test.ts
 src/app/user-guide Native public index and Resident/RWA Admin guide pages
 src/app/tech-guide Unlisted public developer reference
 src/app/site       Main-host editorial product homepage, contact and privacy (host rewrites)
-src/components/site Product website shell (centered 1280px container) and the demo banner
+src/components/site Product website shell, voting example selector and demo banner
 tests/e2e/site-home.spec.ts Opt-in read-only homepage accessibility, reflow and navigation checks
 src/server/demo    Demo persona sign-in (session.ts)
 scripts/ops        Operator CLI: backups, migration-status, demo-reset (demo.ts), provision (provision.ts)

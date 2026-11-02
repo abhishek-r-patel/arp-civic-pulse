@@ -166,6 +166,8 @@ Approved appearance review implementation:
 - Error IDs and structured failure logging:
   - `src/shared/observability/error-id.ts`: readable `AREA-XXXXX-XXXXX` IDs and the path-to-area map.
   - `src/server/observability/request-context.ts`: the per-request `AsyncLocalStorage` log context.
+  - `src/server/http/errors.ts`: stable API error-code catalogue, categories, types, safe messages and operator hints.
+  - `src/app/tech-guide/errors/page.tsx`, `src/components/guides/error-logging-content.tsx`: noindex operator reference rendered from the runtime catalogue.
   - `src/components/ui/page-error-id.ts`: the `PAGE-` ID and Sentry report for `src/app/error.tsx` and the new `src/app/global-error.tsx`.
   - `tests/unit/error-logging.test.ts`: covers IDs, catalogue completeness, cause sanitising, failure logs, Sentry tags and tag scrubbing.
 - `scripts/docs/capture.spec.ts` captures current Platinum/Obsidian persona screens from synthetic accounts; the former root-level pictures `68`-`74` are archived with the old guide. No production data is used.
@@ -252,7 +254,7 @@ Product website, demo and provisioning map (S05-S07):
 - `src/shared/host-routes.ts`: which paths the main host serves (website pages, `robots.txt`, `sitemap.xml`, health) and which email-sending routes the shared, writable demo host refuses.
 - `src/proxy.ts` rewrites main-host pages to `src/app/site/{page,contact/page,privacy/page}.tsx`; `src/server/http/route.ts` (`enforceHostKind`) answers main-host APIs `NOT_FOUND` and demo email routes `DEMO_EMAIL_DISABLED` before any handler runs.
 - `src/server/site/main-host.ts`, `src/server/site/discovery.ts`, `src/components/site/{main-shell,demo-banner}.tsx`: main-site links, host-aware robots/sitemap/metadata, the product shell (no session or RWA data) and the demo banner. `src/app/app-shell.tsx` chooses the shell by host kind; `src/app/not-found.tsx` is host-aware.
-- `src/app/site/page.tsx`: server-rendered editorial product homepage, with Features/Pricing/How it works/Demo sections and an explicitly fictional completed PUBLIC poll illustration. `src/styles/globals.css` scopes its premium styling and the main shell's 1280px container to product-site data attributes; resident/admin shells and backend permissions are unchanged. Demo actions still derive from the active directory entry, falling back to a contact walkthrough when absent.
+- `src/app/site/page.tsx`, `src/components/site/voting-examples.tsx`: server-rendered editorial product homepage and an accessible PUBLIC/PRIVATE selector with fictional completed result illustrations. PRIVATE shows only aggregate candidate/NOTA totals and turnout. `src/styles/globals.css` scopes the homepage styling and main shell container to product-site data attributes; resident/admin shells and backend permissions are unchanged. Demo actions still derive from the active directory entry, falling back to a contact walkthrough when absent.
 - `src/shared/demo.ts`, `src/server/demo/session.ts`, `src/app/api/demo/session/route.ts`, `src/components/demo/demo-persona-sign-in.tsx`: one-click persona sign-in on the demo host (password derived from the demo service-role key, never sent to the browser and self-repaired after a reset, so simultaneous visitors do not cancel each other; global rate limit).
 - `scripts/ops/supabase-project.ts`: shared guard that every credential points at the one confirmed project, plus service-role and Auth-lookup helpers.
 - `scripts/ops/demo.ts`: `npm run ops -- demo-reset` (shortcut `npm run demo:reset`), which erases and reseeds the marked demo project only.
@@ -399,8 +401,9 @@ their own public pages with relative canonical URLs.
 | `tests/unit/metadata.test.ts`, `tests/unit/contact.test.ts` | Discovery policy, contact protections and controlled transport tests |
 | `src/app/user-guide/{page.tsx,resident/page.tsx,rwa-admin/page.tsx}` | Public persona index and complete resident/admin journeys; footer destination and crawlable public routes |
 | `src/app/tech-guide/page.tsx` | Public unlisted junior-developer reference; noindex/nofollow, outside sitemap and app navigation; not an authorization boundary |
+| `src/app/tech-guide/errors/page.tsx` | Dedicated noindex error-logging and error-ID reference; outside sitemap and app navigation |
 | `src/components/guides/guide.tsx` | Shared responsive contents sidebar, stable section anchors, text/steps/notes, exact-dimension lazy Next Image figures and source-file tables |
-| `src/components/guides/{resident-content,admin-content,technical-content}.tsx` | Owned end-to-end procedures, source/route maps, developer traces, deployment/tests and safe debugging |
+| `src/components/guides/{resident-content,admin-content,technical-content,error-logging-content}.tsx` | Owned end-to-end procedures, source/route maps, developer traces, deployment/tests and safe debugging |
 | `src/components/guides/diagrams.tsx` | Dependency-free textual flow diagrams and accessible SVG ERD with key/cardinality descriptions |
 | `src/shared/guides/screenshots.ts` | Curated referenced image paths, personas and captions, shared with the capture runner |
 | `public/guides/{resident,rwa-admin}`; `public/guides/dimensions.json` | Refreshed synthetic PNGs and generated true intrinsic sizes; no base64-embedded HTML bundle |

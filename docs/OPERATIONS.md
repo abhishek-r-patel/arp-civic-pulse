@@ -327,6 +327,10 @@ Run `status` and the health check from a scheduler you control (Windows Task Sch
 
 ### Debug a reported error ID
 
+For the complete catalogue of API codes, categories and ID prefixes, see the
+[Error Logging and IDs reference](./ERROR_LOGGING.md) or the in-app
+[/tech-guide/errors](/tech-guide/errors) technical guide.
+
 Every failure screen shows an **Error ID** that residents and RWA administrators can quote. Admin bulk actions show it in their stop message. The ID's prefix tells you which part of the product failed:
 
 | Prefix | Area | Source to look in |
