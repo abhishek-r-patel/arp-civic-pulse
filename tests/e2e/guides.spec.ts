@@ -88,6 +88,9 @@ for (const [path, title] of guides) {
         page.getByRole("navigation", { name: "Guide personas" }),
       ).toHaveCount(0);
       if (path === "/tech-guide") {
+        await expect(page.locator("article")).toContainText(
+          "CSV uses NAMED_RESPONSE and SUBMITTED_VOTER rows",
+        );
         await expect(
           page.getByRole("img", {
             name: "Civic Pulse core entity relationship diagram",

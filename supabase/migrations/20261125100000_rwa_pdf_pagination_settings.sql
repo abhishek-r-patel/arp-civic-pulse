@@ -19,7 +19,7 @@ as $$
 declare
   s public.rwa_settings;
 begin
-  perform app_private.require_enabled_admin();
+  perform app_private.require_enabled_committee();
   select * into s from public.rwa_settings where id = 1;
   if not found then
     raise exception 'NOT_FOUND' using errcode = 'P0001';
