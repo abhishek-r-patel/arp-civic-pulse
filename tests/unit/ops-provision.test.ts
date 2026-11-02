@@ -1,4 +1,5 @@
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   authConfigPatch,
@@ -8,6 +9,7 @@ import {
   localMigrationVersions,
   migrationStatus,
   provisionPlan,
+  SIGN_IN_TEMPLATE,
   serviceRoleKeyRef,
 } from "../../scripts/ops/provision";
 
@@ -203,6 +205,14 @@ describe("migrationStatus", () => {
 
 describe("Auth configuration", () => {
   const template = "<p>Your code is {{ .Token }}</p>";
+
+  it("keeps the provisioned sign-in template synchronized with Supabase config", () => {
+    expect(SIGN_IN_TEMPLATE.trim()).toBe(
+      readFileSync("supabase/templates/magic_link.html", "utf8")
+        .replace(/\r\n/gu, "\n")
+        .trim(),
+    );
+  });
 
   it("a patched configuration has no fixable problems", () => {
     const patched = authConfigPatch("rwa-one.example.org");

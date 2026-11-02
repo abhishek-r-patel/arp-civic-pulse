@@ -78,8 +78,22 @@ test("README and repository docs introduce no broken local links or Markdown anc
   const files = ["README.md", ...(await readdir(join(root, "docs"))).filter((file) => file.endsWith(".md")).map((file) => `docs/${file}`)];
   function anchors(source) {
     const seen = new Map();
+    function stripTags(value) {
+      let output = "";
+      let insideTag = false;
+      for (const character of value) {
+        if (character === "<") {
+          insideTag = true;
+        } else if (character === ">") {
+          insideTag = false;
+        } else if (!insideTag) {
+          output += character;
+        }
+      }
+      return output;
+    }
     return new Set([...source.matchAll(/^#{1,6}\s+(.+)$/gm)].map((match) => {
-      const base = match[1].trim().toLowerCase().replace(/<[^>]+>/g, "").replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
+      const base = stripTags(match[1].trim().toLowerCase()).replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
       const count = seen.get(base) ?? 0;
       seen.set(base, count + 1);
       return count ? `${base}-${count}` : base;
@@ -91,10 +105,22 @@ test("README and repository docs introduce no broken local links or Markdown anc
       if (/^[a-z][a-z0-9+.-]*:|^\//i.test(target)) continue;
       const [path, fragment] = target.split("#");
       const resolved = path ? resolve(root, dirname(file), decodeURIComponent(path)) : join(root, file);
-      await assert.doesNotReject(stat(resolved), `${file}: missing ${target}`);
+      let resolvedSource = "";
+      try {
+        resolvedSource = await readFile(resolved, "utf8");
+      } catch (error) {
+        if (
+          typeof error !== "object" ||
+          error === null ||
+          !("code" in error) ||
+          error.code !== "EISDIR"
+        ) {
+          throw new Error(`${file}: missing ${target}`, { cause: error });
+        }
+      }
       if (fragment && resolved.endsWith(".md")) {
         const anchor = decodeURIComponent(fragment);
-        if (!anchors(await readFile(resolved, "utf8")).has(anchor)) {
+        if (!anchors(resolvedSource).has(anchor)) {
           const baseline = (path) => execFileSync("git", ["--no-pager", "show", `HEAD:${relative(root, path).split(sep).join("/")}`], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
           assert.ok(baseline(join(root, file)).includes(`](${target})`) && !anchors(baseline(resolved)).has(anchor), `${file}: new missing anchor ${target}`);
           t.diagnostic(`Unchanged pre-existing broken anchor: ${file} → ${target}`);

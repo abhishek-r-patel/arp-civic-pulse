@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readdir, readFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { DEMO_MARKER } from "./demo.ts";
@@ -180,6 +180,19 @@ export async function localMigrationVersions(dir: string): Promise<string[]> {
 }
 
 const SIGN_IN_SUBJECT = "Your Civic Pulse sign-in code";
+// Keep this code-owned upload in sync with Supabase's local Auth template file.
+export const SIGN_IN_TEMPLATE = `<!doctype html>
+<html lang="en">
+  <body>
+    <p>Your Civic Pulse sign-in code is:</p>
+    <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px">{{ .Token }}</p>
+    <p>
+      Enter this code on the sign-in page. It expires soon and can be used once. If you did
+      not ask for it, ignore this message; no one can sign in without the code.
+    </p>
+  </body>
+</html>
+`;
 
 /** Hosted Auth settings the app requires (docs/DEPLOYMENT.md section 5). */
 export function authConfigPatch(host: string) {
@@ -478,10 +491,6 @@ export async function provisionCustomer(
       }
     }
 
-    const template = await readFile(
-      path.join(options.repoRoot, "supabase", "templates", "magic_link.html"),
-      "utf8",
-    );
     if (options.accessToken) {
       let config = await managementAuth(target.projectRef, options.accessToken);
       let problems = authConfigProblems(config, request.host);
@@ -499,7 +508,7 @@ export async function provisionCustomer(
         config = await managementAuth(
           target.projectRef,
           options.accessToken,
-          authTemplatePatch(template),
+          authTemplatePatch(SIGN_IN_TEMPLATE),
         );
         problems = authConfigProblems(config, request.host);
         changed = true;
