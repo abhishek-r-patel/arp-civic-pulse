@@ -1,6 +1,7 @@
 // Management-only export authorization and PRIVATE voter-roster composition tests.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RegisterDeps } from "@/server/register/shared";
+import type { OpenResults } from "@/shared/contracts/results";
 
 const mocks = vi.hoisted(() => ({
   assertOk: vi.fn(),
@@ -8,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   loadAuthIdentities: vi.fn(),
   enforceExportRateLimit: vi.fn(),
   enforceReadLimit: vi.fn(),
-  getCompleteResults: vi.fn(),
+  getCompleteResultsBundle: vi.fn(),
   getMemberVote: vi.fn(),
 }));
 
@@ -23,13 +24,14 @@ vi.mock("@/server/auth/rate-limit", () => ({
 }));
 vi.mock("@/server/votes/member", () => ({
   enforceReadLimit: mocks.enforceReadLimit,
-  getCompleteResults: mocks.getCompleteResults,
+  getCompleteResultsBundle: mocks.getCompleteResultsBundle,
   getMemberVote: mocks.getMemberVote,
 }));
 
 import {
   exportResults,
   getPrivateVoterRosterForPdf,
+  getPublicResponseRowsForPdf,
 } from "@/server/exports/results-export";
 
 const voteId = "00000000-0000-4000-8000-000000000001";
@@ -100,6 +102,51 @@ function participationPage(
 }
 
 describe("management-only result exports", () => {
+  function publicResults(
+    namedResponses: OpenResults["namedResponses"],
+  ): OpenResults {
+    return {
+      vote: {
+        id: voteId,
+        votingType: "PUBLIC",
+        openSelectionMode: "SINGLE",
+        openSelectionLimit: 1,
+        status: "COMPLETED",
+        title: "Synthetic public poll",
+        instructions: null,
+        closesAt: "2026-05-01T12:00:00.000Z",
+        timezone: "UTC",
+        rwaName: "Example RWA",
+        policyVersions: {},
+        activatedAt: "2026-04-20T05:00:00.000Z",
+        completedAt: "2026-05-01T12:00:00.000Z",
+        completionMode: "DEADLINE",
+        completionReason: null,
+      },
+      disclaimer: "Record disclaimer.",
+      eligibleCount: "3",
+      submittedCount: String(namedResponses.length),
+      turnout: {
+        numerator: String(namedResponses.length),
+        denominator: "3",
+        percent: "100",
+      },
+      votingType: "PUBLIC",
+      options: [
+        {
+          id: householdId(90),
+          label: "Option one",
+          count: String(namedResponses.length),
+          percent: "100",
+          eligiblePercent: "100",
+        },
+      ],
+      outcome: "LEADER",
+      leaderOptionIds: [householdId(90)],
+      namedResponses,
+    };
+  }
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.assertOk.mockImplementation(() => undefined);
@@ -116,7 +163,7 @@ describe("management-only result exports", () => {
       code: "FORBIDDEN",
     });
     expect(mocks.getMemberVote).toHaveBeenCalledWith(deps, voteId);
-    expect(mocks.getCompleteResults).not.toHaveBeenCalled();
+    expect(mocks.getCompleteResultsBundle).not.toHaveBeenCalled();
   });
 
   it("uses current Auth emails and sorts the complete roster by identifier", async () => {
@@ -204,5 +251,87 @@ describe("management-only result exports", () => {
     await expect(
       getPrivateVoterRosterForPdf(deps, voteId, "1"),
     ).rejects.toMatchObject({ code: "RESULTS_INTEGRITY_ERROR" });
+  });
+
+  it("joins current emails to frozen PUBLIC identities and sorts by identifier", async () => {
+    const responseC = {
+      representativeName: "Cora",
+      householdIdentifier: "C-1",
+      optionLabels: ["Option one"],
+    };
+    const responseB = {
+      representativeName: "Bea",
+      householdIdentifier: "A-10",
+      optionLabels: ["Option one"],
+    };
+    const responseA = {
+      representativeName: "Ari",
+      householdIdentifier: "A-2",
+      optionLabels: ["Option one"],
+    };
+    const responses = [responseC, responseB, responseA];
+    const identities = [
+      { ...responseC, householdId: householdId(3) },
+      { ...responseB, householdId: householdId(2) },
+      { ...responseA, householdId: householdId(1) },
+    ];
+    const profileRows = [
+      {
+        household_id: householdId(3),
+        representative_profile_id: householdId(103),
+      },
+      {
+        household_id: householdId(2),
+        representative_profile_id: householdId(102),
+      },
+      {
+        household_id: householdId(1),
+        representative_profile_id: householdId(101),
+      },
+    ];
+    mocks.loadAuthIdentities.mockResolvedValue(
+      new Map([
+        [
+          householdId(101),
+          { email: "ari@example.test", emailVerifiedAt: null },
+        ],
+        [
+          householdId(102),
+          { email: "bea@example.test", emailVerifiedAt: null },
+        ],
+        [
+          householdId(103),
+          { email: "cora@example.test", emailVerifiedAt: null },
+        ],
+      ]),
+    );
+
+    await expect(
+      getPublicResponseRowsForPdf(
+        managementDeps(profileRows),
+        voteId,
+        publicResults(responses),
+        identities,
+      ),
+    ).resolves.toEqual([
+      {
+        householdIdentifier: "A-2",
+        representativeName: "Ari",
+        email: "ari@example.test",
+        optionLabels: ["Option one"],
+      },
+      {
+        householdIdentifier: "A-10",
+        representativeName: "Bea",
+        email: "bea@example.test",
+        optionLabels: ["Option one"],
+      },
+      {
+        householdIdentifier: "C-1",
+        representativeName: "Cora",
+        email: "cora@example.test",
+        optionLabels: ["Option one"],
+      },
+    ]);
   });
 });

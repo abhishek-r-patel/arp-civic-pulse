@@ -347,15 +347,43 @@ export async function getResults(
   return { data, page };
 }
 
-/** The complete result, including every named response, for the CSV export. */
+export interface PublicResponseIdentity {
+  representativeName: string;
+  householdIdentifier: string;
+  optionLabels: string[];
+  householdId: string;
+}
+
+export interface CompleteResultsBundle {
+  results: VoteResults;
+  publicResponseIdentities: PublicResponseIdentity[];
+}
+
+/** Complete results plus frozen PUBLIC response identities for authorized PDFs. */
+export async function getCompleteResultsBundle(
+  deps: RegisterDeps,
+  id: string,
+): Promise<CompleteResultsBundle> {
+  const raw = await fetchResultsReconciling(deps, id);
+  const publicResponseIdentities =
+    raw.vote.votingType === "PUBLIC" && raw.vote.status === "COMPLETED"
+      ? (raw.namedResponses ?? []).map((row) => ({
+          representativeName: row.representativeName,
+          householdIdentifier: row.householdIdentifier,
+          optionLabels: row.optionLabels,
+          householdId: row.cursor.householdId,
+        }))
+      : [];
+  return {
+    results: projectResults(withCurrentName(raw, await currentRwaName(deps))),
+    publicResponseIdentities,
+  };
+}
+
+/** The complete result, including every named response, for CSV/PDF exports. */
 export async function getCompleteResults(
   deps: RegisterDeps,
   id: string,
 ): Promise<VoteResults> {
-  return projectResults(
-    withCurrentName(
-      await fetchResultsReconciling(deps, id),
-      await currentRwaName(deps),
-    ),
-  );
+  return (await getCompleteResultsBundle(deps, id)).results;
 }

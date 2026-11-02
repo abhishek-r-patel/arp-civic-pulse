@@ -22,9 +22,17 @@ import {
 import { buildHouseholdTerms } from "@/shared/contracts/household-terms";
 import { canViewAdministration } from "@/shared/contracts/register";
 import { participationMonitorSchema } from "@/shared/contracts/member-votes";
-import { getCompleteResults, getMemberVote } from "@/server/votes/member";
-import { enforceReadLimit } from "@/server/votes/member";
-import type { PrivateVoterRow } from "@/server/exports/pdf";
+import type { OpenResults } from "@/shared/contracts/results";
+import {
+  getCompleteResultsBundle,
+  getMemberVote,
+  enforceReadLimit,
+  type PublicResponseIdentity,
+} from "@/server/votes/member";
+import type {
+  PrivateVoterRow,
+  PublicPdfResponseRow,
+} from "@/server/exports/pdf";
 
 /*
  * RWA Admin/ReadOnly-only on-demand CSV and PDF downloads (docs/API.md
@@ -162,6 +170,84 @@ export async function getPrivateVoterRosterForPdf(
   return rows;
 }
 
+export async function getPublicResponseRowsForPdf(
+  deps: RegisterDeps,
+  voteId: string,
+  results: OpenResults,
+  responseIdentities: readonly PublicResponseIdentity[],
+): Promise<PublicPdfResponseRow[]> {
+  if (!canViewAdministration(deps.actor)) {
+    throw new ApiError("FORBIDDEN");
+  }
+  if (
+    results.vote.status !== "COMPLETED" ||
+    results.namedResponses.length !== responseIdentities.length ||
+    results.namedResponses.some((response, index) => {
+      const identity = responseIdentities[index];
+      return (
+        !identity ||
+        response.representativeName !== identity.representativeName ||
+        response.householdIdentifier !== identity.householdIdentifier ||
+        JSON.stringify(response.optionLabels) !==
+          JSON.stringify(identity.optionLabels)
+      );
+    })
+  ) {
+    throw new ApiError("RESULTS_INTEGRITY_ERROR");
+  }
+  if (responseIdentities.length === 0) return [];
+
+  await enforceReadLimit(deps);
+  const profileByHousehold = new Map<string, string>();
+  for (let offset = 0; offset < responseIdentities.length; offset += 100) {
+    const householdIds = responseIdentities
+      .slice(offset, offset + 100)
+      .map((response) => response.householdId);
+    const { data, error } = await deps.client
+      .from("electorate")
+      .select("household_id, representative_profile_id")
+      .eq("vote_id", voteId)
+      .in("household_id", householdIds)
+      .returns<
+        { household_id: string; representative_profile_id: string | null }[]
+      >();
+    assertOk(error);
+    for (const row of data ?? []) {
+      if (row.representative_profile_id) {
+        profileByHousehold.set(row.household_id, row.representative_profile_id);
+      }
+    }
+  }
+
+  const profileIds = responseIdentities.map((response) => {
+    const profileId = profileByHousehold.get(response.householdId);
+    if (!profileId) throw new ApiError("RESULTS_INTEGRITY_ERROR");
+    return profileId;
+  });
+  const identities = await loadAuthIdentities(deps.admin, profileIds);
+  const rows = responseIdentities.map((response): PublicPdfResponseRow => {
+    const profileId = profileByHousehold.get(response.householdId);
+    const email = profileId ? identities.get(profileId)?.email : null;
+    if (!email) throw new ApiError("RESULTS_INTEGRITY_ERROR");
+    return {
+      householdIdentifier: response.householdIdentifier,
+      representativeName: response.representativeName,
+      email,
+      optionLabels: response.optionLabels,
+    };
+  });
+  const collator = new Intl.Collator("en", {
+    numeric: true,
+    sensitivity: "base",
+  });
+  rows.sort(
+    (left, right) =>
+      collator.compare(left.householdIdentifier, right.householdIdentifier) ||
+      collator.compare(left.representativeName, right.representativeName),
+  );
+  return rows;
+}
+
 export async function exportResults(
   deps: RegisterDeps,
   voteId: string,
@@ -194,7 +280,11 @@ export async function exportResults(
 
   try {
     // The database read is not the scarce resource; rendering is.
-    const results = await getCompleteResults(deps, voteId);
+    const { results, publicResponseIdentities } =
+      await getCompleteResultsBundle(deps, voteId);
+    if (results.vote.status !== "COMPLETED") {
+      throw new ApiError("RESULTS_UNAVAILABLE");
+    }
     const branding = await getRwaBranding(deps.client);
     const { address, email, phone } = branding;
     const terms = buildHouseholdTerms(
@@ -207,6 +297,15 @@ export async function exportResults(
             deps,
             voteId,
             results.submittedCount,
+          )
+        : undefined;
+    const publicResponses =
+      format === "pdf" && results.votingType === "PUBLIC"
+        ? await getPublicResponseRowsForPdf(
+            deps,
+            voteId,
+            results,
+            publicResponseIdentities,
           )
         : undefined;
     const release = await RENDER_SLOTS[format]
@@ -233,6 +332,7 @@ export async function exportResults(
                 rwaAlias: branding.alias,
                 accentPalette: branding.accentPalette,
                 ...(privateVoters ? { privateVoters } : {}),
+                ...(publicResponses ? { publicResponses } : {}),
               }),
             );
     } finally {

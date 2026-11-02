@@ -3,24 +3,20 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import PDFDocument from "pdfkit";
 import { openSync, type Font } from "fontkit";
-import { privacyCopy } from "@/components/votes/privacy-notice";
 import {
   DEFAULT_HOUSEHOLD_TERMS,
   type HouseholdTerms,
 } from "@/shared/contracts/household-terms";
 import type { VoteResults } from "@/shared/contracts/results";
-import { formatInZone } from "@/shared/time/zoned";
+import {
+  VOTE_STATUS_LABELS,
+  VOTING_TYPE_LABELS,
+} from "@/shared/contracts/voting";
 
 /*
- * A4 portrait, grayscale, locally generated PDF of a COMPLETED result
- * (docs/API.md section 5.2). It is rendered from exactly the same projection
- * as the screen, the API and the CSV, complete in memory, so a failure can
- * still be reported cleanly before any success header is sent.
- *
-/*
- * A4 portrait, locally generated PDF of a COMPLETED result. PUBLIC results use
- * the grayscale report; PRIVATE elections use the branded results and
- * management-only participation report. Both render completely in memory.
+ * A4 portrait, locally generated PDF of a COMPLETED result. PUBLIC and PRIVATE
+ * reports share branded headers/footers; PUBLIC named responses and the
+ * management-only PRIVATE participation roster start on the next page.
  *
  * Text is laid out here, not by PDFKit's wrapper, so long names and
  * identifiers wrap, table rows continue across pages under a repeated header,
@@ -80,15 +76,25 @@ const PAGE = {
 const BODY_WIDTH = PAGE.width - PAGE.left - PAGE.right;
 const PRIVATE_LEFT = 24;
 const PRIVATE_WIDTH = PAGE.width - PRIVATE_LEFT * 2;
+const RESULT_CARD_GAP = 10;
 const PRIVATE_FOOTER_RULE_Y = PAGE.height - 102;
 const PRIVATE_CONTENT_BOTTOM = PRIVATE_FOOTER_RULE_Y - 16;
-// Neutral grays only (equal red, green and blue): prints and photocopies identically in black and white.
+// Neutral data colors keep bars, rules and tables readable in grayscale.
 const INK = "#000000";
 const MUTED = "#444444";
 const RULE = "#999999";
 const SHADE = "#e6e6e6";
 const BAR_LEADER = "#1a1a1a";
 const BAR_DEFAULT = "#808080";
+const BADGE_SUCCESS = "#166534";
+const BADGE_SUCCESS_BG = "#f4f8f5";
+const BADGE_SUCCESS_BORDER = "#a3b59f";
+const BADGE_SECONDARY = "#275d79";
+const BADGE_SECONDARY_BG = "#f3f6f7";
+const BADGE_SECONDARY_BORDER = "#9db2bc";
+const BADGE_PRIMARY = "#1d2522";
+const BADGE_PRIMARY_BG = "#f2f3f2";
+const BADGE_PRIMARY_BORDER = "#a7adaa";
 const ACCENT_COLORS = {
   TEAL: "#0c6953",
   BLUE: "#1d4ed8",
@@ -104,12 +110,31 @@ export interface PrivateVoterRow {
   email: string;
 }
 
+export interface PublicPdfResponseRow {
+  householdIdentifier: string;
+  representativeName: string;
+  email: string;
+  optionLabels: string[];
+}
+
 type PrivateResults = Extract<VoteResults, { votingType: "PRIVATE" }>;
 type PrivateOffice = PrivateResults["offices"][number];
 
-interface PrivateReportBranding {
+interface ResultCardHeaderMetrics {
+  titleWidth: number;
+  detailWidth: number;
+  statusWidth: number;
+  titleHeight: number;
+  detailHeight: number;
+  statusHeight: number;
+  height: number;
+}
+type PublicResults = Extract<VoteResults, { votingType: "PUBLIC" }>;
+
+interface BrandedReport {
   alias: string;
   accent: string;
+  votingType: "PUBLIC" | "PRIVATE";
   contact: { address: string; email: string; phone: string };
 }
 
@@ -164,7 +189,7 @@ class Writer {
   private face = "";
   private fontSize = 0;
   private readonly title: string;
-  private readonly privateReport?: PrivateReportBranding;
+  private readonly brandedReport?: BrandedReport;
 
   constructor(
     private readonly rwaName: string,
@@ -173,18 +198,18 @@ class Writer {
       generatedAt: Date;
       voteTitle: string;
       compress: boolean;
-      privateReport?: PrivateReportBranding;
+      brandedReport?: BrandedReport;
     },
   ) {
     this.title = title;
-    this.privateReport = info.privateReport;
+    this.brandedReport = info.brandedReport;
     this.doc = new PDFDocument({
       size: "A4",
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
       bufferPages: true,
       compress: info.compress,
       autoFirstPage: false,
-      // Grayscale-only output; PDFKit's own Helvetica data is never needed.
+      // Use only bundled fonts; PDFKit's own Helvetica data is never needed.
       font: (loadFaces().get("Inter") as LoadedFace).path,
       info: {
         Title: `Results: ${info.voteTitle}`.slice(0, 200),
@@ -200,7 +225,6 @@ class Writer {
     this.newPage();
   }
 
-  // Each page starts with PDF defaults, so the cached drawing state is void on a page change.
   private resetState(): void {
     this.ink = "";
     this.face = "";
@@ -213,10 +237,9 @@ class Writer {
       size: "A4",
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
     });
-    this.y = this.privateReport ? 86 : PAGE.top;
+    this.y = this.brandedReport ? 86 : PAGE.top;
   }
 
-  // Measuring is the hot path (every word of every row); results repeat a lot.
   private readonly widths = new Map<string, number>();
 
   private width(runs: Run[], size: number): number {
@@ -225,7 +248,6 @@ class Writer {
       const key = `${run.face}|${size}|${run.text}`;
       let value = this.widths.get(key);
       if (value === undefined) {
-        // fontkit measures the same shaped advance PDFKit uses, several times faster than doc.widthOfString.
         const { font } = loadFaces().get(run.face) as LoadedFace;
         value = (font.layout(run.text).advanceWidth * size) / font.unitsPerEm;
         this.widths.set(key, value);
@@ -235,7 +257,6 @@ class Writer {
     return total;
   }
 
-  /** Greedy word wrap into lines of runs; words wider than the line are broken by character. */
   wrap(text: string, bold: boolean, size: number, maxWidth: number): Run[][] {
     const lines: Run[][] = [];
     for (const paragraph of text.split(/\r?\n/u)) {
@@ -272,7 +293,6 @@ class Writer {
           push(runs, width);
           continue;
         }
-        // A single unbroken token longer than the line (an identifier, a URL): break between characters.
         for (const { segment } of segmenter.segment(token)) {
           const piece = segmentRuns(segment, bold);
           const pieceWidth = this.width(piece, size);
@@ -360,7 +380,7 @@ class Writer {
   }
 
   ensure(height: number): boolean {
-    const bottom = this.privateReport
+    const bottom = this.brandedReport
       ? PRIVATE_CONTENT_BOTTOM
       : PAGE.height - PAGE.bottom;
     if (this.y + height > bottom) {
@@ -587,6 +607,90 @@ class Writer {
     });
   }
 
+  private resultCardHeaderMetrics(
+    title: string,
+    detail: string,
+    status: string,
+    width: number,
+  ): ResultCardHeaderMetrics {
+    const sidePadding = 8;
+    const columnGap = 6;
+    const titleWidth = Math.min(
+      90,
+      Math.max(56, this.width(segmentRuns(title, true), 8.5) + 4),
+    );
+    const statusWidth = Math.max(
+      58,
+      this.width(segmentRuns(status, true), 6.4) + 4,
+    );
+    const detailWidth =
+      width - sidePadding * 2 - titleWidth - statusWidth - columnGap * 2;
+    if (detailWidth < 24) {
+      throw new Error("Result card columns do not fit the available width.");
+    }
+    const titleHeight =
+      Math.max(1, this.wrap(title, true, 8.5, titleWidth).length) * 10.625;
+    const detailHeight =
+      Math.max(1, this.wrap(detail, true, 8, detailWidth).length) * 10;
+    const statusHeight =
+      Math.max(1, this.wrap(status, true, 6.4, statusWidth).length) * 8;
+    return {
+      titleWidth,
+      detailWidth,
+      statusWidth,
+      titleHeight,
+      detailHeight,
+      statusHeight,
+      height: Math.max(titleHeight, detailHeight, statusHeight),
+    };
+  }
+
+  private drawResultCardHeader(
+    title: string,
+    detail: string,
+    status: string,
+    x: number,
+    y: number,
+    width: number,
+    accent: string,
+  ): number {
+    const metrics = this.resultCardHeaderMetrics(title, detail, status, width);
+    const sidePadding = 8;
+    const columnGap = 6;
+    const detailX = x + sidePadding + metrics.titleWidth + columnGap;
+    const statusX = x + width - sidePadding - metrics.statusWidth;
+    this.drawTextAt(
+      title,
+      x + sidePadding,
+      y + (metrics.height - metrics.titleHeight) / 2,
+      metrics.titleWidth,
+      8.5,
+      accent,
+      true,
+    );
+    this.drawTextAt(
+      detail,
+      detailX,
+      y + (metrics.height - metrics.detailHeight) / 2,
+      metrics.detailWidth,
+      8,
+      INK,
+      true,
+      "center",
+    );
+    this.drawTextAt(
+      status,
+      statusX,
+      y + (metrics.height - metrics.statusHeight) / 2,
+      metrics.statusWidth,
+      6.4,
+      accent,
+      true,
+      "right",
+    );
+    return metrics.height;
+  }
+
   private officeCardRows(office: PrivateOffice) {
     return [
       ...office.candidates.map((candidate) => ({
@@ -606,15 +710,13 @@ class Writer {
 
   private officeCardHeight(office: PrivateOffice, width: number): number {
     const nameWidth = width - 94;
-    const leaders = office.candidates
-      .filter((candidate) => office.leaderCandidateIds.includes(candidate.id))
-      .map((candidate) => candidate.name);
-    const detail =
-      office.outcome === "NO_WINNER"
-        ? "No candidate elected"
-        : leaders.join("; ");
-    const detailHeight =
-      Math.max(1, this.wrap(detail, true, 8, width - 16).length) * 10;
+    const detail = this.officeDetail(office);
+    const headerHeight = this.resultCardHeaderMetrics(
+      office.name,
+      detail,
+      this.officeStatus(office),
+      width,
+    ).height;
     const rowsHeight = this.officeCardRows(office).reduce((total, row) => {
       const lineCount = Math.max(
         1,
@@ -622,7 +724,23 @@ class Writer {
       );
       return total + Math.max(11, lineCount * 8.5 + 2);
     }, 0);
-    return 40 + detailHeight + rowsHeight + 8;
+    return 8 + headerHeight + 4 + rowsHeight + 8;
+  }
+
+  private officeDetail(office: PrivateOffice): string {
+    if (office.outcome === "NO_WINNER") return "No candidate elected";
+    return office.candidates
+      .filter((candidate) => office.leaderCandidateIds.includes(candidate.id))
+      .map((candidate) => candidate.name)
+      .join("; ");
+  }
+
+  private officeStatus(office: PrivateOffice): string {
+    return office.outcome === "LEADER"
+      ? "ELECTED"
+      : office.outcome === "TIE"
+        ? "TIE"
+        : "NO WINNER";
   }
 
   private drawPrivateOfficeCard(
@@ -631,21 +749,10 @@ class Writer {
     y: number,
     width: number,
   ): number {
-    const branding = this.privateReport as PrivateReportBranding;
+    const branding = this.brandedReport as BrandedReport;
     const height = this.officeCardHeight(office, width);
-    const leaders = office.candidates
-      .filter((candidate) => office.leaderCandidateIds.includes(candidate.id))
-      .map((candidate) => candidate.name);
-    const detail =
-      office.outcome === "NO_WINNER"
-        ? "No candidate elected"
-        : leaders.join("; ");
-    const status =
-      office.outcome === "LEADER"
-        ? "ELECTED"
-        : office.outcome === "TIE"
-          ? "TIED"
-          : "NO WINNER";
+    const detail = this.officeDetail(office);
+    const status = this.officeStatus(office);
 
     this.doc
       .save()
@@ -660,36 +767,16 @@ class Writer {
       .fill(branding.accent)
       .restore();
 
-    this.drawTextAt(
+    const headerHeight = this.drawResultCardHeader(
       office.name,
-      x + 8,
-      y + 8,
-      width - 86,
-      9.2,
-      branding.accent,
-      true,
-    );
-    this.drawTextAt(
-      status,
-      x + width - 72,
-      y + 9,
-      64,
-      6.4,
-      branding.accent,
-      true,
-      "right",
-    );
-    const detailY = y + 22;
-    const detailHeight = this.drawTextAt(
       detail,
-      x + 8,
-      detailY,
-      width - 16,
-      8,
-      INK,
-      true,
+      status,
+      x,
+      y + 8,
+      width,
+      branding.accent,
     );
-    let rowY = detailY + Math.max(detailHeight, 10) + 4;
+    let rowY = y + 8 + headerHeight + 4;
     this.doc
       .save()
       .lineWidth(0.45)
@@ -800,6 +887,285 @@ class Writer {
     ]);
   }
 
+  drawPublicResults(
+    results: PublicResults,
+    terms: HouseholdTerms,
+    opening: string,
+    closing: string,
+    publicResponses: readonly PublicPdfResponseRow[],
+  ): void {
+    const branding = this.brandedReport;
+    if (!branding) {
+      throw new Error("A PUBLIC PDF requires its shared report branding.");
+    }
+    this.y = 86;
+    let height = this.drawTextAt(
+      results.vote.title,
+      PRIVATE_LEFT,
+      this.y,
+      PRIVATE_WIDTH,
+      20,
+      INK,
+      true,
+    );
+    this.y += height + 5;
+    if (results.vote.completionMode === "EARLY") {
+      height = this.drawTextAt(
+        `Completed early by an administrator. Reason: ${results.vote.completionReason ?? "not recorded"}`,
+        PRIVATE_LEFT,
+        this.y,
+        PRIVATE_WIDTH,
+        7.5,
+        MUTED,
+      );
+      this.y += height + 5;
+    }
+    height = this.drawTextAt(
+      `Opens at ${opening} · Closed at ${closing}`,
+      PRIVATE_LEFT,
+      this.y,
+      PRIVATE_WIDTH,
+      8.2,
+      MUTED,
+    );
+    this.y += height + 6;
+
+    if (results.vote.instructions) {
+      this.drawTextAt(
+        "VOTE BACKGROUND",
+        PRIVATE_LEFT,
+        this.y,
+        PRIVATE_WIDTH,
+        6.6,
+        MUTED,
+        true,
+      );
+      this.y += 9;
+      height = this.drawTextAt(
+        results.vote.instructions,
+        PRIVATE_LEFT,
+        this.y,
+        PRIVATE_WIDTH,
+        8,
+        INK,
+      );
+      this.y += height + 7;
+    }
+
+    const participationHeight = 24;
+    this.doc
+      .save()
+      .lineWidth(0.6)
+      .strokeColor("#d8dee2")
+      .roundedRect(PRIVATE_LEFT, this.y, PRIVATE_WIDTH, participationHeight, 4)
+      .fillAndStroke("#f5f7f7", "#d8dee2")
+      .restore();
+    this.drawTextAt(
+      results.eligibleCount === "0"
+        ? `No ${terms.households} were eligible for this vote.`
+        : `${results.submittedCount} of ${results.eligibleCount} ${terms.households} participated`,
+      PRIVATE_LEFT + 10,
+      this.y + 7,
+      PRIVATE_WIDTH - 90,
+      8.2,
+      INK,
+      true,
+    );
+    this.drawTextAt(
+      percentText(results.turnout.percent),
+      PRIVATE_LEFT + PRIVATE_WIDTH - 64,
+      this.y + 4,
+      54,
+      12,
+      branding.accent,
+      true,
+      "right",
+    );
+    this.y += participationHeight + 10;
+
+    const leaderNames = results.options
+      .filter((option) => results.leaderOptionIds.includes(option.id))
+      .map((option) => option.label);
+    const status =
+      results.outcome === "LEADER"
+        ? "LEADING"
+        : results.outcome === "TIE"
+          ? "TIE"
+          : "NO LEADER";
+    const detail =
+      results.outcome === "NO_VOTES"
+        ? "No votes were submitted, so no option leads."
+        : leaderNames.join("; ");
+    const cardWidth = (PRIVATE_WIDTH - RESULT_CARD_GAP) / 2;
+    const cardX = PRIVATE_LEFT + (PRIVATE_WIDTH - cardWidth) / 2;
+    const nameWidth = cardWidth - 94;
+    const headerHeight = this.resultCardHeaderMetrics(
+      "Outcome",
+      detail,
+      status,
+      cardWidth,
+    ).height;
+    const optionRows = results.options.map((option) => {
+      const leading =
+        results.outcome !== "NO_VOTES" &&
+        results.leaderOptionIds.includes(option.id);
+      const lines = this.wrap(option.label, leading, 7.2, nameWidth);
+      return {
+        option,
+        leading,
+        lines,
+        height: Math.max(11, lines.length * 8.5 + 2),
+      };
+    });
+    const cardHeight =
+      8 +
+      headerHeight +
+      4 +
+      optionRows.reduce((total, row) => total + row.height, 0) +
+      8;
+    if (this.y + cardHeight > PRIVATE_CONTENT_BOTTOM) {
+      this.newPage();
+      height = this.drawTextAt(
+        results.vote.title,
+        PRIVATE_LEFT,
+        this.y,
+        PRIVATE_WIDTH,
+        12,
+        INK,
+        true,
+      );
+      this.y += height + 3;
+      this.drawTextAt(
+        "RESULTS · CONTINUED",
+        PRIVATE_LEFT,
+        this.y,
+        PRIVATE_WIDTH,
+        8,
+        branding.accent,
+        true,
+      );
+      this.y += 12;
+    }
+
+    this.doc
+      .save()
+      .lineWidth(0.65)
+      .strokeColor("#c8d0d5")
+      .roundedRect(cardX, this.y, cardWidth, cardHeight, 4)
+      .fillAndStroke("#ffffff", "#c8d0d5")
+      .restore();
+    this.doc
+      .save()
+      .roundedRect(cardX, this.y, cardWidth, 3, 1.5)
+      .fill(branding.accent)
+      .restore();
+
+    const drawnHeaderHeight = this.drawResultCardHeader(
+      "Outcome",
+      detail,
+      status,
+      cardX,
+      this.y + 8,
+      cardWidth,
+      branding.accent,
+    );
+    let rowY = this.y + 8 + drawnHeaderHeight + 4;
+    this.doc
+      .save()
+      .lineWidth(0.45)
+      .strokeColor("#d8dee2")
+      .moveTo(cardX + 8, rowY - 2)
+      .lineTo(cardX + cardWidth - 8, rowY - 2)
+      .stroke()
+      .restore();
+
+    for (const [index, row] of optionRows.entries()) {
+      if (row.leading) {
+        this.doc
+          .save()
+          .fillColor(branding.accent)
+          .fillOpacity(0.13)
+          .roundedRect(cardX + 6, rowY, cardWidth - 12, row.height, 2)
+          .fill()
+          .restore();
+        this.doc
+          .save()
+          .roundedRect(cardX + 6, rowY, 2, row.height, 1)
+          .fill(branding.accent)
+          .restore();
+      } else if (index % 2 === 1) {
+        this.doc
+          .save()
+          .rect(cardX + 8, rowY, cardWidth - 16, row.height)
+          .fill("#f5f6f6")
+          .restore();
+      }
+      row.lines.forEach((line, lineIndex) =>
+        this.drawLine(
+          line,
+          cardX + 11,
+          rowY + 1 + lineIndex * 8.5,
+          7.2,
+          INK,
+          "left",
+          nameWidth - 3,
+        ),
+      );
+      this.drawTextAt(
+        row.option.count,
+        cardX + cardWidth - 79,
+        rowY + 1,
+        31,
+        7.2,
+        INK,
+        false,
+        "right",
+      );
+      this.drawTextAt(
+        percentText(row.option.eligiblePercent),
+        cardX + cardWidth - 43,
+        rowY + 1,
+        35,
+        7.2,
+        MUTED,
+        false,
+        "right",
+      );
+      rowY += row.height;
+    }
+    this.y += cardHeight + 9;
+
+    this.newPage();
+    height = this.drawTextAt(
+      results.vote.title,
+      PRIVATE_LEFT,
+      this.y,
+      PRIVATE_WIDTH,
+      20,
+      INK,
+      true,
+    );
+    this.y += height + 3;
+    height = this.drawTextAt(
+      "REPRESENTATIVES WHO VOTED",
+      PRIVATE_LEFT,
+      this.y,
+      PRIVATE_WIDTH,
+      8.5,
+      branding.accent,
+      true,
+      "center",
+    );
+    this.y += height + 3;
+    this.drawVoterTable(
+      results.vote.title,
+      terms,
+      publicResponses,
+      (row) => row.optionLabels.join("; "),
+      "No responses to list.",
+    );
+  }
+
   drawPrivateResults(
     results: PrivateResults,
     terms: HouseholdTerms,
@@ -807,7 +1173,7 @@ class Writer {
     closing: string,
     voters: readonly PrivateVoterRow[],
   ): void {
-    const branding = this.privateReport as PrivateReportBranding;
+    const branding = this.brandedReport as BrandedReport;
     this.y = 86;
     let height = this.drawTextAt(
       results.vote.title,
@@ -880,15 +1246,6 @@ class Writer {
     );
     this.y += participationHeight + 12;
     this.drawTextAt(
-      `${results.disclaimer} This report is derived from the authoritative database, not a backup.`,
-      PRIVATE_LEFT,
-      this.y,
-      PRIVATE_WIDTH,
-      6.1,
-      MUTED,
-    );
-    this.y += 9;
-    this.drawTextAt(
       "RESULTS BY OFFICE",
       PRIVATE_LEFT,
       this.y,
@@ -899,7 +1256,7 @@ class Writer {
     );
     this.y += 13;
 
-    const gap = 10;
+    const gap = RESULT_CARD_GAP;
     const cardWidth = (PRIVATE_WIDTH - gap) / 2;
     for (let index = 0; index < results.offices.length; index += 2) {
       const first = results.offices[index];
@@ -979,20 +1336,31 @@ class Writer {
       "center",
     );
     this.y += height + 3;
-    this.drawPrivateVoterTable(results.vote.title, terms, voters);
+    this.drawVoterTable(
+      results.vote.title,
+      terms,
+      voters,
+      null,
+      "No representatives voted.",
+    );
   }
 
-  private drawPrivateVoterTable(
+  private drawVoterTable<Row extends PrivateVoterRow>(
     voteTitle: string,
     terms: HouseholdTerms,
-    voters: readonly PrivateVoterRow[],
+    voters: readonly Row[],
+    choice: ((voter: Row) => string) | null,
+    emptyMessage: string,
   ): void {
-    const branding = this.privateReport as PrivateReportBranding;
-    const widths = [125, 175, PRIVATE_WIDTH - 300];
+    const branding = this.brandedReport as BrandedReport;
+    const widths = choice
+      ? [100, 125, 175, PRIVATE_WIDTH - 400]
+      : [125, 175, PRIVATE_WIDTH - 300];
     const headers = [
       terms.identifierLabel.toUpperCase(),
       "REPRESENTATIVE",
       "EMAIL",
+      ...(choice ? ["CHOICE"] : []),
     ];
     const headerHeight = 17;
     const fontSize = 6.4;
@@ -1049,7 +1417,7 @@ class Writer {
     drawHeader();
     if (voters.length === 0) {
       this.drawTextAt(
-        "No representatives voted.",
+        emptyMessage,
         PRIVATE_LEFT + 6,
         this.y + 5,
         PRIVATE_WIDTH - 12,
@@ -1065,6 +1433,7 @@ class Writer {
         voter.representativeName,
         voter.email,
       ];
+      if (choice) values.push(choice(voter));
       const wrapped = values.map((value, column) =>
         this.wrap(value, false, fontSize, (widths[column] as number) - 12),
       );
@@ -1108,8 +1477,8 @@ class Writer {
     });
   }
 
-  private decoratePrivatePage(pageNumber: number, pageCount: number): void {
-    const branding = this.privateReport;
+  private decorateBrandedPage(pageNumber: number, pageCount: number): void {
+    const branding = this.brandedReport;
     if (!branding) return;
     const rightX = PAGE.width - PRIVATE_LEFT - 275;
     const leftWidth = rightX - PRIVATE_LEFT - 12;
@@ -1139,16 +1508,135 @@ class Writer {
       7.5,
       MUTED,
     );
-    this.drawTextAt("Results", rightX, 21, 275, 10.5, INK, true, "right");
+    this.drawTextAt("RESULTS", rightX, 18, 275, 12.5, INK, true, "right");
+
+    const statusLabel = VOTE_STATUS_LABELS.COMPLETED;
+    const typeLabel = VOTING_TYPE_LABELS[branding.votingType];
+    const typeColor =
+      branding.votingType === "PUBLIC" ? BADGE_SECONDARY : BADGE_PRIMARY;
+    const typeBackground =
+      branding.votingType === "PUBLIC" ? BADGE_SECONDARY_BG : BADGE_PRIMARY_BG;
+    const typeBorder =
+      branding.votingType === "PUBLIC"
+        ? BADGE_SECONDARY_BORDER
+        : BADGE_PRIMARY_BORDER;
+    const badgeFontSize = 7;
+    const badgeHeight = 16;
+    const badgeGap = 4;
+    const badgePad = 5;
+    const iconWidth = 9;
+    const typeIconGap = branding.votingType === "PUBLIC" ? 3 : 0;
+    const statusWidth =
+      this.width(segmentRuns(statusLabel, true), badgeFontSize) +
+      badgePad * 2 +
+      iconWidth;
+    const typeWidth =
+      this.width(segmentRuns(typeLabel, true), badgeFontSize) +
+      badgePad * 2 +
+      iconWidth +
+      typeIconGap;
+    const badgesWidth = statusWidth + badgeGap + typeWidth;
+    const badgeY = 36;
+    const statusX = PAGE.width - PRIVATE_LEFT - badgesWidth;
+    const typeX = statusX + statusWidth + badgeGap;
+
+    this.doc
+      .save()
+      .lineWidth(0.5)
+      .roundedRect(statusX, badgeY, statusWidth, badgeHeight, 4)
+      .fillAndStroke(BADGE_SUCCESS_BG, BADGE_SUCCESS_BORDER)
+      .restore();
+    this.doc
+      .save()
+      .lineWidth(0.9)
+      .strokeColor(BADGE_SUCCESS)
+      .circle(statusX + badgePad + 3.5, badgeY + badgeHeight / 2, 3.2)
+      .stroke()
+      .moveTo(statusX + badgePad + 1.8, badgeY + 8)
+      .lineTo(statusX + badgePad + 3.1, badgeY + 9.3)
+      .lineTo(statusX + badgePad + 5.4, badgeY + 6.8)
+      .stroke()
+      .restore();
     this.drawTextAt(
-      "PRIVATE Voting",
-      rightX,
-      37,
-      275,
-      7.5,
-      branding.accent,
+      statusLabel,
+      statusX + badgePad + iconWidth,
+      badgeY + 4.1,
+      statusWidth - badgePad * 2 - iconWidth,
+      badgeFontSize,
+      BADGE_SUCCESS,
       true,
-      "right",
+    );
+
+    this.doc
+      .save()
+      .lineWidth(0.5)
+      .roundedRect(typeX, badgeY, typeWidth, badgeHeight, 4)
+      .fillAndStroke(typeBackground, typeBorder)
+      .restore();
+    if (branding.votingType === "PUBLIC") {
+      const iconX = typeX + badgePad;
+      const iconY = badgeY + (badgeHeight - iconWidth) / 2;
+      this.doc
+        .save()
+        .lineWidth(0.75)
+        .strokeColor(typeColor)
+        .moveTo(iconX + 0.75, iconY + 4.5)
+        .bezierCurveTo(
+          iconX + 2.1,
+          iconY + 1.25,
+          iconX + 6.9,
+          iconY + 1.25,
+          iconX + 8.25,
+          iconY + 4.5,
+        )
+        .bezierCurveTo(
+          iconX + 6.9,
+          iconY + 7.75,
+          iconX + 2.1,
+          iconY + 7.75,
+          iconX + 0.75,
+          iconY + 4.5,
+        )
+        .stroke()
+        .circle(iconX + 4.5, iconY + 4.5, 1.25)
+        .stroke()
+        .restore();
+    } else {
+      this.doc
+        .save()
+        .lineWidth(0.75)
+        .strokeColor(typeColor)
+        // Lucide Lock geometry shares the icon slot and visual spacing of the Completed check.
+        .roundedRect(
+          typeX + badgePad + 0.125,
+          badgeY + 7.625,
+          6.75,
+          4.125,
+          0.75,
+        )
+        .stroke()
+        .moveTo(typeX + badgePad + 1.625, badgeY + 7.625)
+        .lineTo(typeX + badgePad + 1.625, badgeY + 6.125)
+        .bezierCurveTo(
+          typeX + badgePad + 1.625,
+          badgeY + 4.25,
+          typeX + badgePad + 5.375,
+          badgeY + 4.25,
+          typeX + badgePad + 5.375,
+          badgeY + 6.125,
+        )
+        .lineTo(typeX + badgePad + 5.375, badgeY + 7.625)
+        .stroke()
+        .restore();
+    }
+    this.drawTextAt(
+      typeLabel,
+      typeX + badgePad + iconWidth + typeIconGap,
+      badgeY + 4.1,
+      typeWidth - badgePad * 2 - iconWidth - typeIconGap,
+      badgeFontSize,
+      typeColor,
+      true,
     );
     this.doc
       .save()
@@ -1220,8 +1708,8 @@ class Writer {
     for (let i = 0; i < range.count; i += 1) {
       this.doc.switchToPage(range.start + i);
       this.resetState();
-      if (this.privateReport) {
-        this.decoratePrivatePage(i + 1, range.count);
+      if (this.brandedReport) {
+        this.decorateBrandedPage(i + 1, range.count);
         continue;
       }
       const topRuns =
@@ -1288,12 +1776,6 @@ const percentText = (value: string | null) =>
 const barValue = (count: string, eligible: string, percent: string | null) =>
   `${count}/${eligible}   ${percentText(percent)}`;
 
-function kindLabel(type: "PUBLIC" | "PRIVATE") {
-  return type === "PUBLIC"
-    ? "PUBLIC voting (named responses)"
-    : "PRIVATE voting (secret ballot, totals only)";
-}
-
 function completedAt(results: VoteResults): string {
   if (
     results.vote.status !== "COMPLETED" ||
@@ -1331,33 +1813,24 @@ export async function renderResultsPdf(
     rwaAlias?: string;
     accentPalette?: keyof typeof ACCENT_COLORS;
     privateVoters?: readonly PrivateVoterRow[];
+    publicResponses?: readonly PublicPdfResponseRow[];
   } = {},
 ): Promise<Buffer> {
   const { vote } = results;
   const terms = options.terms ?? DEFAULT_HOUSEHOLD_TERMS;
-  const copy = privacyCopy(terms);
   const completed = completedAt(results);
   const zone = vote.timezone;
   // A printed record outlives the year it was made in: pass an epoch "now" so the year is always shown.
-  const at = (iso: string) => formatInZone(iso, zone, new Date(0));
-
   const writer = new Writer(vote.rwaName, vote.title, {
     generatedAt,
     voteTitle: vote.title,
     compress: options.compress ?? true,
-    ...(vote.votingType === "PRIVATE"
-      ? {
-          privateReport: {
-            alias: options.rwaAlias ?? vote.rwaName,
-            accent: ACCENT_COLORS[options.accentPalette ?? "TEAL"],
-            contact: options.rwaContact ?? {
-              address: "",
-              email: "",
-              phone: "",
-            },
-          },
-        }
-      : {}),
+    brandedReport: {
+      alias: options.rwaAlias ?? vote.rwaName,
+      accent: ACCENT_COLORS[options.accentPalette ?? "TEAL"],
+      votingType: vote.votingType,
+      contact: options.rwaContact ?? { address: "", email: "", phone: "" },
+    },
   });
 
   if (results.votingType === "PRIVATE") {
@@ -1376,152 +1849,18 @@ export async function renderResultsPdf(
     return writer.finish();
   }
 
-  writer.paragraph("Civic Pulse · Result of a completed vote", {
-    size: 9,
-    color: MUTED,
-  });
-  writer.paragraph(vote.title, { size: 20, bold: true });
-  writer.gap(4);
-  writer.paragraph(vote.rwaName, { size: 11, color: MUTED });
-  if (options.rwaContact) {
-    const { address, email, phone } = options.rwaContact;
-    if (address) {
-      writer.paragraph(address, { size: 9, color: MUTED });
-    }
-    const contactLine = [email, phone].filter(Boolean).join(" · ");
-    if (contactLine) {
-      writer.paragraph(contactLine, { size: 9, color: MUTED });
-    }
-  }
-  writer.gap(8);
-
-  writer.table(
-    [
-      { header: "Detail", width: 150, bold: true },
-      { header: "Value", width: 345 },
-    ],
-    [
-      ["Voting type", kindLabel(results.votingType)],
-      ["Status", "Completed"],
-      ["Voting opened", at(vote.activatedAt)],
-      ["Voting ended", at(completed)],
-      [
-        "How it ended",
-        vote.completionMode === "EARLY"
-          ? `Completed early by an administrator. Reason: ${vote.completionReason ?? "not recorded"}`
-          : "Ran to its deadline",
-      ],
-      ["Time zone", zone],
-      [
-        "Report generated",
-        `${at(generatedAt.toISOString())} (from the completed result)`,
-      ],
-    ],
-    (row) => row,
+  writer.drawPublicResults(
+    results,
+    terms,
+    localDateTimeWithoutZone(vote.activatedAt, zone),
+    localDateTimeWithoutZone(completed, zone),
+    options.publicResponses ??
+      results.namedResponses.map((response) => ({
+        ...response,
+        email: "",
+      })),
   );
-
-  writer.heading("Turnout");
-  if (results.turnout.percent === null) {
-    writer.paragraph(`No ${terms.households} were eligible for this vote.`);
-  } else {
-    writer.gap(2);
-    writer.bars([
-      {
-        label: `${terms.Households} that voted`,
-        value: barValue(
-          results.turnout.numerator,
-          results.turnout.denominator,
-          results.turnout.percent,
-        ),
-        percent: results.turnout.percent,
-        tone: "leader",
-      },
-    ]);
-  }
-  writer.paragraph(
-    `Eligibility was fixed when the vote was activated. Each figure below is a count out of the ${results.eligibleCount} eligible ${String(results.eligibleCount) === "1" ? terms.household : terms.households}, with its percentage.`,
-    {
-      size: 8.5,
-      color: MUTED,
-    },
-  );
-
-  if (results.votingType === "PUBLIC") {
-    if (results.vote.openSelectionMode === "MULTIPLE") {
-      writer.paragraph(
-        `Each ${terms.household} submitted one ballot with multiple selections. Option percentages can add up to more than 100%.`,
-        { size: 8.5, color: MUTED },
-      );
-    }
-    writer.heading("Outcome");
-    const leaders = results.options
-      .filter((o) => results.leaderOptionIds.includes(o.id))
-      .map((o) => o.label);
-    writer.paragraph(
-      results.outcome === "NO_VOTES"
-        ? "No votes were submitted, so no option leads."
-        : results.outcome === "TIE"
-          ? `Tie. These options received the same highest count: ${leaders.join("; ")}.`
-          : `Leading option: ${leaders[0] ?? ""}`,
-      { bold: true },
-    );
-
-    writer.heading("Totals");
-    writer.bars(
-      results.options.map((o) => {
-        const leading =
-          results.outcome !== "NO_VOTES" &&
-          results.leaderOptionIds.includes(o.id);
-        return {
-          label: leading
-            ? `${o.label} (${results.outcome === "TIE" ? "Tied" : "Leading"})`
-            : o.label,
-          value: barValue(o.count, results.eligibleCount, o.eligiblePercent),
-          percent: o.eligiblePercent,
-          tone: leading ? "leader" : "default",
-        };
-      }),
-    );
-
-    writer.heading(
-      `Who chose what (${results.namedResponses.length} responses)`,
-    );
-    writer.paragraph(copy.PUBLIC, { size: 8.5, color: MUTED });
-    writer.gap(4);
-    if (results.namedResponses.length === 0) {
-      writer.paragraph("No responses to list.");
-    } else {
-      writer.table(
-        [
-          { header: "Representative", width: 190 },
-          { header: terms.identifierLabel, width: 100 },
-          { header: "Choice", width: 205 },
-        ],
-        results.namedResponses,
-        (n) => [
-          n.representativeName,
-          n.householdIdentifier,
-          n.optionLabels.join("; "),
-        ],
-      );
-    }
-  }
-
-  if (vote.instructions) {
-    writer.heading("Instructions given to voters");
-    writer.paragraph(vote.instructions);
-  }
-
-  writer.heading("About this record");
-  writer.paragraph(results.disclaimer);
-  writer.paragraph(
-    "This printable report is derived from the authoritative database result. It is not a backup, an electronic signature, or a certificate. A printed or downloaded copy cannot be recalled or deleted by the RWA.",
-    { size: 8.5, color: MUTED },
-  );
-
-  writer.decorate(
-    `Generated ${at(generatedAt.toISOString())} · ${zone} · Record ${vote.id.slice(0, 8)}`,
-  );
+  writer.decorate(results.disclaimer);
   return writer.finish();
 }
 

@@ -753,17 +753,18 @@ test.describe("results and download", () => {
     );
     const pdf = await pdfText(await readFile(await pdfDownload.path()));
     expect(pdf).toContain(
-      `voted${api.submittedCount}/${api.eligibleCount}${api.turnout.percent}%`,
+      `${api.submittedCount}of${api.eligibleCount}householdsparticipated${api.turnout.percent}%`,
     );
     // Like the screen, the PDF shows each option against all eligible flats.
-    expect(pdf).toContain("Yes(Leading)2/450%");
+    expect(pdf).toContain("Yes2/450%");
     expect(pdf).toContain("No1/425%");
     for (const resident of [a, b, c]) {
       expect(pdf).toContain(resident.name.replace(/\s+/gu, ""));
+      expect(pdf).toContain(resident.email.replace(/\s+/gu, ""));
     }
     expect(pdf).not.toContain(d.name.replace(/\s+/gu, ""));
     expect(pdf).toContain("E2Ecompletion");
-    expect(pdf).not.toContain(a.email);
+    expect(pdf).not.toContain(d.email.replace(/\s+/gu, ""));
 
     const requestId = "EXPORT-7K3QX-M2PTA";
     const csvPath = `**/api/votes/${vote.id}/exports/csv`;

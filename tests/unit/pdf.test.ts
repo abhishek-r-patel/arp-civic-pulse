@@ -7,11 +7,7 @@ import {
   renderResultsPdf,
   segmentRuns,
 } from "@/server/exports/pdf";
-import {
-  projectResults,
-  RESULTS_DISCLAIMER,
-  type RawResults,
-} from "@/shared/contracts/results";
+import { projectResults, type RawResults } from "@/shared/contracts/results";
 import { buildHouseholdTerms } from "@/shared/contracts/household-terms";
 
 const ID = (n: number) =>
@@ -157,34 +153,75 @@ describe("segmentRuns", () => {
 describe("renderResultsPdf", () => {
   it("renders an A4 PDF with the same facts as the screen, CSV and API", async () => {
     const results = projectResults(
-      openRaw(3, (i) => ["Alice Rao", "Bob Iyer", "Dave Nair"][i] as string),
+      openRaw(3, (i) => ["Alice Rao", "Bob Iyer", "Dave Nair"][i] as string, {
+        rwaName: "Lakeview Residents Welfare Association",
+        instructions: "Residents may select one option.",
+      }),
     );
-    const pdf = await renderResultsPdf(results, generated);
+    if (results.votingType !== "PUBLIC") {
+      throw new Error("Expected a PUBLIC results fixture.");
+    }
+    const pdf = await renderResultsPdf(results, generated, {
+      terms: buildHouseholdTerms("Flat", "ID"),
+      rwaAlias: "Lakeview RWA",
+      rwaContact: {
+        address: "1 Example Road, Sample City",
+        email: "office@lakeview.example.test",
+        phone: "+91 123 456 7890",
+      },
+      publicResponses: results.namedResponses.map((response, index) => ({
+        ...response,
+        email: `resident${index + 1}@example.test`,
+      })),
+    });
     await keep("open-small.pdf", pdf);
     expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
 
     const read = await readPdf(pdf);
-    expect(read.pages).toHaveLength(1);
+    expect(read.pages).toHaveLength(2);
     expect(read.sizes[0]?.map(Math.round)).toEqual([595, 842]);
     const text = squash(read.text);
     for (const expected of [
       "Repaint the clubhouse?",
+      "Lakeview Residents Welfare Association",
       "Lakeview RWA",
-      "Mon 20 Apr 2026, 10:30 AM IST",
-      "Fri 1 May 2026, 5:30 PM IST",
-      "Households that voted 3/8 38%",
-      "Leading option: Yes, repaint",
-      "Yes, repaint (Leading) 2/8 25%",
-      "No 1/8 13%",
+      "1 Example Road, Sample City",
+      "office@lakeview.example.test",
+      "Opens at 20 Apr 2026, 10:30 AM",
+      "Closed at 1 May 2026, 5:30 PM",
+      "VOTE BACKGROUND",
+      "Residents may select one option.",
+      "3 of 8 flats participated",
+      "RESULTS",
+      "Completed",
+      "PUBLIC Voting",
+      "Outcome",
+      "LEADING",
+      "Yes, repaint",
+      "Yes, repaint 2 25%",
+      "No 1 13%",
+      "REPRESENTATIVES WHO VOTED",
+      "FLAT ID",
+      "EMAIL",
+      "CHOICE",
       "Alice Rao",
       "H-0001",
-      "Page 1 of 1",
-      "Asia/Kolkata",
-      RESULTS_DISCLAIMER,
-      "not a backup, an electronic signature, or a certificate",
+      "resident1@example.test",
+      "Page 1 of 2",
+      "Page 2 of 2",
     ]) {
       expect(text, expected).toContain(squash(expected));
     }
+    expect(text).not.toContain("Leading option");
+    expect(squash(read.pages[0] ?? "")).toContain(
+      squash("Outcome Yes, repaint LEADING"),
+    );
+    expect(squash(read.pages[1] ?? "")).not.toContain("Whilevotingisopen");
+    expect(squash(read.pages[1] ?? "")).toContain("FLATID");
+    expect(squash(read.pages[1] ?? "")).toContain("CHOICE");
+    expect(text).not.toContain("This record is not a signature");
+    expect(squash(read.pages[0] ?? "")).not.toContain("AliceRao");
+    expect(squash(read.pages[1] ?? "")).toContain("AliceRao");
     expect(read.info.Title).toBe("Results: Repaint the clubhouse?");
   });
 
@@ -208,7 +245,7 @@ describe("renderResultsPdf", () => {
     }
     // Header repeats on every continuation page.
     const withHeader = read.pages.filter((p) =>
-      squash(p).includes("RepresentativeHouseholdNumberChoice"),
+      squash(p).includes("HOUSEHOLDNUMBERREPRESENTATIVEEMAILCHOICE"),
     );
     expect(withHeader.length).toBeGreaterThanOrEqual(read.pages.length - 1);
     // Page X of N on every page, N correct.
@@ -284,14 +321,16 @@ describe("renderResultsPdf", () => {
       "Opens at 20 Apr 2026, 10:30 AM",
       "Closed at 1 May 2026, 5:30 PM",
       "3 of 4 flats participated",
-      RESULTS_DISCLAIMER,
-      "This report is derived from the authoritative database, not a backup.",
+      "RESULTS",
+      "Completed",
+      "PRIVATE Voting",
       "REPRESENTATIVES WHO VOTED",
       "FLAT ID",
       "REPRESENTATIVE",
       "EMAIL",
       "Chair",
       "Treasurer",
+      "TIE",
       "Asha; Ravi",
       "NOTA (None of the Above)",
       "No candidate elected",
@@ -305,9 +344,17 @@ describe("renderResultsPdf", () => {
       expect(text, expected).toContain(squash(expected));
     }
     expect(text).not.toContain("IST");
+    expect(text).not.toContain("This record is not a signature");
     expect(text).not.toContain("Who chose what");
     expect(text).not.toContain("People who run the system");
     expect(text).not.toContain("Asha (Tied)");
+    expect(squash(read.pages[1] ?? "")).not.toContain("CHOICE");
+    expect(squash(read.pages[0] ?? "")).toContain(
+      squash("Chair Asha; Ravi TIE"),
+    );
+    expect(squash(read.pages[0] ?? "")).toContain(
+      squash("Treasurer No candidate elected NO WINNER"),
+    );
   });
 
   it("refuses to render a PRIVATE PDF without its voter roster", async () => {
@@ -398,12 +445,22 @@ describe("renderResultsPdf", () => {
     expect(text).toContain(
       squash("No households were eligible for this vote."),
     );
-    expect(text).toContain(squash("Yes, repaint 0/0 —"));
+    expect(text).toContain(squash("Yes, repaint 0 —"));
     expect(text).toContain(
       squash("No votes were submitted, so no option leads."),
     );
     expect(text).toContain(squash("No responses to list."));
     expect(text).not.toContain("NaN");
+  });
+
+  it("labels a tied PUBLIC poll as TIE", async () => {
+    const raw = openRaw(2, (index) => `Resident ${index}`);
+    const text = squash(
+      (await readPdf(await renderResultsPdf(projectResults(raw), generated)))
+        .text,
+    );
+    expect(text).toContain("TIE");
+    expect(text).not.toContain("TIED");
   });
 
   it("refuses to produce a PDF when any text is outside the approved scripts", async () => {
@@ -415,7 +472,7 @@ describe("renderResultsPdf", () => {
     );
   });
 
-  it("uses neutral grays only: every color has equal red, green and blue", async () => {
+  it("uses branded RGB accents without CMYK output", async () => {
     const pdf = await renderResultsPdf(
       projectResults(openRaw(3, (i) => `Resident ${i}`)),
       generated,
@@ -428,9 +485,7 @@ describe("renderResultsPdf", () => {
       ...content.matchAll(/([0-9.]+) ([0-9.]+) ([0-9.]+) (?:scn|SCN)/gu),
     ];
     expect(colors.length).toBeGreaterThan(0);
-    for (const [, r, g, b] of colors) {
-      expect(r === g && g === b, `${r} ${g} ${b}`).toBe(true);
-    }
+    expect(colors.some(([, r, g, b]) => r !== g || g !== b)).toBe(true);
     expect(content).not.toMatch(/\s[0-9.]+ [0-9.]+ [0-9.]+ [0-9.]+ (?:k|K)\s/u);
     expect(content).not.toContain("/DeviceCMYK");
   });

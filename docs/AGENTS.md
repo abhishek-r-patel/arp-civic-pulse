@@ -7,7 +7,7 @@ Civic Pulse is a mobile-first, single-RWA voting application. PUBLIC polls show 
 
 The implemented stack is Next.js App Router, TypeScript, **Supabase Auth/PostgreSQL/RLS/SQL functions/Cron**, and **Tailwind CSS**. Application source, scripts and tests are present. Inspect the actual code and manifests; do not apply historical custom-auth/scaffold assumptions or perform unrelated wholesale rewrites.
 
-Supabase PostgreSQL is authoritative. Completed votes offer a required PDF and optional operator-enabled per-RWA CSV to RWA Admin and RWA ReadOnly only; residents view results in-app. PUBLIC PDFs contain authorized named responses without email. PRIVATE PDFs show aggregate results separately from a completed-voter roster (frozen name/identifier plus current Auth email), never ballot choices or identity-to-choice mappings. Neither export is a backup, signature or source of truth.
+Supabase PostgreSQL is authoritative. Completed votes offer a required PDF and optional operator-enabled per-RWA CSV to RWA Admin and RWA ReadOnly only; residents view results in-app. PUBLIC PDFs contain authorized named responses plus current Auth emails; PUBLIC result APIs and CSV remain email-free. PRIVATE PDFs show aggregate results separately from a completed-voter roster (frozen name/identifier plus current Auth email), never ballot choices or identity-to-choice mappings. Neither export is a backup, signature or source of truth.
 
 ## 02 Governing Documents
 Read the relevant documents before implementing affected behavior:
@@ -49,7 +49,7 @@ Distinguish proposed, implemented, tested and approved behavior. Never fabricate
 - Explain application-level privacy and privileged-operator/small-election inference limits. Do not promise cryptographic anonymity.
 
 ## 05 Supabase and UI Boundaries
-- Normal server database calls use the verified user's Supabase session. Isolate privileged Auth credentials; the sole export exception is a management-authorized lookup of current Auth emails for submitted representatives in a completed PRIVATE PDF. This lookup follows the caller-session result/participation checks and never bypasses voting permissions or reads ballot choices.
+- Normal server database calls use the verified user's Supabase session. Isolate privileged Auth credentials; PDF-only email lookups are limited to authorized PUBLIC respondents or PRIVATE participants in completed management exports. These lookups follow caller-session result/identity checks and never bypass voting permissions or read ballot choices.
 - Enable deny-by-default RLS on application tables and restrict grants. Assume callers can access Supabase directly; the Next.js boundary is not database authorization.
 - Prefer invoker privileges where sufficient. Use `security definer` only when elevated access is required, with restricted ownership, fixed `search_path`, schema-qualified references, revoked public execution and explicit caller checks.
 - Keep maintenance functions restricted to the scheduling role. Cron does not replace transactional deadlines or guarantee availability while a database is paused.
