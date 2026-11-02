@@ -119,10 +119,22 @@ for (const [path, title] of guides) {
       await expect(page.locator("article")).toContainText("below the message");
       await expect(page.locator("article")).toContainText("RWA administrator");
       await expect(page.locator("article")).toContainText(
+        "PUBLIC PDFs and CSVs include the current account email",
+      );
+      await expect(page.locator("article")).toContainText(
+        "PRIVATE PDFs and CSVs include a separate roster",
+      );
+      await expect(page.locator("article")).toContainText(
         "press and hold the text",
       );
     }
     if (path === "/user-guide/rwa-admin") {
+      await expect(page.locator("article")).toContainText(
+        "PUBLIC PDFs and CSVs include current Auth emails",
+      );
+      await expect(page.locator("article")).toContainText(
+        "PRIVATE PDFs and CSVs include a separate submitted-voter roster",
+      );
       await expect(page.locator("article")).toContainText(
         "deployment operator through the agreed support channel",
       );

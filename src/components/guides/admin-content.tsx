@@ -538,10 +538,13 @@ export function adminSections(terms: HouseholdTerms): GuideSection[] {
             <li>
               Download the required PDF; CSV appears only when the deployment
               operator enables it for this RWA. Files contain the full
-              authorised result, not only the current page. Protect named PUBLIC
-              reports; downloaded files cannot be recalled. If PDF cannot
-              represent a character, use CSV when available or contact the
-              deployment operator.
+              authorised result, not only the current page. PUBLIC PDFs and CSVs
+              include current Auth emails on authorized named-response rows.
+              PRIVATE PDFs and CSVs include a separate submitted-voter roster
+              with current Auth emails and no choices. Protect these exports;
+              downloaded files cannot be recalled. If PDF cannot represent a
+              character, use CSV when available or contact the deployment
+              operator.
             </li>
             <li>
               Open Audit History to inspect Who, Target, Action, Details and

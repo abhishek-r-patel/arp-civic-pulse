@@ -8,8 +8,8 @@ import type { VoteResults } from "@/shared/contracts/results";
  * CSV export of a COMPLETED result (docs/API.md section 5.2). One rectangular
  * schema with fixed columns; unused cells are empty. The whole document is
  * rendered in memory from the same projection the screen and API use, so
- * nothing is sent until it is complete. No emails, counters or selection
- * history ever appear, and a PRIVATE export carries no identity columns.
+ * nothing is sent until it is complete. Current Auth emails are supplied only
+ * by the authorized export service. PRIVATE voter rows never carry choices.
  * Column names are stable machine keys; only human-readable notices use the
  * RWA's household wording.
  */
@@ -33,11 +33,30 @@ export const CSV_COLUMNS = [
   "outcome",
   "representativeName",
   "householdIdentifier",
+  "email",
   "choice",
   "notice",
 ] as const;
 type Column = (typeof CSV_COLUMNS)[number];
 type Cells = Partial<Record<Column, string | null>>;
+
+export interface CsvPublicResponseRow {
+  representativeName: string;
+  householdIdentifier: string;
+  email: string;
+  optionLabels: string[];
+}
+
+export interface CsvPrivateVoterRow {
+  representativeName: string;
+  householdIdentifier: string;
+  email: string;
+}
+
+export interface CsvExportIdentities {
+  publicResponses?: readonly CsvPublicResponseRow[];
+  privateVoters?: readonly CsvPrivateVoterRow[];
+}
 
 // Spreadsheets treat these leading characters as a formula (CSV injection).
 const FORMULA_START = /^[\t\r ]*[=+\-@]|^[\t\r]/u;
@@ -79,6 +98,7 @@ export function renderResultsCsv(
   results: VoteResults,
   generatedAt: Date,
   terms: HouseholdTerms = DEFAULT_HOUSEHOLD_TERMS,
+  identities: CsvExportIdentities = {},
 ): string {
   const { vote } = results;
   const completed = completedAt(results);
@@ -131,10 +151,14 @@ export function renderResultsCsv(
         percent: option.percent,
       });
     }
-    for (const named of results.namedResponses) {
+    const namedResponses =
+      identities.publicResponses ??
+      results.namedResponses.map((response) => ({ ...response, email: "" }));
+    for (const named of namedResponses) {
       add("NAMED_RESPONSE", {
         representativeName: named.representativeName,
         householdIdentifier: named.householdIdentifier,
+        email: named.email,
         choice: joinLabels(named.optionLabels),
       });
     }
@@ -174,6 +198,13 @@ export function renderResultsCsv(
             )
             .map((candidate) => candidate.name),
         ),
+      });
+    }
+    for (const voter of identities.privateVoters ?? []) {
+      add("SUBMITTED_VOTER", {
+        representativeName: voter.representativeName,
+        householdIdentifier: voter.householdIdentifier,
+        email: voter.email,
       });
     }
   }

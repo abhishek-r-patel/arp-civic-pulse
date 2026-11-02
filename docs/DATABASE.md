@@ -739,7 +739,7 @@ No runtime routine returns active PRIVATE candidate/NOTA counters; completed PRI
 - Unauthenticated visitors cannot list members, votes, ballots, participation, or results.
 - Enabled members access only votes whose frozen electorate names their profile; current reassignment does not transfer access to historical votes.
 - Administrators manage register/drafts/lifecycle; administrators and readonly observers inspect authorized participation/results. Neither role permits voting for someone else.
-- Completed PUBLIC named responses are available to the same authorized viewers as results. The result API and CSV omit registered email; the management-only PUBLIC PDF adds current Auth email at generation time.
+- Completed PUBLIC named responses are available to the same authorized viewers as results. The result API omits registered email; management-only PUBLIC PDFs and CSVs add current Auth email at generation time.
 - Suspension/deletion overrides membership and administrative capability immediately. Every request, applicable RLS read, and protected database operation rechecks current profile state, even with a still-valid JWT.
 
 ### Row-level security decision
@@ -773,7 +773,7 @@ Test anonymous/member/admin direct REST/RPC access, suspended profiles with exis
 - Disable request-body, SQL bind-parameter, cookie, email-content, and selection capture across the app, proxy, APM, error tracking, and database instrumentation. Operational logs contain allowlisted outcomes and safe support IDs only.
 - Do not store PRIVATE request payloads, per-response counter history, change feeds, ballot receipts, cross-office submission IDs, or tally snapshots. Do not allow administrators to sample active counters for differencing.
 - PRIVATE aggregate-only storage prevents ordinary stored identity-to-choice mappings but is not cryptographic anonymity. WAL/PITR, privileged instrumentation, backups at different instants, or a compromised process can correlate transactions/counter deltas. Low-turnout results can allow inference. Obtain A2 approval without promising stronger secrecy.
-- On-demand PDF and operator-enabled CSV generation use the same authorization/projection as results; no public files, bearer download links, retained report copies, or emailed attachments. PUBLIC PDFs add the current Auth email to the frozen name/household/choice list; the result API and PUBLIC CSV omit email. PRIVATE reports keep aggregates separate from the management-only submitted-voter roster and never map people to choices. Exports are derived outcomes, never the authoritative database or a recovery substitute.
+- On-demand PDF and operator-enabled CSV generation use the same authorization/projection as results; no public files, bearer download links, retained report copies, or emailed attachments. PUBLIC PDFs and CSVs add the current Auth email to the frozen name/household/choice list; the result API remains email-free. PRIVATE reports keep aggregates separate from management-only submitted-voter roster rows and never map people to choices. Exports are derived outcomes, never the authoritative database or a recovery substitute.
 - Apply approved lifecycle-aware retention. Never remove participation while a vote can accept submissions. Do not delete identity snapshots independently of their still-required PUBLIC decision record.
 - Downloaded/printed records cannot be remotely revoked or erased and are not signatures or legal certification.
 

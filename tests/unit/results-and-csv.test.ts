@@ -412,8 +412,19 @@ describe("renderResultsCsv", () => {
     expect(parseCsv(csv)[0]).toEqual([...CSV_COLUMNS]);
   });
 
-  it("is rectangular and includes SUMMARY, TURNOUT, OPTION, NAMED_RESPONSE and NOTICE rows for an open poll", () => {
-    const rows = parseCsv(renderResultsCsv(projectResults(open()), generated));
+  it("is rectangular and includes current email on PUBLIC named-response rows", () => {
+    const results = projectResults(open());
+    if (results.votingType !== "PUBLIC") {
+      throw new Error("Expected a PUBLIC results fixture.");
+    }
+    const rows = parseCsv(
+      renderResultsCsv(results, generated, undefined, {
+        publicResponses: results.namedResponses.map((response) => ({
+          ...response,
+          email: "alice@example.test",
+        })),
+      }),
+    );
     expect(rows.slice(1).map((r) => r[0])).toEqual([
       "SUMMARY",
       "TURNOUT",
@@ -430,6 +441,7 @@ describe("renderResultsCsv", () => {
     const named = rows.find((r) => r[0] === "NAMED_RESPONSE");
     expect(named?.[col("representativeName")]).toBe("Alice Rao");
     expect(named?.[col("householdIdentifier")]).toBe("A-101");
+    expect(named?.[col("email")]).toBe("alice@example.test");
     expect(named?.[col("choice")]).toBe("Yes");
     expect(rows.find((r) => r[0] === "SUMMARY")?.[col("outcome")]).toBe(
       "LEADER",
@@ -441,15 +453,39 @@ describe("renderResultsCsv", () => {
     );
   });
 
-  it("carries only aggregates for a closed vote, with identity columns blank", () => {
-    const csv = renderResultsCsv(projectResults(closed()), generated);
+  it("keeps PRIVATE voter identities in separate rows with no choices", () => {
+    const csv = renderResultsCsv(
+      projectResults(closed()),
+      generated,
+      undefined,
+      {
+        privateVoters: [
+          {
+            representativeName: "Asha Rao",
+            householdIdentifier: "A-101",
+            email: "asha@example.test",
+          },
+        ],
+      },
+    );
     expect(csv).not.toContain("NAMED_RESPONSE");
     const rows = parseCsv(csv).slice(1);
+    const type = CSV_COLUMNS.indexOf("recordType");
     const name = CSV_COLUMNS.indexOf("representativeName");
     const household = CSV_COLUMNS.indexOf("householdIdentifier");
-    for (const row of rows) {
+    const email = CSV_COLUMNS.indexOf("email");
+    const choice = CSV_COLUMNS.indexOf("choice");
+    const voters = rows.filter((row) => row[type] === "SUBMITTED_VOTER");
+    const aggregates = rows.filter((row) => row[type] !== "SUBMITTED_VOTER");
+    expect(voters).toHaveLength(1);
+    expect(voters[0]?.[name]).toBe("Asha Rao");
+    expect(voters[0]?.[household]).toBe("A-101");
+    expect(voters[0]?.[email]).toBe("asha@example.test");
+    expect(voters[0]?.[choice]).toBe("");
+    for (const row of aggregates) {
       expect(row[name]).toBe("");
       expect(row[household]).toBe("");
+      expect(row[email]).toBe("");
     }
     expect(rows.map((r) => r[0])).toEqual(
       expect.arrayContaining(["CANDIDATE", "NOTA", "OFFICE_OUTCOME"]),

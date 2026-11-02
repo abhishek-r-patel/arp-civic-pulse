@@ -24,7 +24,7 @@ test.skip(
 
 const WIDTHS = [320, 375, 768, 1280];
 const OPEN_NOTICE =
-  /While voting is open, RWA members see only total counts\. You can change your vote until voting closes\. After that, RWA members can see your name, .+ and final vote in in-app results\. The management-only PDF also includes your current account email; CSV exports do not include email\./;
+  /While voting is open, RWA members see only total counts\. You can change your vote until voting closes\. After that, RWA members can see your name, .+ and final vote in in-app results\. The management-only PDF and CSV also include your current account email; result APIs do not\./;
 const CLOSED_NOTICE = "Only totals are shown, never who chose what.";
 const CLOSED_LIMITS =
   "People who run the system can still see the data. In very small votes, totals may reveal who chose what.";

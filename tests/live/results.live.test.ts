@@ -256,7 +256,9 @@ describe.skipIf(!hasLive || !hasSql)("live: results and monitoring", () => {
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     const csv = await response.text();
     expect(csv.match(/NAMED_RESPONSE/gu)).toHaveLength(2);
-    expect(csv).not.toContain("@");
+    expect(csv).toContain(alice.email);
+    expect(csv).toContain(bob.email);
+    expect(JSON.stringify(everything)).not.toContain("@");
 
     const pdf = await exportResults(aliceDeps, vote.id, "pdf", "req-pdf");
     expect(pdf.headers.get("content-type")).toBe("application/pdf");
@@ -324,6 +326,9 @@ describe.skipIf(!hasLive || !hasSql)("live: results and monitoring", () => {
     ).text();
     expect(csv).not.toContain("NAMED_RESPONSE");
     expect(csv).toContain("NOTA");
+    expect(csv.match(/SUBMITTED_VOTER/gu)).toHaveLength(2);
+    expect(csv).toContain(alice.email);
+    expect(csv).toContain(bob.email);
   });
 
   it("lets only administrators see participation and the audit history", async () => {

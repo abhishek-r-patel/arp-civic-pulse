@@ -11,7 +11,7 @@ import type { VotingType } from "@/shared/contracts/voting";
  */
 export function privacyCopy(terms: HouseholdTerms = DEFAULT_HOUSEHOLD_TERMS) {
   return {
-    PUBLIC: `While voting is open, RWA members see only total counts. You can change your vote until voting closes. After that, RWA members can see your name, ${terms.identifierLabel.toLowerCase()} and final vote in in-app results. The management-only PDF also includes your current account email; CSV exports do not include email.`,
+    PUBLIC: `While voting is open, RWA members see only total counts. You can change your vote until voting closes. After that, RWA members can see your name, ${terms.identifierLabel.toLowerCase()} and final vote in in-app results. The management-only PDF and CSV also include your current account email; result APIs do not.`,
     PRIVATE: "Only totals are shown, never who chose what.",
     FINAL:
       "Your PRIVATE election submission is final. You cannot change or withdraw it.",

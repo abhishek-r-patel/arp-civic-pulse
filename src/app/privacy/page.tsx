@@ -85,11 +85,15 @@ export default async function PrivacyPage() {
         </h2>
         <p>
           In PUBLIC polls, authorised members can see who chose each option
-          after the poll ends. PRIVATE elections store who took part and totals
-          for each choice, but do not store an individual ballot linked to a
-          person&apos;s choice. This is not a promise of complete anonymity:
-          system operators or people in a very small election may still work out
-          how someone voted. Choice totals are hidden while voting is open.
+          after the poll ends. Management-only PDFs and CSVs also include each
+          respondent&apos;s current Auth email; the results API does not include
+          email. PRIVATE elections store who took part and totals for each
+          choice, but do not store an individual ballot linked to a
+          person&apos;s choice. Management-only PDFs and CSVs may show a
+          separate submitted- voter roster with current Auth emails, never
+          choices. This is not a promise of complete anonymity: system operators
+          or people in a very small election may still work out how someone
+          voted. Choice totals are hidden while voting is open.
         </p>
       </section>
       <section className="grid gap-2">

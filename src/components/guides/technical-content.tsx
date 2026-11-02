@@ -563,7 +563,7 @@ npm run dev`}</code>
             ],
             [
               "src/server/exports/results-export.ts → csv.ts / pdf.ts",
-              "Render the full authorised completed projection before successful response headers. Escape CSV formula text; PDFKit/fontkit use bundled fonts.",
+              "After management authorization, join current Auth emails to frozen PUBLIC respondents or PRIVATE submitted voters. CSV uses NAMED_RESPONSE and SUBMITTED_VOTER rows; PRIVATE rows have no choices. Render the complete file before success headers.",
             ],
           ]}
         />
@@ -585,11 +585,15 @@ npm run dev`}</code>
         <p>
           PDF is required for authorised completed results; CSV is included only
           when the operator enables it for the tenant. Both use the same
-          projection and include all authorised rows, not just the visible page.
-          Unsupported PDF glyphs fail without dropping text; suggest CSV only
-          when enabled. Process-local render slots are bounded, not a global
-          Vercel queue. Per-format download buttons show progress, prevent
-          duplicate in-flight requests and offer safe retry on failure.
+          validated result projection and include all authorised rows, not just
+          the visible page. PUBLIC PDFs and CSVs include current Auth emails on
+          authorized named-response rows; PRIVATE PDFs and CSVs include a
+          separate submitted-voter roster with current Auth emails and no
+          choices. Result APIs remain email-free. Escape CSV formula text;
+          unsupported PDF glyphs fail without dropping text. Process-local
+          render slots are bounded, not a global Vercel queue. Per-format
+          download buttons show progress, prevent duplicate in-flight requests
+          and offer safe retry on failure.
         </p>
       </>
     ),

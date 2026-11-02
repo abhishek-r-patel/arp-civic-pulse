@@ -1,4 +1,4 @@
-// Management-only export authorization and PRIVATE voter-roster composition tests.
+// Management-only export authorization and voter-email composition tests.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RegisterDeps } from "@/server/register/shared";
 import type { OpenResults } from "@/shared/contracts/results";
@@ -30,8 +30,8 @@ vi.mock("@/server/votes/member", () => ({
 
 import {
   exportResults,
-  getPrivateVoterRosterForPdf,
-  getPublicResponseRowsForPdf,
+  getPrivateVoterRosterForExport,
+  getPublicResponseRowsForExport,
 } from "@/server/exports/results-export";
 
 const voteId = "00000000-0000-4000-8000-000000000001";
@@ -200,7 +200,7 @@ describe("management-only result exports", () => {
     );
 
     await expect(
-      getPrivateVoterRosterForPdf(deps, voteId, "3"),
+      getPrivateVoterRosterForExport(deps, voteId, "3"),
     ).resolves.toEqual([
       {
         representativeName: "Ari",
@@ -228,7 +228,7 @@ describe("management-only result exports", () => {
   it("fails closed when the participation count differs from completed results", async () => {
     mocks.callRoutine.mockResolvedValue(participationPage([]));
     await expect(
-      getPrivateVoterRosterForPdf(managementDeps(), voteId, "1"),
+      getPrivateVoterRosterForExport(managementDeps(), voteId, "1"),
     ).rejects.toMatchObject({ code: "RESULTS_INTEGRITY_ERROR" });
   });
 
@@ -249,7 +249,7 @@ describe("management-only result exports", () => {
       },
     ]);
     await expect(
-      getPrivateVoterRosterForPdf(deps, voteId, "1"),
+      getPrivateVoterRosterForExport(deps, voteId, "1"),
     ).rejects.toMatchObject({ code: "RESULTS_INTEGRITY_ERROR" });
   });
 
@@ -307,7 +307,7 @@ describe("management-only result exports", () => {
     );
 
     await expect(
-      getPublicResponseRowsForPdf(
+      getPublicResponseRowsForExport(
         managementDeps(profileRows),
         voteId,
         publicResults(responses),

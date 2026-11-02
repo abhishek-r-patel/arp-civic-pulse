@@ -737,10 +737,28 @@ test.describe("results and download", () => {
         .map((n) => `${n.representativeName}|${n.optionLabels.join("; ")}`)
         .sort(),
     );
+    const namedRows = csv.filter(
+      (row) => row[col("recordType")] === "NAMED_RESPONSE",
+    );
+    const emailByIdentifier = new Map(
+      [a, b, c].map((resident) => [resident.identifier, resident.email]),
+    );
+    expect(
+      namedRows.map((row) => [
+        row[col("householdIdentifier")],
+        row[col("email")],
+      ]),
+    ).toEqual(
+      namedRows.map((row) => [
+        row[col("householdIdentifier")],
+        emailByIdentifier.get(row[col("householdIdentifier")] ?? "") ?? "",
+      ]),
+    );
     expect(csv.every((r) => r.length === header.length)).toBe(true);
-    // No emails anywhere in the file, and the early completion is labelled.
+    // Current emails are limited to voters; the non-voter remains absent.
     const text = await readFile(file, "utf8");
-    expect(text).not.toContain(a.email);
+    for (const resident of [a, b, c]) expect(text).toContain(resident.email);
+    expect(text).not.toContain(d.email);
     expect(text).toContain("E2E completion");
 
     // PDF (downloaded through the real button) carries exactly the same facts.
@@ -965,9 +983,24 @@ test.describe("results and download", () => {
     const csv = await (
       await page.request.get(`/api/votes/${vote.id}/exports/csv`)
     ).text();
-    expect(csv).not.toContain("NAMED_RESPONSE");
-    expect(csv).not.toContain(a.identifier);
-    // The management-only PRIVATE PDF includes participants but never choices.
+    const privateRows = parseCsv(csv);
+    const privateHeader = privateRows[0] ?? [];
+    const privateCol = (name: string) => privateHeader.indexOf(name);
+    const voters = privateRows.filter(
+      (row) => row[privateCol("recordType")] === "SUBMITTED_VOTER",
+    );
+    expect(voters).toHaveLength(3);
+    for (const resident of [a, b, c]) {
+      expect(
+        voters.some(
+          (row) =>
+            row[privateCol("householdIdentifier")] === resident.identifier &&
+            row[privateCol("email")] === resident.email &&
+            row[privateCol("choice")] === "",
+        ),
+      ).toBe(true);
+    }
+    // The management-only PRIVATE PDF and CSV list voters but never choices.
     await expect(
       page.getByRole("button", { name: "Download PDF" }),
     ).toBeVisible();

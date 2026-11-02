@@ -307,21 +307,26 @@ export function residentSections(terms: HouseholdTerms): GuideSection[] {
             <li>
               Choose the required <strong>PDF</strong> for a printable copy. CSV
               is shown only when the deployment operator enables it for this
-              RWA. If PDF cannot represent a character, use CSV when available;
-              if CSV is disabled, contact your administrator to ask the
-              deployment operator about enabling it. A failed download does not
-              invalidate a vote; results remain visible and you can retry
-              safely.
+              RWA. Management-only PUBLIC PDFs and CSVs include the current
+              account email on each authorized named response. PRIVATE PDFs and
+              CSVs include a separate roster of submitted voters and their
+              current account emails, never their choices. The results API does
+              not include email. If PDF cannot represent a character, use CSV
+              when available; if CSV is disabled, contact your administrator to
+              ask the deployment operator about enabling it. A failed download
+              does not invalidate a vote; results remain visible and you can
+              retry safely.
             </li>
           </Steps>
           <Screenshot image="publicResults" />
           <Screenshot image="privateResults" />
           <Screenshot image="cancelled" />
           <Note>
-            Share PUBLIC named reports only with authorised people. Downloaded
-            files cannot be recalled by signing out. Results are not signatures,
-            legal certification, spending authorisation or backups. Cancelled
-            votes publish neither results nor downloads.
+            Share PUBLIC named reports and PRIVATE voter rosters only with
+            authorised people. Both can include current account emails.
+            Downloaded files cannot be recalled by signing out. Results are not
+            signatures, legal certification, spending authorisation or backups.
+            Cancelled votes publish neither results nor downloads.
           </Note>
         </>
       ),

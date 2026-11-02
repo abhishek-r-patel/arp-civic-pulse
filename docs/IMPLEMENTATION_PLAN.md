@@ -991,7 +991,7 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 
 **Database/API changes:** `GET /api/votes/{id}/exports/{format}` with required PDF and operator-enabled CSV; reject pagination/identity-selection inputs. No report table/file persistence or unrelated download mutation.
 
-**Tests required:** Exact header/row schema, screen/API/CSV counts and identities when enabled, 500-household full PUBLIC list, early completion and poll/candidate ties, blank PRIVATE identity columns/no named rows, formula/header injection, authorization/terminal restrictions, renderer failure before success headers, unavailable CSV when disabled, resource limits, and phone/laptop download recovery.
+**Tests required:** Exact header/row schema, screen/API/CSV counts and identities when enabled, 500-household full PUBLIC list, early completion and poll/candidate ties, separate PRIVATE submitted-voter rows with current Auth emails and blank choices, formula/header injection, authorization/terminal restrictions, renderer failure before success headers, unavailable CSV when disabled, resource limits, and phone/laptop download recovery.
 
 **Completion criteria:** When enabled, complete CSVs match authoritative results exactly and expose only authorized fields. PDF is always offered for completed results. Failures never return truncated successful reports or modify voting data.
 

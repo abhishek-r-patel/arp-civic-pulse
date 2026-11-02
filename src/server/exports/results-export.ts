@@ -36,9 +36,10 @@ import type {
 
 /*
  * RWA Admin/ReadOnly-only on-demand CSV and PDF downloads (docs/API.md
- * section 5.2). Residents view results in-app. The PRIVATE PDF composes a
- * separate submitted-voter roster after session-backed authorization. Nothing
- * is stored or linked; render the complete file before success headers.
+ * section 5.2). Residents view results in-app. Management exports resolve
+ * current Auth emails for authorized PUBLIC respondents and PRIVATE voters;
+ * PRIVATE voter rows never include ballot choices. Nothing is stored or
+ * linked; render the complete file before success headers.
  */
 // Only the CPU-heavy render is capped. Waiting callers queue for a bounded time, so a rush of
 // downloads near a deadline gets slower rather than failing.
@@ -54,7 +55,7 @@ interface ParticipationIdentity {
   householdId: string;
 }
 
-export async function getPrivateVoterRosterForPdf(
+export async function getPrivateVoterRosterForExport(
   deps: RegisterDeps,
   voteId: string,
   expectedSubmittedCount: string,
@@ -170,7 +171,7 @@ export async function getPrivateVoterRosterForPdf(
   return rows;
 }
 
-export async function getPublicResponseRowsForPdf(
+export async function getPublicResponseRowsForExport(
   deps: RegisterDeps,
   voteId: string,
   results: OpenResults,
@@ -292,16 +293,16 @@ export async function exportResults(
       branding.identifierKind,
     );
     const privateVoters =
-      format === "pdf" && results.votingType === "PRIVATE"
-        ? await getPrivateVoterRosterForPdf(
+      results.votingType === "PRIVATE"
+        ? await getPrivateVoterRosterForExport(
             deps,
             voteId,
             results.submittedCount,
           )
         : undefined;
     const publicResponses =
-      format === "pdf" && results.votingType === "PUBLIC"
-        ? await getPublicResponseRowsForPdf(
+      results.votingType === "PUBLIC"
+        ? await getPublicResponseRowsForExport(
             deps,
             voteId,
             results,
@@ -324,7 +325,10 @@ export async function exportResults(
     try {
       body =
         format === "csv"
-          ? renderResultsCsv(results, generatedAt, terms)
+          ? renderResultsCsv(results, generatedAt, terms, {
+              ...(privateVoters ? { privateVoters } : {}),
+              ...(publicResponses ? { publicResponses } : {}),
+            })
           : new Uint8Array(
               await renderResultsPdf(results, generatedAt, {
                 terms,
