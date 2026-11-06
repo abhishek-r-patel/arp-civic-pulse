@@ -389,7 +389,13 @@ async function restoreExistingProject(ref: string, token: string) {
   }
 }
 
-function runSupabaseCli(args: string[], token: string, password?: string) {
+export const SUPABASE_CLI = "supabase@2";
+
+export function runSupabaseCli(
+  args: string[],
+  token: string,
+  password?: string,
+) {
   const npmCli = process.env.npm_execpath;
   const npxCli = npmCli ? path.join(path.dirname(npmCli), "npx-cli.js") : "";
   if (!npxCli || !existsSync(npxCli)) {
@@ -397,11 +403,14 @@ function runSupabaseCli(args: string[], token: string, password?: string) {
       "Run this command through npm so the Supabase CLI is available.",
     );
   }
-  return spawnSync(process.execPath, [npxCli, "supabase", ...args], {
+  // Pinned: CLI 3 removed `db push --db-url`, which provisioning relies on.
+  return spawnSync(process.execPath, [npxCli, "--yes", SUPABASE_CLI, ...args], {
     stdio: args[0] === "link" ? "inherit" : "ignore",
     timeout: 180_000,
     env: {
       ...process.env,
+      // Supabase CLI 3 rejects TLS-inspecting proxies unless it uses the OS store.
+      NODE_USE_SYSTEM_CA: "1",
       SUPABASE_ACCESS_TOKEN: token,
       ...(password ? { SUPABASE_DB_PASSWORD: password } : {}),
     },

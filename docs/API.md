@@ -848,7 +848,7 @@ Manage rate-limit key versions and still-needed keys in secret management. Valid
 
 RWA name, timezone, policy approvals, and retention periods live in controlled database settings, not public build variables. Configure backup scheduler credentials, approved off-site encrypted storage, encryption keys, access, and expiry separately through the selected operational service; no new resident-facing API or application file storage is required. Cron roles cannot be invoked through member RPC access.
 
-Use separate credentials, databases, and email destinations in local/test/staging/production. Local/test use synthetic identities and a local mail sink; staging uses approved test recipients. Never copy real registers, votes, or production backups into development.
+Use separate credentials, databases, and email destinations in local/demo/testdb/beta/production. Local/demo/testdb use synthetic identities and a local mail sink or approved test recipients. Never copy real registers, votes, or production backups into development.
 
 ## 11. Privacy, failures, and operational guarantees
 

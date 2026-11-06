@@ -11,6 +11,11 @@ ballot-acceptance indicator. Do not replace it with another concept without a
 new design decision. No illustrated workflow or source screenshot changes are
 required for this browser-tab icon.
 
+For Vercel dashboard and integration avatars only, the approved distinction
+(6 November 2026) is the green Open Conversation mark on `arp-civic-pulse`
+and the black Next.js icon on `beta-arp-civic-pulse`. These are explicit custom
+project avatars, independent of browser favicons and tenant branding.
+
 Civic Pulse should feel like a well-run community notice board: confident but never flashy. Screens use generous whitespace, one clear action per screen, and plain language aimed at non-technical and older residents.
 
 The approved appearance direction is **Platinum** (light) and **Obsidian** (dark),

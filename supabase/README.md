@@ -4,7 +4,7 @@ Everything here is for **local, test and beta** work first. Production changes n
 listed in `docs/IMPLEMENTATION_PLAN.md`; nothing below records or implies an approval.
 
 **Current targets (6 November 2026):** the testdb project (Supabase
-`civic-pulse-testdb`, formerly `civic-pulse-disposable`; `nycbbzgsilnxrgkwlwno`),
+`civic-pulse-testdb`; `nycbbzgsilnxrgkwlwno`),
 which backs the beta site and synthetic `tenant-a` host, is paused; local
 app/live/browser tests use the shared
 synthetic demo `hnqajjjemqepxuoqbsqx`. Paired-project tests are disabled.
@@ -143,11 +143,10 @@ Retention clean-up, health/status checks for monitoring, and RWA-controlled App 
 
 ### Application history
 
-The notes below record how individual migrations reached the disposable hosted projects. They are history, not
-instructions; use the deployment runbook for new work. They keep the names in use at the time: renamed on
-6 November 2026, Supabase `civic-pulse-disposable` → `civic-pulse-testdb` (same ref `nycbbzgsilnxrgkwlwno`),
-and the staging host/Vercel project `staging-arp-civic-pulse` → the beta site `beta-arp-civic-pulse`
-(`staging.` host → `beta.`, kept as a 308 redirect).
+The notes below record how individual migrations reached hosted test projects.
+They are history, not instructions; use the deployment runbook for new work.
+They use current testdb/beta names; historical name changes are recorded in the
+[deployment runbook](../docs/DEPLOYMENT.md#current-capacity-and-testing-arrangement---6-november-2026).
 
 The Amber palette migration was originally named with the already-applied
 `20261105100000` version. It was assigned the unused forward version
@@ -156,11 +155,11 @@ left unchanged. The new migration was applied by the normal Supabase CLI after
 a dry run showed it as the only pending migration.
 
 The separately authorized audit-filter migration `20261118100000` and draft
-deletion migration `20261122100000` were applied to the verified
-`civic-pulse-disposable` project in one verified-TLS transaction with matching
-ledger entries and a PostgREST schema reload. The same disposable project is
-used by the staging host. These database changes did not deploy the staging
-application and did not change a separate production database.
+deletion migration `20261122100000` were applied to the verified testdb project
+in one verified-TLS transaction with matching ledger entries and a PostgREST
+schema reload. The same project backs the beta site. These database changes
+did not deploy the beta application and did not change a separate production
+database.
 
 The Source column requires `20261117100000` before its sort links are used.
 It passed local PostgreSQL tests and was applied with separate explicit
@@ -170,42 +169,42 @@ Authenticated execute is present; anon/service-role execute is absent.
 
 Manage Votes table controls migration `20261119100000` adds a guarded,
 authenticated-only page-ID routine. After separate authorization, it was applied
-only to the verified `civic-pulse-disposable` project in one verified-TLS
+only to the verified testdb project in one verified-TLS
 transaction that executed the exact migration, recorded its ledger entry and
 notified PostgREST to reload the schema. Function ownership and authenticated
 execution were verified; anon/service-role execution is absent. This is the
-disposable project also used by the staging host; no separate production
-database was touched and no staging app deployment occurred. The old version
+project backing the beta site; no separate production database was touched and
+no beta deployment occurred. The old version
 collision was later resolved by assigning the unapplied Amber migration a unique
 forward version; the existing deadline history was not rewritten.
 
 The Manage Votes Turnout column adds follow-up migration `20261120100000`,
 which replaces only the already-guarded table-page routine and returns
 aggregate counts for Active/Completed page rows. After separate authorization,
-it was applied only to the verified `civic-pulse-disposable` project in one
+it was applied only to the verified testdb project in one
 verified-TLS transaction with its exact ledger entry and a PostgREST schema
 notification. Function ownership and authenticated-only execution were
 verified; anon/service-role execution is absent. Local PostgreSQL integration
-coverage passed. This is the disposable project also used by the staging host;
-no separate production database was touched and no staging app deployment
-occurred. The later migration-history reconciliation is recorded below.
+coverage passed. This is the project backing the beta site; no separate
+production database was touched and no beta deployment occurred. The later
+migration-history reconciliation is recorded below.
 
 The planned-opening migration `20261121100000` and its type-check correction
-`20261121110000` were applied only to the user-confirmed disposable project in
+`20261121110000` were applied only to the user-confirmed testdb project in
 separate TLS-verified transactions with their exact ledger entries. The
 correction keeps `update_draft` ballot validation aligned with PUBLIC/PRIVATE.
-The same project is used by the staging host; no separate production database
-was changed and no staging application deployment was performed.
+The same project backs the beta site; no separate production database was
+changed and no beta deployment was performed.
 
 The Contact admin-name migration `20261123100000` was separately authorized
-and applied only to the confirmed `civic-pulse-disposable` project (also used by
-the staging host). Its exact SQL and matching ledger entry were committed in
+and applied only to the confirmed testdb project (also used by the beta site).
+Its exact SQL and matching ledger entry were committed in
 one verified-TLS transaction, followed by a PostgREST schema reload. The
 preflight found no active or scheduled votes. Function ownership, fixed search
 path and authenticated-only execution were verified; anon and service-role
 execution are absent. The local RWA-profile and security integration suites
 passed (28 tests), and the signed-in Contact page loaded the admin directory.
-No separate production database was changed and no staging application
+No separate production database was changed and no beta application
 deployment was performed. The audit-filter and draft-deletion migrations were
 subsequently applied as recorded above.
 
@@ -218,7 +217,7 @@ then received the full migration set through the normal CLI push.
 
 The separately authorized numbered-pagination follow-up applied
 `20261114100000` to the same disposable project, now also used by the
-Production-target-only staging host. A CLI dry run listed only this migration
+Production-target-only beta host. A CLI dry run listed only this migration
 before application. Local PostgreSQL tests exercise counts, ordering, filters,
 page anchors and permissions; synthetic browser checks use the local app against
 that disposable database. The pagination application revision has not been
