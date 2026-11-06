@@ -2,7 +2,7 @@
 
 ## 1. Status and approval boundary
 
-This repository is **deployed to the beta site using Vercel's Production target, not real production or approved for real voting**. The architecture prefers Vercel for Next.js and Supabase PostgreSQL/Auth/Cron. The beta account is recorded below; no production Supabase project, production hosting plan, region, domain, budget or production ingress is approved by this configuration. The shared Vercel project `demo-arp-civic-pulse` is the [release flow](#release-flow-beta-then-manual-production)'s production deployment target, currently serving only synthetic hosts; no hosted project is approved for real voting.
+This repository is **deployed to the beta site using Vercel's Production target, not real production or approved for real voting**. The architecture prefers Vercel for Next.js and Supabase PostgreSQL/Auth/Cron. The beta account is recorded below; no production Supabase project, production hosting plan, region, domain, budget or production ingress is approved by this configuration. The shared Vercel project `arp-civic-pulse` (formerly `demo-arp-civic-pulse`) is the [release flow](#release-flow-beta-then-manual-production)'s production deployment target, currently serving only synthetic hosts; no hosted project is approved for real voting.
 
 Do not promote a deployment or admit real residents until the open gates in [PILOT_READINESS.md](./PILOT_READINESS.md) are closed. The application now implements local per-RWA OTP IP budgets using Vercel's overwritten `X-Forwarded-For`; hosted spoof/burst verification and pilot threshold validation remain open. `TRUSTED_PROXY_CONFIG=vercel` is required in production, and Vercel system environment variables must be enabled so `VERCEL=1` is available. The application does not support an upstream proxy in front of Vercel. This guide does not grant approval of A1-A7, providers, regions, retention or recovery objectives.
 
@@ -66,14 +66,15 @@ request-scoped resolution and client factories, gated by
 `TENANT_ROUTING_ENABLED` (default `false`). The beta deployment still
 uses one `APP_ORIGIN` and one Supabase project (testdb); no tenant directory,
 customer subdomains or tenant credentials are configured on it. Tenant routing
-runs only on the shared Vercel project `demo-arp-civic-pulse`, which the
+runs only on the shared Vercel project `arp-civic-pulse`, which the
 [release flow](#release-flow-beta-then-manual-production) treats as the
 production deployment target. That role is not approval for real voting; the
 launch gates below and in [PILOT_READINESS.md](./PILOT_READINESS.md) remain open.
 
 **Hosted S04 test project (31 October 2026, retained).** With operator
-approval, a separate Hobby project, `demo-arp-civic-pulse` (named
-`arp-civic-pulse-tenant-test` until it was renamed on 31 October 2026; project
+approval, a separate Hobby project, now `arp-civic-pulse` (named
+`arp-civic-pulse-tenant-test` until 31 October 2026, then `demo-arp-civic-pulse`
+until 6 November 2026; project
 ID `prj_q5xGBRUH5542l8SLvJDU9spFBld1` unchanged) in team
 `arp-civic-pulse`, serves the public site at
 <https://arp-civic-pulse.vercel.app>, demo at
@@ -108,12 +109,15 @@ It has Production-only, sensitive variables:
 
 Because these are write-only, the directory's source of truth is now the
 ignored local `.env.vercel.local`, rebuilt from this record on 6 November 2026
-(`npm run vercel:directory -- init`; not yet pushed). `npm run society:create`
+(`npm run vercel:directory -- init`; first pushed by the synthetic
+`society:create` test that day). `npm run society:create`
 adds new society hosts, keys and directory entries to this project and
-redeploys it; see
+redeploys it, and `npm run society:delete` removes them; see
 [Creating a society project](./OPERATIONS.md#creating-a-society-project).
 
-It has no Git connection, no Preview variables and no Sentry settings. It was
+At the time of this record it had no Git connection, no Preview variables and
+no Sentry settings (it was Git-linked on 2 November 2026; see the
+[release flow](#release-flow-beta-then-manual-production)). It was
 deployed from the uncommitted local S04 working tree with
 `vercel deploy --prod`, using `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` overrides so
 the repository's staging `.vercel` link was untouched. `.vercelignore`
@@ -124,10 +128,8 @@ default `arp-civic-pulse-tenant-test.vercel.app` host is still attached after
 the rename; it is not in the directory and returns the app's 404. The rename
 did not add `demo-arp-civic-pulse.vercel.app` automatically. It was added on
 31 October 2026 and configured to redirect (308) to the canonical demo host.
-Because it has no Git connection, pushes to any branch never deploy this
-project; it changes only when someone runs the manual deploy above (under the
-current [release flow](#release-flow-beta-then-manual-production), from the
-merged `main` commit inside an approved release window). At the time of this
+Without a Git connection, pushes to any branch did not deploy this
+project; it changed only when someone ran the manual deploy above. At the time of this
 record, pushing to `main` updated only the staging (now beta) project. On 31 October 2026 the
 committed `main` tree (`91b2895`, premium homepage plus the `bom1` region) was
 deployed this way with operator approval. All three hosts now report
@@ -254,12 +256,23 @@ Approved on 6 November 2026 (replacing the earlier flow in which every push to
    migrations there first; while testdb is paused the beta site cannot serve
    database-backed pages.
 3. After verification on beta, merge `beta` into `main`.
-4. Production is the shared Vercel project `demo-arp-civic-pulse` (serving
+4. Production is the shared Vercel project `arp-civic-pulse` (renamed from
+   `demo-arp-civic-pulse` on 6 November 2026; ID unchanged; serving
    `arp-civic-pulse.vercel.app`, `demo.`, `tenant-a.` and future society
-   subdomains). It has no Git connection and is deployed manually from the
-   merged `main` commit inside an approved release window, after the
+   subdomains). It is deployed from the merged `main` commit inside an
+   approved release window, after the
    [shared-app fleet release gate](#shared-app-fleet-release-gate) and
    per-project migration ordering.
+
+**Git link on the shared project (found 6 November 2026).** Contrary to the
+earlier records below, the shared project is linked to this GitHub repository
+with Production branch `main`; its Git deployments began on 2 November 2026.
+While `main`'s `vercel.json` still enables `main`, every push to `main`
+deploys it to production automatically (the PR #6 dependency merge did, as
+`dpl_GbT3wGBWxFKaZERrvDPqh4noq39x`). Once the `beta`-only `vercel.json`
+reaches `main`, pushes to `main` stop deploying anywhere, but pushes to `beta`
+also create Preview deployments on this project. Whether to keep or
+disconnect this link is an open operator decision.
 
 This flow does not approve real voting or close any launch gate.
 [vercel.json](../vercel.json) sets `git.deploymentEnabled` to `"**": false`
@@ -527,7 +540,7 @@ Configure these in the hosting environment manager, scoped separately to Product
 | `NEXT_PUBLIC_SUPABASE_URL` | Approved project's bare HTTPS API origin, not a database connection URL or `/rest/v1` URL. Public/build-time value. |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Same project's publishable key or legacy **anon** key. Public/build-time value, never a secret/service-role/user token. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Same project's server-only privileged credential, accessible only to the application runtime/build environment that requires it. Never prefix it with `NEXT_PUBLIC_`. |
-| `TENANT_ROUTING_ENABLED` | Optional host-based routing switch; defaults to `false`. Enabled only on the separate synthetic `demo-arp-civic-pulse` project (formerly `arp-civic-pulse-tenant-test`). Do not enable for beta or real hosts before the domain and remaining release gates are complete (pilot cap: 10 customers). |
+| `TENANT_ROUTING_ENABLED` | Optional host-based routing switch; defaults to `false`. Enabled only on the separate synthetic shared `arp-civic-pulse` project (formerly `demo-arp-civic-pulse`, originally `arp-civic-pulse-tenant-test`). Do not enable for beta or real hosts before the domain and remaining release gates are complete (pilot cap: 10 customers). |
 | `TENANT_DIRECTORY_JSON` | Required only when routing is enabled; version-1 exact-host directory with project origins and secret references, never secret values. |
 | `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` | One server-only privileged credential per immutable tenant UUID referenced by the directory; all remain accessible to shared function code. |
 | `RATE_LIMIT_HMAC_KEY` | Independent random production secret, at least 32 characters. Store in the approved secret manager; generate separately for each environment. |

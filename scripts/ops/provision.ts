@@ -308,7 +308,16 @@ function pushMigrations(databaseUrl: string): boolean {
   // never concatenated into a Windows shell command line.
   const npmCli = process.env.npm_execpath;
   const npxCli = npmCli ? path.join(path.dirname(npmCli), "npx-cli.js") : "";
-  const args = ["supabase", "db", "push", "--db-url", databaseUrl, "--yes"];
+  // Pinned to CLI 2: CLI 3 removed `db push --db-url`.
+  const args = [
+    "--yes",
+    "supabase@2",
+    "db",
+    "push",
+    "--db-url",
+    databaseUrl,
+    "--yes",
+  ];
   let command = "npx";
   if (npxCli && existsSync(npxCli)) {
     command = process.execPath;
@@ -321,6 +330,8 @@ function pushMigrations(databaseUrl: string): boolean {
   const result = spawnSync(command, args, {
     stdio: "ignore",
     timeout: 600_000,
+    // The CLI's HTTPS client must trust the OS store behind TLS-inspecting proxies.
+    env: { ...process.env, NODE_USE_SYSTEM_CA: "1" },
   });
   return result.status === 0;
 }

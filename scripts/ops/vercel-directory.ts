@@ -7,7 +7,7 @@ import { parseEnv } from "node:util";
 import { withValues } from "./test-target.ts";
 
 /*
- * Keeps the shared multi-tenant Vercel project (`demo-arp-civic-pulse`) in step
+ * Keeps the shared multi-tenant Vercel project (`arp-civic-pulse`) in step
  * with new society projects. Vercel stores TENANT_DIRECTORY_JSON as a
  * write-only sensitive variable, so the authoritative copy lives in the ignored
  * `.env.vercel.local`; every change is made there first and then pushed whole.
@@ -21,7 +21,7 @@ import { withValues } from "./test-target.ts";
 export const VERCEL_PROFILE = ".env.vercel.local";
 export const VERCEL_PROJECT = {
   id: "prj_q5xGBRUH5542l8SLvJDU9spFBld1",
-  name: "demo-arp-civic-pulse",
+  name: "arp-civic-pulse",
   productionHost: "arp-civic-pulse.vercel.app",
 } as const;
 export const MAX_CUSTOMERS = 10;
@@ -226,6 +226,35 @@ export function withCustomerEntry(
           candidate === existing ? next : candidate,
         )
       : [...directory.entries, next],
+  });
+}
+
+/** Removes one customer; refuses main/demo entries and a host bound to another tenant. */
+export function withoutCustomerEntry(
+  directory: Directory,
+  host: string,
+  tenantId: string,
+  projectUrl: string,
+): Directory {
+  const byHost = directory.entries.find((entry) => entry.host === host);
+  const byTenant = directory.entries.find(
+    (entry) => entry.kind !== "main" && entry.tenantId === tenantId,
+  );
+  const target = byHost ?? byTenant;
+  if (!target) return directory;
+  if (
+    target.kind !== "customer" ||
+    target.host !== host ||
+    target.tenantId !== tenantId ||
+    target.projectUrl !== projectUrl
+  ) {
+    throw new Error(
+      `The directory entry for ${target.host} does not match this society (host, tenant and project must all match); refusing to remove it.`,
+    );
+  }
+  return validateDirectory({
+    version: 1,
+    entries: directory.entries.filter((entry) => entry !== target),
   });
 }
 
@@ -510,6 +539,43 @@ export async function upsertSensitiveEnv(
   }
 }
 
+/** Deletes a Production variable by name; idempotent. */
+export async function deleteProjectEnv(client: VercelClient, key: string) {
+  const list = await client.request<{ envs?: { id: string; key: string }[] }>(
+    "GET",
+    `/v10/projects/${VERCEL_PROJECT.id}/env`,
+  );
+  if (list.status !== 200) {
+    throw apiError("listing variables", list.status, list.data);
+  }
+  const matches = (list.data.envs ?? []).filter((env) => env.key === key);
+  for (const env of matches) {
+    const removed = await client.request(
+      "DELETE",
+      `/v9/projects/${VERCEL_PROJECT.id}/env/${env.id}`,
+    );
+    if (removed.status !== 200 && removed.status !== 404) {
+      throw apiError(`deleting ${key}`, removed.status, removed.data);
+    }
+  }
+  return matches.length > 0 ? "deleted" : "absent";
+}
+
+/** Detaches a host from the shared project; idempotent. */
+export async function removeProjectDomain(client: VercelClient, host: string) {
+  const domainPath = `/v9/projects/${VERCEL_PROJECT.id}/domains/${host}`;
+  const existing = await client.request("GET", domainPath);
+  if (existing.status === 404) return "absent";
+  if (existing.status !== 200) {
+    throw apiError(`lookup of ${host}`, existing.status, existing.data);
+  }
+  const removed = await client.request("DELETE", domainPath);
+  if (removed.status !== 200 && removed.status !== 404) {
+    throw apiError(`removing ${host}`, removed.status, removed.data);
+  }
+  return "removed";
+}
+
 interface Deployment {
   id: string;
   projectId?: string;
@@ -557,11 +623,26 @@ export async function redeployProduction(client: VercelClient) {
   );
   const deadline = Date.now() + 20 * 60_000;
   let previous = "";
+  let failures = 0;
   while (Date.now() <= deadline) {
-    const status = await client.request<Deployment>(
-      "GET",
-      `/v13/deployments/${created.data.id}`,
-    );
+    let status: { status: number; data: Deployment };
+    try {
+      status = await client.request<Deployment>(
+        "GET",
+        `/v13/deployments/${created.data.id}`,
+      );
+      failures = 0;
+    } catch (error) {
+      // A slow status poll must not abandon a build that is still progressing.
+      failures += 1;
+      if (failures >= 6) {
+        throw new Error(
+          `Lost contact with Vercel while ${created.data.id} was building (${error instanceof Error ? error.message : String(error)}); check it in Vercel before retrying.`,
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10_000));
+      continue;
+    }
     const state = status.data.readyState ?? `HTTP ${status.status}`;
     if (state !== previous) {
       console.log(`  ${created.data.id}: ${state}`);
@@ -640,25 +721,46 @@ export function newHostResponseOk(
 }
 
 /**
- * After a redeploy, the main site and demo must still serve, and the new host
- * must be answered by the app with the response its directory state implies.
- * On failure the previous deployment ID is reported for an instant rollback in
- * Vercel.
+ * After a society is removed and production redeployed, its host (still
+ * attached at that point) must get the app's own empty 404 for an unlisted
+ * host, not a Vercel platform error.
+ */
+export function removedHostResponseOk(response: HostResponse) {
+  return (
+    response.status === 404 &&
+    !response.vercelError &&
+    response.retryAfter === null &&
+    response.bodyLength === 0
+  );
+}
+
+/**
+ * After a redeploy, the main site and demo must still serve, and the changed
+ * host must be answered by the app with the response its directory state
+ * implies (or the unlisted-host 404 once removed). On failure the previous
+ * deployment ID is reported for an instant rollback in Vercel.
  */
 export async function checkLiveHosts(
   directory: Directory,
-  newHost: string,
+  changedHost: string,
   previousDeployment: string,
+  removed = false,
 ) {
-  const newEntry = directory.entries.find((entry) => entry.host === newHost);
-  if (!newEntry) {
-    throw new Error(`${newHost} is not in the pushed tenant directory.`);
+  const changedEntry = directory.entries.find(
+    (entry) => entry.host === changedHost,
+  );
+  if (removed ? changedEntry : !changedEntry) {
+    throw new Error(
+      removed
+        ? `${changedHost} is still in the pushed tenant directory.`
+        : `${changedHost} is not in the pushed tenant directory.`,
+    );
   }
   const served = (response: HostResponse) =>
     response.status === 200 && !response.vercelError;
   const checks: { url: string; ok: (response: HostResponse) => boolean }[] = [];
   for (const entry of directory.entries) {
-    if (entry.state !== "active" || entry.host === newHost) continue;
+    if (entry.state !== "active" || entry.host === changedHost) continue;
     if (entry.kind === "main") {
       checks.push({ url: `https://${entry.host}/`, ok: served });
     } else if (entry.kind === "demo") {
@@ -666,8 +768,11 @@ export async function checkLiveHosts(
     }
   }
   checks.push({
-    url: `https://${newHost}/sign-in`,
-    ok: (response) => newHostResponseOk(newEntry.state, response),
+    url: `https://${changedHost}/sign-in`,
+    ok: (response) =>
+      changedEntry
+        ? newHostResponseOk(changedEntry.state, response)
+        : removedHostResponseOk(response),
   });
   const failures: string[] = [];
   for (const check of checks) {

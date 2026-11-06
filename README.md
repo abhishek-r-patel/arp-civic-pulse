@@ -46,6 +46,10 @@ provisions the Supabase project, registers it in the Vercel tenant directory
 (kept in the ignored `.env.vercel.local`) and redeploys. It keeps local testing
 on demo and leaves tenant activation disabled. See
 [society project creation](./docs/OPERATIONS.md#creating-a-society-project).
+`npm run society:delete -- <alias> --confirm-delete civic-pulse-<alias>`
+reverses it (directory entry, redeploy, Vercel variable and domain, Supabase
+project, local profile); see
+[deleting a society project](./docs/OPERATIONS.md#deleting-offboarding-a-society-project).
 
 The [beta site](https://beta.arp-civic-pulse.vercel.app) (Vercel project
 `beta-arp-civic-pulse`, formerly `staging-arp-civic-pulse`; the old
@@ -53,8 +57,9 @@ The [beta site](https://beta.arp-civic-pulse.vercel.app) (Vercel project
 the testdb Supabase project. Release flow: feature branches → pull request into
 `beta`, which auto-deploys the beta site → after verification, merge `beta`
 into `main` → deploy the merged `main` commit manually to the shared production
-Vercel project `demo-arp-civic-pulse` inside an approved release window. That
-project has no Git connection. None of this is approval for real voting; real
+Vercel project `arp-civic-pulse` (formerly `demo-arp-civic-pulse`) inside an
+approved release window. That project is currently Git-linked with Production
+branch `main` (see the release flow for what that deploys). None of this is approval for real voting; real
 production still requires the open launch gates and approvals.
 See the [current hosting setup](./docs/DEPLOYMENT.md#current-beta-configuration-production-target-only)
 and [release flow](./docs/DEPLOYMENT.md#release-flow-beta-then-manual-production).

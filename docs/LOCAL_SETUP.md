@@ -29,6 +29,8 @@ password for retrieval.
 `.env.<alias>.local`, links the Supabase CLI to that society project and runs
 the existing non-activating provisioner. It leaves `.env.local` on demo; see
 [society project creation](./OPERATIONS.md#creating-a-society-project).
+`npm run society:delete` removes that profile after deleting the project and
+relinks the CLI to the current test target.
 
 Keep demo reset credentials and `DEMO_SHARED_TEST_PROJECT=true` in the ignored
 `.env.demo.local`. `npm run test:live -- <files>` restores the demo automatically

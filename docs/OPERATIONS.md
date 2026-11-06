@@ -58,7 +58,8 @@ S03 implements a server-only `TENANT_DIRECTORY_JSON` host allowlist and separate
 `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` variables for tenant credentials.
 `TENANT_ROUTING_ENABLED` defaults to `false`. The beta project has no tenant
 directory, host entries or tenant secrets configured. Only the separate
-`demo-arp-civic-pulse` Vercel project (formerly `arp-civic-pulse-tenant-test`)
+`arp-civic-pulse` Vercel project (formerly `demo-arp-civic-pulse`, originally
+`arp-civic-pulse-tenant-test`)
 routes hosts, all synthetic:
 `arp-civic-pulse.vercel.app` (main product website),
 `demo.arp-civic-pulse.vercel.app` (demo, synthetic project B) and
@@ -67,9 +68,10 @@ The former `site.arp-civic-pulse.vercel.app` permanently redirects (308) to
 the bare main-site host, preserving paths. Main-site canonical metadata,
 sitemap and demo backlinks follow the `main` directory entry; do not add the
 redirect host as a second `main` entry (only one is permitted).
-The renamed project-name host
+The former project-name host
 <https://demo-arp-civic-pulse.vercel.app> permanently redirects (308) to the
-canonical demo host. The project is configured for Node.js 24.x. The former
+canonical demo host; it stayed attached when the project was renamed to
+`arp-civic-pulse` on 6 November 2026. The project is configured for Node.js 24.x. The former
 `tenant-b.arp-civic-pulse.vercel.app` domain was detached on 31 October 2026
 and now returns 404. The two-customer hosted isolation specs need a second
 customer project before they can run again. Do not enable routing for real
@@ -213,11 +215,11 @@ testdb profile keeps the paired values for later.
 
 The commands then print these manual steps:
 
-- relink the CLI with `npx supabase link --project-ref <ref>`. This is not
-  automated by the pause/resume commands because the Supabase CLI cannot
-  currently reach the Management API from the operator network. The
-  `society:create` command attempts CLI linking and preserves the profile if
-  that step fails;
+- relink the CLI with `npx supabase@2 link --project-ref <ref>`. This is not
+  automated by the pause/resume commands. The Supabase CLI reaches the
+  Management API from the operator network only with
+  `$env:NODE_USE_SYSTEM_CA = "1"` (TLS inspection); `society:create` and
+  `society:delete` set this for the CLI themselves and link/relink it;
 - restart any running `npm run dev` server;
 - on testdb, check migrations with `migration-status` before live tests;
 - on demo, run `npm run demo:reset` after browser or manual tests.
@@ -228,6 +230,8 @@ unavailable while testdb is paused and return when it is resumed.
 ### Creating a society project
 
 ```powershell
+$env:NODE_USE_SYSTEM_CA = "1"
+$env:PGSSLROOTCERT = Join-Path (Get-Location).Path ".certs\supabase-db-ca.crt"
 npm run society:create -- premier-inspira-maplewood `
   --confirm-create civic-pulse-premier-inspira-maplewood `
   --rwa-name "Premier Inspira Maplewood" `
@@ -245,7 +249,7 @@ custom domain, pass `--host <full hostname>` instead, without `https://` or a
 path; the two options are mutually exclusive.
 
 Vercel is handled by the same command, against the shared multi-tenant Vercel
-project `demo-arp-civic-pulse` (no per-society Vercel project is created):
+project `arp-civic-pulse` (no per-society Vercel project is created):
 
 1. **Before any Supabase project is created**, the host is attached to that
    project's domains. A host already owned by another Vercel project, or an
@@ -279,8 +283,8 @@ is public; back it up with the other ignored env profiles. Inspect it with
 overwrite an existing file. The demo key was checked against Supabase; the
 `tenant-a` key came from the saved testdb profile (then named
 `.env.staging.local`) while testdb was paused.
-The rebuilt value has not yet been pushed to Vercel; the first `society:create`
-run replaces the live directory with it plus the new society.
+The rebuilt value was first pushed to Vercel by the synthetic `society:create`
+test on 6 November 2026 (recorded below).
 The script validates the directory as strictly as the app (and stricter:
 any invalid or duplicated entry aborts rather than being dropped), refuses a
 host, tenant or Supabase project already mapped to another RWA, caps customers
@@ -309,9 +313,14 @@ only in an approved password manager; do not commit it. The pooler host pattern
 testdb project region.
 
 The script first checks that the Supabase CLI can reach the Management API,
-before creating anything. If that check fails, no project is created. This is
-important because the CLI currently has a transport failure on this operator
-network even though the direct Node Management API requests work.
+before creating anything. If that check fails, no project is created. The
+scripts run the CLI pinned to major version 2 (`npx supabase@2`) because CLI
+3.0 removed `db push --db-url`, which provisioning uses, and pass
+`NODE_USE_SYSTEM_CA=1` so it trusts this network's TLS-inspecting proxy.
+Provisioning connects directly to PostgreSQL, so `PGSSLROOTCERT` must name the
+Supabase database CA (as in the example); without it provisioning stops with
+"self-signed certificate in certificate chain" after the project is created,
+and rerunning the same command with it set continues.
 
 The script then links the Supabase CLI to the new project and runs the existing
 customer provisioner with migrations enabled. This initializes default
@@ -328,9 +337,58 @@ ignored env profiles are retained and the same command can be rerun; each
 Vercel step is idempotent. Passwords cannot be retrieved
 from Supabase after creation, so the profile must not be deleted or lost. The
 command requires a Management API token with project create/read and revealed
-API-key permissions, and Vercel access to the `arp-civic-pulse` team. It has
-not been used to create a hosted project or change Vercel as part of this
-implementation.
+API-key permissions, and Vercel access to the `arp-civic-pulse` team.
+
+**Synthetic create/delete test (6 November 2026).** With operator approval,
+`society:create` ran for alias `synthetic-test` (synthetic RWA name and
+`synthetic-admin@example.com`, host
+`synthetic-test.arp-civic-pulse.vercel.app`). It created
+`civic-pulse-synthetic-test` (`xoctovsclhmpdytkczpt`, `ap-south-1`), applied 45
+migrations, initialized settings and the synthetic administrator, reported only
+the expected SMTP blocker, pushed the rebuilt directory plus the
+`provisioning` entry and redeployed production. The first attempt stopped
+without `PGSSLROOTCERT`; a later redeploy status poll timed out (polling now
+tolerates transient errors). The completed rerun served
+`dpl_8NY1B4hy4xeXtAv8iThgt8sAEEpM`: main and demo 200, the new host the app's
+503. `society:delete` then redeployed (`dpl_AFJgJiN3tCvR9c1Rwbd8twAuawVK`;
+main/demo 200, the host the app's 404), deleted the variable, domain and
+Supabase project, relinked the CLI to demo and removed the profile. Afterwards
+only demo and testdb (`INACTIVE`) existed, the directory held its three
+original entries and `tenant-a` still returned 200. This verifies the scripts,
+not any real RWA onboarding or launch gate.
+
+### Deleting (offboarding) a society project
+
+```powershell
+$env:NODE_USE_SYSTEM_CA = "1"
+npm run society:delete -- premier-inspira-maplewood `
+  --confirm-delete civic-pulse-premier-inspira-maplewood
+```
+
+The society is identified only from its saved `.env.<alias>.local`; without
+that profile the command refuses and leftovers must be removed manually. It
+refuses the demo and testdb projects, the demo and `tenant-a` tenants and the
+platform hosts, and a Supabase project whose name is not
+`civic-pulse-<alias>`. In order, it:
+
+1. removes the tenant's directory entry (host, tenant and project must all
+   match), pushes `TENANT_DIRECTORY_JSON`, redeploys production and saves the
+   local `.env.vercel.local` copy only once the new deployment is `READY`;
+   then checks main and demo still serve and the host gets the app's empty
+   unlisted-host 404;
+2. deletes the tenant's `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` variable
+   and detaches the host from the shared Vercel project;
+3. deletes the Supabase project and waits until it is gone;
+4. relinks the Supabase CLI to the current test target if it was linked to the
+   deleted project, and deletes `.env.<alias>.local`.
+
+Each step is skipped when already done, so an interrupted run can be repeated
+until the profile is removed. Deletion is permanent: the database, Auth users
+and audit history are destroyed. This is technical teardown only; the export
+handover, retention and offboarding terms (S11) are not agreed or automated.
+An `active` tenant is therefore refused unless `--offboard-active` confirms
+its data has been exported and handed over under those terms; take a
+[backup](#4-backups) first.
 
 `npm run test:live` (`scripts/test/live.mjs`) runs `npm run demo:reset`
 automatically whenever its primary backend is the approved demo, including
