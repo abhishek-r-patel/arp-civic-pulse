@@ -73,10 +73,8 @@ export default async function ResidentsPage({
     loadError = error;
   }
 
-  const filtersActive =
+  const otherFiltersActive =
     query.status !== undefined ||
-    query.isAdmin !== false ||
-    query.isReadonly !== false ||
     query.selfRegistered !== undefined ||
     query.identifierContains !== undefined ||
     query.isEligible !== undefined ||
@@ -84,6 +82,11 @@ export default async function ResidentsPage({
     query.representative !== undefined ||
     query.changedFrom !== undefined ||
     query.changedTo !== undefined;
+  const allRoles =
+    query.isAdmin === undefined && query.isReadonly === undefined;
+  const voterDefault = query.isAdmin === false && query.isReadonly === false;
+  // Restarting a filtered list shows every role, matching the toolbar's Clear filters.
+  const allRolesHref = "/admin/residents?isAdmin=all";
 
   const params = {
     limit: String(query.limit),
@@ -155,17 +158,31 @@ export default async function ResidentsPage({
           </LinkButton>
         </Notice>
       ) : result && result.data.length === 0 ? (
-        filtersActive ? (
+        otherFiltersActive || (!allRoles && !voterDefault) ? (
           <EmptyState
             title="No residents match these filters"
             action={
-              <LinkButton href="/admin/residents" variant="secondary">
+              <LinkButton href={allRolesHref} variant="secondary">
                 Clear Filters
               </LinkButton>
             }
           >
             <p>
               Try a different status, role, source, eligibility or identifier.
+            </p>
+          </EmptyState>
+        ) : voterDefault ? (
+          <EmptyState
+            title="No voters yet"
+            action={
+              <LinkButton href={allRolesHref} variant="secondary">
+                Show All Roles
+              </LinkButton>
+            }
+          >
+            <p>
+              This list shows Voters by default. RWA Admin and RWA ReadOnly
+              accounts are listed under All Roles.
             </p>
           </EmptyState>
         ) : (

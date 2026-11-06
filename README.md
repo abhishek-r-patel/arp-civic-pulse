@@ -120,7 +120,8 @@ Administrators can open **Import CSV** from the register: upload at most 500 row
 (256 KiB), check conflicts, confirm import, then review and enable suspended
 accounts using individual controls or the Residents table's separate **Enable Selected**
 and **Make Eligible** actions. The table defaults to Voters; explicitly select
-All Roles to include administrators. Selections cover only the current page.
+All Roles to include administrators. **Clear filters** and the empty Voters
+view's **Show All Roles** open All Roles. Selections cover only the current page.
 Existing records are never overwritten. From a ready
 ballot preview, **Schedule Vote** freezes the ballot and electorate immediately;
 residents see only the summary and opening countdown until database time permits

@@ -56,7 +56,7 @@ describe("resident table controls", () => {
       direction: "desc",
     });
   });
-  it("clears filters while preserving the current sort and page size", () => {
+  it("clears filters to all roles while preserving the current sort and page size", () => {
     const href = residentTableClearFiltersHref({
       page: "4",
       cursor: "old",
@@ -78,7 +78,16 @@ describe("resident table controls", () => {
       limit: "50",
       sort: "source",
       direction: "desc",
+      isAdmin: "all",
     });
+    const fromVoterDefault = residentTableClearFiltersHref({
+      isAdmin: "false",
+    });
+    expect(
+      new URL(fromVoterDefault, "https://example.test").searchParams.get(
+        "isAdmin",
+      ),
+    ).toBe("all");
   });
   it("uses accessible icon-only controls for sorting, filtering, and clearing", () => {
     const html = renderToStaticMarkup(

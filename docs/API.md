@@ -301,7 +301,8 @@ After a timeout, lost response, or ambiguous infrastructure error, the client re
 The Residents review screen defaults to Voters (`isAdmin=false,isReadonly=false`,
 the implicit `voter` role);
 **All Roles**, administrators and readonly observers are explicit page-filter
-choices. The API accepts optional boolean `isAdmin`, `isReadonly` and
+choices. Clearing filters, or **Show All Roles** on an empty Voters view,
+navigates to `isAdmin=all`. The API accepts optional boolean `isAdmin`, `isReadonly` and
 `selfRegistered` filters; the page exposes the last as **Source** (Self-registered
 or Admin-registered) and marks self-registered rows.
 `GET /api/admin/accounts` additionally returns `household: null` or

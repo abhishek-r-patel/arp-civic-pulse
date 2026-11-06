@@ -37,11 +37,16 @@ const fields: Record<FilterKey, readonly string[]> = {
 const subscribe = () => () => {};
 const localZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 const serverZone = () => null;
-const filterResetParams = Object.fromEntries(
-  Object.values(fields)
-    .flat()
-    .map((key) => [key, ""]),
-);
+// Clearing shows every role: the Voter page default would otherwise hide
+// administrators and ReadOnly observers, making a cleared list look empty.
+const filterResetParams = {
+  ...Object.fromEntries(
+    Object.values(fields)
+      .flat()
+      .map((key) => [key, ""]),
+  ),
+  isAdmin: "all",
+};
 
 export function residentTableHref(
   params: ResidentTableState["params"],

@@ -410,7 +410,7 @@ uses the verified disposable fixture project for actual Votes/Accounts pictures.
 For tabular onboarding review, open **Residents** (Voters is the default role),
 filter Suspended and select valid rows on the current page. **Enable Selected**
 allows sign-in; **Make Eligible** separately changes assigned-flat eligibility
-for future votes. Select All Roles explicitly to include administrators, whose
+for future votes. Select All Roles explicitly (or use Clear filters) to include administrators, whose
 enable confirmation carries a management-access warning. Changing sort/page/filters
 clears selection. The review actions add no write migration; current table
 controls require the `20261115100000` read routine described above.
