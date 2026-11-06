@@ -389,7 +389,11 @@ Ignored Build Step names its own Production branch
 `beta` builds only beta and a merge into `main` (from `beta` or any branch)
 builds only the shared project. The other project's run is shown as a
 cancelled/ignored Vercel status on the PR, not a failure; a PR from `beta` to
-`main` therefore shows the shared project skipped until it is merged. API
+`main` therefore shows the shared project skipped until it is merged. A PR from
+a feature branch into `beta` (for example PR #12) shows no Vercel status at all,
+because `vercel.json` disables Git deployments for feature branches and the beta
+project has Preview deployments off; this is intentional, and the beta build
+after the merge is that change's deployment check. API
 redeploys of the current production deployment, used by
 `society:create`/`society:delete`, carry their source branch and are not
 skipped. Vercel's monorepo "skip unaffected projects" setting is off on both
