@@ -8,8 +8,9 @@ Legend: ✅ proven here by an automated check you can re-run · 🟡 partly prov
 
 The testdb Supabase project (`civic-pulse-testdb`;
 `nycbbzgsilnxrgkwlwno`) is confirmed paused
-(`INACTIVE`); demo `hnqajjjemqepxuoqbsqx` remains `ACTIVE_HEALTHY` and is
-the shared synthetic local/live/browser test backend. The beta site's
+(`INACTIVE`); demo `arxkuxlbynjbqcjuugde` (recreated in Mumbai, `ap-south-1`,
+the same day; see [deployment](./DEPLOYMENT.md#demo-moved-to-mumbai-6-november-2026))
+is `ACTIVE_HEALTHY` and is the shared synthetic local/live/browser test backend. The beta site's
 database flows are unavailable; the hosted `tenant-a` customer that also used
 testdb was offboarded the same day. Two-backend live/isolation tests are
 disabled, not newly passed; historical checks below retain their original scope.

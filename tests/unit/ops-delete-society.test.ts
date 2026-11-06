@@ -89,7 +89,7 @@ describe("society:delete target identity", () => {
 
   it("never targets demo, testdb, protected tenants or platform hosts", () => {
     for (const protectedRef of [
-      "hnqajjjemqepxuoqbsqx",
+      "arxkuxlbynjbqcjuugde",
       "nycbbzgsilnxrgkwlwno",
     ]) {
       expect(() =>
@@ -168,7 +168,7 @@ describe("removing a customer from the tenant directory", () => {
         base,
         "demo.arp-civic-pulse.vercel.app",
         "22222222-2222-4222-8222-222222222222",
-        "https://hnqajjjemqepxuoqbsqx.supabase.co",
+        "https://arxkuxlbynjbqcjuugde.supabase.co",
       ),
     ).toThrow("does not match");
     expect(() =>

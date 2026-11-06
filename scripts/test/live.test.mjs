@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { runLiveTests } from "./live.mjs";
 
 const demo = {
-  NEXT_PUBLIC_SUPABASE_URL: "https://hnqajjjemqepxuoqbsqx.supabase.co",
+  NEXT_PUBLIC_SUPABASE_URL: "https://arxkuxlbynjbqcjuugde.supabase.co",
 };
 
 function run(args, env, statuses = [0, 0]) {

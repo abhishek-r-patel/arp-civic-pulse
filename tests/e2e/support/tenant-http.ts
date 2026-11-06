@@ -24,7 +24,7 @@ export interface TenantHttpProject {
   databaseUrl?: string;
 }
 
-const APPROVED_REFS = { A: "nycbbzgsilnxrgkwlwno", B: "hnqajjjemqepxuoqbsqx" };
+const APPROVED_REFS = { A: "nycbbzgsilnxrgkwlwno", B: "arxkuxlbynjbqcjuugde" };
 
 /*
  * Project B became the demo, so an operator may name another disposable

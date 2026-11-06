@@ -65,7 +65,7 @@ describe("tenant directory", () => {
     expect(() =>
       withCustomerEntry(base, {
         ...maplewood,
-        projectUrl: "https://hnqajjjemqepxuoqbsqx.supabase.co",
+        projectUrl: "https://arxkuxlbynjbqcjuugde.supabase.co",
       }),
     ).toThrow(/another tenant/u);
     const added = withCustomerEntry(base, maplewood);

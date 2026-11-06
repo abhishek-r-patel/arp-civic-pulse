@@ -8,7 +8,7 @@ listed in `docs/IMPLEMENTATION_PLAN.md`; nothing below records or implies an app
 which backs only the beta site (the synthetic `tenant-a` host was offboarded),
 is paused; local
 app/live/browser tests use the shared
-synthetic demo `hnqajjjemqepxuoqbsqx`. Paired-project tests are disabled.
+synthetic demo `arxkuxlbynjbqcjuugde`. Paired-project tests are disabled.
 Never use the planned Premier Inspira Maplewood customer database for tests,
 fixtures or demo reset. Local integration/load tests remain on disposable
 PostgreSQL. Demo has all 45 repository migrations applied; this change ran no

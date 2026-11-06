@@ -26,9 +26,11 @@ test.describe("product website and demo hosts", () => {
     await expect(
       page.getByRole("link", { name: /Try the demo/u }).first(),
     ).toHaveAttribute("href", new RegExp(`^${demoOrigin}`, "u"));
-    await expect(
-      page.getByText(/contact us for a quote/iu).first(),
-    ).toBeVisible();
+    const quoteLink = page
+      .locator(".product-hero")
+      .getByRole("link", { name: "Ask for a quote", exact: true });
+    await expect(quoteLink).toBeVisible();
+    await expect(quoteLink).toHaveAttribute("href", "/contact");
 
     for (const path of ["/contact", "/privacy"]) {
       expect(

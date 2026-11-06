@@ -14,7 +14,7 @@ As of 6 November 2026, the testdb Supabase project (`civic-pulse-testdb`, which
 backs the beta site) is paused to free an active free-tier slot for Premier
 Inspira Maplewood. This checkout's
 ignored `.env.local` points local development, live Vitest and opted-in
-Playwright fixtures at the synthetic demo `hnqajjjemqepxuoqbsqx`.
+Playwright fixtures at the synthetic demo `arxkuxlbynjbqcjuugde`.
 `TENANT_TEST_*` is empty; do not enable paired-project tests or substitute
 the new RWA database. The cached Supabase CLI link also targets demo; verify
 the project reference before any remote command. `.env.testdb.local` keeps the testdb credentials

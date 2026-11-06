@@ -62,6 +62,50 @@ site/project aliases 308-redirect to `beta.` preserving path/query. Testdb was r
 empty), and paused again with `npm run testdb:pause`. No signed-in beta
 journey, migration check or OTP email was run.
 
+#### Demo moved to Mumbai (6 November 2026)
+
+A region audit found demo (`hnqajjjemqepxuoqbsqx`) in Singapore
+(`ap-southeast-1`) while Vercel functions run in `bom1` and testdb is in
+`ap-south-1`. With operator approval the demo was recreated in Mumbai:
+
+- New Supabase project `civic-pulse-demo` (`arxkuxlbynjbqcjuugde`,
+  `ap-south-1`, free plan) was created through the Management API; the old
+  project was renamed `civic-pulse-demo-sg-old` first. All 45 repository
+  migrations were applied with `supabase@2 db push --db-url`.
+- Auth settings were compared with the old project; only `disable_signup`
+  (now `true`) and `mailer_otp_length` (now `6`) differed and were copied.
+  No SMTP, redirect list or site URL change was needed.
+- Seeded once with `npm run ops -- demo-reset --confirm arxkuxlbynjbqcjuugde
+--initialize`: 23 profiles, 20 households, 16 votes, 65 ballots.
+- The shared Vercel project's demo directory entry and
+  `TENANT_22222222222242228222222222222222_SUPABASE_SERVICE_ROLE_KEY` were
+  replaced and production redeployed as `dpl_75TVgAR1grXUx4Zgx5Bpgn9a8VXf`
+  (from `dpl_rrs96kCo5sGFUxCvqrW9nJj76142`). The main site and demo
+  `/sign-in` returned 200, and all three personas signed in on the hosted demo
+  against accounts in the new project.
+- Follow-up hosted browser verification passed all nine Chromium checks in
+  `tests/e2e/site-home.spec.ts` and `tests/e2e/site-demo-live.spec.ts`, without
+  retries. The demo smoke suite's stale quote-text assertion now checks the
+  current **Ask for a quote** link and its `/contact` destination. The earlier
+  demo page-load timeout did not recur; no navigation waits were weakened.
+  This verifies the synthetic hosts, not real-voting readiness or other browsers.
+- The hard-coded demo ref was updated in `scripts/ops/test-target.ts`,
+  `scripts/ops/demo.ts`, `scripts/ops/vercel-directory.ts`, the `demo:reset`
+  script in `package.json`, `.env.example`, `scripts/test/live.mjs`,
+  `tests/live/auth.live.test.ts`, `tests/e2e/support/tenant-http.ts` and the
+  related unit tests. Ignored local profiles (`.env.local`, `.env.demo.local`,
+  `.env.demo-test.local`, `.env.testdb.local`, `.env.vercel.local`) and the
+  cached CLI link were repointed by the operator's session.
+- The beta Vercel project's default function region was changed from `iad1` to
+  `bom1` (deployments already used `vercel.json`'s `bom1`), and
+  `tests/unit/deploy-region.test.ts` now fails if `vercel.json` stops pinning
+  `bom1` or `society:create` stops using `ap-south-1`.
+
+Earlier records in this document that name `hnqajjjemqepxuoqbsqx` describe the
+Singapore project at that time. After the checks above passed, that project
+was deleted through the Management API the same day; the account now lists only
+demo (`ap-south-1`, active) and testdb (`ap-south-1`, paused).
+
 ### Tenant routing: disabled on beta; shared production project
 
 The [S02 tenant contract](./IMPLEMENTATION_PLAN.md#s02---tenant-resolution-and-configuration-contract)
@@ -317,6 +361,16 @@ database is the testdb project (`civic-pulse-testdb`), currently paused. No new
 hosted verification was recorded with this rename; the dated records below
 describe earlier setup and verification.
 
+**Obsolete PDF flag cleanup (6 November 2026):** `PDF_EXPORT_ENABLED` was
+removed from beta's Production variables through the Vercel API. A fresh API
+read confirmed 13 Production-only variables on beta and seven on the shared
+main project, with the retired flag absent from both. No local `.env*` profile
+contained it. PDF remains mandatory; the regression test that supplies the old
+flag to prove it cannot disable PDF is intentionally retained. No redeployment
+was needed for this unused setting: existing deployment snapshots retain their
+original environments until rebuilt, but current code ignores the flag.
+Historical setup records below preserve the settings used at that time.
+
 As of 28 October 2026, the operator approved this permanent beta setup:
 
 **Numbered-pagination follow-up:** with explicit authorization, migration
@@ -396,8 +450,9 @@ forward-only. No `--include-all` or migration-history rewrite was used.
   Legacy project-name host aliases remain attached as 308 redirects to the
   canonical beta host.
   All eight Preview-only environment entries were removed. The nine original
-  Production entries remain, alongside four Sentry entries and
-  `TRUSTED_PROXY_CONFIG` (14 Production entries total).
+  Production entries remained, alongside four Sentry entries and
+  `TRUSTED_PROXY_CONFIG` (14 Production entries then; 13 after the obsolete PDF
+  flag cleanup noted above).
   `TRUSTED_PROXY_CONFIG=vercel` was added on 31 October 2026 and first applied
   by the automatic Git deployment of `9ff6ec6`
   (`dpl_77LqZJAnv6NkVif4CfD79sxXnnJV`, Ready). After it, health returned `ok`
@@ -461,7 +516,7 @@ Site URL too. The records below are historical and superseded where they differ.
 - The canonical origin at that time was a protected Vercel deployment URL, not a custom domain.
 - Artifact: GitHub commit `8ac9d1c6f6724c5e10e80e4203a2d960a39a216c`, deployment `dpl_BNBFMs6wHRMuDXck8299oRq5aJBf`, created 27 October 2026. The operator selected the committed GitHub version, not the additional uncommitted local features.
 - The operator confirmed that the Supabase project in ignored `.env.local` was test-only. Only the four required app credentials were transferred, alongside `APP_ORIGIN`, `LOG_LEVEL=info`, `MAINTENANCE_MODE=0` and `PDF_EXPORT_ENABLED=0`. All eight variables are scoped to **Preview only**; privileged app secrets are non-revealable. No database URL, password, management token or live-test email was uploaded.
-- `PDF_EXPORT_ENABLED=0` above was a legacy setting for that historical artifact. Current code ignores it and always offers PDF; remove the obsolete variable from active deployment scopes.
+- `PDF_EXPORT_ENABLED=0` above was a legacy setting for that historical artifact. Current code ignores it and always offers PDF; the obsolete variable was removed from beta's active Production scope on 6 November 2026.
 - Vercel Authentication is enabled (`all_except_custom_domains`). An unauthenticated HTTPS request to beta health was redirected to Vercel SSO (302); no public custom domain was added.
 - Verified on the hosted artifact: initial maintenance health was 503; after the controlled beta-only rebuild, health was 200 with exactly `data.status="ok"` and `requestId`, and `private, no-store`. Sign-in rendered with CSP, `/admin` navigated to `/sign-in`, protected member/admin APIs returned 401, and an empty wrong-Origin authentication mutation returned 403 without sending email. Protected API responses had `private, no-store` and no cross-origin allow header.
 - The build fix retains the placeholder-only `.env.example` needed by guide rendering. Its isolated local build, lint, guide generation/link checks and all 10 documentation tests passed; the hosted build is Ready.
@@ -537,7 +592,7 @@ The host remains protected beta; this is not production approval.
 - `vercel.json` installs with `npm ci`, builds with `npm run deploy:check && npm run build`, and currently allows automatic Git deployments only for `main` and `beta`; each project's Ignored Build Step builds only its own Production branch (see the [release flow](#release-flow-beta-then-production)). Each project's Production-scoped variables are managed separately in Vercel. Keep Next.js's managed output directory; this is not a static export or Edge-runtime application.
 - Vercel manages server startup; do not configure `next dev` as a production command. On an approved self-managed Node host, run `npm run build`, then `npm run start -- --hostname 127.0.0.1 --port 3000` behind an HTTPS reverse proxy and process supervisor. That alternative requires separate ingress approval.
 - `.vercelignore` excludes local environment files, local build output, dumps, encrypted backups, keys and test artifacts from CLI uploads. Its `!.env.example` exception retains only the tracked, placeholder-only example: the prebuild guide renderer validates a link to it. Never put real values in that example or remove the exclusions for `.env` and `.env.*`. `.gitignore` excludes `.vercel` metadata. Review the upload/repository before sending it to an approved host.
-- Run functions next to the database. `vercel.json` pins `"regions": ["bom1"]` (Mumbai) because the Supabase projects are in `ap-south-1`. With the earlier default `iad1`, each signed-in page made several sequential US↔India round trips (session, `getUser`, profile, page data). Measured TTFB from India was ~1.2–2.1 s on demo pages, versus ~0.45 s on the database-free main site. Hobby allows one region. If an approved production database lives elsewhere, change this value to match it. This is a latency setting, not approval of a production region or provider.
+- Run functions next to the database. `vercel.json` pins `"regions": ["bom1"]` (Mumbai) because the Supabase projects (demo, testdb and every `society:create` project) are in `ap-south-1`; both Vercel projects' default function region is also `bom1`, and `tests/unit/deploy-region.test.ts` guards the `vercel.json` pin and the `society:create` region (the dashboard default is not testable offline). With the earlier default `iad1`, each signed-in page made several sequential US↔India round trips (session, `getUser`, profile, page data). Measured TTFB from India was ~1.2–2.1 s on demo pages, versus ~0.45 s on the database-free main site. Hobby allows one region. If an approved production database lives elsewhere, change this value to match it. This is a latency setting, not approval of a production region or provider.
 - Keep the required PDFKit/fontkit externalization and font tracing in `next.config.ts`. Validate complete multi-page PDF rendering on the approved host before admitting residents; PDF cannot be disabled by an environment flag.
 
 Vercel settings documentation: [project configuration](https://vercel.com/docs/project-configuration), [Node versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions).

@@ -17,7 +17,7 @@ import { parseEnv } from "node:util";
  */
 
 export const PROJECTS = {
-  demo: "hnqajjjemqepxuoqbsqx",
+  demo: "arxkuxlbynjbqcjuugde",
   testdb: "nycbbzgsilnxrgkwlwno",
 } as const;
 export type Target = keyof typeof PROJECTS;

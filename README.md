@@ -35,7 +35,7 @@ of this is release approval.
 planned **Premier Inspira Maplewood** project (the creation script is available
 but has not been run).
 Local development and hosted/browser tests now share the synthetic demo project
-`hnqajjjemqepxuoqbsqx`; cross-project tests are disabled. The beta site is unavailable while its
+`arxkuxlbynjbqcjuugde`; cross-project tests are disabled. The beta site is unavailable while its
 database is paused; it does not fall back to demo. Restore synthetic demo data with `npm run demo:reset`
 before a planned demo and after browser/manual tests. `npm run testdb:resume`
 resumes testdb and points local tests at it; `npm run testdb:pause` reverses

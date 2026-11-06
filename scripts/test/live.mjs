@@ -12,7 +12,7 @@ export function runLiveTests(args, env, run = spawn) {
   const primaryIsDemo =
     URL.canParse(env.NEXT_PUBLIC_SUPABASE_URL) &&
     new URL(env.NEXT_PUBLIC_SUPABASE_URL).hostname ===
-      "hnqajjjemqepxuoqbsqx.supabase.co";
+      "arxkuxlbynjbqcjuugde.supabase.co";
   const pairedTestConfigured = Object.keys(env).some(
     (name) => name.startsWith("TENANT_TEST_") && env[name],
   );

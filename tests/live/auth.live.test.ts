@@ -486,7 +486,7 @@ describe.skipIf(!hasLive)("live: Supabase Auth and API posture", () => {
         );
         if (
           projectARef !== "nycbbzgsilnxrgkwlwno" ||
-          projectBRef !== "hnqajjjemqepxuoqbsqx"
+          projectBRef !== "arxkuxlbynjbqcjuugde"
         ) {
           throw new Error(
             "Tenant-pair live tests are restricted to the two approved disposable Supabase projects.",

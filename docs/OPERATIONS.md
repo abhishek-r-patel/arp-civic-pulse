@@ -15,7 +15,9 @@ npm run ops -- <command> [options]      # Node uses --conditions=react-server an
 `nycbbzgsilnxrgkwlwno`) is paused (`INACTIVE`), not deleted. Its beta site
 is unavailable (the synthetic `tenant-a` host that also used it was
 offboarded). The remaining active
-Supabase project is demo (`hnqajjjemqepxuoqbsqx`); the freed slot is reserved
+Supabase project is demo (`arxkuxlbynjbqcjuugde`, Mumbai `ap-south-1`;
+recreated from a Singapore project on 6 November 2026, see
+[deployment](./DEPLOYMENT.md#demo-moved-to-mumbai-6-november-2026)); the freed slot is reserved
 for the planned Premier Inspira Maplewood project, never routine test data.
 Existing Vercel mappings are unchanged; there is no fallback to another RWA.
 
@@ -121,6 +123,26 @@ suspected tampering:
 npm run demo:reset
 ```
 
+For the hosted main-site and demo browser checks, opt in explicitly and skip
+the local dev-server startup:
+
+```powershell
+$env:NODE_USE_SYSTEM_CA = "1"
+$env:PLAYWRIGHT_NO_WEB_SERVER = "1"
+$env:SITE_HOME_HTTP_TEST = "1"
+$env:SITE_DEMO_HTTP_TEST = "1"
+$env:SITE_HTTP_MAIN_ORIGIN = "https://arp-civic-pulse.vercel.app"
+$env:SITE_HTTP_DEMO_ORIGIN = "https://demo.arp-civic-pulse.vercel.app"
+npx playwright test site-home.spec.ts site-demo-live.spec.ts --project=chromium
+```
+
+These checks cover the current **Ask for a quote** link to `/contact`, homepage
+navigation/accessibility, all three demo personas, email refusal and mobile
+reflow. They sign in but do not edit seeded application data; run against a
+freshly restored demo so shared visitor edits do not invalidate seed assertions.
+Browser failures still need investigation; successful API sign-in alone is not
+a substitute for these checks.
+
 Its settings live in a separate `.env.demo.local` file (ignored by Git) at the
 repo root: `DEMO_PROJECT_REF`, `DEMO_SUPABASE_URL`, `DEMO_SERVICE_ROLE_KEY`,
 `DEMO_DATABASE_URL`, and `PGSSLROOTCERT=.certs/supabase-db-ca.crt`. Only
@@ -128,15 +150,18 @@ repo root: `DEMO_PROJECT_REF`, `DEMO_SUPABASE_URL`, `DEMO_SERVICE_ROLE_KEY`,
 tests read `.env.local`, which now holds matching demo credentials.
 Set `DEMO_SHARED_TEST_PROJECT=true` in `.env.demo.local` to explicitly allow
 resetting the shared local test backend. This exception is hard-restricted to
-`hnqajjjemqepxuoqbsqx`; matching project/API/database credentials, exact
+`arxkuxlbynjbqcjuugde`; matching project/API/database credentials, exact
 confirmation and the existing synthetic demo marker are still required.
 Other primary application projects remain refused. Never use `--initialize`
 to bypass a missing marker on an existing customer project.
 `npm run demo:reset` also loads `.env.local` and uses the Windows
 certificate store (`--use-system-ca`). The
-demo project reference `hnqajjjemqepxuoqbsqx` is fixed in its `--confirm`
+demo project reference `arxkuxlbynjbqcjuugde` is fixed in its `--confirm`
 argument in `package.json`, so a file pointing at another project is refused;
-if the demo project is ever replaced, change both. The longer form still
+if the demo project is ever replaced, change both (and the other hard-coded
+references listed in the
+[demo move record](./DEPLOYMENT.md#demo-moved-to-mumbai-6-november-2026)),
+then seed the new project once with `--initialize`. The longer form still
 works: `npm run ops --silent -- demo-reset --confirm <DEMO_PROJECT_REF>`.
 
 The `TENANT_TEST_*` settings in `.env.local` are now empty. The paired live
@@ -147,7 +172,7 @@ both test tenants at demo. The testdb settings are kept in the ignored
 
 ### Switching the test target
 
-The free tier allows two active projects. Demo (`hnqajjjemqepxuoqbsqx`) always
+The free tier allows two active projects. Demo (`arxkuxlbynjbqcjuugde`) always
 keeps one slot. The second slot is shared: either the testdb project
 (Supabase `civic-pulse-testdb`, `nycbbzgsilnxrgkwlwno`) or a society project,
 never both at once. `scripts/ops/test-target.ts` manages testdb's use of that

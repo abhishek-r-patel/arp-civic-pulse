@@ -67,7 +67,8 @@ projects are linked to the GitHub repository; each skips non-Production builds
 (see the [release flow](./DEPLOYMENT.md#release-flow-beta-then-production)).
 `vercel.json` restricts automatic Git deployments to `main` and `beta` and pins functions to
 `bom1` (Mumbai), beside the `ap-south-1` Supabase projects, so each sequential
-auth/profile/data query stays in-region. Hosted environment
+auth/profile/data query stays in-region; `tests/unit/deploy-region.test.ts`
+guards that pin and the `ap-south-1` region used by `society:create`. Hosted environment
 scope, protection and canonical `APP_ORIGIN` remain project settings.
 Real production requires separate hosting/database projects and credentials.
 See the [current beta configuration](./DEPLOYMENT.md#current-beta-configuration-production-target-only)

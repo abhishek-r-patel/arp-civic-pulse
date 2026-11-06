@@ -278,7 +278,7 @@ export function bootstrapDirectory(keys: {
         kind: "demo",
         tenantId: DEMO_TENANT,
         state: "active",
-        projectUrl: "https://hnqajjjemqepxuoqbsqx.supabase.co",
+        projectUrl: "https://arxkuxlbynjbqcjuugde.supabase.co",
         publishableKey: keys.demoPublishableKey,
         serviceRoleKeyRef: serviceKeyRef(DEMO_TENANT),
       },
@@ -793,10 +793,10 @@ function initProfile() {
   const demo = read(".env.demo-test.local");
   const local = read(".env.local");
   const demoKey =
-    demo.NEXT_PUBLIC_SUPABASE_URL === "https://hnqajjjemqepxuoqbsqx.supabase.co"
+    demo.NEXT_PUBLIC_SUPABASE_URL === "https://arxkuxlbynjbqcjuugde.supabase.co"
       ? demo.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
       : local.NEXT_PUBLIC_SUPABASE_URL ===
-          "https://hnqajjjemqepxuoqbsqx.supabase.co"
+          "https://arxkuxlbynjbqcjuugde.supabase.co"
         ? local.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
         : undefined;
   if (!demoKey) {

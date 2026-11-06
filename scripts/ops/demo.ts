@@ -60,7 +60,7 @@ export function demoResetTarget(
     new URL(env.NEXT_PUBLIC_SUPABASE_URL).hostname === apiHost &&
     !(
       env.DEMO_SHARED_TEST_PROJECT === "true" &&
-      target.projectRef === "hnqajjjemqepxuoqbsqx"
+      target.projectRef === "arxkuxlbynjbqcjuugde"
     )
   ) {
     throw new Error(
