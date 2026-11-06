@@ -772,12 +772,18 @@ npm run dev`}</code>
           ]}
         />
         <p>
-          The documented staging Vercel project uses its Production target with
-          a disposable database and restricted automatic Git deployment.
-          Vercel&apos;s label does not make that database real production. Real
-          production needs separately approved projects, secrets, Auth URLs,
-          policies and evidence. Changing the origin requires
-          rebuilding/redeploying and updating provider settings.
+          The beta Vercel project (beta-arp-civic-pulse, serving
+          beta.arp-civic-pulse.vercel.app) uses its Production target for the
+          beta Git branch, backed by the synthetic testdb Supabase project
+          (civic-pulse-testdb). Changes flow from feature branches into beta,
+          which deploys the beta site automatically; after verification, beta is
+          merged into main and the shared production Vercel project, which has
+          no Git connection, is deployed manually from that main commit in an
+          approved release window. Vercel&apos;s Production label does not make
+          the beta database real production. Real production needs separately
+          approved projects, secrets, Auth URLs, policies and evidence. Changing
+          the origin requires rebuilding/redeploying and updating provider
+          settings.
         </p>
         <p>
           Use npm run deploy:check with injected production configuration; it

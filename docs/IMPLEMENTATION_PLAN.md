@@ -6,12 +6,21 @@
 
 ## SaaS Action Plan - 31 October 2026
 
+**Environment update, 6 November 2026:** the testdb Supabase project
+(`civic-pulse-testdb`) is paused
+to free one active free-tier slot for the planned Premier Inspira Maplewood
+project. Demo is now the shared synthetic app/live/browser test backend;
+cross-project tests are disabled and historical two-backend evidence below is
+not a current availability claim. No new customer project was provisioned or
+approved. See [deployment status](./DEPLOYMENT.md#current-capacity-and-testing-arrangement---6-november-2026)
+and [demo restoration](./OPERATIONS.md#demo-site).
+
 This section is the working checklist for the SaaS transition. The phases below
 it remain historical single-RWA implementation guidance. S01 policies and the
 S02 tenant-resolution design have been recorded below. S03 adds a
 disabled-by-default tenant-routing foundation, verified on a separate hosted
 test project with two disposable backends. No customer backend, domain, demo or
-billing change has been deployed, and staging does not route tenants.
+billing change has been deployed, and the beta site does not route tenants.
 The current application remains single-RWA; existing production gates remain
 open.
 
@@ -114,7 +123,7 @@ directory, secret or backend has been configured or deployed.
   and offers shared resident, committee and RWA admin personas that may change
   the synthetic data until the next reset (email routes refused). Each
   `customer` host maps to exactly that customer's separate Supabase project.
-  Never share or fall back between demo, staging and customer backends.
+  Never share or fall back between demo, beta and customer backends.
 - The directory contract is versioned server-only deployment configuration
   (`TENANT_DIRECTORY_JSON`). Entries contain references, not
   privileged key values. A per-tenant service-role reference resolves only to
@@ -135,7 +144,7 @@ directory, secret or backend has been configured or deployed.
 | `provisioning` | Do not serve tenant data or authenticate; return a generic unavailable response until the complete configuration is deployed and verified. |
 | `active` | Route only through the exact allowlisted host and its own backend. |
 | `unavailable` | Fail closed with a generic 503; do not expose internal tenant status or fall back to another RWA. |
-| Unknown host or invalid hostname | Reject with a generic 404; do not use `APP_ORIGIN`, staging, demo or a default RWA as fallback. |
+| Unknown host or invalid hostname | Reject with a generic 404; do not use `APP_ORIGIN`, beta, demo or a default RWA as fallback. |
 
 Use only a host value the selected ingress is verified to set for the public
 request. Do not treat `Forwarded`, `X-Forwarded-Host`, `X-Original-Host` or
@@ -195,7 +204,7 @@ tenant isolation:
    the real Vercel ingress before release.
 3. `provisioning`, `unavailable`, missing-key, malformed-directory,
    disallowed-project-URL and secret-reference failures never reach a backend
-   and never fall back to staging, demo, main or another customer.
+   and never fall back to beta, demo, main or another customer.
 4. Main has no RWA backend; demo reaches only synthetic demo data; each customer
    host can create clients only for its configured project. Assert no tenant
    identity, project, secret or branding leaks into another host's HTML, API
@@ -220,7 +229,7 @@ release work stay open. The pilot cap is 10 customer RWAs.
 ### Working Checklist
 
 S01 is partially complete; S02's design is specified; S03-S07 are complete on
-the hosted test project (routing remains disabled on staging; S07's SMTP step
+the hosted test project (routing remains disabled on beta; S07's SMTP step
 stays an open gate); S08-S09 are in progress; S10's policy direction is recorded
 but its implementation is blocked on ledger storage; S11-S12 are pending. Work
 on one bounded task at a time; split a task into
@@ -252,7 +261,7 @@ purchases, production writes, migrations, resets, commits or deployment.
 	concurrent requests to two backends, separate branding, vote data, exports,
 	rate limits, error IDs and logged tenant labels. A unit test proves
 	interleaved requests keep their own log context. Routing is not enabled on
-	staging and no customer is configured.
+	beta and no customer is configured.
 - [x] **S04 - Isolate authentication and origins.** Update session refresh/proxy,
 	host-only cookies, OTP configuration, sign-out, CSRF and canonical URLs for each
 	approved subdomain. A matching email in two RWAs is two independent memberships;
@@ -289,7 +298,7 @@ purchases, production writes, migrations, resets, commits or deployment.
 	backend, seed fictional residents and representative PUBLIC/PRIVATE lifecycle
 	examples, add a visible demo banner and implement the approved access model.
 	Restrict outbound email and costly/abusive actions. Scope resets to verified
-	disposable demo resources; do not reset customer or staging projects. **Done
+	disposable demo resources; do not reset customer or testdb projects. **Done
 	when:** demo journeys, synthetic-data checks, visitor interference protections
 	and an authorized repeatable reset are verified; use synthetic screenshots for
 	marketing and keep demo availability independent of test-fixture cleanup.
@@ -404,7 +413,7 @@ separate milestones. Do not mark an entire task complete from partial evidence.
 | S01 | Starting policies and responsibility split confirmed; both PUBLIC and PRIVATE votes allowed in the pilot (31 October 2026); documentation recorded; no application changes | `node --test scripts/docs/check.test.mjs`: 5 passed; unchanged pre-existing readiness-to-deployment anchor warning; `git diff --check` passed; no runtime or hosted checks apply | Later decisions recorded in the S01 table: 10-customer pilot cap and 7-day billing grace default. Domain, pricing/inclusions, per-RWA capacity and service/offboarding terms remain open; no RWA or launch approval |
 | S02 | Host/directory/state/failure contract and spoofing/isolation acceptance cases specified; Vercel-only capped-pilot choice recorded; no application/configuration changes | `node --test scripts/docs/check.test.mjs`: 5 passed; unchanged pre-existing readiness-to-deployment anchor warning; `git diff --check` passed; no runtime, ingress or secret-isolation tests run | Actual domain and Vercel ingress/direct-origin behavior require confirmation (the 10-customer pilot cap was later approved; see the S01 table); runtime implementation is S03/S04 work |
 | S03 | Strict host-directory parsing, immutable request-scoped tenant context and context-bound Supabase clients are implemented locally behind a false-by-default flag; no tenant values are deployed | `npm run test`: 42 files/601 passed; `npm run lint`, `npm run typecheck`, `npm run build`, `npm run format:check`, `git diff --check` passed; `node --test scripts/docs/check.test.mjs`: 5 passed with the unchanged readiness-to-deployment anchor warning; synthetic tenant-mode `npm run deploy:check` passed; no tenant-directory/secret markers in `.next/static`. Build emitted safe settings-unavailable warnings during prerender. | Partial: cache/export/rate-limit/reporting isolation has source-level wiring but not full cross-surface multi-backend evidence; actual domain, S04 origin/session behavior and Vercel ingress/direct-origin checks remain blockers (the 10-customer cap is now approved). **Completed 31 October 2026:** audit of process-wide state; `tests/e2e/tenant-isolation-live.spec.ts` 1 passed and `tenant-origin-live.spec.ts` 1 passed against hosted `tenant-a`/`tenant-b` after redeploying with error IDs; Vercel logs labelled 22 host-A and 10 host-B failures with the correct tenant and the unknown host as `unresolved`; new interleaved-context unit test passed. S03 complete. Hosted demo, unavailability and rotation repeats move to S06/S07; domain and production approvals stay open |
-| S04 | Tenant-specific session cookie names, host-only production cookie attributes, request-tenant Origin checks and independent Supabase Auth project binding are implemented locally; routing remains disabled. A second disposable tenant-test project (`hnqajjjemqepxuoqbsqx`, Singapore) received all 44 migrations through the normal CLI after `20261123100000` gained its missing `reset role;` | `tests/live/auth.live.test.ts`: 17 passed against both disposable projects with verified database TLS, including the paired test proving the same email gets separate Auth users/profiles, independent OTP login and refresh, rejection of project A tokens by project B, project-local suspension and independent sign-out; focused Chromium `tests/e2e/auth-api.spec.ts`: 15 passed; focused S04 unit tests: 38 passed; `tests/e2e/tenant-origin-live.spec.ts`: 1 passed locally (Host overrides) and 1 passed with `TENANT_HTTP_REMOTE=1` against hosted `tenant-a`/`tenant-b.arp-civic-pulse.vercel.app` (project `arp-civic-pulse-tenant-test`, 31 October 2026); curl probes confirmed SSO 302 on per-deployment URLs and app 404 on the unlisted default host; typecheck, lint, format and docs checks passed | Complete for S04. Separate gates: SMTP delivery for project B, actual domain, hosted spoof/burst and pilot validation of trusted-client-IP budgets, and production approvals. Tenant B currently has sign-up disabled and email Auth enabled. |
+| S04 | Tenant-specific session cookie names, host-only production cookie attributes, request-tenant Origin checks and independent Supabase Auth project binding are implemented locally; routing remains disabled. The hosted tenant-routing test project (`hnqajjjemqepxuoqbsqx`, Singapore) received all 44 migrations through the normal CLI after `20261123100000` gained its missing `reset role;` | `tests/live/auth.live.test.ts`: 17 passed against both test projects with verified database TLS, including the paired test proving the same email gets separate Auth users/profiles, independent OTP login and refresh, rejection of project A tokens by project B, project-local suspension and independent sign-out; focused Chromium `tests/e2e/auth-api.spec.ts`: 15 passed; focused S04 unit tests: 38 passed; `tests/e2e/tenant-origin-live.spec.ts`: 1 passed locally (Host overrides) and 1 passed with `TENANT_HTTP_REMOTE=1` against hosted `tenant-a`/`tenant-b.arp-civic-pulse.vercel.app` (31 October 2026); curl probes confirmed SSO 302 on per-deployment URLs and app 404 on the unlisted default host; typecheck, lint, format and docs checks passed | Complete for S04. Separate gates: SMTP delivery for project B, actual domain, hosted spoof/burst and pilot validation of trusted-client-IP budgets, and production approvals. Tenant B currently has sign-up disabled and email Auth enabled. |
 | S05 | Main-host product website (product, privacy, contact) with per-host metadata/sitemap/robots and no RWA backend; deployed to the hosted test project | Hosted `tests/e2e/site-demo-live.spec.ts` (Chromium + WebKit, no retries): 10 passed, including the 360 px phone-width check; curl 200 for main `/`, `/contact`, demo `/sign-in` and tenant-a health; local vitest, lint, typecheck, format check, docs check and build passed | Complete on the hosted test project. Actual domain and `SALES_CONTACT_EMAIL` are open; no analytics |
 | S06 | Test project B became the dedicated synthetic demo with banner, two shared personas, `DEMO_READ_ONLY` write refusal and a marker-guarded `demo-reset` | `demo-reset` reseeded `{profiles:14, households:12, votes:6, ballots:23}`; hosted spec proves persona journeys, read-only refusal, registration off and 8 simultaneous same-persona sign-ins: one-time codes collided (`otp_expired`), so persona sign-in moved to a server-derived password; afterwards 10/10 passed twice and the concurrency test 6/6 with no retries (one earlier run failed in the concurrency test right after a deploy with no server error logged) | Complete on the hosted test project. Weekly resets are an operator duty; marketing screenshots not produced; copied-session residual risk documented. 31 October 2026: demo made writable with an RWA admin persona and a full-coverage seed; the new `demo-reset` ran on project B (`{profiles:23, households:20, votes:16, ballots:65}`, every planned state confirmed by query); the writable code is not yet redeployed, so the hosted spec has not been rerun against it |
 | S07 | `npm run ops -- provision` with shared project guard (`scripts/ops/supabase-project.ts`); the Auth step now patches sign-in settings separately from the email template, which Supabase only accepts once custom SMTP exists; `supabase db push` runs without a shell so the database URL never reaches a command line | `tests/unit/ops-provision.test.ts` + `ops-demo.test.ts`: 20 passed; live run against the demo project refused with no writes. Two fresh free-tier projects (`civic-pulse-s07-a`, `-b`, Mumbai) each: pass 1 blocked on 44 pending migrations; pass 2 with `--apply-migrations --activate` applied 44 migrations, set settings and the first admin, then refused activation because SMTP is missing (exit 1); pass 3 reported every step `already`, with 1 user/profile/admin/settings row (no duplicates). Each was wired as hosted `tenant-b`; `tenant-isolation-live` and `tenant-origin-live` passed 2/2 against tenant-a for both. Projects deleted, directory restored, demo restored and `site-demo-live` passed 10/10 (Chromium + WebKit) | Complete on the hosted test project. SMTP per customer project, the real domain and production approvals stay open |
@@ -469,7 +478,7 @@ passed (**5 passed, 0 failed**) after correcting the stale readiness link.
   project (Production) and deployed; a wrong-code verification on `tenant-a`
   returned `422 CODE_INVALID_OR_EXPIRED` rather than failing closed. Still
   open: direct-origin protection, spoofed headers, rotating addresses, bursts
-  and limiter outages; the staging project is not configured; validate
+  and limiter outages; the beta project is not configured; validate
   shared-NAT impact and thresholds in the pilot.
 - [ ] Rerun hosted Auth, access-control, voting and two-customer isolation
   coverage against approved disposable projects with verified database TLS.
@@ -1028,7 +1037,7 @@ UI primitives in Phase 7 may proceed once Phases 2-3 are complete, while backend
 3. Validate WCAG 2.2 AA core journeys with axe plus manual keyboard/focus/screen reader/contrast/zoom/reduced-motion checks. Exercise mobile administration and resident journeys on real mobile Safari, Android Chrome, and supported laptop browsers, including Chrome/Edge/Firefox/Safari where supported.
 4. Load-test 500 households/about 100 concurrent users with same-vote contention, Auth/login bursts, monitoring/results pages, and exports. Require p95 page/API under two seconds and acknowledgement within three seconds, excluding email/poor client connectivity. Tune measured query plans/indexes/RPC/capacity without weakening locks.
 5. **Pilot-readiness gate:** Record genuine A1-A7/provider/region approvals, actual session policy, bylaw confirmation of NOTA and early-completion rules, retention/recovery settings, custom SMTP/Auth peak limits, hosting eligibility/cost, required PDF correctness and CSV correctness for opted-in RWAs, mobile/accessibility evidence, backup restoration/completeness, incident runbooks, and safe deployment/migration evidence.
-6. Deploy the reviewed Next.js build through staging/production on the approved hosting plan; apply deployment-only Supabase migrations and configuration outside active votes. Smoke-test with synthetic data before admitting real voters. Never use database restoration as application rollback.
+6. Deploy the reviewed Next.js build through beta and production on the approved hosting plan; apply deployment-only Supabase migrations and configuration outside active votes. Smoke-test with synthetic data before admitting real voters. Never use database restoration as application rollback.
 7. **Pilot evaluation after readiness:** Run at least one real PUBLIC poll and one PRIVATE election. Measure admin setup under ten minutes, first-attempt login at least 90% with non-attempts separate, unaided sign-in/first submission at least 90%, and median mobile ballot-open-to-acknowledgement under 60 seconds without collecting selections.
 8. Report the at-least-60% turnout adoption target and zero-monthly-cost feasibility objective separately from correctness gates. Review pilot findings/capacity/fixes before wider rollout; no adoption or budget target excuses an integrity/privacy failure.
 

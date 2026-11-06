@@ -15,7 +15,7 @@ voting-scope decisions before marking S01 complete. S02's fail-closed tenant
 resolution/configuration design is specified, including Vercel's shared-secret
 limits. S03 adds locally tested, request-scoped tenant routing behind
 `TENANT_ROUTING_ENABLED`, which defaults to false. No directory, tenant secrets
-or customer hosts are configured on staging. A separate retained Vercel test
+or customer hosts are configured on the beta site. A separate retained Vercel test
 project serves the [product website](https://arp-civic-pulse.vercel.app), the
 synthetic demo (`demo.`) and one synthetic customer (`tenant-a.`) on placeholder
 `arp-civic-pulse.vercel.app` hosts. The former `site.` host redirects to the
@@ -29,11 +29,40 @@ reporting; S09 is in progress. S10's manual-billing policy is recorded, but
 implementation waits for a ledger store choice; S11-S12 remain pending. None
 of this is release approval.
 
-The [staging site](https://staging.arp-civic-pulse.vercel.app) uses Vercel's
-**Production target only**, backed by the disposable Supabase project. Automatic
-Preview deployments are disabled; only `main` deploys automatically. This is not
-real production: that requires separate Vercel/Supabase projects and approvals.
-See the [current hosting setup](./docs/DEPLOYMENT.md#current-staging-configuration-production-target-only).
+**Current test setup (6 November 2026):** the testdb project (Supabase
+`civic-pulse-testdb`, `nycbbzgsilnxrgkwlwno`) is paused, freeing an active free-tier slot for the
+planned **Premier Inspira Maplewood** project (the creation script is available
+but has not been run).
+Local development and hosted/browser tests now share the synthetic demo project
+`hnqajjjemqepxuoqbsqx`; cross-project tests are disabled. The beta site and
+hosted `tenant-a` backend are unavailable while their database is paused; neither
+falls back to demo. Restore synthetic demo data with `npm run demo:reset`
+before a planned demo and after browser/manual tests. `npm run testdb:resume`
+resumes testdb and points local tests at it; `npm run testdb:pause` reverses
+both. See [operations](./docs/OPERATIONS.md#switching-the-test-target) for safeguards and limitations.
+Create a society project with `npm run society:create -- <alias> ...`; it
+attaches the RWA host to the shared Vercel project first, then creates and
+provisions the Supabase project, registers it in the Vercel tenant directory
+(kept in the ignored `.env.vercel.local`) and redeploys. It keeps local testing
+on demo and leaves tenant activation disabled. See
+[society project creation](./docs/OPERATIONS.md#creating-a-society-project).
+`npm run society:delete -- <alias> --confirm-delete civic-pulse-<alias>`
+reverses it (directory entry, redeploy, Vercel variable and domain, Supabase
+project, local profile); see
+[deleting a society project](./docs/OPERATIONS.md#deleting-offboarding-a-society-project).
+
+The [beta site](https://beta.arp-civic-pulse.vercel.app) (Vercel project
+`beta-arp-civic-pulse`; its legacy host alias redirects there) uses Vercel's
+**Production target**, backed by
+the testdb Supabase project. Release flow: feature branches → pull request into
+`beta`, which auto-deploys the beta site → after verification, merge `beta`
+into `main` → deploy the merged `main` commit manually to the shared production
+Vercel project `arp-civic-pulse` inside an
+approved release window. That project is currently Git-linked with Production
+branch `main` (see the release flow for what that deploys). None of this is approval for real voting; real
+production still requires the open launch gates and approvals.
+See the [current hosting setup](./docs/DEPLOYMENT.md#current-beta-configuration-production-target-only)
+and [release flow](./docs/DEPLOYMENT.md#release-flow-beta-then-manual-production).
 
 Accounts use one of three lowercase role codes: `voter`, `rwa-admin`, or
 `rwa-readonly`. Their personas are Resident, RWA Admin, and RWA ReadOnly.
@@ -59,7 +88,7 @@ column headings and a compact Source toolbar (**Sort & Filter** on phones).
 Controls cover all matching residents before pagination, including name and
 Last Changed range filters. This also needs the reviewed
 `20261115100000_resident_table_controls` read-only RPC migration before deployment.
-It is applied only to the authorized disposable database, not real production.
+It is applied only to the authorized testdb project, not real production.
 The identifier-contains follow-up additionally needs
 `20261116100000_resident_identifier_contains`: both name and identifier searches
 match anywhere, ignoring case, without wildcard syntax. Exact API filters remain unchanged.
@@ -73,13 +102,13 @@ This needs `20261114100000_numbered_pagination`; cursor-based HTTP list APIs and
 full-result downloads remain unchanged.
 The sortable and filterable Manage Votes table additionally requires the
 read-only `20261119100000_admin_vote_table_controls` migration before deploying
-this UI revision; it is applied only to the verified disposable project, not
-staging or production. The application does not apply it at startup.
+this UI revision; it is applied only to the verified testdb project, not
+the beta application deployment or production. The application does not apply it at startup.
 The approved Turnout column requires the follow-up
 `20261120100000_admin_vote_turnout` migration, which extends that guarded RPC
 with aggregate submitted/eligible counts for Active and Completed votes only.
-It was applied only to the verified `civic-pulse-disposable` project after
-separate authorization; staging and production are untouched.
+It was applied only to the verified testdb project after separate
+authorization; the beta application and production are untouched.
 
 Administrators can open **Import CSV** from the register: upload at most 500 rows
 (256 KiB), check conflicts, confirm import, then review and enable suspended
@@ -91,7 +120,7 @@ ballot preview, **Schedule Vote** freezes the ballot and electorate immediately;
 residents see only the summary and opening countdown until database time permits
 voting. A confirmed, reasoned **Return to Draft** is allowed only before opening.
 Apply the reviewed `20261106100000`, `20261107100000` and
-`20261108100000` migrations to a verified disposable/staging environment
+`20261108100000` migrations to a verified disposable or testdb environment
 before exercising these flows; the app never migrates at startup. The latest
 migration adds the committee read-only role. See the in-app User Guide at `/user-guide`.
 
@@ -198,7 +227,7 @@ Open <http://localhost:3000>. Use synthetic data only; never copy production reg
 | `npm run typecheck`                       | `tsc --noEmit` under strict settings                                                                                                                                            |
 | `npm test`                                | Vitest unit tests in `tests/unit`                                                                                                                                               |
 | `npm run test:integration`                | Real-PostgreSQL tests in `tests/integration`, including the migration upgrade-path regression (needs `INTEGRATION_DATABASE_URL`, see `supabase/README.md`)                      |
-| `npm run test:live`                       | Real hosted Supabase Auth/PostgREST tests in `tests/live` (needs a disposable project in `.env.local`); resets the demo afterwards when `TENANT_TEST_*` is set                  |
+| `npm run test:live`                       | Real hosted Supabase Auth/PostgREST tests in `tests/live`, using demo via `.env.local`; restores demo afterwards even if tests fail                                             |
 | `npm run test:e2e`                        | Playwright and axe checks in `tests/e2e` (run `npx playwright install` first)                                                                                                   |
 | `npm run ops -- <command>`                | Backup, verify, restore rehearsal, status, migration-version reporting, orphan Auth cleanup, demo reset, customer provisioning (see [docs/OPERATIONS.md](./docs/OPERATIONS.md)) |
 
@@ -221,7 +250,7 @@ Server configuration is validated when the server starts (`src/instrumentation.t
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only for controlled Auth provisioning, self-registration and resolving current emails for authorized respondents/voters in completed management PDFs and CSVs. These lookups run only after management-role, completed-result and identity/participation authorization; they never read or return ballot choices.
 - Host-based routing is disabled by default. `TENANT_ROUTING_ENABLED`,
   `TENANT_DIRECTORY_JSON` and UUID-keyed tenant secrets are configured only on
-  the retained tenant-test Vercel project, never on staging or production until
+  the retained tenant-test Vercel project, never on beta or production until
   the domain and Vercel ingress trust are approved. `SALES_CONTACT_EMAIL` sets
   the main website's contact address; `DEMO_*` live in a separate, Git-ignored
   `.env.demo.local` loaded only by `npm run ops`/`npm run demo:reset`, and

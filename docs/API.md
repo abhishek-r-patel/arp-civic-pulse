@@ -2,7 +2,7 @@
 
 ## 1. Scope and authority
 
-[PRD.md](./PRD.md), [ARCHITECTURE.md](./ARCHITECTURE.md), and [DATABASE.md](./DATABASE.md) govern this contract. This document defines the required HTTP boundaries and integrations for the currently deployed single-RWA app. A gated tenant-routing implementation is described in section 10; it is not configured or activated on staging.
+[PRD.md](./PRD.md), [ARCHITECTURE.md](./ARCHITECTURE.md), and [DATABASE.md](./DATABASE.md) govern this contract. This document defines the required HTTP boundaries and integrations for the currently deployed single-RWA app. A gated tenant-routing implementation is described in section 10; it is not configured or activated on the beta site.
 
 **Status:** Current API contract for the deployed single-RWA application. S03
 tenant-routing code has focused local tests but is disabled and unconfigured;
@@ -753,9 +753,9 @@ Validate server configuration at startup. Store credentials in the hosting secre
 The [S02 design contract](./IMPLEMENTATION_PLAN.md#s02---tenant-resolution-and-configuration-contract)
 defines the host and lifecycle policy. S03 implements a version-1 server-only
 directory, exact-host resolver and per-request Supabase clients. Routing defaults
-to off on staging, and no customer host is configured there. A separate
+to off on the beta site, and no customer host is configured there. A separate
 retained Vercel test project routes synthetic main, demo and customer hosts; see the
-[deployment record](./DEPLOYMENT.md#tenant-routing-disabled-on-staging-separate-hosted-test-project).
+[deployment record](./DEPLOYMENT.md#tenant-routing-disabled-on-beta-shared-production-project).
 Do not enable it for real hosts until the domain is approved and the remaining
 release gates close. The pilot cap is 10 customer hosts plus one main and one
 demo host. S04 origin/session behavior and Vercel ingress/direct-origin
@@ -848,7 +848,7 @@ Manage rate-limit key versions and still-needed keys in secret management. Valid
 
 RWA name, timezone, policy approvals, and retention periods live in controlled database settings, not public build variables. Configure backup scheduler credentials, approved off-site encrypted storage, encryption keys, access, and expiry separately through the selected operational service; no new resident-facing API or application file storage is required. Cron roles cannot be invoked through member RPC access.
 
-Use separate credentials, databases, and email destinations in local/test/staging/production. Local/test use synthetic identities and a local mail sink; staging uses approved test recipients. Never copy real registers, votes, or production backups into development.
+Use separate credentials, databases, and email destinations in local/demo/testdb/beta/production. Local/demo/testdb use synthetic identities and a local mail sink or approved test recipients. Never copy real registers, votes, or production backups into development.
 
 ## 11. Privacy, failures, and operational guarantees
 

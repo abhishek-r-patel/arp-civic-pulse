@@ -2,8 +2,8 @@ import { fileURLToPath } from "node:url";
 import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
 
-// Live tests talk to YOUR disposable hosted Supabase project, using the values in
-// .env.local (never committed). Without them the suites are skipped.
+// Live tests use the synthetic demo via .env.local (never committed).
+// Without credentials the suites are skipped; test:live restores demo data.
 export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {

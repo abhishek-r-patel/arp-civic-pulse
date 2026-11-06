@@ -786,7 +786,7 @@ Test anonymous/member/admin direct REST/RPC access, suspended profiles with exis
 5. Prefer backward-compatible expand/contract changes. Schedule incompatible changes in maintenance mode, preferably with no active votes. Never change submission/counting semantics during active voting.
 6. Do not use an old database restore as deployment rollback after accepted submissions. Roll back only a schema-compatible application, or apply a reviewed forward fix.
 
-If existing real accounts/votes exist, explicitly map legacy identities to Auth-linked profiles and preserve every historical reference before cutover. Do not drop old identity data or copy old custom-auth migrations unchanged. Reconcile foreign keys, RLS, functions, and result invariants in staging; cut over outside active votes. Documented target changes do not imply any existing implementation has already migrated.
+If existing real accounts/votes exist, explicitly map legacy identities to Auth-linked profiles and preserve every historical reference before cutover. Do not drop old identity data or copy old custom-auth migrations unchanged. Reconcile foreign keys, RLS, functions, and result invariants against testdb and beta before production cutover outside active votes. Documented target changes do not imply any existing implementation has already migrated.
 
 ### Production provisioning
 
@@ -798,9 +798,9 @@ If existing real accounts/votes exist, explicitly map legacy identities to Auth-
 
 Use server-only privileged Auth credentials for provisioning/administrative Auth calls, resident self-registration, and targeted current-email lookups for authorized completed PUBLIC respondents and PRIVATE participants in management-only PDFs. These lookups follow session-backed result/identity authorization and do not read choices. Supabase Auth public signup remains disabled. Provisioning is retry-safe: create or identify the approved Auth user, then create/validate the profile and household assignment and append the application audit event in a database transaction. New profiles default to `SUSPENDED` during setup; enable them only after the intended assignment is valid (an administrator may intentionally have no household). An Auth user without a valid enabled profile has no application access. If a step fails, surface the partial state for controlled retry/cleanup; do not acknowledge completed provisioning or delete a pre-existing identity as a blind rollback.
 
-### Local/test/staging fixtures
+### Local/testdb/beta fixtures
 
-Use synthetic identities and a local mail sink or approved staging recipients only. Cover both voting types, incomplete drafts, activated frozen electorates, suspension/reassignment, zero turnout, all-NOTA ballots, NOTA counts exceeding candidate counts, ties, cancellation, and long/multiscript report content. Construct accepted fixture submissions through the same protected submission path. Use separate databases/credentials per environment; never copy production registers or backups into development.
+Use synthetic identities and a local mail sink or approved testdb recipients only. Cover both voting types, incomplete drafts, activated frozen electorates, suspension/reassignment, zero turnout, all-NOTA ballots, NOTA counts exceeding candidate counts, ties, cancellation, and long/multiscript report content. Construct accepted fixture submissions through the same protected submission path. Use separate databases/credentials per environment; never copy production registers or backups into development.
 
 ### Where each database object is defined
 

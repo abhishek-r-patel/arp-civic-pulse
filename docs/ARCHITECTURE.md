@@ -19,7 +19,7 @@ confirms a shared application with a separate Supabase database/Auth project per
 customer RWA, customer subdomains, a separate main website and a dedicated
 synthetic demo (shared and writable since 31 October 2026, reset regularly). S03 routing code is now present but disabled; no
 current deployment has tenant isolation or routing configured. The existing
-single-project staging configuration remains unchanged.
+single-project beta configuration remains unchanged.
 
 Server-controlled exact-host allowlisting, managed secret references and
 restricted operator access are confirmed boundaries. The [S02 design
@@ -27,7 +27,7 @@ contract](./IMPLEMENTATION_PLAN.md#s02---tenant-resolution-and-configuration-con
 specifies the directory, environment kinds/states, fail-closed behavior and
 spoofing/isolation cases. S03 now implements a strict server-only directory and
 immutable request-scoped backend context behind `TENANT_ROUTING_ENABLED`
-(default `false`); the current staging deployment still uses one project and
+(default `false`); the current beta deployment still uses one project and
 has no tenant directory, customer hosts or tenant secrets configured. Vercel
 environment variables were selected for a capped pilot, with the
 shared-runtime/fleet-wide secret blast radius documented; the pilot cap of 10
@@ -39,21 +39,39 @@ shows that the public Host selects the tenant, spoofed forwarding headers are
 rejected and per-deployment URLs are SSO-protected. The same project's S03 run
 showed that concurrent requests to two backends keep their own branding, data,
 exports, rate limits and logged tenant; see
-[the deployment record](./DEPLOYMENT.md#tenant-routing-disabled-on-staging-separate-hosted-test-project).
-Staging itself does not route tenants.
+[the deployment record](./DEPLOYMENT.md#tenant-routing-disabled-on-beta-shared-production-project).
+The beta site itself does not route tenants.
 Unknown or unavailable hosts must never fall back to another RWA. The actual
 domain, customer capacity and existing production gates remain open.
 
 ## 02 System Overview and Stack
 
-The staging Vercel project uses only its Production target on `main`, with
-Preview deployments disabled and the existing disposable Supabase database.
-`vercel.json` restricts automatic Git deployments to `main` and pins functions to
+**Current environment override (6 November 2026):** the testdb Supabase
+project (`civic-pulse-testdb`) is paused;
+its beta site and `tenant-a` backends are
+unavailable, with no fallback. Local app/live/browser testing shares only the
+synthetic demo project. Two-project tests are disabled, local SQL integration
+tests remain on disposable PostgreSQL, and a future Premier Inspira Maplewood
+backend must stay outside test/reset targets. Hosting mappings were not
+redeployed. See [deployment status](./DEPLOYMENT.md#current-capacity-and-testing-arrangement---6-november-2026).
+
+The beta Vercel project `beta-arp-civic-pulse` serves
+<https://beta.arp-civic-pulse.vercel.app>
+(its legacy host alias 308-redirects there) on its Production target, with
+`beta` as its Production branch and the testdb Supabase database. Feature
+branches merge into `beta`, then `beta` into `main`; the shared production
+Vercel project `arp-civic-pulse` is deployed from the merged `main` commit in
+an approved release window. It is linked to the
+GitHub repository with Production branch `main` (see the
+[release flow](./DEPLOYMENT.md#release-flow-beta-then-manual-production) for
+what that link deploys automatically).
+`vercel.json` restricts automatic Git deployments to `beta` and pins functions to
 `bom1` (Mumbai), beside the `ap-south-1` Supabase projects, so each sequential
 auth/profile/data query stays in-region. Hosted environment
 scope, protection and canonical `APP_ORIGIN` remain project settings.
 Real production requires separate hosting/database projects and credentials.
-See the [current staging configuration](./DEPLOYMENT.md#current-staging-configuration-production-target-only).
+See the [current beta configuration](./DEPLOYMENT.md#current-beta-configuration-production-target-only)
+and [release flow](./DEPLOYMENT.md#release-flow-beta-then-manual-production).
 
 ```text
 Phone / laptop browser
@@ -244,7 +262,7 @@ Tenant-routing source map:
 - `src/server/config/tenant-directory.ts` validates the versioned directory envelope and isolates invalid or conflicting entries to their affected hosts; project URLs are restricted to canonical HTTPS `*.supabase.co` origins.
 - `src/server/config/tenant-context.ts` resolves the exact request host to an immutable context without placing service-role values in that context. Request lookup is React request-cached; there is no mutable process-wide current tenant.
 - `src/server/db/clients.ts` binds user and privileged Supabase clients to the supplied context. The privileged credential is read only from its referenced server environment variable.
-- `src/proxy.ts` resolves page hosts before session refresh; API handlers resolve through the request Host header. On Vercel, the hosted S04 test project showed that the public host, not forwarded headers, selects the tenant. Tenant routing stays disabled on staging/production until the domain, cap and external release gates are closed.
+- `src/proxy.ts` resolves page hosts before session refresh; API handlers resolve through the request Host header. On Vercel, the hosted S04 test project showed that the public host, not forwarded headers, selects the tenant. Tenant routing stays disabled on beta/production until the domain, cap and external release gates are closed.
 - Process-wide state audited in S03: React `cache()` lookups are per request; the parsed environment is identical for all tenants; rate-limit buckets are stored in each tenant's own database (only the HMAC key is shared); PDF fonts are static assets. The CSV/PDF render semaphores in `src/server/exports/results-export.ts` are shared by every tenant in one function instance. They hold no tenant data, but one busy RWA can briefly delay another's exports (a fairness limit, not a data-isolation risk). The browser never talks to Supabase directly.
 - `src/server/exports/results-export.ts` restricts downloads to RWA Admin/ReadOnly and composes completed PUBLIC response emails and PRIVATE submitted-voter rosters for both formats from frozen identities and targeted current Auth-email lookups. `src/server/exports/pdf.ts` renders shared branded headers/footers with distinct PUBLIC summary/response pages and PRIVATE office/roster pages. `tests/unit/results-export.test.ts` and `tests/unit/pdf.test.ts` cover access, identifier sorting, roster pagination and report content.
 - `tests/e2e/support/tenant-http.ts`: shared guarded helpers for the tenant HTTP specs. They accept only the two disposable project refs (or, for a freshly provisioned project, an explicit `TENANT_HTTP_PROJECT_A_REF`/`_B_REF` override) and never print keys, codes or cookies.
@@ -258,8 +276,14 @@ Product website, demo and provisioning map (S05-S07):
 - `src/app/site/page.tsx`, `src/components/site/voting-examples.tsx`: server-rendered conversion-focused product homepage with an accessible PUBLIC/PRIVATE selector and fictional completed result examples. PRIVATE shows only aggregate candidate/NOTA totals and turnout. `src/components/site/main-site-navigation.tsx` provides responsive main-host navigation, the shared Light/Dark/System control, and configured demo links; `src/components/site/landing-motion.tsx` provides reduced-motion-aware scroll reveals. `src/styles/globals.css` scopes the landing design to product-site data attributes; resident/admin screens, backend permissions, metadata, structured data and public route behavior remain intact. Demo actions still derive from the active directory entry, falling back to a contact walkthrough when absent.
 - `src/shared/demo.ts`, `src/server/demo/session.ts`, `src/app/api/demo/session/route.ts`, `src/components/demo/demo-persona-sign-in.tsx`: one-click persona sign-in on the demo host (password derived from the demo service-role key, never sent to the browser and self-repaired after a reset, so simultaneous visitors do not cancel each other; global rate limit).
 - `scripts/ops/supabase-project.ts`: shared guard that every credential points at the one confirmed project, plus service-role and Auth-lookup helpers.
-- `scripts/ops/demo.ts`: `npm run ops -- demo-reset` (shortcut `npm run demo:reset`), which erases and reseeds the marked demo project only.
-- `scripts/test/live.mjs`: `npm run test:live` wrapper. Runs the live Vitest suites, then `npm run demo:reset` whenever the cross-customer paired test (which uses the demo as project B) could have run.
+- `scripts/ops/demo.ts`: `npm run ops -- demo-reset` (shortcut `npm run demo:reset`), which erases and reseeds the marked demo project only, including current PDF preferences. Sharing the primary test project requires explicit `DEMO_SHARED_TEST_PROJECT=true` and the fixed approved synthetic demo reference.
+- `scripts/test/live.mjs`: `npm run test:live` wrapper. Restores demo after every primary-demo live run (including failures/filters), or when a configured paired test could use it.
+- `scripts/test/live.test.mjs`: isolated runner/cleanup regressions (`node --test scripts/test/live.test.mjs`), with no hosted calls.
+- `.env.local`, `.env.demo.local`, `.env.testdb.local` (ignored, local-only): current synthetic app/test credentials, guarded demo-reset credentials and saved settings for the paused testdb project (`civic-pulse-testdb`) respectively. The testdb profile is not a normal test input. `.env.vercel.local` (ignored) is the authoritative copy of the shared Vercel project's write-only `TENANT_DIRECTORY_JSON`; `.env.<alias>.local` (ignored) holds one society project's credentials.
+- `scripts/ops/test-target.ts`: `npm run test:target [-- testdb|demo]`, `npm run testdb:pause` and `npm run testdb:resume` (internal arguments `pause-testdb`/`resume-testdb`). They check live project status, pause or resume testdb through the Supabase Management API, refresh retrievable API keys and swap the Supabase test keys in `.env.local` between demo and testdb. Database passwords remain in ignored profiles because Supabase does not return them. Profiles are kept in the ignored `.env.testdb.local` and `.env.demo-test.local` files; any other project is refused. Tests: `tests/unit/ops-test-target.test.ts`.
+- `scripts/ops/create-society.ts`: `npm run society:create -- <alias> ...` creates a dedicated free-tier Mumbai project only when demo is healthy, the testdb project is paused (`INACTIVE`) and no other project occupies the second slot. It attaches the RWA host (`--subdomain <label>`, refusing the reserved labels `www`, `site`, `demo`, `staging`, `beta`, `tenant-a` and `tenant-b`, or `--host`) to the shared Vercel project before creating anything, saves generated credentials to the ignored `.env.<alias>.local`, links the Supabase CLI and runs the existing provisioner with migrations, then pushes the tenant service key and a `provisioning` directory entry to Vercel and redeploys; tenant activation remains disabled. Tests: `tests/unit/ops-create-society.test.ts`.
+- `scripts/ops/vercel-directory.ts`: `npm run vercel:directory [-- init]`. Strict tenant-directory validation/merge/removal and the Vercel domain, sensitive-variable, redeploy and post-deploy check helpers used by `society:create` and `society:delete`. The authoritative directory lives in the ignored `.env.vercel.local` because Vercel does not return sensitive values. Tests: `tests/unit/ops-vercel-directory.test.ts` (also checks results with the app's own parser).
+- `scripts/ops/delete-society.ts`: `npm run society:delete -- <alias> --confirm-delete civic-pulse-<alias> [--offboard-active]` offboards a society identified only by its saved `.env.<alias>.local`: removes its directory entry and redeploys (checking the host gets the app's unlisted 404), deletes its service-key variable and domain, deletes its Supabase project, relinks the CLI and removes the profile. It never targets demo, testdb, `tenant-a` or platform hosts and refuses an `active` tenant without `--offboard-active`. Tests: `tests/unit/ops-delete-society.test.ts`.
 - `scripts/ops/provision.ts`: `npm run ops -- provision`, which prepares one fresh customer project step by step (migrations, settings, Auth, first administrator) and prints its directory entry.
 - Tests: `tests/unit/{host-routes,demo-session,ops-demo,ops-provision}.test.ts`; hosted `tests/e2e/site-demo-live.spec.ts` (`SITE_DEMO_HTTP_TEST=1`).
 - `tests/e2e/site-home.spec.ts`: read-only homepage links, configured/missing demo, fictional preview, keyboard/appearance persistence, 320-1440px reflow, 200% text and axe checks. Opt in with `SITE_HOME_HTTP_TEST=1`, `SITE_HTTP_MAIN_ORIGIN`, and optionally `SITE_HTTP_DEMO_ORIGIN`; no demo sign-in or database writes.
@@ -618,7 +642,7 @@ Sources: [Supabase pricing](https://supabase.com/pricing), [SMTP](https://supaba
 - Keep canonical application origin, Supabase URL/public client key, server-only privileged credentials and SMTP settings in appropriate environment/provider configuration. The Supabase URL and public key are not secrets; privileged credentials must never use a browser-visible prefix.
 - Store RWA timezone, policy approvals and retention settings in controlled database records. Block real activation until required approvals are recorded.
 - Configure the RWA profile (required full name, alias, household label and identifier kind; optional address, email, phone, website and welcome message, hidden when blank; one of six contrast-checked accent palettes) in Settings. RWA Admins can read and update it; RWA ReadOnly observers can read but not change it. The household and identifier labels are display-only. Updates audit changed field names, not values. Changes apply to all screens and exports immediately, including existing votes.
-- Keep local/test/staging/production data and credentials isolated. Use synthetic data and local mail capture; never copy production registers, ballots or backups into development.
+- Keep local/demo/testdb/production data and credentials isolated. Use synthetic data and local mail capture; never copy production registers, ballots or backups into development.
 - Enforce HTTPS, secure cookies, restrictive CSP, frame denial, MIME protection and safe origin handling. Limit export concurrency and untrusted text input.
 - Monitor availability, submission failure/latency, invariant failures, Cron lag, database capacity, email and export failures. Disable session replay and payload capture; log allowlisted event classes and random support IDs only.
 - Keep automated encrypted backups outside the live database with restricted credentials/access and approved expiry. On Free, arrange an external scheduled export and off-site storage; database Cron alone is not an off-site backup.
@@ -660,7 +684,7 @@ Sources: [Supabase pricing](https://supabase.com/pricing), [SMTP](https://supaba
 4. Replace custom OTP/session runtime code with Supabase Auth. If real data exists, plan identity mapping and historical-reference preservation explicitly; do not assume existing accounts can be dropped.
 5. Replace raw `pg` runtime access with user-session Supabase clients and RPCs. Remove old dependencies/modules only after all callers are migrated and validated.
 6. Configure SMTP, Cron, grants, backup automation, environment examples and provider limits. Retain PDF tooling only if needed; its presence does not make export mandatory.
-7. Validate in staging with synthetic data, then schedule cutover outside active votes. No real election should straddle an unvalidated storage/Auth migration.
+7. Validate the testdb project and beta deployment with synthetic data, then schedule cutover outside active votes. No real election should straddle an unvalidated storage/Auth migration.
 
 ### Growth
 - Measure indexes, query plans, RPC contention and capacity before adding infrastructure. Upgrade operational capacity before redesigning locking.

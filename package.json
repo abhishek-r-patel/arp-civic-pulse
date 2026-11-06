@@ -22,6 +22,12 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:load": "vitest run --config vitest.load.config.ts",
     "test:live": "node scripts/test/live.mjs",
+    "test:target": "node --use-system-ca scripts/ops/test-target.ts",
+    "testdb:pause": "node --use-system-ca scripts/ops/test-target.ts pause-testdb",
+    "testdb:resume": "node --use-system-ca scripts/ops/test-target.ts resume-testdb",
+    "society:create": "node --use-system-ca scripts/ops/create-society.ts",
+    "society:delete": "node --use-system-ca scripts/ops/delete-society.ts",
+    "vercel:directory": "node --use-system-ca scripts/ops/vercel-directory.ts",
     "test:e2e": "playwright test",
     "ops": "node --conditions=react-server --env-file-if-exists=.env.local --env-file-if-exists=.env.demo.local scripts/ops/cli.ts",
     "demo:reset": "node --use-system-ca --conditions=react-server --env-file-if-exists=.env.local --env-file-if-exists=.env.demo.local scripts/ops/cli.ts demo-reset --confirm hnqajjjemqepxuoqbsqx"
