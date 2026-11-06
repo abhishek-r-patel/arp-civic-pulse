@@ -1,7 +1,20 @@
 # Supabase operations (Civic Pulse)
 
-Everything here is for **local, test and staging** work first. Production changes need the approvals
+Everything here is for **local, test and beta** work first. Production changes need the approvals
 listed in `docs/IMPLEMENTATION_PLAN.md`; nothing below records or implies an approval.
+
+**Current targets (6 November 2026):** the testdb project (Supabase
+`civic-pulse-testdb`, formerly `civic-pulse-disposable`; `nycbbzgsilnxrgkwlwno`),
+which backs the beta site and synthetic `tenant-a` host, is paused; local
+app/live/browser tests use the shared
+synthetic demo `hnqajjjemqepxuoqbsqx`. Paired-project tests are disabled.
+Never use the planned Premier Inspira Maplewood customer database for tests,
+fixtures or demo reset. Local integration/load tests remain on disposable
+PostgreSQL. Demo has all 45 repository migrations applied; this change ran no
+migrations. Reset with `npm run demo:reset` after browser/manual tests and before
+demonstrations; the live runner restores automatically. `npm run testdb:resume`
+and `npm run testdb:pause` move testdb in and out of the second free-tier slot.
+See [operations](../docs/OPERATIONS.md#demo-site) for shared-demo safeguards.
 
 ## SQL files at a glance
 
@@ -131,7 +144,10 @@ Retention clean-up, health/status checks for monitoring, and RWA-controlled App 
 ### Application history
 
 The notes below record how individual migrations reached the disposable hosted projects. They are history, not
-instructions; use the deployment runbook for new work.
+instructions; use the deployment runbook for new work. They keep the names in use at the time: renamed on
+6 November 2026, Supabase `civic-pulse-disposable` → `civic-pulse-testdb` (same ref `nycbbzgsilnxrgkwlwno`),
+and the staging host/Vercel project `staging-arp-civic-pulse` → the beta site `beta-arp-civic-pulse`
+(`staging.` host → `beta.`, kept as a 308 redirect).
 
 The Amber palette migration was originally named with the already-applied
 `20261105100000` version. It was assigned the unused forward version

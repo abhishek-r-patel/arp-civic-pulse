@@ -8,6 +8,38 @@ This guide takes you from a fresh checkout to a running app you can sign in to, 
 
 ---
 
+## Existing checkout: shared demo test backend
+
+As of 6 November 2026, the testdb Supabase project (`civic-pulse-testdb`,
+formerly `civic-pulse-disposable`; it backs the beta site) is paused to
+free an active free-tier slot for Premier Inspira Maplewood. This checkout's
+ignored `.env.local` points local development, live Vitest and opted-in
+Playwright fixtures at the synthetic demo `hnqajjjemqepxuoqbsqx`.
+`TENANT_TEST_*` is empty; do not enable paired-project tests or substitute
+the new RWA database. The cached Supabase CLI link also targets demo; verify
+the project reference before any remote command. `.env.testdb.local` keeps the testdb credentials
+for reference only and is not loaded by normal development/tests.
+`npm run testdb:resume` resumes testdb and switches `.env.local` back to it,
+and `npm run testdb:pause` reverses both; see
+[switching the test target](./OPERATIONS.md#switching-the-test-target).
+Resume refreshes Supabase API keys from the Management API but reuses the saved
+database password in `.env.testdb.local`; Supabase does not expose that
+password for retrieval.
+`npm run society:create -- <alias> ...` creates a separately ignored
+`.env.<alias>.local`, links the Supabase CLI to that society project and runs
+the existing non-activating provisioner. It leaves `.env.local` on demo; see
+[society project creation](./OPERATIONS.md#creating-a-society-project).
+
+Keep demo reset credentials and `DEMO_SHARED_TEST_PROJECT=true` in the ignored
+`.env.demo.local`. `npm run test:live -- <files>` restores the demo automatically
+even after test failures; browser/manual tests require `npm run demo:reset`
+afterwards. Reset again before a planned demo and never run testing/reset while
+someone is demonstrating the shared site. Follow the verified-TLS shell setup
+in section 10. Local SQL integration/load tests still need disposable local
+PostgreSQL. New-checkout instructions below describe creating a separate
+synthetic project, not permission to use a real customer database.
+See [operations](./OPERATIONS.md#demo-site) for the reset guards.
+
 ## 1. What you need
 
 | Need | Notes |
@@ -189,7 +221,7 @@ npx supabase db push --db-url $env:LIVE_DATABASE_URL --yes
 ```
 
 With a clean migration history, a successful push ends with
-`Finished supabase db push.` The migration history for the verified disposable
+`Finished supabase db push.` The migration history for the verified testdb
 project has been reconciled; confirm the target with `supabase migration list`
 and run a dry run before applying any future migration. Do not use
 `--include-all` to work around migration ordering issues.
@@ -201,8 +233,10 @@ Audit History's Who/Details text filters need `20261118100000` before
 running this revision.
 Manage Votes table sorting and filters need
 `20261119100000_admin_vote_table_controls` before running this revision.
-That routine is applied only to the verified disposable project; the audit-text
+That routine is applied only to the verified testdb project; the audit-text
 migration was subsequently applied to that project.
+The following records keep the names in use at the time (renamed 6 November
+2026: `civic-pulse-disposable` → `civic-pulse-testdb`, staging host → beta site).
 The Turnout column also requires
 `20261120100000_admin_vote_turnout`. This follow-up was applied only to the
 verified `civic-pulse-disposable` project after separate authorization. That

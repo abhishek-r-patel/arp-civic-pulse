@@ -6,6 +6,7 @@ import {
   demoSeedPlan,
 } from "../../scripts/ops/demo.ts";
 import { DEMO_PERSONAS } from "@/shared/demo";
+import { rwaProfileSchema } from "@/shared/contracts/rwa-profile";
 
 const REF = "abcdefghijklmnopqrst";
 const env = (overrides: Record<string, string | undefined> = {}) => ({
@@ -68,10 +69,42 @@ describe("demoResetTarget", () => {
       demoResetTarget(env({ DEMO_PROJECT_REF: "not-a-ref" }), "not-a-ref"),
     ).toThrow(/project reference/u);
   });
+
+  it("allows explicit shared testing only on the approved synthetic demo", () => {
+    const ref = "hnqajjjemqepxuoqbsqx";
+    const shared = env({
+      DEMO_PROJECT_REF: ref,
+      DEMO_SUPABASE_URL: `https://${ref}.supabase.co`,
+      DEMO_DATABASE_URL: `postgresql://postgres.${ref}:pw@aws-0.pooler.supabase.com:5432/postgres`,
+      NEXT_PUBLIC_SUPABASE_URL: `https://${ref}.supabase.co`,
+      DEMO_SHARED_TEST_PROJECT: "true",
+    });
+    expect(demoResetTarget(shared, ref).projectRef).toBe(ref);
+    for (const value of [undefined, "false", "1"]) {
+      expect(() =>
+        demoResetTarget({ ...shared, DEMO_SHARED_TEST_PROJECT: value }, ref),
+      ).toThrow(/DEMO_SHARED_TEST_PROJECT/u);
+    }
+    expect(() =>
+      demoResetTarget(
+        env({
+          NEXT_PUBLIC_SUPABASE_URL: `https://${REF}.supabase.co`,
+          DEMO_SHARED_TEST_PROJECT: "true",
+        }),
+        REF,
+      ),
+    ).toThrow(/NEXT_PUBLIC_SUPABASE_URL/u);
+  });
 });
 
 describe("demoSeedPlan", () => {
   const plan = demoSeedPlan(new Date("2026-01-01T00:00:00Z"));
+
+  it("provides every field required by the current RWA profile contract", () => {
+    expect(rwaProfileSchema.safeParse(plan.profile).success).toBe(true);
+    expect(plan.profile.pdfCardsPerPage).toBe(8);
+    expect(plan.profile.pdfVotersPerPage).toBe(50);
+  });
 
   it("seeds one fictional resident per household, starting with the persona", () => {
     expect(plan.residents).toHaveLength(plan.households.length);

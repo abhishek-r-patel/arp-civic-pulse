@@ -10,18 +10,28 @@ npm run ops -- <command> [options]      # Node uses --conditions=react-server an
 
 ## 1. Settings that belong to operations
 
-The staging host uses only Vercel's Production target at
-<https://staging.arp-civic-pulse.vercel.app> (the former
-`arp-civic-pulse-staging.vercel.app` host permanently redirects there), backed by the disposable Supabase
-project. Preview deployments and Preview-only app variables are disabled/removed.
-The renamed project-name host
-<https://staging-arp-civic-pulse.vercel.app> also permanently redirects (308)
-to this canonical origin.
-Keep Production `APP_ORIGIN` and Supabase Auth Site URL aligned with this exact
-origin and redeploy after origin changes; protection settings do not rewrite it.
-See the [current deployment record](./DEPLOYMENT.md#current-staging-configuration-production-target-only).
-Real production requires separate projects and credentials; never turn this
-disposable database into the real register.
+**Current override (6 November 2026):** the testdb project (Supabase
+`civic-pulse-testdb`, formerly `civic-pulse-disposable`;
+`nycbbzgsilnxrgkwlwno`) is paused (`INACTIVE`), not deleted. Its beta site
+and synthetic `tenant-a` backends are unavailable. The remaining active
+Supabase project is demo (`hnqajjjemqepxuoqbsqx`); the freed slot is reserved
+for the planned Premier Inspira Maplewood project, never routine test data.
+Existing Vercel mappings are unchanged; there is no fallback to another RWA.
+
+The beta site is the Vercel project `beta-arp-civic-pulse` (formerly
+`staging-arp-civic-pulse`; same project ID) at
+<https://beta.arp-civic-pulse.vercel.app>, backed by the testdb project. It
+uses Vercel's Production target for its production branch `beta`. The former
+<https://staging.arp-civic-pulse.vercel.app> host is kept as a permanent (308)
+redirect to the beta host; the older `arp-civic-pulse-staging.vercel.app` and
+`staging-arp-civic-pulse.vercel.app` hosts were already 308 redirects.
+Keep Production `APP_ORIGIN` and the testdb Supabase Auth Site URL/redirect
+allow-list aligned with this exact beta origin and redeploy after origin
+changes; protection settings do not rewrite it. See the
+[current deployment record](./DEPLOYMENT.md#current-beta-configuration-production-target-only)
+and [release flow](./DEPLOYMENT.md#release-flow-beta-then-manual-production).
+Real production requires separate projects and credentials; never turn the
+testdb database into the real register.
 
 | Variable                                | Used by                | Meaning                                                                                                                                                                                  |
 | --------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -46,13 +56,13 @@ disposable database into the real register.
 
 S03 implements a server-only `TENANT_DIRECTORY_JSON` host allowlist and separate
 `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` variables for tenant credentials.
-`TENANT_ROUTING_ENABLED` defaults to `false`. The staging project has no tenant
+`TENANT_ROUTING_ENABLED` defaults to `false`. The beta project has no tenant
 directory, host entries or tenant secrets configured. Only the separate
 `demo-arp-civic-pulse` Vercel project (formerly `arp-civic-pulse-tenant-test`)
 routes hosts, all synthetic:
 `arp-civic-pulse.vercel.app` (main product website),
-`demo.arp-civic-pulse.vercel.app` (demo, disposable project B) and
-`tenant-a.arp-civic-pulse.vercel.app` (customer, disposable project A).
+`demo.arp-civic-pulse.vercel.app` (demo, synthetic project B) and
+`tenant-a.arp-civic-pulse.vercel.app` (customer, the testdb project as A).
 The former `site.arp-civic-pulse.vercel.app` permanently redirects (308) to
 the bare main-site host, preserving paths. Main-site canonical metadata,
 sitemap and demo backlinks follow the `main` directory entry; do not add the
@@ -63,7 +73,7 @@ canonical demo host. The project is configured for Node.js 24.x. The former
 `tenant-b.arp-civic-pulse.vercel.app` domain was detached on 31 October 2026
 and now returns 404. The two-customer hosted isolation specs need a second
 customer project before they can run again. Do not enable routing for real
-customers or treat the staging database as a real tenant until the actual
+customers or treat the testdb database as a real tenant until the actual
 domain is approved and the remaining release gates close.
 
 Each version-1 directory entry binds one exact lowercase hostname to a
@@ -101,7 +111,8 @@ which answer `DEMO_EMAIL_DISABLED` (403) because the demo has no email delivery.
 ### Demo site
 
 The demo host shows a fictional association, Green Meadows, from its own
-dedicated Supabase project. Visitors pick **Sample resident**, **Sample
+synthetic-only Supabase project, now also shared by local development and
+hosted/browser testing. Visitors pick **Sample resident**, **Sample
 committee member** or **Sample RWA admin** on the sign-in page; no email or code
 is involved. Everyone shares the same data and can change it, including the RWA
 profile, accounts, settings and votes (decision of 31 October 2026, S01), so
@@ -117,25 +128,224 @@ Its settings live in a separate `.env.demo.local` file (ignored by Git) at the
 repo root: `DEMO_PROJECT_REF`, `DEMO_SUPABASE_URL`, `DEMO_SERVICE_ROLE_KEY`,
 `DEMO_DATABASE_URL`, and `PGSSLROOTCERT=.certs/supabase-db-ca.crt`. Only
 `npm run ops` and `npm run demo:reset` load it; the app, Playwright and live
-tests read `.env.local` (staging/test) only, so demo credentials never reach
-them. `npm run demo:reset` also loads `.env.local` (so it can refuse the main
-app project) and uses the Windows certificate store (`--use-system-ca`). The
+tests read `.env.local`, which now holds matching demo credentials.
+Set `DEMO_SHARED_TEST_PROJECT=true` in `.env.demo.local` to explicitly allow
+resetting the shared local test backend. This exception is hard-restricted to
+`hnqajjjemqepxuoqbsqx`; matching project/API/database credentials, exact
+confirmation and the existing synthetic demo marker are still required.
+Other primary application projects remain refused. Never use `--initialize`
+to bypass a missing marker on an existing customer project.
+`npm run demo:reset` also loads `.env.local` and uses the Windows
+certificate store (`--use-system-ca`). The
 demo project reference `hnqajjjemqepxuoqbsqx` is fixed in its `--confirm`
 argument in `package.json`, so a file pointing at another project is refused;
 if the demo project is ever replaced, change both. The longer form still
 works: `npm run ops --silent -- demo-reset --confirm <DEMO_PROJECT_REF>`.
 
-The `TENANT_TEST_*` settings in `.env.local` also point at the demo project:
-the free tier allows only two projects, so the cross-customer paired live test
-(`tests/live/auth.live.test.ts`) uses staging as project A and the demo as
-project B. That test leaves Auth users, profiles and audit rows in the demo, so
+The `TENANT_TEST_*` settings in `.env.local` are now empty. The paired live
+Auth test and two-backend hosted isolation checks must remain disabled while
+the testdb project is paused; never substitute the real RWA project or point
+both test tenants at demo. The testdb settings are kept in the ignored
+`.env.testdb.local` for explicit operator reference, not normal test loading.
+
+### Switching the test target
+
+The free tier allows two active projects. Demo (`hnqajjjemqepxuoqbsqx`) always
+keeps one slot. The second slot is shared: either the testdb project
+(Supabase `civic-pulse-testdb`, `nycbbzgsilnxrgkwlwno`) or a society project,
+never both at once. `scripts/ops/test-target.ts` manages testdb's use of that
+slot. It reads only `SUPABASE_ACCESS_TOKEN` (shell or `.env.local`), calls the
+Supabase Management API and never prints credentials.
+
+| Command | Effect |
+| --- | --- |
+| `npm run test:target` | Show live demo/testdb status and the current `.env.local` target. |
+| `npm run testdb:pause` | Point local tests at demo, then pause testdb (`POST /v1/projects/{ref}/pause`) and wait for `INACTIVE`. |
+| `npm run testdb:resume` | Resume testdb (`POST /v1/projects/{ref}/restore`), wait up to 15 minutes for `ACTIVE_HEALTHY`, then point local tests at testdb. |
+| `npm run test:target -- demo` or `-- testdb` | Switch `.env.local` only; the target must already be `ACTIVE_HEALTHY`. |
+
+The npm scripts call `scripts/ops/test-target.ts` with the internal arguments
+`pause-testdb`/`resume-testdb`. These replace the former `staging:pause`,
+`staging:resume` and `.env.staging.local` names (renamed 6 November 2026);
+rename an existing local `.env.staging.local` to `.env.testdb.local` before
+using them.
+
+Both pause and resume are safe to rerun. If they time out, rerun the same
+command to keep waiting. Pause needs demo to be `ACTIVE_HEALTHY` and repoints tests before
+pausing, so nothing local uses a pausing database. Supabase refuses a resume
+while another non-demo project holds the second slot; pause that project first.
+Free projects paused for more than 90 days may not be restorable from the dashboard or API.
+
+A switch first saves the outgoing project's ten Supabase test keys
+(`NEXT_PUBLIC_SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PROJECT_REF`,
+`SUPABASE_DB_PASSWORD`, `LIVE_DATABASE_URL`, `TENANT_TEST_*`) to its ignored
+profile: `.env.testdb.local` for testdb, or `.env.demo-test.local` for demo.
+It then loads the target profile into `.env.local`, leaving other lines
+unchanged, and sets `DEMO_SHARED_TEST_PROJECT` in `.env.demo.local` (`true`
+only for demo). The `.gitignore` rule `.env.*` already ignores all these files.
+
+On `testdb:resume`, after testdb is healthy and before `.env.local` is
+switched, the script refreshes testdb's project URL, publishable key and
+server key from the Management API, preserving whether the profile uses the
+new `sb_secret_` format or the legacy `service_role` key. If demo is healthy,
+it also refreshes demo's `DEMO_SERVICE_ROLE_KEY` and, when paired tests are
+configured, the demo API keys in testdb's `TENANT_TEST_*` settings. It also
+refreshes the saved `.env.demo-test.local` profile before testdb is switched
+in, so switching back to demo won't restore stale API keys. The current
+`.env.local` target is refreshed too. It preserves all saved database URLs and
+passwords, and verifies that the profile refs and URL-embedded passwords agree
+before writing. Supabase does not return database passwords;
+after a password reset in Supabase, update the corresponding ignored env file
+manually before resuming/switching. Key-refresh API failures stop the switch
+with testdb still active, so fix access or profile settings and rerun
+`npm run testdb:resume`.
+
+The script refuses to switch when:
+
+- the target is not `ACTIVE_HEALTHY`;
+- `.env.local` points at any project other than these two, such as a society project;
+- a profile's URL, database URL or project reference names a different project;
+- `TENANT_TEST_*` is set for anything other than testdb paired with demo.
+
+On testdb, the paired test (testdb A, demo B) is enabled while demo is
+`ACTIVE_HEALTHY`; otherwise `TENANT_TEST_*` is left empty in `.env.local`. The
+testdb profile keeps the paired values for later.
+
+The commands then print these manual steps:
+
+- relink the CLI with `npx supabase link --project-ref <ref>`. This is not
+  automated by the pause/resume commands because the Supabase CLI cannot
+  currently reach the Management API from the operator network. The
+  `society:create` command attempts CLI linking and preserves the profile if
+  that step fails;
+- restart any running `npm run dev` server;
+- on testdb, check migrations with `migration-status` before live tests;
+- on demo, run `npm run demo:reset` after browser or manual tests.
+
+Vercel settings do not change. The beta site and `tenant-a` backend are
+unavailable while testdb is paused and return when it is resumed.
+
+### Creating a society project
+
+```powershell
+npm run society:create -- premier-inspira-maplewood `
+  --confirm-create civic-pulse-premier-inspira-maplewood `
+  --rwa-name "Premier Inspira Maplewood" `
+  --subdomain maplewood `
+  --admin-name "First Admin" `
+  --admin-email admin@example.org
+```
+
+Replace the example subdomain and administrator details with the approved
+values. `--subdomain maplewood` expands to
+`maplewood.arp-civic-pulse.vercel.app` (a single lowercase DNS label; the
+reserved labels `www`, `site`, `demo`, `staging`, `beta`, `tenant-a` and
+`tenant-b` are refused). For a
+custom domain, pass `--host <full hostname>` instead, without `https://` or a
+path; the two options are mutually exclusive.
+
+Vercel is handled by the same command, against the shared multi-tenant Vercel
+project `demo-arp-civic-pulse` (no per-society Vercel project is created):
+
+1. **Before any Supabase project is created**, the host is attached to that
+   project's domains. A host already owned by another Vercel project, or an
+   unverified custom domain, stops the run with nothing created in Supabase.
+   Until step 2 the host shows the app's unlisted-host 404.
+2. **After provisioning**, the tenant's `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY`
+   (the project's `sb_secret_*` key) is set as a sensitive Production
+   variable, a `customer` entry with state `provisioning` is added to
+   `TENANT_DIRECTORY_JSON`, and both are pushed to Vercel.
+3. Production is redeployed by rebuilding the deployment currently serving
+   `arp-civic-pulse.vercel.app` with the new variables; the local working tree
+   is never uploaded. The script waits for `READY`, then checks that the main
+   site and demo still return 200 on `/` and `/sign-in`, and that the new
+   host's `/sign-in` gets the response its directory state implies: the app's
+   own empty 503 while it is `provisioning` (a tenant that is not active is
+   deliberately refused; an unlisted host would get 404 instead), or 200 once
+   it is `active`. A 404, 5xx error, Vercel platform error (`x-vercel-error`)
+   or maintenance page fails the check. On a failed check it prints the
+   previous deployment ID to promote with Vercel Instant Rollback.
+
+Vercel returns sensitive variables write-only, so the full directory is kept in
+the ignored `.env.vercel.local` (with `VERCEL_TEAM_ID`/`VERCEL_PROJECT_ID`).
+Every change is made there first and the whole value is pushed; never edit
+`TENANT_DIRECTORY_JSON` only in the Vercel dashboard, or the local copy and a
+later push will undo it. It holds client hosts, Supabase project URLs, tenant
+IDs and public keys (no secrets), and is not committed because the repository
+is public; back it up with the other ignored env profiles. Inspect it with
+`npm run vercel:directory`. It was created once on 6 November 2026 with
+`npm run vercel:directory -- init`, which rebuilds the then-live main, demo and
+`tenant-a` entries (all `active`) from saved public keys and refuses to
+overwrite an existing file. The demo key was checked against Supabase; the
+`tenant-a` key came from the saved testdb profile (then named
+`.env.staging.local`) while testdb was paused.
+The rebuilt value has not yet been pushed to Vercel; the first `society:create`
+run replaces the live directory with it plus the new society.
+The script validates the directory as strictly as the app (and stricter:
+any invalid or duplicated entry aborts rather than being dropped), refuses a
+host, tenant or Supabase project already mapped to another RWA, caps customers
+at 10, and never downgrades an `active` entry on a rerun.
+
+Vercel access uses `VERCEL_TOKEN` if set, otherwise the Vercel CLI login. An
+expired CLI token is refreshed by running `vercel whoami` with
+`--use-system-ca`, which this operator network needs for the CLI.
+This creates and provisions a dedicated free-tier project in Mumbai
+(`ap-south-1`). For example, use the alias
+`premier-inspira-maplewood` for project `civic-pulse-premier-inspira-maplewood`.
+The `--confirm-create` value must exactly match the project name. The display
+name, host, first-admin name and email are required; a tenant UUID is generated
+and saved on the first run, or can be supplied with `--tenant-id`. Reuse the
+same alias and inputs to retry an interrupted run.
+
+Before creating, the script requires demo to be `ACTIVE_HEALTHY`, the testdb
+project to be `INACTIVE`, and no other project to be active. It uses the demo project's
+organization, generates a database password, creates the project through the
+Management API, waits for `ACTIVE_HEALTHY`, retrieves its API keys and writes
+the app/provisioning configuration to `.env.<alias>.local`. The existing
+`.env.*` ignore rule covers this file; it contains the database password,
+server keys, administrator email and a generated rate-limit key. Back it up
+only in an approved password manager; do not commit it. The pooler host pattern
+(`aws-0-ap-south-1.pooler.supabase.com`) matches this repository's current
+testdb project region.
+
+The script first checks that the Supabase CLI can reach the Management API,
+before creating anything. If that check fails, no project is created. This is
+important because the CLI currently has a transport failure on this operator
+network even though the direct Node Management API requests work.
+
+The script then links the Supabase CLI to the new project and runs the existing
+customer provisioner with migrations enabled. This initializes default
+settings and the requested first administrator, and configures/verifies Auth
+where possible. **It deliberately does not activate the tenant**: the Vercel
+directory entry stays `provisioning`, so the host answers but sign-in reports
+the tenant as unavailable. Activation (changing the entry to `active` and
+redeploying), SMTP, real policy approvals, retention decisions and the
+existing pilot/release gates remain operator work. It does
+not change `.env.local`; local app, live and browser tests remain on demo.
+
+If CLI linking, provisioning or a Vercel step fails after creation, the
+ignored env profiles are retained and the same command can be rerun; each
+Vercel step is idempotent. Passwords cannot be retrieved
+from Supabase after creation, so the profile must not be deleted or lost. The
+command requires a Management API token with project create/read and revealed
+API-key permissions, and Vercel access to the `arp-civic-pulse` team. It has
+not been used to create a hosted project or change Vercel as part of this
+implementation.
+
 `npm run test:live` (`scripts/test/live.mjs`) runs `npm run demo:reset`
-automatically when it finishes, even if tests failed (the reset deletes every
-Auth user and app row, so it removes them). It skips the reset only when
-`TENANT_TEST_*` is empty or you pass file filters that exclude the auth suite.
+automatically whenever its primary backend is the approved demo, including
+filtered suites and failed tests. The earlier paired-project cleanup remains
+available when that separately approved setup is restored.
 If the reset fails, the command exits non-zero with a warning; rerun
 `npm run demo:reset` before any demo. The reset takes about two minutes and
 needs `.env.demo.local`; never run live tests during a demo.
+Playwright and manual testing do **not** reset automatically: run
+`npm run demo:reset` afterwards and before any scheduled demonstration. Do not
+run resets/tests concurrently with another test run or demo; the public demo
+shares their writes and its sessions become invalid after a reset.
+The seed includes the current required PDF pagination preferences (8 cards and
+50 voters per page). Local SQL integration/load tests still use disposable
+local PostgreSQL, never demo or a customer backend.
 
 It erases every app table and Auth user in that project and reseeds a fresh copy
 (about two minutes; it waits for one vote's short deadline to pass). The seed
@@ -602,5 +812,7 @@ A finished vote cannot be reopened, and an active vote cannot be edited; only it
 2. Create a new draft with the corrected ballot and electorate, preview it, activate it with a new deadline, and tell residents. The cancelled vote's data is removed by retention at the normal time.
 
 ## 8. Releases and migrations
+
+Application changes follow the [release flow](./DEPLOYMENT.md#release-flow-beta-then-manual-production): feature branch → pull request into `beta` (auto-deploys the beta site) → merge `beta` into `main` after beta verification → manual production deployment of the merged `main` commit inside an approved release window.
 
 Apply migrations with deployment-only credentials (`npx supabase db push`) outside an active vote; they are ordered, immutable, and tested on PostgreSQL 17 and on the hosted project. Prefer backward-compatible changes. **Never** restore an old database to roll back a release once ballots have been accepted: roll back to a schema-compatible build of the application, or ship a forward fix.

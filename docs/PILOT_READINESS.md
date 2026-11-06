@@ -4,6 +4,34 @@ The plan (docs/IMPLEMENTATION_PLAN.md, phase 16) separates **readiness** (must b
 
 Legend: ✅ proven here by an automated check you can re-run · 🟡 partly proven, remainder open · ⬜ open (needs people, devices, approvals or a real environment).
 
+## Current environment availability - 6 November 2026
+
+The testdb Supabase project (`civic-pulse-testdb`, formerly
+`civic-pulse-disposable`; `nycbbzgsilnxrgkwlwno`) is confirmed paused
+(`INACTIVE`); demo `hnqajjjemqepxuoqbsqx` remains `ACTIVE_HEALTHY` and is
+the shared synthetic local/live/browser test backend. The beta site and hosted
+`tenant-a` backend flows are unavailable. Two-backend live/isolation tests are
+disabled, not newly passed; historical checks below retain their original scope
+and the names then in use (the beta site was called staging until 6 November 2026).
+The free active slot is intended for Premier Inspira Maplewood, not a test
+target or production approval.
+
+The demo migration ledger has no missing repository migrations (45 applied).
+A live Data API matrix run passed 6 of 7 tests; the remaining test rejects
+provider-added `public.rls_auto_enable` returning `0A000` rather than its
+expected denial codes. This is an unresolved provider/test compatibility
+failure, not a full privacy-suite pass. The same run exercised failure cleanup
+and exposed missing PDF preferences in the demo seed. After updating the seed,
+`npm run demo:reset` restored 23 profiles, 20 households and 16 votes.
+A subsequent focused anonymous-table-denial live test passed on demo (the
+other 16 Auth tests were skipped by the name filter), and its automatic reset
+also restored those counts successfully. Local checks passed: 14 demo guard/seed
+Vitest tests, 4 isolated live-runner tests, TypeScript, focused ESLint, repository
+Prettier and 5 documentation checks. This is not a full live/browser-suite run.
+No new production, SMTP, capacity, recovery or accessibility approval follows.
+See [deployment status](./DEPLOYMENT.md#current-capacity-and-testing-arrangement---6-november-2026)
+and [shared-demo operations](./OPERATIONS.md#demo-site).
+
 ## 1. Automated regression and security evidence
 
 ### Committee Read-Only Role
@@ -558,8 +586,10 @@ one-hour OTP expiry, sending capacity, or any production release gate.
 
 **Current 28 October staging-only follow-up:** the canonical site was then
 <https://arp-civic-pulse-staging.vercel.app> (moved on 31 October to
-<https://staging.arp-civic-pulse.vercel.app>; see the
-[deployment record](./DEPLOYMENT.md#current-staging-configuration-production-target-only)), using Vercel's Production target
+<https://staging.arp-civic-pulse.vercel.app>, and on 6 November to
+<https://beta.arp-civic-pulse.vercel.app> with project `beta-arp-civic-pulse`
+and Supabase `civic-pulse-testdb`; see the
+[deployment record](./DEPLOYMENT.md#current-beta-configuration-production-target-only)), using Vercel's Production target
 only with the same disposable database. Hosted Preview deployments are disabled,
 all eight Preview-only variables were removed, Production `APP_ORIGIN` and
 Supabase Auth Site URL are aligned, and redeployment
@@ -575,7 +605,7 @@ policy is also prepared locally in `vercel.json`, pending a separate commit/push
 This supersedes earlier git-main URL/Preview-variable/protection observations
 below, not the unresolved gates. Real production remains a separate Vercel and
 non-disposable Supabase setup. See the
-[current staging configuration](./DEPLOYMENT.md#current-staging-configuration-production-target-only).
+[current beta configuration](./DEPLOYMENT.md#current-beta-configuration-production-target-only).
 
 **Earlier 28 October Production-target switch:** the staging host now uses Vercel's
 Production environment so `main` builds carry application variables. The two

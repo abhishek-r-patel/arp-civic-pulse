@@ -2,7 +2,7 @@
 
 ## 1. Scope and authority
 
-[PRD.md](./PRD.md), [ARCHITECTURE.md](./ARCHITECTURE.md), and [DATABASE.md](./DATABASE.md) govern this contract. This document defines the required HTTP boundaries and integrations for the currently deployed single-RWA app. A gated tenant-routing implementation is described in section 10; it is not configured or activated on staging.
+[PRD.md](./PRD.md), [ARCHITECTURE.md](./ARCHITECTURE.md), and [DATABASE.md](./DATABASE.md) govern this contract. This document defines the required HTTP boundaries and integrations for the currently deployed single-RWA app. A gated tenant-routing implementation is described in section 10; it is not configured or activated on the beta site.
 
 **Status:** Current API contract for the deployed single-RWA application. S03
 tenant-routing code has focused local tests but is disabled and unconfigured;
@@ -753,9 +753,9 @@ Validate server configuration at startup. Store credentials in the hosting secre
 The [S02 design contract](./IMPLEMENTATION_PLAN.md#s02---tenant-resolution-and-configuration-contract)
 defines the host and lifecycle policy. S03 implements a version-1 server-only
 directory, exact-host resolver and per-request Supabase clients. Routing defaults
-to off on staging, and no customer host is configured there. A separate
+to off on the beta site, and no customer host is configured there. A separate
 retained Vercel test project routes synthetic main, demo and customer hosts; see the
-[deployment record](./DEPLOYMENT.md#tenant-routing-disabled-on-staging-separate-hosted-test-project).
+[deployment record](./DEPLOYMENT.md#tenant-routing-disabled-on-beta-shared-production-project).
 Do not enable it for real hosts until the domain is approved and the remaining
 release gates close. The pilot cap is 10 customer hosts plus one main and one
 demo host. S04 origin/session behavior and Vercel ingress/direct-origin
