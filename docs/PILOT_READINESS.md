@@ -9,8 +9,9 @@ Legend: ✅ proven here by an automated check you can re-run · 🟡 partly prov
 The testdb Supabase project (`civic-pulse-testdb`;
 `nycbbzgsilnxrgkwlwno`) is confirmed paused
 (`INACTIVE`); demo `hnqajjjemqepxuoqbsqx` remains `ACTIVE_HEALTHY` and is
-the shared synthetic local/live/browser test backend. The beta site and hosted
-`tenant-a` backend flows are unavailable. Two-backend live/isolation tests are
+the shared synthetic local/live/browser test backend. The beta site's
+database flows are unavailable; the hosted `tenant-a` customer that also used
+testdb was offboarded the same day. Two-backend live/isolation tests are
 disabled, not newly passed; historical checks below retain their original scope.
 The free active slot is intended for Premier Inspira Maplewood, not a test
 target or production approval.

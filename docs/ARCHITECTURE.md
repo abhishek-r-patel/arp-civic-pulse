@@ -48,8 +48,9 @@ domain, customer capacity and existing production gates remain open.
 
 **Current environment override (6 November 2026):** the testdb Supabase
 project (`civic-pulse-testdb`) is paused;
-its beta site and `tenant-a` backends are
-unavailable, with no fallback. Local app/live/browser testing shares only the
+its beta site is
+unavailable, with no fallback (the synthetic `tenant-a` host that also used
+testdb was offboarded the same day). Local app/live/browser testing shares only the
 synthetic demo project. Two-project tests are disabled, local SQL integration
 tests remain on disposable PostgreSQL, and a future Premier Inspira Maplewood
 backend must stay outside test/reset targets. Hosting mappings were not
@@ -59,19 +60,18 @@ The beta Vercel project `beta-arp-civic-pulse` serves
 <https://beta.arp-civic-pulse.vercel.app>
 (its legacy host alias 308-redirects there) on its Production target, with
 `beta` as its Production branch and the testdb Supabase database. Feature
-branches merge into `beta`, then `beta` into `main`; the shared production
-Vercel project `arp-civic-pulse` is deployed from the merged `main` commit in
-an approved release window. It is linked to the
-GitHub repository with Production branch `main` (see the
-[release flow](./DEPLOYMENT.md#release-flow-beta-then-manual-production) for
-what that link deploys automatically).
-`vercel.json` restricts automatic Git deployments to `beta` and pins functions to
+branches merge into `beta`, then `beta` into `main`; merging into `main`
+auto-deploys the shared production Vercel project `arp-civic-pulse` (its
+Production branch), so it happens only in an approved release window. Both
+projects are linked to the GitHub repository; each skips non-Production builds
+(see the [release flow](./DEPLOYMENT.md#release-flow-beta-then-production)).
+`vercel.json` restricts automatic Git deployments to `main` and `beta` and pins functions to
 `bom1` (Mumbai), beside the `ap-south-1` Supabase projects, so each sequential
 auth/profile/data query stays in-region. Hosted environment
 scope, protection and canonical `APP_ORIGIN` remain project settings.
 Real production requires separate hosting/database projects and credentials.
 See the [current beta configuration](./DEPLOYMENT.md#current-beta-configuration-production-target-only)
-and [release flow](./DEPLOYMENT.md#release-flow-beta-then-manual-production).
+and [release flow](./DEPLOYMENT.md#release-flow-beta-then-production).
 
 ```text
 Phone / laptop browser

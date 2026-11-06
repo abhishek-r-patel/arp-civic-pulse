@@ -13,7 +13,8 @@ npm run ops -- <command> [options]      # Node uses --conditions=react-server an
 **Current override (6 November 2026):** the testdb project (Supabase
 `civic-pulse-testdb`;
 `nycbbzgsilnxrgkwlwno`) is paused (`INACTIVE`), not deleted. Its beta site
-and synthetic `tenant-a` backends are unavailable. The remaining active
+is unavailable (the synthetic `tenant-a` host that also used it was
+offboarded). The remaining active
 Supabase project is demo (`hnqajjjemqepxuoqbsqx`); the freed slot is reserved
 for the planned Premier Inspira Maplewood project, never routine test data.
 Existing Vercel mappings are unchanged; there is no fallback to another RWA.
@@ -25,7 +26,7 @@ host. Keep Production `APP_ORIGIN` and the testdb Supabase Auth Site URL/redirec
 allow-list aligned with this exact beta origin and redeploy after origin
 changes; protection settings do not rewrite it. See the
 [current deployment record](./DEPLOYMENT.md#current-beta-configuration-production-target-only)
-and [release flow](./DEPLOYMENT.md#release-flow-beta-then-manual-production).
+and [release flow](./DEPLOYMENT.md#release-flow-beta-then-production).
 Real production requires separate projects and credentials; never turn the
 testdb database into the real register.
 
@@ -55,9 +56,10 @@ S03 implements a server-only `TENANT_DIRECTORY_JSON` host allowlist and separate
 `TENANT_ROUTING_ENABLED` defaults to `false`. The beta project has no tenant
 directory, host entries or tenant secrets configured. Only the separate `arp-civic-pulse` Vercel project routes hosts, all
 synthetic:
-`arp-civic-pulse.vercel.app` (main product website),
-`demo.arp-civic-pulse.vercel.app` (demo, synthetic project B) and
-`tenant-a.arp-civic-pulse.vercel.app` (customer, the testdb project as A).
+`arp-civic-pulse.vercel.app` (main product website) and
+`demo.arp-civic-pulse.vercel.app` (demo, synthetic project B). The synthetic
+customer `tenant-a.arp-civic-pulse.vercel.app` (testdb as project A) was
+offboarded on 6 November 2026 so that testdb backs only the beta site.
 The former `site.arp-civic-pulse.vercel.app` permanently redirects (308) to
 the bare main-site host, preserving paths. Main-site canonical metadata,
 sitemap and demo backlinks follow the `main` directory entry; do not add the
@@ -215,8 +217,8 @@ The commands then print these manual steps:
 - on testdb, check migrations with `migration-status` before live tests;
 - on demo, run `npm run demo:reset` after browser or manual tests.
 
-Vercel settings do not change. The beta site and `tenant-a` backend are
-unavailable while testdb is paused and return when it is resumed.
+Vercel settings do not change. The beta site is unavailable while testdb is
+paused and returns when it is resumed.
 
 ### Creating a society project
 
@@ -269,11 +271,13 @@ later push will undo it. It holds client hosts, Supabase project URLs, tenant
 IDs and public keys (no secrets), and is not committed because the repository
 is public; back it up with the other ignored env profiles. Inspect it with
 `npm run vercel:directory`. It was created once on 6 November 2026 with
-`npm run vercel:directory -- init`, which rebuilds the then-live main, demo and
+`npm run vercel:directory -- init`, which then rebuilt the live main, demo and
 `tenant-a` entries (all `active`) from saved public keys and refuses to
 overwrite an existing file. The demo key was checked against Supabase; the
 `tenant-a` key came from the saved `.env.testdb.local` profile while testdb was
-paused.
+paused. After `tenant-a` was offboarded later that day (see
+[deployment](./DEPLOYMENT.md#tenant-routing-disabled-on-beta-shared-production-project)),
+`init` rebuilds only the main and demo entries.
 The rebuilt value was first pushed to Vercel by the synthetic `society:create`
 test on 6 November 2026 (recorded below).
 The script validates the directory as strictly as the app (and stricter:
@@ -860,6 +864,6 @@ A finished vote cannot be reopened, and an active vote cannot be edited; only it
 
 ## 8. Releases and migrations
 
-Application changes follow the [release flow](./DEPLOYMENT.md#release-flow-beta-then-manual-production): feature branch → pull request into `beta` (auto-deploys the beta site) → merge `beta` into `main` after beta verification → manual production deployment of the merged `main` commit inside an approved release window.
+Application changes follow the [release flow](./DEPLOYMENT.md#release-flow-beta-then-production): feature branch → pull request into `beta` (auto-deploys the beta site) → merge `beta` into `main` after beta verification, inside an approved release window → the merge auto-deploys the shared production project.
 
 Apply migrations with deployment-only credentials (`npx supabase db push`) outside an active vote; they are ordered, immutable, and tested on PostgreSQL 17 and on the hosted project. Prefer backward-compatible changes. **Never** restore an old database to roll back a release once ballots have been accepted: roll back to a schema-compatible build of the application, or ship a forward fix.

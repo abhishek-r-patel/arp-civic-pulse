@@ -16,9 +16,10 @@ resolution/configuration design is specified, including Vercel's shared-secret
 limits. S03 adds locally tested, request-scoped tenant routing behind
 `TENANT_ROUTING_ENABLED`, which defaults to false. No directory, tenant secrets
 or customer hosts are configured on the beta site. A separate retained Vercel test
-project serves the [product website](https://arp-civic-pulse.vercel.app), the
-synthetic demo (`demo.`) and one synthetic customer (`tenant-a.`) on placeholder
-`arp-civic-pulse.vercel.app` hosts. The former `site.` host redirects to the
+project serves the [product website](https://arp-civic-pulse.vercel.app) and the
+synthetic demo (`demo.`) on placeholder
+`arp-civic-pulse.vercel.app` hosts; its earlier synthetic customer
+(`tenant-a.`, on testdb) was offboarded on 6 November 2026. The former `site.` host redirects to the
 bare product-site domain; the actual domain is unconfirmed and the pilot cap
 is 10 customer RWAs.
 S03-S07 are complete on that test project: `npm run ops -- provision` was
@@ -34,9 +35,8 @@ of this is release approval.
 planned **Premier Inspira Maplewood** project (the creation script is available
 but has not been run).
 Local development and hosted/browser tests now share the synthetic demo project
-`hnqajjjemqepxuoqbsqx`; cross-project tests are disabled. The beta site and
-hosted `tenant-a` backend are unavailable while their database is paused; neither
-falls back to demo. Restore synthetic demo data with `npm run demo:reset`
+`hnqajjjemqepxuoqbsqx`; cross-project tests are disabled. The beta site is unavailable while its
+database is paused; it does not fall back to demo. Restore synthetic demo data with `npm run demo:reset`
 before a planned demo and after browser/manual tests. `npm run testdb:resume`
 resumes testdb and points local tests at it; `npm run testdb:pause` reverses
 both. See [operations](./docs/OPERATIONS.md#switching-the-test-target) for safeguards and limitations.
@@ -56,13 +56,12 @@ The [beta site](https://beta.arp-civic-pulse.vercel.app) (Vercel project
 **Production target**, backed by
 the testdb Supabase project. Release flow: feature branches → pull request into
 `beta`, which auto-deploys the beta site → after verification, merge `beta`
-into `main` → deploy the merged `main` commit manually to the shared production
-Vercel project `arp-civic-pulse` inside an
-approved release window. That project is currently Git-linked with Production
-branch `main` (see the release flow for what that deploys). None of this is approval for real voting; real
+into `main`, which auto-deploys the shared production Vercel project
+`arp-civic-pulse`, so merge only inside an approved release window. Each
+project builds only its own Production branch. None of this is approval for real voting; real
 production still requires the open launch gates and approvals.
 See the [current hosting setup](./docs/DEPLOYMENT.md#current-beta-configuration-production-target-only)
-and [release flow](./docs/DEPLOYMENT.md#release-flow-beta-then-manual-production).
+and [release flow](./docs/DEPLOYMENT.md#release-flow-beta-then-production).
 
 Accounts use one of three lowercase role codes: `voter`, `rwa-admin`, or
 `rwa-readonly`. Their personas are Resident, RWA Admin, and RWA ReadOnly.

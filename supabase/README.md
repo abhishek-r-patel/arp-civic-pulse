@@ -5,7 +5,8 @@ listed in `docs/IMPLEMENTATION_PLAN.md`; nothing below records or implies an app
 
 **Current targets (6 November 2026):** the testdb project (Supabase
 `civic-pulse-testdb`; `nycbbzgsilnxrgkwlwno`),
-which backs the beta site and synthetic `tenant-a` host, is paused; local
+which backs only the beta site (the synthetic `tenant-a` host was offboarded),
+is paused; local
 app/live/browser tests use the shared
 synthetic demo `hnqajjjemqepxuoqbsqx`. Paired-project tests are disabled.
 Never use the planned Premier Inspira Maplewood customer database for tests,
