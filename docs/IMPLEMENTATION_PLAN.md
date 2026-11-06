@@ -6,12 +6,21 @@
 
 ## SaaS Action Plan - 31 October 2026
 
+**Environment update, 6 November 2026:** the testdb Supabase project
+(`civic-pulse-testdb`, formerly `civic-pulse-disposable`) is paused
+to free one active free-tier slot for the planned Premier Inspira Maplewood
+project. Demo is now the shared synthetic app/live/browser test backend;
+cross-project tests are disabled and historical two-backend evidence below is
+not a current availability claim. No new customer project was provisioned or
+approved. See [deployment status](./DEPLOYMENT.md#current-capacity-and-testing-arrangement---6-november-2026)
+and [demo restoration](./OPERATIONS.md#demo-site).
+
 This section is the working checklist for the SaaS transition. The phases below
 it remain historical single-RWA implementation guidance. S01 policies and the
 S02 tenant-resolution design have been recorded below. S03 adds a
 disabled-by-default tenant-routing foundation, verified on a separate hosted
 test project with two disposable backends. No customer backend, domain, demo or
-billing change has been deployed, and staging does not route tenants.
+billing change has been deployed, and the beta site (formerly staging) does not route tenants.
 The current application remains single-RWA; existing production gates remain
 open.
 
@@ -114,7 +123,7 @@ directory, secret or backend has been configured or deployed.
   and offers shared resident, committee and RWA admin personas that may change
   the synthetic data until the next reset (email routes refused). Each
   `customer` host maps to exactly that customer's separate Supabase project.
-  Never share or fall back between demo, staging and customer backends.
+  Never share or fall back between demo, beta and customer backends.
 - The directory contract is versioned server-only deployment configuration
   (`TENANT_DIRECTORY_JSON`). Entries contain references, not
   privileged key values. A per-tenant service-role reference resolves only to
@@ -135,7 +144,7 @@ directory, secret or backend has been configured or deployed.
 | `provisioning` | Do not serve tenant data or authenticate; return a generic unavailable response until the complete configuration is deployed and verified. |
 | `active` | Route only through the exact allowlisted host and its own backend. |
 | `unavailable` | Fail closed with a generic 503; do not expose internal tenant status or fall back to another RWA. |
-| Unknown host or invalid hostname | Reject with a generic 404; do not use `APP_ORIGIN`, staging, demo or a default RWA as fallback. |
+| Unknown host or invalid hostname | Reject with a generic 404; do not use `APP_ORIGIN`, beta, demo or a default RWA as fallback. |
 
 Use only a host value the selected ingress is verified to set for the public
 request. Do not treat `Forwarded`, `X-Forwarded-Host`, `X-Original-Host` or
@@ -195,7 +204,7 @@ tenant isolation:
    the real Vercel ingress before release.
 3. `provisioning`, `unavailable`, missing-key, malformed-directory,
    disallowed-project-URL and secret-reference failures never reach a backend
-   and never fall back to staging, demo, main or another customer.
+   and never fall back to beta, demo, main or another customer.
 4. Main has no RWA backend; demo reaches only synthetic demo data; each customer
    host can create clients only for its configured project. Assert no tenant
    identity, project, secret or branding leaks into another host's HTML, API
@@ -220,7 +229,7 @@ release work stay open. The pilot cap is 10 customer RWAs.
 ### Working Checklist
 
 S01 is partially complete; S02's design is specified; S03-S07 are complete on
-the hosted test project (routing remains disabled on staging; S07's SMTP step
+the hosted test project (routing remains disabled on beta; S07's SMTP step
 stays an open gate); S08-S09 are in progress; S10's policy direction is recorded
 but its implementation is blocked on ledger storage; S11-S12 are pending. Work
 on one bounded task at a time; split a task into
@@ -252,7 +261,7 @@ purchases, production writes, migrations, resets, commits or deployment.
 	concurrent requests to two backends, separate branding, vote data, exports,
 	rate limits, error IDs and logged tenant labels. A unit test proves
 	interleaved requests keep their own log context. Routing is not enabled on
-	staging and no customer is configured.
+	beta and no customer is configured.
 - [x] **S04 - Isolate authentication and origins.** Update session refresh/proxy,
 	host-only cookies, OTP configuration, sign-out, CSRF and canonical URLs for each
 	approved subdomain. A matching email in two RWAs is two independent memberships;
@@ -289,7 +298,7 @@ purchases, production writes, migrations, resets, commits or deployment.
 	backend, seed fictional residents and representative PUBLIC/PRIVATE lifecycle
 	examples, add a visible demo banner and implement the approved access model.
 	Restrict outbound email and costly/abusive actions. Scope resets to verified
-	disposable demo resources; do not reset customer or staging projects. **Done
+	disposable demo resources; do not reset customer or testdb projects. **Done
 	when:** demo journeys, synthetic-data checks, visitor interference protections
 	and an authorized repeatable reset are verified; use synthetic screenshots for
 	marketing and keep demo availability independent of test-fixture cleanup.
@@ -469,7 +478,7 @@ passed (**5 passed, 0 failed**) after correcting the stale readiness link.
   project (Production) and deployed; a wrong-code verification on `tenant-a`
   returned `422 CODE_INVALID_OR_EXPIRED` rather than failing closed. Still
   open: direct-origin protection, spoofed headers, rotating addresses, bursts
-  and limiter outages; the staging project is not configured; validate
+  and limiter outages; the beta project is not configured; validate
   shared-NAT impact and thresholds in the pilot.
 - [ ] Rerun hosted Auth, access-control, voting and two-customer isolation
   coverage against approved disposable projects with verified database TLS.

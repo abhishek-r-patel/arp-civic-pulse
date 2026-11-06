@@ -53,14 +53,18 @@ export function demoResetTarget(
     "to erase and reseed the demo project",
   );
   const apiHost = new URL(target.supabaseUrl).hostname;
-  // Guards against pasting the primary deployment's credentials by mistake.
+  // Sharing is allowed only for the existing synthetic demo, never a customer.
   if (
     env.NEXT_PUBLIC_SUPABASE_URL &&
     URL.canParse(env.NEXT_PUBLIC_SUPABASE_URL) &&
-    new URL(env.NEXT_PUBLIC_SUPABASE_URL).hostname === apiHost
+    new URL(env.NEXT_PUBLIC_SUPABASE_URL).hostname === apiHost &&
+    !(
+      env.DEMO_SHARED_TEST_PROJECT === "true" &&
+      target.projectRef === "hnqajjjemqepxuoqbsqx"
+    )
   ) {
     throw new Error(
-      "The demo project must not be the NEXT_PUBLIC_SUPABASE_URL project.",
+      "The demo project must not be the NEXT_PUBLIC_SUPABASE_URL project unless DEMO_SHARED_TEST_PROJECT=true for the approved synthetic demo.",
     );
   }
   return target;
@@ -128,6 +132,8 @@ export function demoSeedPlan(now: Date) {
         "Welcome to the Civic Pulse demo. Everything here is fictional, shared with other visitors and reset regularly.",
       householdLabel: "Flat",
       identifierKind: "ID",
+      pdfCardsPerPage: 8,
+      pdfVotersPerPage: 50,
       defaultHouseholds: [
         ...households,
         ...pendingRegistrations.map((entry) => entry.identifier),
