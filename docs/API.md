@@ -301,7 +301,8 @@ After a timeout, lost response, or ambiguous infrastructure error, the client re
 The Residents review screen defaults to Voters (`isAdmin=false,isReadonly=false`,
 the implicit `voter` role);
 **All Roles**, administrators and readonly observers are explicit page-filter
-choices. The API accepts optional boolean `isAdmin`, `isReadonly` and
+choices. Clearing filters, or **Show All Roles** on an empty Voters view,
+navigates to `isAdmin=all`. The API accepts optional boolean `isAdmin`, `isReadonly` and
 `selfRegistered` filters; the page exposes the last as **Source** (Self-registered
 or Admin-registered) and marks self-registered rows.
 `GET /api/admin/accounts` additionally returns `household: null` or
@@ -748,15 +749,17 @@ Bound database wait time and export concurrency to preserve submission responsiv
 
 Validate server configuration at startup. Store credentials in the hosting secret manager; use placeholder-only examples and exclude real environment files from source control. No secret uses a browser-visible environment prefix or appears in rendered HTML, JavaScript bundles, JSON, URLs, or logs.
 
-### Tenant routing configuration (off by default; synthetic hosted test project only)
+### Tenant routing configuration (off on beta; shared-host provisioning)
 
 The [S02 design contract](./IMPLEMENTATION_PLAN.md#s02---tenant-resolution-and-configuration-contract)
 defines the host and lifecycle policy. S03 implements a version-1 server-only
 directory, exact-host resolver and per-request Supabase clients. Routing defaults
 to off on the beta site, and no customer host is configured there. A separate
-retained Vercel test project routes synthetic main, demo and customer hosts; see the
-[deployment record](./DEPLOYMENT.md#tenant-routing-disabled-on-beta-shared-production-project).
-Do not enable it for real hosts until the domain is approved and the remaining
+shared Vercel project serves the product website and synthetic demo, with the
+first real customer activated on operator request (not approved for real
+voting); see the
+[onboarding record](./DEPLOYMENT.md#first-rwa-provisioning-6-november-2026).
+Do not activate a real customer until the domain is approved and the remaining
 release gates close. The pilot cap is 10 customer hosts plus one main and one
 demo host. S04 origin/session behavior and Vercel ingress/direct-origin
 handling are verified on that test project.

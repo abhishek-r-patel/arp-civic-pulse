@@ -8,21 +8,27 @@
 
 **Environment update, 6 November 2026:** the testdb Supabase project
 (`civic-pulse-testdb`) is paused
-to free one active free-tier slot for the planned Premier Inspira Maplewood
-project. Demo is now the shared synthetic app/live/browser test backend;
+while the newly provisioned Premier Inspira Maplewood project occupies the
+second active free-tier slot in Mumbai. That customer was activated on operator
+request (6 November 2026) but is not approved for real voting. Shared SMTP and
+one administrator inbox delivery are verified; app sign-in, real approvals,
+retention and launch gates remain open.
+Demo is the shared synthetic app/live/browser test backend;
 cross-project tests are disabled and historical two-backend evidence below is
-not a current availability claim. No new customer project was provisioned or
-approved. See [deployment status](./DEPLOYMENT.md#current-capacity-and-testing-arrangement---6-november-2026)
+not a current availability claim. The customer is not approved for real voting
+and must never become a test/reset target.
+See [deployment status](./DEPLOYMENT.md#current-capacity-and-testing-arrangement---6-november-2026)
 and [demo restoration](./OPERATIONS.md#demo-site).
 
 This section is the working checklist for the SaaS transition. The phases below
 it remain historical single-RWA implementation guidance. S01 policies and the
 S02 tenant-resolution design have been recorded below. S03 adds a
 disabled-by-default tenant-routing foundation, verified on a separate hosted
-test project with two disposable backends. No customer backend, domain, demo or
-billing change has been deployed, and the beta site does not route tenants.
-The current application remains single-RWA; existing production gates remain
-open.
+test project with two disposable backends. At that starting point, no customer
+backend, domain, demo or billing change had been deployed and the application
+was single-RWA. The environment update above supersedes that historical
+baseline; beta still does not route tenants and existing production gates
+remain open.
 
 ### Agreed Direction
 
@@ -97,9 +103,10 @@ continue to govern each customer.
 
 **Status: design specified, 31 October 2026.** The product owner selected Vercel
 environment variables for an initial capped pilot. At completion of S02, this
-was a configuration design decision only. S03 has since added local routing
-code, but the app remains single-RWA in deployment and no customer host,
-directory, secret or backend has been configured or deployed.
+was a configuration design decision only. S03 later added routing code and
+the shared hosted project; its first real customer was activated on operator
+request but is not approved for real voting. The current environment update
+above supersedes the original single-RWA deployment baseline.
 
 #### Host and tenant contract
 
@@ -261,7 +268,7 @@ purchases, production writes, migrations, resets, commits or deployment.
 	concurrent requests to two backends, separate branding, vote data, exports,
 	rate limits, error IDs and logged tenant labels. A unit test proves
 	interleaved requests keep their own log context. Routing is not enabled on
-	beta and no customer is configured.
+	beta and no customer is configured there.
 - [x] **S04 - Isolate authentication and origins.** Update session refresh/proxy,
 	host-only cookies, OTP configuration, sign-out, CSRF and canonical URLs for each
 	approved subdomain. A matching email in two RWAs is two independent memberships;
@@ -325,9 +332,11 @@ purchases, production writes, migrations, resets, commits or deployment.
 	directory entry that is `active` only when nothing blocks. Two fresh
 	synthetic projects were provisioned one at a time (free-tier limit: the
 	demo was paused meanwhile), each wired as `tenant-b`, verified with both
-	two-customer hosted specs, then deleted. Open gate: custom SMTP, so every
-	real customer's Auth step (and therefore activation) stays blocked until
-	SMTP is configured on its project.
+	two-customer hosted specs, then deleted. Those synthetic runs did not verify
+	SMTP delivery. Every real customer still requires project SMTP configuration
+	and delivery verification before activation. `society:create` now applies
+	the shared SMTP relay (`.env.smtp.local`) itself; one Maplewood administrator
+	inbox delivery was verified on 6 November, without app sign-in or activation.
 - [ ] **S08 - Establish fleet releases and isolation regression.** Track each
 	backend's migration/schema version against the shared application, test fresh
 	install and upgrades, and define staged rollout and schema-compatible rollback.

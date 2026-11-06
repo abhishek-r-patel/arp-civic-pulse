@@ -259,16 +259,15 @@ export function withoutCustomerEntry(
 }
 
 const DEMO_TENANT = "22222222-2222-4222-8222-222222222222";
-const TENANT_A = "11111111-1111-4111-8111-111111111111";
 
 /**
- * Rebuilds the entries live on 6 November 2026 (see docs/DEPLOYMENT.md): the
- * product site, the synthetic demo and the synthetic tenant-a on the testdb
- * project. Only public keys are needed; service keys stay in Vercel.
+ * Rebuilds the platform entries: the product site and the synthetic demo.
+ * The synthetic tenant-a (on the testdb project) was offboarded on
+ * 6 November 2026 so that testdb backs only the beta site. Only public keys
+ * are needed; service keys stay in Vercel.
  */
 export function bootstrapDirectory(keys: {
   demoPublishableKey: string;
-  tenantAPublishableKey: string;
 }): Directory {
   return validateDirectory({
     version: 1,
@@ -279,18 +278,9 @@ export function bootstrapDirectory(keys: {
         kind: "demo",
         tenantId: DEMO_TENANT,
         state: "active",
-        projectUrl: "https://hnqajjjemqepxuoqbsqx.supabase.co",
+        projectUrl: "https://arxkuxlbynjbqcjuugde.supabase.co",
         publishableKey: keys.demoPublishableKey,
         serviceRoleKeyRef: serviceKeyRef(DEMO_TENANT),
-      },
-      {
-        host: `tenant-a.${VERCEL_PROJECT.productionHost}`,
-        kind: "customer",
-        tenantId: TENANT_A,
-        state: "active",
-        projectUrl: "https://nycbbzgsilnxrgkwlwno.supabase.co",
-        publishableKey: keys.tenantAPublishableKey,
-        serviceRoleKeyRef: serviceKeyRef(TENANT_A),
       },
     ],
   });
@@ -801,23 +791,17 @@ function initProfile() {
   }
   const read = (file: string) => parseEnv(readTextIfExists(file) ?? "");
   const demo = read(".env.demo-test.local");
-  const testdb = read(".env.testdb.local");
   const local = read(".env.local");
   const demoKey =
-    demo.NEXT_PUBLIC_SUPABASE_URL === "https://hnqajjjemqepxuoqbsqx.supabase.co"
+    demo.NEXT_PUBLIC_SUPABASE_URL === "https://arxkuxlbynjbqcjuugde.supabase.co"
       ? demo.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
       : local.NEXT_PUBLIC_SUPABASE_URL ===
-          "https://hnqajjjemqepxuoqbsqx.supabase.co"
+          "https://arxkuxlbynjbqcjuugde.supabase.co"
         ? local.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
         : undefined;
-  const tenantAKey =
-    testdb.NEXT_PUBLIC_SUPABASE_URL ===
-    "https://nycbbzgsilnxrgkwlwno.supabase.co"
-      ? testdb.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-      : undefined;
-  if (!demoKey || !tenantAKey) {
+  if (!demoKey) {
     throw new Error(
-      "Saved demo/testdb publishable keys were not found in the local profiles.",
+      "The saved demo publishable key was not found in the local profiles.",
     );
   }
   const linkedText = readTextIfExists(path.join(".vercel", "project.json"));
@@ -830,10 +814,7 @@ function initProfile() {
       "Set VERCEL_TEAM_ID (team_…) for the arp-civic-pulse team.",
     );
   }
-  const directory = bootstrapDirectory({
-    demoPublishableKey: demoKey,
-    tenantAPublishableKey: tenantAKey,
-  });
+  const directory = bootstrapDirectory({ demoPublishableKey: demoKey });
   createPrivateFile(
     VERCEL_PROFILE,
     withValues("", {

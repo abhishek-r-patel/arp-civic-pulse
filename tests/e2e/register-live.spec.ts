@@ -776,9 +776,8 @@ test("resident table controls preserve global query state and fit phone viewport
   await expect(page).toHaveURL(/sort=representative/);
   await expect(page).toHaveURL(/direction=asc/);
   await expect(page).toHaveURL(/limit=10/);
-  await expect(page).not.toHaveURL(
-    /(?:isAdmin|changedFrom|changedTo|representative)=/,
-  );
+  await expect(page).toHaveURL(/isAdmin=all/);
+  await expect(page).not.toHaveURL(/(?:changedFrom|changedTo|representative)=/);
   await expect(page).not.toHaveURL(/[?&]page=/);
   await expect(
     page.getByRole("columnheader", {

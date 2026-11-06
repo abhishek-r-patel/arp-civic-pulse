@@ -71,7 +71,7 @@ describe("demoResetTarget", () => {
   });
 
   it("allows explicit shared testing only on the approved synthetic demo", () => {
-    const ref = "hnqajjjemqepxuoqbsqx";
+    const ref = "arxkuxlbynjbqcjuugde";
     const shared = env({
       DEMO_PROJECT_REF: ref,
       DEMO_SUPABASE_URL: `https://${ref}.supabase.co`,

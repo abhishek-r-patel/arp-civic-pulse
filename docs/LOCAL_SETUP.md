@@ -11,15 +11,20 @@ This guide takes you from a fresh checkout to a running app you can sign in to, 
 ## Existing checkout: shared demo test backend
 
 As of 6 November 2026, the testdb Supabase project (`civic-pulse-testdb`, which
-backs the beta site) is paused to free an active free-tier slot for Premier
-Inspira Maplewood. This checkout's
+backs the beta site) is paused. Premier Inspira Maplewood now occupies the
+second active slot, but remains in `provisioning` pending SMTP and activation
+gates. This checkout's
 ignored `.env.local` points local development, live Vitest and opted-in
-Playwright fixtures at the synthetic demo `hnqajjjemqepxuoqbsqx`.
+Playwright fixtures at the synthetic demo `arxkuxlbynjbqcjuugde`.
 `TENANT_TEST_*` is empty; do not enable paired-project tests or substitute
-the new RWA database. The cached Supabase CLI link also targets demo; verify
-the project reference before any remote command. `.env.testdb.local` keeps the testdb credentials
+the customer database. The cached Supabase CLI link now targets that customer
+after onboarding, unlike `.env.local`; never use the linked project for
+testing or reset. Verify the project reference before any remote command.
+`.env.testdb.local` keeps the testdb credentials
 for reference only and is not loaded by normal development/tests.
-`npm run testdb:resume` resumes testdb and switches `.env.local` back to it;
+`npm run testdb:resume` requires an available active slot before resuming
+testdb and switching `.env.local` back to it; do not run it while the customer
+occupies that slot.
 `npm run testdb:pause` reverses both. See
 [switching the test target](./OPERATIONS.md#switching-the-test-target).
 Resume refreshes Supabase API keys from the Management API but reuses the saved
@@ -27,7 +32,8 @@ database password in `.env.testdb.local`; Supabase does not expose that
 password for retrieval.
 `npm run society:create -- <alias> ...` creates a separately ignored
 `.env.<alias>.local`, links the Supabase CLI to that society project and runs
-the existing non-activating provisioner. It leaves `.env.local` on demo; see
+the existing non-activating provisioner. It requires the ignored shared SMTP
+file `.env.smtp.local`. It leaves `.env.local` on demo; see
 [society project creation](./OPERATIONS.md#creating-a-society-project).
 `npm run society:delete` removes that profile after deleting the project and
 relinks the CLI to the current test target.
@@ -320,8 +326,8 @@ The app signs people in with a **six-digit code**. Supabase's built-in email ser
 ### Option A: custom SMTP (needed for real emailed codes)
 
 1. In Brevo, verify a sender you control. Prefer an authenticated domain you own. A verified personal Gmail sender was accepted for this testdb setup, but Brevo warns against freemail domains; it is not production sender-domain approval.
-2. In Brevo **Settings → SMTP & API → SMTP**, obtain the SMTP Login and generate a dedicated Standard SMTP key. Complete provider identity verification yourself. The SMTP Login may differ from the account email. The password is the **SMTP key**, not a Brevo API key, account password or Gmail app password.
-3. In Supabase **Authentication → Emails → SMTP Settings**, enable custom SMTP and set host `smtp-relay.brevo.com`, port `465` (TLS), username = Brevo SMTP Login, password = SMTP key, sender email = the verified sender, and sender name = `Civic Pulse`. Save and reload to confirm persistence. Enter credentials directly into the provider dashboard, never chat, Git, Vercel or application environment files.
+2. In Brevo **Settings → SMTP & API → SMTP**, obtain the SMTP Login and generate a dedicated Standard SMTP key. Complete provider identity verification yourself. Copy the exact **Login** shown on that tab; do not substitute the account email. A relay 535 response means authentication failed, so verify the login and active key first. The password is the **SMTP key**, not a Brevo API key, account password or Gmail app password.
+3. In Supabase **Authentication → Emails → SMTP Settings**, enable custom SMTP and set host `smtp-relay.brevo.com`, port `465` (TLS), username = Brevo SMTP Login, password = SMTP key, sender email = the verified sender, and sender name = `Civic Pulse`. Save and reload to confirm persistence. Enter credentials directly into the provider dashboard, never chat, Git, Vercel or application environment files. Society projects do not need this manual step: `society:create` applies the same relay from the ignored operator file `.env.smtp.local` (see [Shared SMTP](./OPERATIONS.md#shared-smtp)).
 4. In **Emails → Templates → Magic link or OTP**, set subject `Your Civic Pulse sign-in code` and use [the repository OTP template](../supabase/templates/magic_link.html), whose essential variable is `{{ .Token }}` rather than `{{ .ConfirmationURL }}`. Verify the saved template, not just its preview.
 5. Test using an existing project **Authentication → Users** identity with an enabled application profile. A Supabase dashboard login and a Brevo sender are not app accounts. Code requests use `shouldCreateUser=false`; unknown addresses receive the same generic app acknowledgement but no sign-in code. Provision normal residents through the app and use the audited setup/provisioning routines for authorized administrators, never grant admin merely to enable email.
 6. Confirm actual inbox receipt, enter the newest code in the app, and verify sign-in. Provider acceptance alone is not delivery evidence. The 28 October testdb test passed with six-digit OTPs, the existing one-hour expiry and 30 emails/hour; these unchanged provider settings are not production policy/capacity approval. Check Brevo account/key limits and rotate the SMTP key before its expiry or inactivity revocation.
@@ -404,7 +410,7 @@ uses the verified disposable fixture project for actual Votes/Accounts pictures.
 For tabular onboarding review, open **Residents** (Voters is the default role),
 filter Suspended and select valid rows on the current page. **Enable Selected**
 allows sign-in; **Make Eligible** separately changes assigned-flat eligibility
-for future votes. Select All Roles explicitly to include administrators, whose
+for future votes. Select All Roles explicitly (or use Clear filters) to include administrators, whose
 enable confirmation carries a management-access warning. Changing sort/page/filters
 clears selection. The review actions add no write migration; current table
 controls require the `20261115100000` read routine described above.

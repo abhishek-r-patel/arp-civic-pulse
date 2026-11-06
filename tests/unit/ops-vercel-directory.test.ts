@@ -15,7 +15,6 @@ import {
 
 const base = bootstrapDirectory({
   demoPublishableKey: "sb_publishable_demo#1",
-  tenantAPublishableKey: "sb_publishable_tenant_a",
 });
 const tenantId = "3b0c2f44-5d7e-4a8b-9c1d-2e3f4a5b6c7d";
 const maplewood: RwaEntry = {
@@ -37,7 +36,6 @@ describe("tenant directory", () => {
     ).toEqual([
       "main:arp-civic-pulse.vercel.app",
       "demo:demo.arp-civic-pulse.vercel.app",
-      "customer:tenant-a.arp-civic-pulse.vercel.app",
     ]);
   });
 
@@ -46,7 +44,7 @@ describe("tenant directory", () => {
     expect(parseTenantDirectory(JSON.stringify(added)).invalidHosts).toEqual(
       [],
     );
-    expect(added.entries).toHaveLength(4);
+    expect(added.entries).toHaveLength(3);
     expect(withCustomerEntry(added, maplewood)).toEqual(added);
     const active = withCustomerEntry(
       validateDirectory({
@@ -67,7 +65,7 @@ describe("tenant directory", () => {
     expect(() =>
       withCustomerEntry(base, {
         ...maplewood,
-        projectUrl: "https://hnqajjjemqepxuoqbsqx.supabase.co",
+        projectUrl: "https://arxkuxlbynjbqcjuugde.supabase.co",
       }),
     ).toThrow(/another tenant/u);
     const added = withCustomerEntry(base, maplewood);
@@ -90,7 +88,7 @@ describe("tenant directory", () => {
 
   it("caps customers at ten", () => {
     let directory = base;
-    for (let i = 0; i < 9; i += 1) {
+    for (let i = 0; i < 10; i += 1) {
       const id = `3b0c2f44-5d7e-4a8b-9c1d-2e3f4a5b6c${i}0`;
       directory = withCustomerEntry(directory, {
         ...maplewood,

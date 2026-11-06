@@ -217,6 +217,76 @@ export function authTemplatePatch(template: string) {
   };
 }
 
+/*
+ * One operator-held SMTP relay (Brevo) serves every society project. It lives
+ * only in the ignored `.env.smtp.local`, never in Git, Vercel or app profiles.
+ */
+export const SMTP_PROFILE = ".env.smtp.local";
+
+export interface SharedSmtp {
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
+  senderEmail: string;
+  senderName: string;
+}
+
+export function readSharedSmtp(
+  env: Readonly<Record<string, string | undefined>>,
+): SharedSmtp {
+  const value = (key: string) => env[key]?.trim() ?? "";
+  const missing = [
+    "SOCIETY_SMTP_HOST",
+    "SOCIETY_SMTP_USER",
+    "SOCIETY_SMTP_PASS",
+    "SOCIETY_SMTP_SENDER_EMAIL",
+  ].filter((key) => !value(key));
+  if (missing.length > 0) {
+    throw new Error(
+      `${SMTP_PROFILE} is missing ${missing.join(", ")} (docs/OPERATIONS.md "Shared SMTP").`,
+    );
+  }
+  const host = value("SOCIETY_SMTP_HOST");
+  if (/[\s/:]/u.test(host)) {
+    throw new Error("SOCIETY_SMTP_HOST must be a bare hostname.");
+  }
+  const port = Number(value("SOCIETY_SMTP_PORT") || "465");
+  if (![465, 587].includes(port)) {
+    throw new Error("SOCIETY_SMTP_PORT must be 465 (TLS) or 587 (STARTTLS).");
+  }
+  const senderEmail = value("SOCIETY_SMTP_SENDER_EMAIL");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(senderEmail)) {
+    throw new Error("SOCIETY_SMTP_SENDER_EMAIL is not an email address.");
+  }
+  return {
+    host,
+    port,
+    user: value("SOCIETY_SMTP_USER"),
+    pass: value("SOCIETY_SMTP_PASS"),
+    senderEmail,
+    senderName: value("SOCIETY_SMTP_SENDER_NAME") || "Civic Pulse",
+  };
+}
+
+/*
+ * Supabase keeps its built-in 2 emails/hour until it is raised, and only
+ * accepts a change once custom SMTP exists; operator-approved 60/hour.
+ */
+export const SOCIETY_EMAIL_RATE_LIMIT = 60;
+
+export function smtpConfigPatch(smtp: SharedSmtp) {
+  return {
+    rate_limit_email_sent: SOCIETY_EMAIL_RATE_LIMIT,
+    smtp_host: smtp.host,
+    smtp_port: String(smtp.port),
+    smtp_user: smtp.user,
+    smtp_pass: smtp.pass,
+    smtp_admin_email: smtp.senderEmail,
+    smtp_sender_name: smtp.senderName,
+  };
+}
+
 /** Plain-language problems; SMTP and the template are reported separately because SMTP only the operator holds. */
 export function authConfigProblems(
   config: Readonly<Record<string, unknown>>,
@@ -340,6 +410,11 @@ export interface ProvisionOptions {
   applyMigrations: boolean;
   activate: boolean;
   accessToken?: string;
+  /*
+   * Re-sent on every run because Supabase never returns the stored password;
+   * this keeps all societies on the current key after a rotation.
+   */
+  smtp?: SharedSmtp;
   repoRoot: string;
 }
 
@@ -515,6 +590,15 @@ export async function provisionCustomer(
         problems = authConfigProblems(config, request.host);
         changed = true;
       }
+      if (options.smtp) {
+        config = await managementAuth(
+          target.projectRef,
+          options.accessToken,
+          smtpConfigPatch(options.smtp),
+        );
+        problems = authConfigProblems(config, request.host);
+        changed = true;
+      }
       if (!problems.template && problems.smtp) {
         config = await managementAuth(
           target.projectRef,
@@ -530,7 +614,7 @@ export async function provisionCustomer(
         add(
           "auth",
           "blocked",
-          "Auth settings are correct but custom SMTP is not configured; add it in the Supabase dashboard (docs/LOCAL_SETUP.md section 8), then re-run to set the six-digit code email",
+          'Auth settings are correct but custom SMTP is not configured; fill .env.smtp.local (docs/OPERATIONS.md "Shared SMTP") and re-run to set it and the six-digit code email',
         );
       } else if (!problems.template) {
         add(

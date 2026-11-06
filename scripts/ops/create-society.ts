@@ -5,7 +5,13 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseEnv } from "node:util";
 import { PROJECTS, fetchProjectKeys, withValues } from "./test-target.ts";
-import { provisionCustomer, provisionPlan } from "./provision.ts";
+import {
+  SMTP_PROFILE,
+  provisionCustomer,
+  provisionPlan,
+  readSharedSmtp,
+  type SharedSmtp,
+} from "./provision.ts";
 import type { ProjectTarget } from "./supabase-project.ts";
 import {
   assertCanAddCustomer,
@@ -28,6 +34,8 @@ import {
  * The RWA host is attached to the shared Vercel project before any Supabase
  * project is created; after provisioning, the tenant's service key and a
  * `provisioning` directory entry are pushed and production is redeployed.
+ * Every society sends sign-in codes through the one shared SMTP relay read
+ * from the ignored `.env.smtp.local`; rerunning re-applies it after a rotation.
  * Usage:
  *   npm run society:create -- <alias> --confirm-create <civic-pulse-alias> \
  *     --rwa-name <name> (--subdomain <label> | --host <host>) \
@@ -445,6 +453,7 @@ function provisionForSociety(
   tenantId: string,
   target: ProjectTarget,
   token: string,
+  smtp: SharedSmtp,
 ) {
   const provisionEnv = {
     ...env,
@@ -467,6 +476,7 @@ function provisionForSociety(
     applyMigrations: true,
     activate: false,
     accessToken: token,
+    smtp,
     repoRoot: process.cwd(),
   });
 }
@@ -480,6 +490,13 @@ async function main(args: string[]): Promise<number> {
   if (!token) {
     throw new Error("SUPABASE_ACCESS_TOKEN is not set (.env.local or shell).");
   }
+  const smtpText = readTextIfExists(SMTP_PROFILE);
+  if (smtpText === undefined) {
+    throw new Error(
+      `${SMTP_PROFILE} is missing; create it with the shared SMTP relay settings first (docs/OPERATIONS.md "Shared SMTP").`,
+    );
+  }
+  const smtp = readSharedSmtp(parseEnv(smtpText));
   ensureCliAvailable(token);
   const vercelProfile = readVercelProfile();
   const vercel = await vercelClient(vercelProfile.teamId);
@@ -680,6 +697,7 @@ async function main(args: string[]): Promise<number> {
     tenantId,
     target,
     token,
+    smtp,
   );
   console.log(JSON.stringify(report, null, 2));
 

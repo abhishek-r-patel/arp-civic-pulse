@@ -2,33 +2,39 @@
 
 ## 1. Status and approval boundary
 
-This repository is **deployed to the beta site using Vercel's Production target, not real production or approved for real voting**. The architecture prefers Vercel for Next.js and Supabase PostgreSQL/Auth/Cron. The beta account is recorded below; no production Supabase project, production hosting plan, region, domain, budget or production ingress is approved by this configuration. The shared Vercel project `arp-civic-pulse` is the [release flow](#release-flow-beta-then-manual-production)'s production deployment target, currently serving only synthetic hosts; no hosted project is approved for real voting.
+This repository is **deployed to the beta site using Vercel's Production target, not real production or approved for real voting**. The architecture prefers Vercel for Next.js and Supabase PostgreSQL/Auth/Cron. The beta account is recorded below; no production Supabase project, production hosting plan, region, domain, budget or production ingress is approved by this configuration. The shared Vercel project `arp-civic-pulse` is the [release flow](#release-flow-beta-then-production)'s production deployment target, serving the product website and synthetic demo; the first customer was activated on operator request on 6 November 2026, but is not approved for real voting. No hosted project is approved for real voting.
 
 Do not promote a deployment or admit real residents until the open gates in [PILOT_READINESS.md](./PILOT_READINESS.md) are closed. The application now implements local per-RWA OTP IP budgets using Vercel's overwritten `X-Forwarded-For`; hosted spoof/burst verification and pilot threshold validation remain open. `TRUSTED_PROXY_CONFIG=vercel` is required in production, and Vercel system environment variables must be enabled so `VERCEL=1` is available. The application does not support an upstream proxy in front of Vercel. This guide does not grant approval of A1-A7, providers, regions, retention or recovery objectives.
 
 ### Current capacity and testing arrangement - 6 November 2026
 
-The operator requested pausing the testdb project to free
-an active Supabase free-tier slot for **Premier Inspira Maplewood**. The
-Management API accepted the pause and confirmed the testdb project (Supabase
-`civic-pulse-testdb`;
-`nycbbzgsilnxrgkwlwno`) as `INACTIVE`;
-demo (`hnqajjjemqepxuoqbsqx`, dashboard name `civic-pulse-demo`)
-remained `ACTIVE_HEALTHY`. No project was deleted and the new RWA project was
-not created or approved for real voting.
+The testdb project (Supabase `civic-pulse-testdb`;
+`nycbbzgsilnxrgkwlwno`) remains `INACTIVE`. Demo
+(`arxkuxlbynjbqcjuugde`, `civic-pulse-demo`) and the newly provisioned
+**Premier Inspira Maplewood** project occupy the two active free-tier slots
+in Mumbai (`ap-south-1`). The customer directory entry is `active` (operator
+request) and its sign-in page is served, but it is not approved for real
+voting. Shared SMTP and one administrator inbox delivery are verified; app
+sign-in, policy approvals, retention and the existing launch gates remain open.
+See the [onboarding record](#first-rwa-provisioning-6-november-2026).
 
-Local `.env.local` now points the application, live tests and browser fixtures
+Local `.env.local` still points the application, live tests and browser fixtures
 at demo; `TENANT_TEST_*` is empty. The cached Supabase CLI link was also
-switched to demo using the existing CLI, without applying migrations.
+initially switched to demo, but now targets the customer after onboarding.
+Never use that customer link for testing, fixtures or reset commands.
 The ignored `.env.testdb.local` preserves
 the testdb connection settings for reference only; it is not a routine test input.
-Do not link/reset/migrate a new customer project as part of testing.
-The existing Vercel beta and synthetic `tenant-a` mappings were not changed:
-their database-dependent flows are unavailable while paused. Main-site and demo
-hosting remain separate and were not redeployed. Earlier hosted verification
+Do not link/reset/migrate a customer project as part of testing.
+The beta site's database-dependent flows remain unavailable, with no fallback.
+The synthetic `tenant-a` host was offboarded earlier that day; see the
+[shared-project record](#tenant-routing-disabled-on-beta-shared-production-project).
+The shared main-site/demo project was redeployed to register the new customer;
+main and demo returned 200 and the provisioning customer returned the expected
+503. Earlier hosted verification
 records below are historical, not evidence that the beta site is currently
-available. Resume testdb before any beta or two-project verification with
-`npm run testdb:resume`. It resumes the project and points local tests back at it.
+available. Do not run `npm run testdb:resume` while the customer occupies the
+second active slot. Once a slot is available under an approved operating plan,
+that command resumes testdb and points local tests back at it.
 Then recheck credentials, migrations, Auth settings and host health.
 The [shared-demo test procedure](./OPERATIONS.md#demo-site) describes restoration.
 
@@ -60,6 +66,98 @@ site/project aliases 308-redirect to `beta.` preserving path/query. Testdb was r
 empty), and paused again with `npm run testdb:pause`. No signed-in beta
 journey, migration check or OTP email was run.
 
+#### Demo moved to Mumbai (6 November 2026)
+
+A region audit found demo (`hnqajjjemqepxuoqbsqx`) in Singapore
+(`ap-southeast-1`) while Vercel functions run in `bom1` and testdb is in
+`ap-south-1`. With operator approval the demo was recreated in Mumbai:
+
+- New Supabase project `civic-pulse-demo` (`arxkuxlbynjbqcjuugde`,
+  `ap-south-1`, free plan) was created through the Management API; the old
+  project was renamed `civic-pulse-demo-sg-old` first. All 45 repository
+  migrations were applied with `supabase@2 db push --db-url`.
+- Auth settings were compared with the old project; only `disable_signup`
+  (now `true`) and `mailer_otp_length` (now `6`) differed and were copied.
+  No SMTP, redirect list or site URL change was needed.
+- Seeded once with `npm run ops -- demo-reset --confirm arxkuxlbynjbqcjuugde
+--initialize`: 23 profiles, 20 households, 16 votes, 65 ballots.
+- The shared Vercel project's demo directory entry and
+  `TENANT_22222222222242228222222222222222_SUPABASE_SERVICE_ROLE_KEY` were
+  replaced and production redeployed as `dpl_75TVgAR1grXUx4Zgx5Bpgn9a8VXf`
+  (from `dpl_rrs96kCo5sGFUxCvqrW9nJj76142`). The main site and demo
+  `/sign-in` returned 200, and all three personas signed in on the hosted demo
+  against accounts in the new project.
+- Follow-up hosted browser verification passed all nine Chromium checks in
+  `tests/e2e/site-home.spec.ts` and `tests/e2e/site-demo-live.spec.ts`, without
+  retries. The demo smoke suite's stale quote-text assertion now checks the
+  current **Ask for a quote** link and its `/contact` destination. The earlier
+  demo page-load timeout did not recur; no navigation waits were weakened.
+  This verifies the synthetic hosts, not real-voting readiness or other browsers.
+- The hard-coded demo ref was updated in `scripts/ops/test-target.ts`,
+  `scripts/ops/demo.ts`, `scripts/ops/vercel-directory.ts`, the `demo:reset`
+  script in `package.json`, `.env.example`, `scripts/test/live.mjs`,
+  `tests/live/auth.live.test.ts`, `tests/e2e/support/tenant-http.ts` and the
+  related unit tests. Ignored local profiles (`.env.local`, `.env.demo.local`,
+  `.env.demo-test.local`, `.env.testdb.local`, `.env.vercel.local`) and the
+  cached CLI link were repointed by the operator's session.
+- The beta Vercel project's default function region was changed from `iad1` to
+  `bom1` (deployments already used `vercel.json`'s `bom1`), and
+  `tests/unit/deploy-region.test.ts` now fails if `vercel.json` stops pinning
+  `bom1` or `society:create` stops using `ap-south-1`.
+
+Earlier records in this document that name `hnqajjjemqepxuoqbsqx` describe the
+Singapore project at that time. After the checks above passed, that project
+was deleted through the Management API the same day. At that point, before
+customer onboarding, the account listed only demo (`ap-south-1`, active) and
+testdb (`ap-south-1`, paused).
+
+#### First RWA provisioning (6 November 2026)
+
+With operator approval, `society:create` created the dedicated Mumbai project
+for Premier Inspira Maplewood, applied all 45 repository migrations,
+initialized RWA settings and enabled the requested first administrator.
+Read-only checks confirmed the current migration ledger, one matching enabled
+administrator, matching settings and no votes over certificate-verified TLS.
+
+The customer service key, verified domain and `provisioning` directory entry
+were added to the shared Vercel project, then production was rebuilt as
+`dpl_4msodD3bJcF6vUUiCvX9ALvjPwVo` from
+`dpl_75TVgAR1grXUx4Zgx5Bpgn9a8VXf`. Main and demo returned 200; the new
+customer's sign-in returned the expected application 503. The shared project
+now has eight Production-only variables and three directory entries.
+Customer connection identifiers and credentials remain in ignored local
+profiles and Vercel's sensitive settings, not this public record.
+
+Required Auth settings match the RWA host. The operator then reran
+`society:create`, which applied the shared SMTP relay from the ignored
+`.env.smtp.local` ([Shared SMTP](./OPERATIONS.md#shared-smtp)) and the
+code-email template, and rebuilt production as
+`dpl_856hLHhpLiKKHCEixZDCDYqAakxn` (customer still 503 as expected). The
+project's email limit was raised from Supabase's built-in 2/hour to 60/hour.
+An initial code request returned Auth HTTP 500. A direct, certificate-verified
+SMTP probe isolated a relay authentication rejection (535): the shared profile's
+username did not match Brevo's SMTP **Login**. After the operator corrected that
+field without replacing the existing active key, a curl SMTPS `AUTH LOGIN`/`NOOP`
+check succeeded without sending email. The corrected shared SMTP settings were
+applied to the customer Auth configuration and read back; the 60/hour limit and
+code template were preserved. No additional Vercel redeploy was needed.
+
+One Supabase Auth code request at 19:26 IST then succeeded. Brevo recorded
+**Sent** and **Delivered** for the saved administrator recipient, and the
+operator confirmed inbox receipt. This verifies one SMTP delivery, not app
+sign-in, sender-domain approval or peak sending capacity.
+
+At the operator's request, the customer directory entry was then changed from
+`provisioning` to `active`, the sensitive directory variable was updated and
+production was rebuilt as `dpl_E8RgJeyVa48uCKTGPCbQUrbJLdzc` from
+`dpl_856hLHhpLiKKHCEixZDCDYqAakxn` (the rollback target). Post-deploy checks
+returned 200 for main, demo sign-in and the customer sign-in page. Activation
+only enables routing; it does not verify app sign-in or approve real voting.
+The project has 0/7 policy approvals and unset retention periods; these must be
+recorded before the first vote, and the existing release gates remain open. Local
+app/live/browser/reset credentials still point at demo; the CLI link now
+targets the customer and must not be used for tests.
+
 ### Tenant routing: disabled on beta; shared production project
 
 The [S02 tenant contract](./IMPLEMENTATION_PLAN.md#s02---tenant-resolution-and-configuration-contract)
@@ -71,7 +169,7 @@ request-scoped resolution and client factories, gated by
 uses one `APP_ORIGIN` and one Supabase project (testdb); no tenant directory,
 customer subdomains or tenant credentials are configured on it. Tenant routing
 runs only on the shared Vercel project `arp-civic-pulse`, which the
-[release flow](#release-flow-beta-then-manual-production) treats as the
+[release flow](#release-flow-beta-then-production) treats as the
 production deployment target. That role is not approval for real voting; the
 launch gates below and in [PILOT_READINESS.md](./PILOT_READINESS.md) remain open.
 
@@ -99,7 +197,7 @@ demo/site deployment without uploading local changes. The new main-host
 journey passed on Chromium and WebKit; canonical metadata, sitemap and the
 demo's main-site link use the bare domain. No Supabase changes or data reset
 were performed.
-It has Production-only, sensitive variables:
+It had Production-only, sensitive variables:
 - `TENANT_ROUTING_ENABLED=true`
 - a two-entry `TENANT_DIRECTORY_JSON`, mapping host A to the testdb project
   `nycbbzgsilnxrgkwlwno` (which also backs the beta site) and host B to
@@ -107,6 +205,19 @@ It has Production-only, sensitive variables:
 - the two `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` values
 - a project-specific `RATE_LIMIT_HMAC_KEY`, `APP_ORIGIN` set to host A
   (metadata only in directory mode) and `LOG_LEVEL=info`
+
+**`tenant-a` offboarded (6 November 2026).** So that testdb backs only the
+beta site, the operator approved removing the synthetic `tenant-a` host from
+this project. Its directory entry was removed and production redeployed as
+`dpl_rrs96kCo5sGFUxCvqrW9nJj76142` (from `dpl_AFJgJiN3tCvR9c1Rwbd8twAuawVK`);
+the main site and demo returned 200 and `tenant-a` the app's unlisted 404.
+Its service-key variable and domain were then removed. The testdb project and
+its data were not touched. The project then had seven Production-only
+variables: the directory (main and demo entries only), the demo service key,
+`TENANT_ROUTING_ENABLED`, `RATE_LIMIT_HMAC_KEY`, `APP_ORIGIN`, `LOG_LEVEL` and
+`TRUSTED_PROXY_CONFIG`; future society projects are added by
+`society:create`. The later first-RWA onboarding added one customer entry and
+its service key as recorded above. The `tenant-a` label stays reserved.
 
 Because these are write-only, the directory's source of truth is now the
 ignored local `.env.vercel.local`, rebuilt from this record on 6 November 2026
@@ -118,7 +229,7 @@ redeploys it, and `npm run society:delete` removes them; see
 
 At the time of this record it had no Git connection, no Preview variables and
 no Sentry settings (it was Git-linked on 2 November 2026; see the
-[release flow](#release-flow-beta-then-manual-production)). It was
+[release flow](#release-flow-beta-then-production)). It was
 deployed from the uncommitted local S04 working tree with
 `vercel deploy --prod`, using `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` overrides so
 the repository's beta `.vercel` link was untouched. `.vercelignore`
@@ -241,14 +352,15 @@ routing on beta or production until the actual domain is approved and the
 remaining release gates close. New customer projects are prepared with
 `npm run ops -- provision` ([operations](./OPERATIONS.md#provision-a-customer-rwa)).
 
-### Release flow: beta, then manual production
+### Release flow: beta, then production
 
 Approved on 6 November 2026 (replacing the earlier flow in which every push to
-`main` auto-deployed the beta site):
+`main` auto-deployed the beta site); `main` auto-deployment was approved later
+the same day:
 
 1. Work on a feature branch and open a pull request into the `beta` Git branch.
-   Feature-branch Preview deployments stay disabled by `vercel.json` until
-   Preview-scoped app variables exist on the beta project.
+   Feature-branch deployments stay disabled by `vercel.json`, and neither
+   project has Preview-scoped app variables.
 2. Merging into `beta` deploys the beta site automatically: `beta` is the
    Production branch of Vercel project `beta-arp-civic-pulse`, served at
    <https://beta.arp-civic-pulse.vercel.app> and backed by the testdb Supabase
@@ -256,32 +368,38 @@ Approved on 6 November 2026 (replacing the earlier flow in which every push to
    migrations there first; while testdb is paused the beta site cannot serve
    database-backed pages.
 3. After verification on beta, merge `beta` into `main`.
-4. Production is the shared Vercel project `arp-civic-pulse` (ID unchanged; serving
-   `arp-civic-pulse.vercel.app`, `demo.`, `tenant-a.` and future society
-   subdomains). It is deployed from the merged `main` commit inside an
-   approved release window, after the
+4. Merging into `main` deploys production automatically: `main` is the
+   Production branch of the shared Vercel project `arp-civic-pulse` (ID
+   unchanged; serving `arp-civic-pulse.vercel.app`, `demo.` and
+   future society subdomains, each with its own Supabase project). Merge only
+   inside an approved release window, after the
    [shared-app fleet release gate](#shared-app-fleet-release-gate) and
-   per-project migration ordering.
+   per-project migration ordering, because the merge itself is the release.
 
-**Git link on the shared project (found 6 November 2026; decision confirmed
-6 November 2026).** Contrary to the earlier records below, the shared project
-is linked to this GitHub repository with Production branch `main`; its Git
-deployments began on 2 November 2026. The operator chose to keep this link.
-While `main`'s `vercel.json` still enables `main`, every push to `main`
-deploys it to production automatically (the PR #6 dependency merge did, as
-`dpl_GbT3wGBWxFKaZERrvDPqh4noq39x`). Once the `beta`-only `vercel.json`
-reaches `main`, pushes to `main` stop deploying anywhere, but pushes to `beta`
-also create Preview deployments on this project. The link remains in place;
-use the documented manual production release process and verify Vercel's Git
-deployment behavior after the `beta`-only configuration reaches `main`.
+| Git branch | Vercel project         | Vercel environment | Database                          |
+| ---------- | ---------------------- | ------------------ | --------------------------------- |
+| `beta`     | `beta-arp-civic-pulse` | Production only    | testdb                            |
+| `main`     | `arp-civic-pulse`      | Production only    | demo plus each society's project  |
+
+**Branch-to-project isolation (6 November 2026).** Both projects are linked to
+this GitHub repository, so every enabled push reaches both. Each project's
+Ignored Build Step is `[ "$VERCEL_ENV" != "production" ]`, so it builds only its
+own Production branch and skips the other branch's Preview (shown as a
+cancelled/ignored Vercel status on the PR, not a failure). API redeploys of the
+current production deployment, used by `society:create`/`society:delete`, are
+Production builds and are not skipped. No Preview-scoped app variables exist on
+the shared project: the temporary demo-only `beta` Preview configured for PR #9
+was removed with its deployments the same day, and the beta project's
+Preview copies of its four Sentry build variables were deleted. Earlier `main` deploys on the shared project, such as
+`dpl_GbT3wGBWxFKaZERrvDPqh4noq39x` from the PR #6 merge, were automatic Git
+deployments.
 
 This flow does not approve real voting or close any launch gate.
-[vercel.json](../vercel.json) sets `git.deploymentEnabled` to `"**": false`
-and `"beta": true` (previously `"main": true`). Vercel reads that file from the
-deployed commit, so automatic `beta` deployments start only once this change
-is committed to the `beta` branch; until then `origin/beta` still carries the
-`main`-only policy, and the 6 November `beta` deployment was triggered
-manually through the API.
+[vercel.json](../vercel.json) sets `git.deploymentEnabled` to `"**": false`,
+`"main": true` and `"beta": true`. Vercel reads that file from the deployed
+commit, so each branch follows the policy in its own latest commit: `main`
+keeps auto-deploying while it carries this file or the earlier `main`-only
+file, but would stop if the interim `beta`-only file reached it.
 
 ### Current beta configuration: Production target only
 
@@ -291,10 +409,20 @@ manually through the API.
 permanent 308 redirects to the beta host. Production
 `APP_ORIGIN` is the beta origin, and the testdb Supabase project's Auth Site URL
 and redirect allow-list use the beta origin. Its Production branch is `beta`
-(see the [release flow](#release-flow-beta-then-manual-production)). The
+(see the [release flow](#release-flow-beta-then-production)). The
 database is the testdb project (`civic-pulse-testdb`), currently paused. No new
 hosted verification was recorded with this rename; the dated records below
 describe earlier setup and verification.
+
+**Obsolete PDF flag cleanup (6 November 2026):** `PDF_EXPORT_ENABLED` was
+removed from beta's Production variables through the Vercel API. A fresh API
+read confirmed 13 Production-only variables on beta and seven on the shared
+main project, with the retired flag absent from both. No local `.env*` profile
+contained it. PDF remains mandatory; the regression test that supplies the old
+flag to prove it cannot disable PDF is intentionally retained. No redeployment
+was needed for this unused setting: existing deployment snapshots retain their
+original environments until rebuilt, but current code ignores the flag.
+Historical setup records below preserve the settings used at that time.
 
 As of 28 October 2026, the operator approved this permanent beta setup:
 
@@ -375,8 +503,9 @@ forward-only. No `--include-all` or migration-history rewrite was used.
   Legacy project-name host aliases remain attached as 308 redirects to the
   canonical beta host.
   All eight Preview-only environment entries were removed. The nine original
-  Production entries remain, alongside four Sentry entries and
-  `TRUSTED_PROXY_CONFIG` (14 Production entries total).
+  Production entries remained, alongside four Sentry entries and
+  `TRUSTED_PROXY_CONFIG` (14 Production entries then; 13 after the obsolete PDF
+  flag cleanup noted above).
   `TRUSTED_PROXY_CONFIG=vercel` was added on 31 October 2026 and first applied
   by the automatic Git deployment of `9ff6ec6`
   (`dpl_77LqZJAnv6NkVif4CfD79sxXnnJV`, Ready). After it, health returned `ok`
@@ -399,9 +528,9 @@ forward-only. No `--include-all` or migration-history rewrite was used.
 - [vercel.json](../vercel.json) adds a durable Git policy:
   `git.deploymentEnabled` disables `**` and enables `main`. Vercel enables a
   branch when any matching rule is true, so `main` still builds while feature
-  branches/PRs do not. On 6 November 2026 `main` was replaced by `beta` for
-  the [release flow](#release-flow-beta-then-manual-production) (effective once
-  committed to `beta`). The hosted
+  branches/PRs do not. On 6 November 2026 `main` was replaced by `beta`, then
+  both `main` and `beta` were enabled for the
+  [release flow](#release-flow-beta-then-production). The hosted
   project-level Preview disable was saved independently in October; enabling
   feature-branch Preview URLs would require that setting, this file and
   Preview app variables to be revisited.
@@ -440,7 +569,7 @@ Site URL too. The records below are historical and superseded where they differ.
 - The canonical origin at that time was a protected Vercel deployment URL, not a custom domain.
 - Artifact: GitHub commit `8ac9d1c6f6724c5e10e80e4203a2d960a39a216c`, deployment `dpl_BNBFMs6wHRMuDXck8299oRq5aJBf`, created 27 October 2026. The operator selected the committed GitHub version, not the additional uncommitted local features.
 - The operator confirmed that the Supabase project in ignored `.env.local` was test-only. Only the four required app credentials were transferred, alongside `APP_ORIGIN`, `LOG_LEVEL=info`, `MAINTENANCE_MODE=0` and `PDF_EXPORT_ENABLED=0`. All eight variables are scoped to **Preview only**; privileged app secrets are non-revealable. No database URL, password, management token or live-test email was uploaded.
-- `PDF_EXPORT_ENABLED=0` above was a legacy setting for that historical artifact. Current code ignores it and always offers PDF; remove the obsolete variable from active deployment scopes.
+- `PDF_EXPORT_ENABLED=0` above was a legacy setting for that historical artifact. Current code ignores it and always offers PDF; the obsolete variable was removed from beta's active Production scope on 6 November 2026.
 - Vercel Authentication is enabled (`all_except_custom_domains`). An unauthenticated HTTPS request to beta health was redirected to Vercel SSO (302); no public custom domain was added.
 - Verified on the hosted artifact: initial maintenance health was 503; after the controlled beta-only rebuild, health was 200 with exactly `data.status="ok"` and `requestId`, and `private, no-store`. Sign-in rendered with CSP, `/admin` navigated to `/sign-in`, protected member/admin APIs returned 401, and an empty wrong-Origin authentication mutation returned 403 without sending email. Protected API responses had `private, no-store` and no cross-origin allow header.
 - The build fix retains the placeholder-only `.env.example` needed by guide rendering. Its isolated local build, lint, guide generation/link checks and all 10 documentation tests passed; the hosted build is Ready.
@@ -513,10 +642,10 @@ The host remains protected beta; this is not production approval.
 
 - Confirm Vercel plan eligibility, cost, region and runtime/memory/export limits. Do not assume Hobby permits the RWA's use.
 - Use Node.js **24.x**, repository root as the project root, and the Next.js framework preset. Node major 24 is already constrained by `package.json` and `.nvmrc`.
-- `vercel.json` installs with `npm ci`, builds with `npm run deploy:check && npm run build`, and currently allows automatic Git deployments only for `beta` (see the [release flow](#release-flow-beta-then-manual-production)). The beta project's Preview settings and Production-scoped variables are managed separately in Vercel. Keep Next.js's managed output directory; this is not a static export or Edge-runtime application.
+- `vercel.json` installs with `npm ci`, builds with `npm run deploy:check && npm run build`, and currently allows automatic Git deployments only for `main` and `beta`; each project's Ignored Build Step builds only its own Production branch (see the [release flow](#release-flow-beta-then-production)). Each project's Production-scoped variables are managed separately in Vercel. Keep Next.js's managed output directory; this is not a static export or Edge-runtime application.
 - Vercel manages server startup; do not configure `next dev` as a production command. On an approved self-managed Node host, run `npm run build`, then `npm run start -- --hostname 127.0.0.1 --port 3000` behind an HTTPS reverse proxy and process supervisor. That alternative requires separate ingress approval.
 - `.vercelignore` excludes local environment files, local build output, dumps, encrypted backups, keys and test artifacts from CLI uploads. Its `!.env.example` exception retains only the tracked, placeholder-only example: the prebuild guide renderer validates a link to it. Never put real values in that example or remove the exclusions for `.env` and `.env.*`. `.gitignore` excludes `.vercel` metadata. Review the upload/repository before sending it to an approved host.
-- Run functions next to the database. `vercel.json` pins `"regions": ["bom1"]` (Mumbai) because the Supabase projects are in `ap-south-1`. With the earlier default `iad1`, each signed-in page made several sequential US↔India round trips (session, `getUser`, profile, page data). Measured TTFB from India was ~1.2–2.1 s on demo pages, versus ~0.45 s on the database-free main site. Hobby allows one region. If an approved production database lives elsewhere, change this value to match it. This is a latency setting, not approval of a production region or provider.
+- Run functions next to the database. `vercel.json` pins `"regions": ["bom1"]` (Mumbai) because the Supabase projects (demo, testdb and every `society:create` project) are in `ap-south-1`; both Vercel projects' default function region is also `bom1`, and `tests/unit/deploy-region.test.ts` guards the `vercel.json` pin and the `society:create` region (the dashboard default is not testable offline). With the earlier default `iad1`, each signed-in page made several sequential US↔India round trips (session, `getUser`, profile, page data). Measured TTFB from India was ~1.2–2.1 s on demo pages, versus ~0.45 s on the database-free main site. Hobby allows one region. If an approved production database lives elsewhere, change this value to match it. This is a latency setting, not approval of a production region or provider.
 - Keep the required PDFKit/fontkit externalization and font tracing in `next.config.ts`. Validate complete multi-page PDF rendering on the approved host before admitting residents; PDF cannot be disabled by an environment flag.
 
 Vercel settings documentation: [project configuration](https://vercel.com/docs/project-configuration), [Node versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions).
@@ -775,7 +904,7 @@ npm run build
 
 Deployment sequence:
 
-1. Validate on beta/testdb using synthetic data and testdb credentials (see the [release flow](#release-flow-beta-then-manual-production)); run the supported integration/live/browser suites there only.
+1. Validate on beta/testdb using synthetic data and testdb credentials (see the [release flow](#release-flow-beta-then-production)); run the supported integration/live/browser suites there only.
 2. Apply approved production migrations separately; verify history, policies, jobs, backup and recovery readiness.
 3. Configure production environment with `MAINTENANCE_MODE=1`. Deploy through the approved Vercel project/dashboard, without sending local secrets. A protected preview is not automatically a public production release.
 4. Verify DNS/TLS and the exact built configuration. The initial health response must be **503 unavailable** during maintenance.

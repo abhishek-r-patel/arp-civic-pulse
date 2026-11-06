@@ -48,30 +48,37 @@ domain, customer capacity and existing production gates remain open.
 
 **Current environment override (6 November 2026):** the testdb Supabase
 project (`civic-pulse-testdb`) is paused;
-its beta site and `tenant-a` backends are
-unavailable, with no fallback. Local app/live/browser testing shares only the
+its beta site is
+unavailable, with no fallback (the synthetic `tenant-a` host that also used
+testdb was offboarded the same day). Local app/live/browser testing shares only the
 synthetic demo project. Two-project tests are disabled, local SQL integration
-tests remain on disposable PostgreSQL, and a future Premier Inspira Maplewood
-backend must stay outside test/reset targets. Hosting mappings were not
-redeployed. See [deployment status](./DEPLOYMENT.md#current-capacity-and-testing-arrangement---6-november-2026).
+tests remain on disposable PostgreSQL. Premier Inspira Maplewood now occupies
+the second active slot in Mumbai and must stay outside test/reset targets.
+The shared Vercel project was redeployed with its customer entry in
+`provisioning`; main/demo remain available, while the customer host returns
+503 until activation. Shared SMTP and the code email are configured, and one
+administrator inbox delivery is confirmed. App sign-in, real approvals,
+retention and release gates remain open. The CLI link targets that customer after onboarding; local
+app/live/browser/reset profiles still target demo.
+See [deployment status](./DEPLOYMENT.md#current-capacity-and-testing-arrangement---6-november-2026).
 
 The beta Vercel project `beta-arp-civic-pulse` serves
 <https://beta.arp-civic-pulse.vercel.app>
 (its legacy host alias 308-redirects there) on its Production target, with
 `beta` as its Production branch and the testdb Supabase database. Feature
-branches merge into `beta`, then `beta` into `main`; the shared production
-Vercel project `arp-civic-pulse` is deployed from the merged `main` commit in
-an approved release window. It is linked to the
-GitHub repository with Production branch `main` (see the
-[release flow](./DEPLOYMENT.md#release-flow-beta-then-manual-production) for
-what that link deploys automatically).
-`vercel.json` restricts automatic Git deployments to `beta` and pins functions to
+branches merge into `beta`, then `beta` into `main`; merging into `main`
+auto-deploys the shared production Vercel project `arp-civic-pulse` (its
+Production branch), so it happens only in an approved release window. Both
+projects are linked to the GitHub repository; each skips non-Production builds
+(see the [release flow](./DEPLOYMENT.md#release-flow-beta-then-production)).
+`vercel.json` restricts automatic Git deployments to `main` and `beta` and pins functions to
 `bom1` (Mumbai), beside the `ap-south-1` Supabase projects, so each sequential
-auth/profile/data query stays in-region. Hosted environment
+auth/profile/data query stays in-region; `tests/unit/deploy-region.test.ts`
+guards that pin and the `ap-south-1` region used by `society:create`. Hosted environment
 scope, protection and canonical `APP_ORIGIN` remain project settings.
 Real production requires separate hosting/database projects and credentials.
 See the [current beta configuration](./DEPLOYMENT.md#current-beta-configuration-production-target-only)
-and [release flow](./DEPLOYMENT.md#release-flow-beta-then-manual-production).
+and [release flow](./DEPLOYMENT.md#release-flow-beta-then-production).
 
 ```text
 Phone / laptop browser
@@ -279,9 +286,9 @@ Product website, demo and provisioning map (S05-S07):
 - `scripts/ops/demo.ts`: `npm run ops -- demo-reset` (shortcut `npm run demo:reset`), which erases and reseeds the marked demo project only, including current PDF preferences. Sharing the primary test project requires explicit `DEMO_SHARED_TEST_PROJECT=true` and the fixed approved synthetic demo reference.
 - `scripts/test/live.mjs`: `npm run test:live` wrapper. Restores demo after every primary-demo live run (including failures/filters), or when a configured paired test could use it.
 - `scripts/test/live.test.mjs`: isolated runner/cleanup regressions (`node --test scripts/test/live.test.mjs`), with no hosted calls.
-- `.env.local`, `.env.demo.local`, `.env.testdb.local` (ignored, local-only): current synthetic app/test credentials, guarded demo-reset credentials and saved settings for the paused testdb project (`civic-pulse-testdb`) respectively. The testdb profile is not a normal test input. `.env.vercel.local` (ignored) is the authoritative copy of the shared Vercel project's write-only `TENANT_DIRECTORY_JSON`; `.env.<alias>.local` (ignored) holds one society project's credentials.
+- `.env.local`, `.env.demo.local`, `.env.testdb.local` (ignored, local-only): current synthetic app/test credentials, guarded demo-reset credentials and saved settings for the paused testdb project (`civic-pulse-testdb`) respectively. The testdb profile is not a normal test input. `.env.vercel.local` (ignored) is the authoritative copy of the shared Vercel project's write-only `TENANT_DIRECTORY_JSON`; `.env.<alias>.local` (ignored) holds one society project's credentials; `.env.smtp.local` (ignored) holds the one shared SMTP relay applied to every society project.
 - `scripts/ops/test-target.ts`: `npm run test:target [-- testdb|demo]`, `npm run testdb:pause` and `npm run testdb:resume` (internal arguments `pause-testdb`/`resume-testdb`). They check live project status, pause or resume testdb through the Supabase Management API, refresh retrievable API keys and swap the Supabase test keys in `.env.local` between demo and testdb. Database passwords remain in ignored profiles because Supabase does not return them. Profiles are kept in the ignored `.env.testdb.local` and `.env.demo-test.local` files; any other project is refused. Tests: `tests/unit/ops-test-target.test.ts`.
-- `scripts/ops/create-society.ts`: `npm run society:create -- <alias> ...` creates a dedicated free-tier Mumbai project only when demo is healthy, the testdb project is paused (`INACTIVE`) and no other project occupies the second slot. It attaches the RWA host (`--subdomain <label>`, refusing the reserved labels `www`, `site`, `demo`, `staging`, `beta`, `tenant-a` and `tenant-b`, or `--host`) to the shared Vercel project before creating anything, saves generated credentials to the ignored `.env.<alias>.local`, links the Supabase CLI and runs the existing provisioner with migrations, then pushes the tenant service key and a `provisioning` directory entry to Vercel and redeploys; tenant activation remains disabled. Tests: `tests/unit/ops-create-society.test.ts`.
+- `scripts/ops/create-society.ts`: `npm run society:create -- <alias> ...` creates a dedicated free-tier Mumbai project only when demo is healthy, the testdb project is paused (`INACTIVE`) and no other project occupies the second slot. It attaches the RWA host (`--subdomain <label>`, refusing the reserved labels `www`, `site`, `demo`, `staging`, `beta`, `tenant-a` and `tenant-b`, or `--host`) to the shared Vercel project before creating anything, saves generated credentials to the ignored `.env.<alias>.local`, links the Supabase CLI and runs the existing provisioner with migrations and the shared SMTP relay from the ignored `.env.smtp.local` (required, validated before anything is created), then pushes the tenant service key and a `provisioning` directory entry to Vercel and redeploys; tenant activation remains disabled. Tests: `tests/unit/ops-create-society.test.ts`.
 - `scripts/ops/vercel-directory.ts`: `npm run vercel:directory [-- init]`. Strict tenant-directory validation/merge/removal and the Vercel domain, sensitive-variable, redeploy and post-deploy check helpers used by `society:create` and `society:delete`. The authoritative directory lives in the ignored `.env.vercel.local` because Vercel does not return sensitive values. Tests: `tests/unit/ops-vercel-directory.test.ts` (also checks results with the app's own parser).
 - `scripts/ops/delete-society.ts`: `npm run society:delete -- <alias> --confirm-delete civic-pulse-<alias> [--offboard-active]` offboards a society identified only by its saved `.env.<alias>.local`: removes its directory entry and redeploys (checking the host gets the app's unlisted 404), deletes its service-key variable and domain, deletes its Supabase project, relinks the CLI and removes the profile. It never targets demo, testdb, `tenant-a` or platform hosts and refuses an `active` tenant without `--offboard-active`. Tests: `tests/unit/ops-delete-society.test.ts`.
 - `scripts/ops/provision.ts`: `npm run ops -- provision`, which prepares one fresh customer project step by step (migrations, settings, Auth, first administrator) and prints its directory entry.
@@ -355,7 +362,7 @@ remain anchored to their controls. Each dialog labels itself with its own
 
 - `src/components/ui/date-time-picker.tsx`: accessible themed calendar modal and 12-hour AM/PM editor for draft opening/closing deadlines; displays `hh:mm:ss AM/PM` and returns second-precision local values for conversion in the configured RWA timezone.
 - `src/app/admin/residents/page.tsx`: unified people/assignment directory, defaulting to Voters, with global column sorting, role/status/source/identifier/eligibility (including no assignment), name and profile-changed-time filters, plus independent access/eligibility review actions. `listResidentTable` in `src/server/register/accounts.ts` validates bounded ordered IDs and exact metadata from `get_resident_table_page`, then uses shared page-scoped profile/household/Auth enrichment, preserving App Support flags. Account API paths, ID ordering, response shapes and the older `listResidents` cursor service remain unchanged.
-- `src/components/admin/resident-table-controls.tsx`, `resident-identifier-filter.tsx` and shared `src/components/ui/data-table.tsx`: URL-backed sortable column headers with `aria-sort`, native top-layer filter popovers, Settings-backed identifier picker/manual fallback, Source column controls and mobile Sort & Filter controls. Data-table headers/cells expose their column keys, and responsive table views filter columns by the same keys before rendering headers and values. Dropdown lists expand in flow inside scrolling panels. The Clear filters link removes filter state while preserving sort, direction and page size. The uncontrolled filter forms here, in Manage Votes (`vote-table-controls.tsx`) and in Audit History are keyed by the URL state, so they remount after any URL change and never re-apply cleared values. Controls remain usable for observers outside management-disabled fields; selections clear on ordering/filter/page/size changes.
+- `src/components/admin/resident-table-controls.tsx`, `resident-identifier-filter.tsx` and shared `src/components/ui/data-table.tsx`: URL-backed sortable column headers with `aria-sort`, native top-layer filter popovers, Settings-backed identifier picker/manual fallback, Source column controls and mobile Sort & Filter controls. Data-table headers/cells expose their column keys, and responsive table views filter columns by the same keys before rendering headers and values. Dropdown lists expand in flow inside scrolling panels. The Clear filters link removes filter state and selects All Roles while preserving sort, direction and page size. The uncontrolled filter forms here, in Manage Votes (`vote-table-controls.tsx`) and in Audit History are keyed by the URL state, so they remount after any URL change and never re-apply cleared values. Controls remain usable for observers outside management-disabled fields; selections clear on ordering/filter/page/size changes.
 - `src/components/admin/audit-table-controls.tsx` and `src/components/ui/table-filter-popover.tsx`: Audit History's URL-backed browser-local date-range, Who, Action, Target and combined Details/reason filters, including its mobile combined filter toolbar; the shared viewport-aware native popover is also used by Residents. Clearing filters preserves page size; audit pagination remains newest-first and timestamps display in the viewer's time zone.
 - `src/app/admin/votes/[id]/participation/page.tsx` and `src/components/admin/participation-filter.tsx`: participation follow-up page. It mirrors the results header: **Participation: {title}** heading, collapsible background or instructions, then type/status badges and the turnout line with an (i) "About this list" explanation in place of a header subtitle (vote read once per request via React `cache`; the title also appears in the browser tab title); the Show filter applies on selection and preserves page size.
 - `src/components/votes/vote-instructions.tsx`: shared collapsed **Background** (PUBLIC) / **Instructions for voters** (PRIVATE) disclosure placed under the results and participation page headers; renders nothing when the vote has no text.
