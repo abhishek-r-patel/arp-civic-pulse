@@ -383,11 +383,24 @@ the same day:
 
 **Branch-to-project isolation (6 November 2026).** Both projects are linked to
 this GitHub repository, so every enabled push reaches both. Each project's
-Ignored Build Step is `[ "$VERCEL_ENV" != "production" ]`, so it builds only its
-own Production branch and skips the other branch's Preview (shown as a
-cancelled/ignored Vercel status on the PR, not a failure). API redeploys of the
-current production deployment, used by `society:create`/`society:delete`, are
-Production builds and are not skipped. No Preview-scoped app variables exist on
+Ignored Build Step names its own Production branch
+(`[ "$VERCEL_GIT_COMMIT_REF" != "beta" ]` on `beta-arp-civic-pulse`,
+`[ "$VERCEL_GIT_COMMIT_REF" != "main" ]` on `arp-civic-pulse`), so a merge into
+`beta` builds only beta and a merge into `main` (from `beta` or any branch)
+builds only the shared project. The other project's run is shown as a
+cancelled/ignored Vercel status on the PR, not a failure; a PR from `beta` to
+`main` therefore shows the shared project skipped until it is merged. A PR from
+a feature branch into `beta` (for example PR #12) shows no Vercel status at all,
+because `vercel.json` disables Git deployments for feature branches and the beta
+project has Preview deployments off; this is intentional, and the beta build
+after the merge is that change's deployment check. API
+redeploys of the current production deployment, used by
+`society:create`/`society:delete`, carry their source branch and are not
+skipped. Vercel's monorepo "skip unaffected projects" setting is off on both
+projects: on 6 November 2026 it cancelled the beta Production build of PR #10's
+merge commit (`19fc095`) without running the ignore command. Both projects were
+switched to the branch-named commands above, and a rebuild of that commit
+(`dpl_9zRCWzBbgCn2XpP1zM3g7UQ8KMFD`) became READY with beta sign-in returning 200. No Preview-scoped app variables exist on
 the shared project: the temporary demo-only `beta` Preview configured for PR #9
 was removed with its deployments the same day, and the beta project's
 Preview copies of its four Sentry build variables were deleted. Earlier `main` deploys on the shared project, such as
