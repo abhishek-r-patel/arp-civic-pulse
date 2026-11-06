@@ -275,13 +275,38 @@ export function describeDirectory(directory: Directory) {
   );
 }
 
+/**
+ * Reads a file, or returns undefined when it does not exist. Opening it directly
+ * (rather than checking existence first) avoids a check-then-use race.
+ */
+export function readTextIfExists(file: string): string | undefined {
+  try {
+    return readFileSync(file, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
+/** Creates a new owner-only file, failing instead of overwriting one that appeared meanwhile. */
+export function createPrivateFile(file: string, text: string, what: string) {
+  try {
+    writeFileSync(file, text, { mode: 0o600, flag: "wx" });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+      throw new Error(`${file} already exists; ${what}`);
+    }
+    throw error;
+  }
+}
+
 export function readVercelProfile() {
-  if (!existsSync(VERCEL_PROFILE)) {
+  const text = readTextIfExists(VERCEL_PROFILE);
+  if (text === undefined) {
     throw new Error(
       `${VERCEL_PROFILE} is missing; run npm run vercel:directory -- init first.`,
     );
   }
-  const text = readFileSync(VERCEL_PROFILE, "utf8");
   const env = parseEnv(text);
   if (env.VERCEL_PROJECT_ID !== VERCEL_PROJECT.id) {
     throw new Error(
@@ -336,11 +361,10 @@ function cliAuthFiles() {
 
 function cliToken() {
   for (const file of cliAuthFiles()) {
-    if (!existsSync(file)) continue;
+    const text = readTextIfExists(file);
+    if (text === undefined) continue;
     try {
-      const token = (
-        JSON.parse(readFileSync(file, "utf8")) as { token?: string }
-      ).token;
+      const token = (JSON.parse(text) as { token?: string }).token;
       if (token) return token;
     } catch {
       // Unreadable auth file: fall through to the next location.
@@ -665,13 +689,12 @@ export async function checkLiveHosts(
 }
 
 function initProfile() {
-  if (existsSync(VERCEL_PROFILE)) {
-    throw new Error(
-      `${VERCEL_PROFILE} already exists; it is the source of truth and will not be overwritten.`,
-    );
+  const alreadyExists =
+    "it is the source of truth and will not be overwritten.";
+  if (readTextIfExists(VERCEL_PROFILE) !== undefined) {
+    throw new Error(`${VERCEL_PROFILE} already exists; ${alreadyExists}`);
   }
-  const read = (file: string) =>
-    existsSync(file) ? parseEnv(readFileSync(file, "utf8")) : {};
+  const read = (file: string) => parseEnv(readTextIfExists(file) ?? "");
   const demo = read(".env.demo-test.local");
   const testdb = read(".env.testdb.local");
   const local = read(".env.local");
@@ -692,10 +715,9 @@ function initProfile() {
       "Saved demo/testdb publishable keys were not found in the local profiles.",
     );
   }
-  const linked = existsSync(path.join(".vercel", "project.json"))
-    ? (JSON.parse(
-        readFileSync(path.join(".vercel", "project.json"), "utf8"),
-      ) as { orgId?: string })
+  const linkedText = readTextIfExists(path.join(".vercel", "project.json"));
+  const linked = linkedText
+    ? (JSON.parse(linkedText) as { orgId?: string })
     : {};
   const teamId = process.env.VERCEL_TEAM_ID || linked.orgId;
   if (!teamId?.startsWith("team_")) {
@@ -707,14 +729,14 @@ function initProfile() {
     demoPublishableKey: demoKey,
     tenantAPublishableKey: tenantAKey,
   });
-  writeFileSync(
+  createPrivateFile(
     VERCEL_PROFILE,
     withValues("", {
       VERCEL_TEAM_ID: teamId,
       VERCEL_PROJECT_ID: VERCEL_PROJECT.id,
       TENANT_DIRECTORY_JSON: quotedDirectory(directory),
     }),
-    { mode: 0o600 },
+    alreadyExists,
   );
   return directory;
 }

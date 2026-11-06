@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -10,7 +10,9 @@ import type { ProjectTarget } from "./supabase-project.ts";
 import {
   assertCanAddCustomer,
   checkLiveHosts,
+  createPrivateFile,
   ensureProjectDomain,
+  readTextIfExists,
   readVercelProfile,
   redeployProduction,
   saveDirectory,
@@ -462,9 +464,7 @@ function provisionForSociety(
 
 async function main(args: string[]): Promise<number> {
   const options = parseSocietyOptions(args);
-  const localText = existsSync(".env.local")
-    ? readFileSync(".env.local", "utf8")
-    : "";
+  const localText = readTextIfExists(".env.local") ?? "";
   const local = parseEnv(localText);
   const token =
     process.env.SUPABASE_ACCESS_TOKEN || local.SUPABASE_ACCESS_TOKEN;
@@ -476,8 +476,10 @@ async function main(args: string[]): Promise<number> {
   const vercel = await vercelClient(vercelProfile.teamId);
 
   const profilePath = societyProfileFile(options.alias);
-  const hasProfile = existsSync(profilePath);
-  const profileText = hasProfile ? readFileSync(profilePath, "utf8") : "";
+  const savedProfile = readTextIfExists(profilePath);
+  const hasProfile = savedProfile !== undefined;
+  const profileText = savedProfile ?? "";
+  let currentProfileText = profileText;
   const profileEnv = parseEnv(profileText);
   const savedTenantId = profileEnv.SOCIETY_TENANT_ID;
   const tenantId = options.tenantId ?? savedTenantId ?? randomUUID();
@@ -601,10 +603,11 @@ async function main(args: string[]): Promise<number> {
       );
     }
     password = passwordCandidate;
-    writeFileSync(
+    currentProfileText = initialProfile(options, tenantId, ref, password);
+    createPrivateFile(
       profilePath,
-      initialProfile(options, tenantId, ref, password),
-      { mode: 0o600 },
+      currentProfileText,
+      `project ${ref} was created but its credentials could not be saved; reset its database password in Supabase and rebuild the profile before retrying.`,
     );
     console.log(
       `Created ${options.projectName}; saved its credentials in ${profilePath}.`,
@@ -628,7 +631,7 @@ async function main(args: string[]): Promise<number> {
     );
   }
 
-  const existingEnv = parseEnv(readFileSync(profilePath, "utf8"));
+  const existingEnv = parseEnv(currentProfileText);
   const keys = await fetchProjectKeys(
     ref,
     token,
@@ -647,10 +650,7 @@ async function main(args: string[]): Promise<number> {
     PROVISION_DATABASE_URL: databaseUrl,
     PROVISION_PUBLISHABLE_KEY: keys.publishable,
   };
-  const refreshedProfile = withValues(
-    readFileSync(profilePath, "utf8"),
-    profileValues,
-  );
+  const refreshedProfile = withValues(currentProfileText, profileValues);
   writeFileSync(profilePath, refreshedProfile, { mode: 0o600 });
 
   const env = {
