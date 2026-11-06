@@ -257,8 +257,8 @@ tests/integration/migration-upgrade.test.ts
                    Upgrade-path regression from the previous reviewed migration baseline
 src/app/user-guide Native public index and Resident/RWA Admin guide pages
 src/app/tech-guide Unlisted public developer reference
-src/app/site       Main-host editorial product homepage, contact and privacy (host rewrites)
-src/components/site Product website shell, voting example selector and demo banner
+src/app/site       Main-host landing page, contact and privacy (host rewrites)
+src/components/site Product shell, responsive navigation, landing motion, vote examples and demo banner
 tests/e2e/site-home.spec.ts Opt-in read-only homepage accessibility, reflow and navigation checks
 src/server/demo    Demo persona sign-in (session.ts)
 scripts/ops        Operator CLI: backups, migration-status, demo-reset (demo.ts), provision (provision.ts)

@@ -37,42 +37,85 @@ documented rules, implemented rollout, verification and user approval distinct.
 
 ### Public product website
 
-The main-host homepage has a screen-specific editorial treatment in response
-to the modern, luxurious homepage brief. It retains Platinum/Obsidian tokens,
-self-hosted Sora/Manrope, the Open Conversation mark and the existing appearance
-menu. This is not a new theme or a rollout to resident/admin voting screens.
+The main-host homepage uses a conversion-focused landing page layout. It retains
+the app's Light/Dark/System appearance setting and self-hosted Manrope font,
+the Open Conversation mark, configured demo behavior, real contact/privacy
+routes, SEO metadata, structured data and footer attribution. Its landing
+palette uses charcoal surfaces in dark mode and the existing Platinum surfaces
+in light mode, with the contrast-safe teal accent. This screen-specific palette
+does not roll out to resident/admin voting screens.
 
 - Main-host header, content and footer share a centered 1280px container with
   16px phone/32px tablet and desktop gutters. Contact/privacy retain their inner
   readable form/article widths. RWA screens keep the full-width shell.
-- The homepage alone uses a responsive 40-72px display, 28-44px section titles,
-  tighter heading tracking, 16px feature-card corners and 32px showcase corners.
-  Body text and controls keep their existing accessible sizes and 48px targets.
-- Use generous section spacing, a split desktop hero, restrained token-derived
-  radial artwork behind the preview, six feature cards, three numbered workflow
-  steps, a tailored annual-plan section and a closing demo/contact invitation.
-  Stack naturally on phones; keep desktop hero copy at a stable top offset when
-  the preview example changes height. No fixed-height copy, motion or external
-  imagery.
-- The preview has an accessible **PUBLIC poll / PRIVATE election** selector and
+- **Typography:** Use Manrope for all public-site text, including headings. This
+  intentionally differs from the RWA app's Sora/Manrope pair and is scoped to
+  the main-host product site. Use the existing Tailwind size steps: hero 60px
+  desktop/48px phone, section and tagline 48px/36px, card titles 20px/18px,
+  body 18px/16px, and captions 14px/12px. Keep letter spacing at zero.
+- **Spacing and radius:** Use the existing 4px half-step and 8px spacing scale,
+  including 48px phone section gaps. Use 8px controls, a 16px navigation frame,
+  and a 24px vote-example frame. Fully rounded corners are reserved for the
+  decorative result tracks. Do not introduce off-scale section gaps.
+- **Colour and surfaces:** Light appearance retains Platinum surfaces. Dark
+  appearance uses `#181818`, `#1F1F1F`, `#272727`, and `#313131` surfaces with the
+  contrast-safe teal variant. A gradient is allowed only on hero text; do not
+  add background gradients. Keep this palette scoped to the public site.
+- Use one quote-request action in the hero, an RWA-specific headline, a separate
+  two-line benefit statement, four outcome-led benefits in an asymmetric layout,
+  three numbered workflow steps, a seven-question FAQ, annual-plan details and a
+  closing quote/demo invitation. Do not invent prices, guarantees, testimonials,
+  adoption figures, legal terms or service commitments.
+- The hero keeps a stable desktop copy offset when the example changes height.
+  The PUBLIC/PRIVATE example remains an accessible selector with fictional
+  completed data, visible counts and turnout. PRIVATE displays aggregate
+  candidate/NOTA results only. The example is not customer proof.
+- Sections reveal once through IntersectionObserver; the separate tagline
+  reveals words in order from a contrast-safe muted text color. Reduced motion
+  shows the full content immediately.
+  Mobile navigation is a full-height panel with keyboard dismissal and ordered
+  link entrance. Keep controls at least 48px and preserve the Light/Dark/System
+  appearance menu on desktop and phones.
+- Testimonials, trial/guarantee claims and Terms links remain absent until
+  verified proof, approved offers and customer terms are available. When no demo
+  host is configured, offer a contact walkthrough; when configured, link to the
+  shared fictional demo. Contact actions use the existing enquiry route.
+- Keep the public site's operator attribution in a centered, low-emphasis strip
+  below its Product/Demo/Privacy/Contact navigation.
+- The interactive example has an accessible **PUBLIC poll / PRIVATE election** selector and
   defaults to an explicitly fictional completed PUBLIC poll, never live tenant
   data or a customer testimonial. Its completed PRIVATE example shows only
   aggregate candidate/NOTA totals and turnout; never show voter names or an
   identity-to-choice mapping. Do not present active PRIVATE candidate totals.
   Bars are decorative and sample counts/denominators remain visible text.
   Privacy copy links to operator/inference limitations.
+- Keep the FAQ as semantic, visible question/answer content. FAQ structured data
+  is optional: add it only after checking current search eligibility and
+  validating that the answers are accurate; do not promise rich-result display.
+- **Public-page redesign review:** Confirm the audience, offer, primary action,
+  proof and objections first. Audit hierarchy, claims, links, and interactive
+  hover/pressed/focus/loading/error/empty states; prioritize typography,
+  surfaces, states, layout, motion, components, then copy. Keep changes scoped
+  to the public page and preserve shared app behavior.
+- **Public-page verification:** Check 320px, 390px, and 1440px widths, 200% text,
+  Light/Dark/System, keyboard navigation, focus visibility, reduced motion,
+  link targets, the PUBLIC/PRIVATE example, and axe contrast/accessibility.
+  Automated checks do not replace manual accessibility or production-host
+  verification.
 - Preserve Features/Pricing anchors and all contact/privacy navigation. Demo
   links appear only for an active configured demo; otherwise offer a contact
   walkthrough and explain that the demo is being prepared. No invented prices,
   adoption statistics, approvals or production-readiness claims.
 
 The implementation is scoped by `data-product-site`/`data-product-home` in
-`src/styles/globals.css`, with content in `src/app/site/page.tsx` and shared
-main-host navigation in `src/components/site/main-shell.tsx`. The public-site
-workflow is not illustrated in the native Resident/Admin guides; their content
-is maintained separately. Automated browser coverage lives in
-`tests/e2e/site-home.spec.ts`; design implementation and local checks are not
-deployment verification or a user sign-off of the final visuals.
+`src/styles/globals.css`, with content in `src/app/site/page.tsx`, the
+PUBLIC/PRIVATE example in `src/components/site/voting-examples.tsx`, responsive
+navigation in `src/components/site/main-site-navigation.tsx`, and motion in
+`src/components/site/landing-motion.tsx`. The public-site workflow is not
+illustrated in the native Resident/Admin guides; their content is maintained
+separately. Automated browser coverage lives in `tests/e2e/site-home.spec.ts`;
+design implementation and local checks are not deployment verification or a
+user sign-off of the final visuals.
 
 ## 02 Colour Palette
 | Name | Hex | Use for |

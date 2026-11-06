@@ -20,8 +20,16 @@ test.describe("product homepage", () => {
     const publicHeadingPosition = await heroHeading.boundingBox();
     await expect(page.locator("h1")).toHaveCount(1);
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
-      "Stronger communities.",
+      "Online voting for every RWA decision.",
     );
+    const typefaces = await page.evaluate(() => ({
+      heading: getComputedStyle(document.querySelector("h1") ?? document.body)
+        .fontFamily,
+      body: getComputedStyle(document.body).fontFamily,
+    }));
+    expect(typefaces.heading).toContain("Manrope");
+    expect(typefaces.heading).not.toContain("Sora");
+    expect(typefaces.body).toContain("Manrope");
     await expect(page.locator("figcaption")).toContainText(
       "fictional data, not a live result",
     );
@@ -62,6 +70,13 @@ test.describe("product homepage", () => {
     await expect(preview.getByRole("button")).toHaveCount(2);
     await expect(page.getByText(/not cryptographic anonymity/u)).toBeVisible();
     await expect(page.locator("[data-theme-control]")).toHaveCount(1);
+    await expect(page.locator("#faq .product-faq-item")).toHaveCount(7);
+    await expect(
+      page.getByText("An audit history that cannot be edited or deleted"),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Read the privacy notice" }),
+    ).toHaveAttribute("href", "/privacy");
 
     const demoLinks = page.getByRole("link", {
       name: "Try the demo",
@@ -81,8 +96,11 @@ test.describe("product homepage", () => {
     }
 
     for (const [name, id] of [
-      ["Features", "features"],
-      ["Pricing", "pricing"],
+      ["Vote examples", "examples"],
+      ["Benefits", "features"],
+      ["How it works", "how-it-works"],
+      ["Annual plan", "pricing"],
+      ["FAQ", "faq"],
     ] as const) {
       await page
         .getByRole("navigation", { name: "Main", exact: true })
@@ -91,10 +109,8 @@ test.describe("product homepage", () => {
       await expect(page).toHaveURL(`${mainOrigin}/#${id}`);
       await expect(page.locator(`#${id}`)).toBeInViewport();
     }
-    await page.getByRole("link", { name: "A simpler way forward" }).click();
-    await expect(page.locator("#how-it-works")).toBeInViewport();
-
     await page
+      .locator(".product-hero")
       .getByRole("link", { name: "Ask for a quote", exact: true })
       .click();
     await expect(page).toHaveURL(`${mainOrigin}/contact`);
@@ -105,6 +121,16 @@ test.describe("product homepage", () => {
       .click();
     await expect(page).toHaveURL(`${mainOrigin}/privacy`);
     await expect(page.locator("h1")).toBeVisible();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByRole("button", { name: "Open menu" }).click();
+    const mobileMenu = page.locator("#product-mobile-menu");
+    await expect(mobileMenu).toHaveAttribute("aria-hidden", "false");
+    await expect(mobileMenu.getByRole("link").first()).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(mobileMenu).toHaveAttribute("aria-hidden", "true");
+    await expect(page.getByRole("button", { name: "Open menu" })).toBeFocused();
+
     for (const path of ["/user-guide", "/sign-in", "/api/votes"]) {
       expect((await request.get(`${mainOrigin}${path}`)).status()).toBe(404);
     }
@@ -115,7 +141,11 @@ test.describe("product homepage", () => {
       page,
       browserName,
     }) => {
+      await page.emulateMedia({ reducedMotion: "reduce" });
       await page.goto(mainOrigin);
+      await expect(page.locator("[data-scroll-reveal]").first()).toHaveClass(
+        /is-visible/u,
+      );
       const appearance = page.getByRole("group").filter({
         has: page.getByLabel("Appearance", { exact: true }),
       });
@@ -132,7 +162,7 @@ test.describe("product homepage", () => {
       );
       await expect(appearance).not.toHaveAttribute("open", "");
 
-      for (const width of [320, 360, 768, 1440]) {
+      for (const width of [320, 360, 390, 768, 1440]) {
         await page.setViewportSize({ width, height: 900 });
         expect(
           await page.evaluate(

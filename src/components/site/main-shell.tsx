@@ -2,9 +2,8 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { NavLink } from "@/components/ui/nav-link";
 import { PublicAnalytics } from "@/components/ui/public-analytics";
-import { ThemeSwitcher } from "@/components/ui/theme-switcher";
+import { MainSiteNavigation } from "@/components/site/main-site-navigation";
 import { getEnvironment } from "@/server/config/environment";
 import { mainSiteLinks } from "@/server/site/main-host";
 import { MAIN_PUBLIC_PAGES } from "@/shared/metadata";
@@ -29,51 +28,7 @@ export function MainShell({
       >
         Skip to main content
       </a>
-      <header className="border-b border-border bg-surface/80">
-        <div className="product-container flex flex-wrap items-center justify-between gap-x-8 gap-y-2 py-4">
-          <div className="flex min-w-0 flex-1 items-center gap-3 lg:flex-none">
-            <Link
-              href="/"
-              aria-label="Civic Pulse home"
-              className="inline-flex touch-target min-w-0 flex-1 items-center gap-3 py-1 text-primary"
-            >
-              <Image
-                src="/icon.svg"
-                width={40}
-                height={40}
-                alt=""
-                className="size-10 shrink-0"
-              />
-              <span className="font-heading text-lg font-semibold">
-                Civic Pulse
-              </span>
-            </Link>
-          </div>
-          <nav
-            aria-label="Main"
-            className="order-3 flex w-full flex-wrap items-center gap-2 lg:order-none lg:w-auto"
-          >
-            <NavLink href="/">Product</NavLink>
-            <Link href="/#features" className="product-nav-link">
-              Features
-            </Link>
-            <Link href="/#pricing" className="product-nav-link">
-              Pricing
-            </Link>
-            {demoOrigin ? (
-              <a href={demoOrigin} className="product-nav-link">
-                Try the demo
-              </a>
-            ) : null}
-            <Link href="/contact" className="product-primary">
-              Contact sales
-            </Link>
-          </nav>
-          <div className="order-2 lg:order-none">
-            <ThemeSwitcher />
-          </div>
-        </div>
-      </header>
+      <MainSiteNavigation demoOrigin={demoOrigin} />
       <main
         id={mainContentId}
         tabIndex={-1}
@@ -122,7 +77,7 @@ export function MainShell({
           </nav>
         </div>
         <div className="product-container mt-6">
-          <p className="border-t border-border pt-6 text-caption text-muted">
+          <p className="border-t border-border pt-6 text-center text-caption text-muted">
             Civic Pulse By Abhishek Patel
           </p>
         </div>
