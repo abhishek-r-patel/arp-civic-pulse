@@ -319,8 +319,10 @@ async function main(): Promise<number> {
 
     case "provision": {
       // Prepares one fresh customer project (docs/OPERATIONS.md, "Provision a customer RWA").
-      const { provisionPlan, provisionCustomer } =
+      const { provisionPlan, provisionCustomer, readSharedSmtp, SMTP_PROFILE } =
         await import("./provision.ts");
+      const { existsSync, readFileSync } = await import("node:fs");
+      const { parseEnv } = await import("node:util");
       const names = ["confirm", "tenant-id", "host", "rwa-name", "admin-name"];
       const { target, request } = provisionPlan(
         process.env,
@@ -332,6 +334,9 @@ async function main(): Promise<number> {
         applyMigrations: flag("apply-migrations"),
         activate: flag("activate"),
         accessToken: process.env.SUPABASE_ACCESS_TOKEN,
+        smtp: existsSync(SMTP_PROFILE)
+          ? readSharedSmtp(parseEnv(readFileSync(SMTP_PROFILE, "utf8")))
+          : undefined,
         repoRoot: process.cwd(),
       });
       console.log(JSON.stringify(report, null, 2));

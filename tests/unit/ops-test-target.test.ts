@@ -14,7 +14,7 @@ import {
   withValues,
 } from "../../scripts/ops/test-target.ts";
 
-const DEMO = "hnqajjjemqepxuoqbsqx";
+const DEMO = "arxkuxlbynjbqcjuugde";
 const TESTDB = "nycbbzgsilnxrgkwlwno";
 
 const profile = (ref: string, paired = "") =>

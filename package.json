@@ -30,7 +30,7 @@
     "vercel:directory": "node --use-system-ca scripts/ops/vercel-directory.ts",
     "test:e2e": "playwright test",
     "ops": "node --conditions=react-server --env-file-if-exists=.env.local --env-file-if-exists=.env.demo.local scripts/ops/cli.ts",
-    "demo:reset": "node --use-system-ca --conditions=react-server --env-file-if-exists=.env.local --env-file-if-exists=.env.demo.local scripts/ops/cli.ts demo-reset --confirm hnqajjjemqepxuoqbsqx"
+    "demo:reset": "node --use-system-ca --conditions=react-server --env-file-if-exists=.env.local --env-file-if-exists=.env.demo.local scripts/ops/cli.ts demo-reset --confirm arxkuxlbynjbqcjuugde"
   },
   "dependencies": {
     "@sentry/nextjs": "11.10.0",

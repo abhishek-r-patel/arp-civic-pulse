@@ -9,10 +9,10 @@ import {
 } from "../../scripts/ops/create-society.ts";
 
 const demo = {
-  id: "hnqajjjemqepxuoqbsqx",
+  id: "arxkuxlbynjbqcjuugde",
   name: "civic-pulse-demo",
   status: "ACTIVE_HEALTHY",
-  region: "ap-southeast-1",
+  region: "ap-south-1",
 };
 const testdb = {
   id: "nycbbzgsilnxrgkwlwno",

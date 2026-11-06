@@ -13,10 +13,17 @@ npm run ops -- <command> [options]      # Node uses --conditions=react-server an
 **Current override (6 November 2026):** the testdb project (Supabase
 `civic-pulse-testdb`;
 `nycbbzgsilnxrgkwlwno`) is paused (`INACTIVE`), not deleted. Its beta site
-and synthetic `tenant-a` backends are unavailable. The remaining active
-Supabase project is demo (`hnqajjjemqepxuoqbsqx`); the freed slot is reserved
-for the planned Premier Inspira Maplewood project, never routine test data.
-Existing Vercel mappings are unchanged; there is no fallback to another RWA.
+is unavailable (the synthetic `tenant-a` host that also used it was
+offboarded). The active synthetic
+Supabase project is demo (`arxkuxlbynjbqcjuugde`, Mumbai `ap-south-1`;
+recreated from a Singapore project on 6 November 2026, see
+[deployment](./DEPLOYMENT.md#demo-moved-to-mumbai-6-november-2026)).
+Premier Inspira Maplewood now occupies the second active slot in Mumbai,
+and its Vercel directory entry is `active` (operator request, 6 November 2026):
+shared SMTP delivered one administrator code, but app sign-in, policy approvals,
+retention and launch gates remain open. Never use that customer database for routine test data.
+Main, demo and the customer sign-in page are served, and beta has no fallback
+to another RWA.
 
 The beta site is the Vercel project `beta-arp-civic-pulse` at
 <https://beta.arp-civic-pulse.vercel.app>, backed by the testdb project. It
@@ -25,7 +32,7 @@ host. Keep Production `APP_ORIGIN` and the testdb Supabase Auth Site URL/redirec
 allow-list aligned with this exact beta origin and redeploy after origin
 changes; protection settings do not rewrite it. See the
 [current deployment record](./DEPLOYMENT.md#current-beta-configuration-production-target-only)
-and [release flow](./DEPLOYMENT.md#release-flow-beta-then-manual-production).
+and [release flow](./DEPLOYMENT.md#release-flow-beta-then-production).
 Real production requires separate projects and credentials; never turn the
 testdb database into the real register.
 
@@ -55,9 +62,10 @@ S03 implements a server-only `TENANT_DIRECTORY_JSON` host allowlist and separate
 `TENANT_ROUTING_ENABLED` defaults to `false`. The beta project has no tenant
 directory, host entries or tenant secrets configured. Only the separate `arp-civic-pulse` Vercel project routes hosts, all
 synthetic:
-`arp-civic-pulse.vercel.app` (main product website),
-`demo.arp-civic-pulse.vercel.app` (demo, synthetic project B) and
-`tenant-a.arp-civic-pulse.vercel.app` (customer, the testdb project as A).
+`arp-civic-pulse.vercel.app` (main product website) and
+`demo.arp-civic-pulse.vercel.app` (demo, synthetic project B). The synthetic
+customer `tenant-a.arp-civic-pulse.vercel.app` (testdb as project A) was
+offboarded on 6 November 2026 so that testdb backs only the beta site.
 The former `site.arp-civic-pulse.vercel.app` permanently redirects (308) to
 the bare main-site host, preserving paths. Main-site canonical metadata,
 sitemap and demo backlinks follow the `main` directory entry; do not add the
@@ -119,6 +127,26 @@ suspected tampering:
 npm run demo:reset
 ```
 
+For the hosted main-site and demo browser checks, opt in explicitly and skip
+the local dev-server startup:
+
+```powershell
+$env:NODE_USE_SYSTEM_CA = "1"
+$env:PLAYWRIGHT_NO_WEB_SERVER = "1"
+$env:SITE_HOME_HTTP_TEST = "1"
+$env:SITE_DEMO_HTTP_TEST = "1"
+$env:SITE_HTTP_MAIN_ORIGIN = "https://arp-civic-pulse.vercel.app"
+$env:SITE_HTTP_DEMO_ORIGIN = "https://demo.arp-civic-pulse.vercel.app"
+npx playwright test site-home.spec.ts site-demo-live.spec.ts --project=chromium
+```
+
+These checks cover the current **Ask for a quote** link to `/contact`, homepage
+navigation/accessibility, all three demo personas, email refusal and mobile
+reflow. They sign in but do not edit seeded application data; run against a
+freshly restored demo so shared visitor edits do not invalidate seed assertions.
+Browser failures still need investigation; successful API sign-in alone is not
+a substitute for these checks.
+
 Its settings live in a separate `.env.demo.local` file (ignored by Git) at the
 repo root: `DEMO_PROJECT_REF`, `DEMO_SUPABASE_URL`, `DEMO_SERVICE_ROLE_KEY`,
 `DEMO_DATABASE_URL`, and `PGSSLROOTCERT=.certs/supabase-db-ca.crt`. Only
@@ -126,15 +154,18 @@ repo root: `DEMO_PROJECT_REF`, `DEMO_SUPABASE_URL`, `DEMO_SERVICE_ROLE_KEY`,
 tests read `.env.local`, which now holds matching demo credentials.
 Set `DEMO_SHARED_TEST_PROJECT=true` in `.env.demo.local` to explicitly allow
 resetting the shared local test backend. This exception is hard-restricted to
-`hnqajjjemqepxuoqbsqx`; matching project/API/database credentials, exact
+`arxkuxlbynjbqcjuugde`; matching project/API/database credentials, exact
 confirmation and the existing synthetic demo marker are still required.
 Other primary application projects remain refused. Never use `--initialize`
 to bypass a missing marker on an existing customer project.
 `npm run demo:reset` also loads `.env.local` and uses the Windows
 certificate store (`--use-system-ca`). The
-demo project reference `hnqajjjemqepxuoqbsqx` is fixed in its `--confirm`
+demo project reference `arxkuxlbynjbqcjuugde` is fixed in its `--confirm`
 argument in `package.json`, so a file pointing at another project is refused;
-if the demo project is ever replaced, change both. The longer form still
+if the demo project is ever replaced, change both (and the other hard-coded
+references listed in the
+[demo move record](./DEPLOYMENT.md#demo-moved-to-mumbai-6-november-2026)),
+then seed the new project once with `--initialize`. The longer form still
 works: `npm run ops --silent -- demo-reset --confirm <DEMO_PROJECT_REF>`.
 
 The `TENANT_TEST_*` settings in `.env.local` are now empty. The paired live
@@ -145,12 +176,16 @@ both test tenants at demo. The testdb settings are kept in the ignored
 
 ### Switching the test target
 
-The free tier allows two active projects. Demo (`hnqajjjemqepxuoqbsqx`) always
+The free tier allows two active projects. Demo (`arxkuxlbynjbqcjuugde`) always
 keeps one slot. The second slot is shared: either the testdb project
 (Supabase `civic-pulse-testdb`, `nycbbzgsilnxrgkwlwno`) or a society project,
 never both at once. `scripts/ops/test-target.ts` manages testdb's use of that
 slot. It reads only `SUPABASE_ACCESS_TOKEN` (shell or `.env.local`), calls the
 Supabase Management API and never prints credentials.
+
+Premier Inspira Maplewood currently occupies that second slot. Leave testdb
+paused; do not interrupt the customer merely to resume tests. Local testing
+continues on demo until a slot is available under an approved operating plan.
 
 | Command | Effect |
 | --- | --- |
@@ -215,8 +250,44 @@ The commands then print these manual steps:
 - on testdb, check migrations with `migration-status` before live tests;
 - on demo, run `npm run demo:reset` after browser or manual tests.
 
-Vercel settings do not change. The beta site and `tenant-a` backend are
-unavailable while testdb is paused and return when it is resumed.
+Vercel settings do not change. The beta site is unavailable while testdb is
+paused and returns when it is resumed.
+
+### Shared SMTP
+
+Every society project sends sign-in codes through one shared relay (Brevo).
+Its settings live only in the ignored `.env.smtp.local` at the repository root,
+never in Git, Vercel or app `.env` profiles:
+
+```text
+SOCIETY_SMTP_HOST=smtp-relay.brevo.com
+SOCIETY_SMTP_PORT=465
+SOCIETY_SMTP_USER=<Brevo SMTP login>
+SOCIETY_SMTP_PASS=<Brevo SMTP key>
+SOCIETY_SMTP_SENDER_EMAIL=<sender verified in Brevo>
+SOCIETY_SMTP_SENDER_NAME=Civic Pulse
+```
+
+The login and key come from Brevo **Settings → SMTP & API → SMTP**; the key is
+an SMTP key, not an API key or account password. Port 465 (TLS) or 587 is
+accepted. `society:create` validates the file before creating anything and
+pushes it to the project's Auth settings on every run, because Supabase never
+returns the stored password. The same step raises the project's sign-in email
+limit from Supabase's built-in 2/hour to the operator-approved 60/hour
+(`SOCIETY_EMAIL_RATE_LIMIT`; Supabase accepts the change only once custom SMTP
+exists). To rotate the key, update this file and rerun
+`society:create` with each society's original inputs. All societies share the
+Brevo account's daily sending limit; check it before large vote days.
+
+Use the exact **Login** displayed on Brevo's SMTP tab, not a guessed account
+email. SMTP response 535 means authentication was rejected before delivery;
+check that login and the active SMTP key before changing ports or activating
+the tenant. Successful Supabase configuration readback is not a functional
+SMTP test. Verify Brevo's Sent/Delivered events and actual recipient inbox
+receipt without logging credentials or codes. An authorized operator can
+request a code directly through the customer's Supabase Auth with
+`shouldCreateUser=false` while its app host remains in `provisioning`; this
+does not verify an app sign-in or authorize activation.
 
 ### Creating a society project
 
@@ -232,7 +303,8 @@ npm run society:create -- premier-inspira-maplewood `
 ```
 
 Replace the example subdomain and administrator details with the approved
-values. `--subdomain maplewood` expands to
+values. The command refuses to start until the shared SMTP profile below is
+filled in. `--subdomain maplewood` expands to
 `maplewood.arp-civic-pulse.vercel.app` (a single lowercase DNS label; the
 reserved labels `www`, `site`, `demo`, `staging`, `beta`, `tenant-a` and
 `tenant-b` are refused). The `staging` label remains reserved while its legacy
@@ -269,11 +341,13 @@ later push will undo it. It holds client hosts, Supabase project URLs, tenant
 IDs and public keys (no secrets), and is not committed because the repository
 is public; back it up with the other ignored env profiles. Inspect it with
 `npm run vercel:directory`. It was created once on 6 November 2026 with
-`npm run vercel:directory -- init`, which rebuilds the then-live main, demo and
+`npm run vercel:directory -- init`, which then rebuilt the live main, demo and
 `tenant-a` entries (all `active`) from saved public keys and refuses to
 overwrite an existing file. The demo key was checked against Supabase; the
 `tenant-a` key came from the saved `.env.testdb.local` profile while testdb was
-paused.
+paused. After `tenant-a` was offboarded later that day (see
+[deployment](./DEPLOYMENT.md#tenant-routing-disabled-on-beta-shared-production-project)),
+`init` rebuilds only the main and demo entries.
 The rebuilt value was first pushed to Vercel by the synthetic `society:create`
 test on 6 November 2026 (recorded below).
 The script validates the directory as strictly as the app (and stricter:
@@ -329,6 +403,38 @@ Vercel step is idempotent. Passwords cannot be retrieved
 from Supabase after creation, so the profile must not be deleted or lost. The
 command requires a Management API token with project create/read and revealed
 API-key permissions, and Vercel access to the `arp-civic-pulse` team.
+
+**First customer provisioning (6 November 2026).** Premier Inspira Maplewood
+was created with the approved alias `pi-maplewood` and project name
+`civic-pulse-pi-maplewood`. Its ignored `.env.pi-maplewood.local` holds the
+original inputs and generated credentials; do not publish or lose it.
+All 45 migrations, RWA settings and the requested first administrator were
+verified. The domain, sensitive service key and `provisioning` directory entry
+are registered on the shared Vercel project; its redeploy is READY, with
+main/demo returning 200 and the customer returning the expected 503.
+
+The operator rerun of the same command applied the shared SMTP relay and the
+code-email template; production was rebuilt as
+`dpl_856hLHhpLiKKHCEixZDCDYqAakxn` and the customer still returns the expected
+503. A read-only check confirmed the SMTP fields match `.env.smtp.local`, the
+template contains `{{ .Token }}`, codes are six digits, sign-up is off and the
+Site/redirect URLs are the RWA host. The email limit was then raised from 2 to
+60/hour. A subsequent SMTP check found an incorrect shared SMTP Login; the
+operator corrected it, relay authentication succeeded, and the shared settings
+were reapplied to the customer. One code request produced matching Brevo
+Sent/Delivered events and operator-confirmed inbox receipt. App sign-in remains
+unverified; see the [delivery record](./DEPLOYMENT.md#first-rwa-provisioning-6-november-2026).
+At the operator's request the directory entry was then set to `active` and
+production rebuilt as `dpl_E8RgJeyVa48uCKTGPCbQUrbJLdzc` (rollback target
+`dpl_856hLHhpLiKKHCEixZDCDYqAakxn`); main, demo and the customer sign-in page
+returned 200. There is no dedicated activation command: an ad-hoc run of the
+`vercel-directory.ts` helpers changed only that entry's state, saved
+`.env.vercel.local`, pushed `TENANT_DIRECTORY_JSON`, redeployed and ran the
+live-host checks. Policy approvals (0/7), retention and the other launch gates
+are still open and must be recorded before the first vote. The CLI link now targets the customer, while
+local app/live/browser/reset profiles remain on demo. Do not use the CLI link
+for tests or initialize/reset the customer. Connection identifiers and
+administrator details stay in ignored profiles, not public documentation.
 
 **Synthetic create/delete test (6 November 2026).** With operator approval,
 `society:create` provisioned a temporary synthetic society project in
@@ -488,10 +594,12 @@ Every step checks before it writes, so re-run after any failure:
 5. **Auth.** With `SUPABASE_ACCESS_TOKEN` it sets sign-up off, email sign-in
    on, Site URL and the only redirect URL to the RWA host and six-digit codes,
    then verifies them. Supabase refuses email-template changes until the
-   project has custom SMTP (free projects return 400), so the repository
-   sign-in subject and template are set only after SMTP exists; until then the
-   step is `blocked` and activation is refused. Add SMTP in the Supabase
-   dashboard, then re-run. Without a token the step is reported as manual. The
+   project has custom SMTP (free projects return 400). When the shared SMTP
+   profile is supplied (always for `society:create`; for `ops provision` when
+   `.env.smtp.local` exists), it is applied first on every run, then the
+   repository sign-in subject and template are set. Without SMTP the step is
+   `blocked` and activation is refused. Without a token the step is reported
+   as manual. The
    token needs Organization Projects, Project Settings and Auth Config
    read-write plus Organizations, Projects, API Keys and API Key Secrets read;
    give it a short expiry and revoke it after use.
@@ -860,6 +968,6 @@ A finished vote cannot be reopened, and an active vote cannot be edited; only it
 
 ## 8. Releases and migrations
 
-Application changes follow the [release flow](./DEPLOYMENT.md#release-flow-beta-then-manual-production): feature branch → pull request into `beta` (auto-deploys the beta site) → merge `beta` into `main` after beta verification → manual production deployment of the merged `main` commit inside an approved release window.
+Application changes follow the [release flow](./DEPLOYMENT.md#release-flow-beta-then-production): feature branch → pull request into `beta` (auto-deploys the beta site) → merge `beta` into `main` after beta verification, inside an approved release window → the merge auto-deploys the shared production project.
 
 Apply migrations with deployment-only credentials (`npx supabase db push`) outside an active vote; they are ordered, immutable, and tested on PostgreSQL 17 and on the hosted project. Prefer backward-compatible changes. **Never** restore an old database to roll back a release once ballots have been accepted: roll back to a schema-compatible build of the application, or ship a forward fix.

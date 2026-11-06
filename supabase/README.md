@@ -5,22 +5,31 @@ listed in `docs/IMPLEMENTATION_PLAN.md`; nothing below records or implies an app
 
 **Current targets (6 November 2026):** the testdb project (Supabase
 `civic-pulse-testdb`; `nycbbzgsilnxrgkwlwno`),
-which backs the beta site and synthetic `tenant-a` host, is paused; local
+which backs only the beta site (the synthetic `tenant-a` host was offboarded),
+is paused; local
 app/live/browser tests use the shared
-synthetic demo `hnqajjjemqepxuoqbsqx`. Paired-project tests are disabled.
-Never use the planned Premier Inspira Maplewood customer database for tests,
+synthetic demo `arxkuxlbynjbqcjuugde`. Paired-project tests are disabled.
+Never use the newly provisioned Premier Inspira Maplewood customer database for tests,
 fixtures or demo reset. Local integration/load tests remain on disposable
-PostgreSQL. Demo has all 45 repository migrations applied; this change ran no
-migrations. Reset with `npm run demo:reset` after browser/manual tests and before
+PostgreSQL. Demo and the new customer both have all 45 repository migrations
+applied; customer migrations were explicit onboarding, not a test run.
+The customer was activated on operator request: shared SMTP and the code email
+are configured and one administrator inbox delivery is verified. App sign-in
+and launch gates remain open, with 0/7 policy approvals and retention unset.
+The Supabase CLI link now
+targets that customer after onboarding, unlike the demo test/reset profiles;
+do not use linked commands for testing.
+Reset demo with `npm run demo:reset` after browser/manual tests and before
 demonstrations; the live runner restores automatically. `npm run testdb:resume`
-and `npm run testdb:pause` move testdb in and out of the second free-tier slot.
+requires an available second active slot; leave testdb paused while the
+customer occupies it.
 See [operations](../docs/OPERATIONS.md#demo-site) for shared-demo safeguards.
 
 ## SQL files at a glance
 
 | Path | What it is | Where it runs |
 | --- | --- | --- |
-| `supabase/migrations/*.sql` (44 files) | The database itself: tables, rules, security and routines, applied in version order | Every customer, demo and test Supabase project, through the Supabase CLI or `npm run ops -- provision --apply-migrations` |
+| `supabase/migrations/*.sql` (45 files) | The database itself: tables, rules, security and routines, applied in version order | Every customer, demo and test Supabase project, through the Supabase CLI or `npm run ops -- provision --apply-migrations` |
 | `supabase/seed.sql` | Intentionally empty; Civic Pulse seeds no data | Only a local `supabase db reset`; it loads nothing |
 | `tests/integration/support/roles.sql` | Test-only copies of Supabase's database roles | Only a disposable local PostgreSQL used by `npm run test:integration` |
 | `tests/integration/support/supabase-stub.sql` | Test-only stand-in for Supabase's `auth` schema and default grants | Same disposable local PostgreSQL; never a real project |
