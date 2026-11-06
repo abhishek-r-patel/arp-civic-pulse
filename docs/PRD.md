@@ -15,9 +15,11 @@ The [SaaS product and commercial boundaries](./IMPLEMENTATION_PLAN.md#s01---prod
 record confirmed development direction: operator-assisted customer onboarding,
 a separate Supabase project per RWA behind a shared application, a separate
 product/pricing/contact website, a shared, writable synthetic demo reset regularly and manual annual
-billing. The deployed application remains single-RWA. S03 adds a locally tested,
-disabled-by-default server routing foundation; no customer hosts or directory
-are configured, and the website, demo and billing controls are not implemented.
+billing. Beta remains single-RWA. The shared Vercel project serves the product
+website and writable synthetic demo; the first real RWA is provisioned in
+Mumbai but remains unavailable in `provisioning` until SMTP and activation
+gates close. Routing is off by default and stays off on beta; billing controls
+remain unimplemented. This setup is not approval for real voting.
 
 S01 remains partially complete. The selected starting policies (both vote types,
 a 10-RWA pilot cap and a 7-day billing grace default) are recorded in the

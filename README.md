@@ -31,15 +31,19 @@ implementation waits for a ledger store choice; S11-S12 remain pending. None
 of this is release approval.
 
 **Current test setup (6 November 2026):** the testdb project (Supabase
-`civic-pulse-testdb`, `nycbbzgsilnxrgkwlwno`) is paused, freeing an active free-tier slot for the
-planned **Premier Inspira Maplewood** project (the creation script is available
-but has not been run).
+`civic-pulse-testdb`, `nycbbzgsilnxrgkwlwno`) is paused. **Premier Inspira
+Maplewood** now occupies the second active free-tier slot in Mumbai, but remains
+in `provisioning`: custom SMTP, policy/retention decisions and activation gates
+are still open.
 Local development and hosted/browser tests now share the synthetic demo project
 `arxkuxlbynjbqcjuugde`; cross-project tests are disabled. The beta site is unavailable while its
 database is paused; it does not fall back to demo. Restore synthetic demo data with `npm run demo:reset`
 before a planned demo and after browser/manual tests. `npm run testdb:resume`
-resumes testdb and points local tests at it; `npm run testdb:pause` reverses
-both. See [operations](./docs/OPERATIONS.md#switching-the-test-target) for safeguards and limitations.
+requires an available active slot; do not resume testdb while the customer
+project occupies it. `npm run testdb:pause` keeps local testing on demo.
+The Supabase CLI link now targets the customer after onboarding, unlike
+`.env.local`; never use that link as a test/reset target.
+See [operations](./docs/OPERATIONS.md#switching-the-test-target) for safeguards and limitations.
 Create a society project with `npm run society:create -- <alias> ...`; it
 attaches the RWA host to the shared Vercel project first, then creates and
 provisions the Supabase project, registers it in the Vercel tenant directory

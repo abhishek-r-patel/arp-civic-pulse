@@ -14,8 +14,15 @@ is `ACTIVE_HEALTHY` and is the shared synthetic local/live/browser test backend.
 database flows are unavailable; the hosted `tenant-a` customer that also used
 testdb was offboarded the same day. Two-backend live/isolation tests are
 disabled, not newly passed; historical checks below retain their original scope.
-The free active slot is intended for Premier Inspira Maplewood, not a test
-target or production approval.
+Premier Inspira Maplewood now occupies the second active slot in Mumbai,
+but remains in `provisioning`, not activated or approved. Read-only onboarding
+checks verified all 45 migrations, matching RWA settings and the requested
+enabled administrator. Custom SMTP and its code-email template remain
+unconfigured; no email delivery or administrator sign-in was verified.
+Policy approvals are 0/7 and retention periods are unset. Existing launch
+gates remain open, and the customer is never a test/reset target. Leave testdb
+paused while that slot is occupied. See the
+[onboarding record](./DEPLOYMENT.md#first-rwa-provisioning-6-november-2026).
 
 The demo migration ledger has no missing repository migrations (45 applied).
 A live Data API matrix run passed 6 of 7 tests; the remaining test rejects

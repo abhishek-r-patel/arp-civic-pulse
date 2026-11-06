@@ -2,35 +2,37 @@
 
 ## 1. Status and approval boundary
 
-This repository is **deployed to the beta site using Vercel's Production target, not real production or approved for real voting**. The architecture prefers Vercel for Next.js and Supabase PostgreSQL/Auth/Cron. The beta account is recorded below; no production Supabase project, production hosting plan, region, domain, budget or production ingress is approved by this configuration. The shared Vercel project `arp-civic-pulse` is the [release flow](#release-flow-beta-then-production)'s production deployment target, currently serving only synthetic hosts; no hosted project is approved for real voting.
+This repository is **deployed to the beta site using Vercel's Production target, not real production or approved for real voting**. The architecture prefers Vercel for Next.js and Supabase PostgreSQL/Auth/Cron. The beta account is recorded below; no production Supabase project, production hosting plan, region, domain, budget or production ingress is approved by this configuration. The shared Vercel project `arp-civic-pulse` is the [release flow](#release-flow-beta-then-production)'s production deployment target, serving the product website and synthetic demo; the first customer is registered in `provisioning`, not activated. No hosted project is approved for real voting.
 
 Do not promote a deployment or admit real residents until the open gates in [PILOT_READINESS.md](./PILOT_READINESS.md) are closed. The application now implements local per-RWA OTP IP budgets using Vercel's overwritten `X-Forwarded-For`; hosted spoof/burst verification and pilot threshold validation remain open. `TRUSTED_PROXY_CONFIG=vercel` is required in production, and Vercel system environment variables must be enabled so `VERCEL=1` is available. The application does not support an upstream proxy in front of Vercel. This guide does not grant approval of A1-A7, providers, regions, retention or recovery objectives.
 
 ### Current capacity and testing arrangement - 6 November 2026
 
-The operator requested pausing the testdb project to free
-an active Supabase free-tier slot for **Premier Inspira Maplewood**. The
-Management API accepted the pause and confirmed the testdb project (Supabase
-`civic-pulse-testdb`;
-`nycbbzgsilnxrgkwlwno`) as `INACTIVE`;
-demo (`hnqajjjemqepxuoqbsqx`, dashboard name `civic-pulse-demo`)
-remained `ACTIVE_HEALTHY`. No project was deleted and the new RWA project was
-not created or approved for real voting.
+The testdb project (Supabase `civic-pulse-testdb`;
+`nycbbzgsilnxrgkwlwno`) remains `INACTIVE`. Demo
+(`arxkuxlbynjbqcjuugde`, `civic-pulse-demo`) and the newly provisioned
+**Premier Inspira Maplewood** project occupy the two active free-tier slots
+in Mumbai (`ap-south-1`). The customer remains in `provisioning`, not activated
+or approved for real voting; custom SMTP and the existing launch gates remain
+open. See the [onboarding record](#first-rwa-provisioning-6-november-2026).
 
-Local `.env.local` now points the application, live tests and browser fixtures
+Local `.env.local` still points the application, live tests and browser fixtures
 at demo; `TENANT_TEST_*` is empty. The cached Supabase CLI link was also
-switched to demo using the existing CLI, without applying migrations.
+initially switched to demo, but now targets the customer after onboarding.
+Never use that customer link for testing, fixtures or reset commands.
 The ignored `.env.testdb.local` preserves
 the testdb connection settings for reference only; it is not a routine test input.
-Do not link/reset/migrate a new customer project as part of testing.
-The existing Vercel beta and synthetic `tenant-a` mappings were not changed
-then: their database-dependent flows were unavailable while paused (`tenant-a`
-was offboarded later that day; see the
-[shared-project record](#tenant-routing-disabled-on-beta-shared-production-project)). Main-site and demo
-hosting remain separate and were not redeployed. Earlier hosted verification
+Do not link/reset/migrate a customer project as part of testing.
+The beta site's database-dependent flows remain unavailable, with no fallback.
+The synthetic `tenant-a` host was offboarded earlier that day; see the
+[shared-project record](#tenant-routing-disabled-on-beta-shared-production-project).
+The shared main-site/demo project was redeployed to register the new customer;
+main and demo returned 200 and the provisioning customer returned the expected
+503. Earlier hosted verification
 records below are historical, not evidence that the beta site is currently
-available. Resume testdb before any beta or two-project verification with
-`npm run testdb:resume`. It resumes the project and points local tests back at it.
+available. Do not run `npm run testdb:resume` while the customer occupies the
+second active slot. Once a slot is available under an approved operating plan,
+that command resumes testdb and points local tests back at it.
 Then recheck credentials, migrations, Auth settings and host health.
 The [shared-demo test procedure](./OPERATIONS.md#demo-site) describes restoration.
 
@@ -103,8 +105,33 @@ A region audit found demo (`hnqajjjemqepxuoqbsqx`) in Singapore
 
 Earlier records in this document that name `hnqajjjemqepxuoqbsqx` describe the
 Singapore project at that time. After the checks above passed, that project
-was deleted through the Management API the same day; the account now lists only
-demo (`ap-south-1`, active) and testdb (`ap-south-1`, paused).
+was deleted through the Management API the same day. At that point, before
+customer onboarding, the account listed only demo (`ap-south-1`, active) and
+testdb (`ap-south-1`, paused).
+
+#### First RWA provisioning (6 November 2026)
+
+With operator approval, `society:create` created the dedicated Mumbai project
+for Premier Inspira Maplewood, applied all 45 repository migrations,
+initialized RWA settings and enabled the requested first administrator.
+Read-only checks confirmed the current migration ledger, one matching enabled
+administrator, matching settings and no votes over certificate-verified TLS.
+
+The customer service key, verified domain and `provisioning` directory entry
+were added to the shared Vercel project, then production was rebuilt as
+`dpl_4msodD3bJcF6vUUiCvX9ALvjPwVo` from
+`dpl_75TVgAR1grXUx4Zgx5Bpgn9a8VXf`. Main and demo returned 200; the new
+customer's sign-in returned the expected application 503. The shared project
+now has eight Production-only variables and three directory entries.
+Customer connection identifiers and credentials remain in ignored local
+profiles and Vercel's sensitive settings, not this public record.
+
+Required Auth settings match the RWA host, but custom SMTP and the code-email
+template are still unconfigured. No email delivery or administrator sign-in
+was verified. The project has 0/7 policy approvals and unset retention periods;
+these and the existing release gates remain open. No tenant activation was
+requested or performed. Local app/live/browser/reset credentials still point
+at demo; the CLI link now targets the customer and must not be used for tests.
 
 ### Tenant routing: disabled on beta; shared production project
 
@@ -160,11 +187,12 @@ this project. Its directory entry was removed and production redeployed as
 `dpl_rrs96kCo5sGFUxCvqrW9nJj76142` (from `dpl_AFJgJiN3tCvR9c1Rwbd8twAuawVK`);
 the main site and demo returned 200 and `tenant-a` the app's unlisted 404.
 Its service-key variable and domain were then removed. The testdb project and
-its data were not touched. The project now has seven Production-only
+its data were not touched. The project then had seven Production-only
 variables: the directory (main and demo entries only), the demo service key,
 `TENANT_ROUTING_ENABLED`, `RATE_LIMIT_HMAC_KEY`, `APP_ORIGIN`, `LOG_LEVEL` and
 `TRUSTED_PROXY_CONFIG`; future society projects are added by
-`society:create`. The `tenant-a` label stays reserved.
+`society:create`. The later first-RWA onboarding added one customer entry and
+its service key as recorded above. The `tenant-a` label stays reserved.
 
 Because these are write-only, the directory's source of truth is now the
 ignored local `.env.vercel.local`, rebuilt from this record on 6 November 2026

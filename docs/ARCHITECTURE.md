@@ -52,9 +52,14 @@ its beta site is
 unavailable, with no fallback (the synthetic `tenant-a` host that also used
 testdb was offboarded the same day). Local app/live/browser testing shares only the
 synthetic demo project. Two-project tests are disabled, local SQL integration
-tests remain on disposable PostgreSQL, and a future Premier Inspira Maplewood
-backend must stay outside test/reset targets. Hosting mappings were not
-redeployed. See [deployment status](./DEPLOYMENT.md#current-capacity-and-testing-arrangement---6-november-2026).
+tests remain on disposable PostgreSQL. Premier Inspira Maplewood now occupies
+the second active slot in Mumbai and must stay outside test/reset targets.
+The shared Vercel project was redeployed with its customer entry in
+`provisioning`; main/demo remain available, while the customer host returns
+503 until activation. Custom SMTP, real approvals, retention and release gates
+remain open. The CLI link targets that customer after onboarding; local
+app/live/browser/reset profiles still target demo.
+See [deployment status](./DEPLOYMENT.md#current-capacity-and-testing-arrangement---6-november-2026).
 
 The beta Vercel project `beta-arp-civic-pulse` serves
 <https://beta.arp-civic-pulse.vercel.app>

@@ -14,12 +14,15 @@ npm run ops -- <command> [options]      # Node uses --conditions=react-server an
 `civic-pulse-testdb`;
 `nycbbzgsilnxrgkwlwno`) is paused (`INACTIVE`), not deleted. Its beta site
 is unavailable (the synthetic `tenant-a` host that also used it was
-offboarded). The remaining active
+offboarded). The active synthetic
 Supabase project is demo (`arxkuxlbynjbqcjuugde`, Mumbai `ap-south-1`;
 recreated from a Singapore project on 6 November 2026, see
-[deployment](./DEPLOYMENT.md#demo-moved-to-mumbai-6-november-2026)); the freed slot is reserved
-for the planned Premier Inspira Maplewood project, never routine test data.
-Existing Vercel mappings are unchanged; there is no fallback to another RWA.
+[deployment](./DEPLOYMENT.md#demo-moved-to-mumbai-6-november-2026)).
+Premier Inspira Maplewood now occupies the second active slot in Mumbai,
+but its Vercel directory entry remains `provisioning`, pending custom SMTP and
+the activation gates. Never use that customer database for routine test data.
+Main and demo remain available; the provisioning customer answers 503 and beta
+has no fallback to another RWA.
 
 The beta site is the Vercel project `beta-arp-civic-pulse` at
 <https://beta.arp-civic-pulse.vercel.app>, backed by the testdb project. It
@@ -178,6 +181,10 @@ keeps one slot. The second slot is shared: either the testdb project
 never both at once. `scripts/ops/test-target.ts` manages testdb's use of that
 slot. It reads only `SUPABASE_ACCESS_TOKEN` (shell or `.env.local`), calls the
 Supabase Management API and never prints credentials.
+
+Premier Inspira Maplewood currently occupies that second slot. Leave testdb
+paused; do not interrupt the customer merely to resume tests. Local testing
+continues on demo until a slot is available under an approved operating plan.
 
 | Command | Effect |
 | --- | --- |
@@ -358,6 +365,24 @@ Vercel step is idempotent. Passwords cannot be retrieved
 from Supabase after creation, so the profile must not be deleted or lost. The
 command requires a Management API token with project create/read and revealed
 API-key permissions, and Vercel access to the `arp-civic-pulse` team.
+
+**First customer provisioning (6 November 2026).** Premier Inspira Maplewood
+was created with the approved alias `pi-maplewood` and project name
+`civic-pulse-pi-maplewood`. Its ignored `.env.pi-maplewood.local` holds the
+original inputs and generated credentials; do not publish or lose it.
+All 45 migrations, RWA settings and the requested first administrator were
+verified. The domain, sensitive service key and `provisioning` directory entry
+are registered on the shared Vercel project; its redeploy is READY, with
+main/demo returning 200 and the customer returning the expected 503.
+
+Custom SMTP is the provisioner's remaining blocker; configure it, then rerun
+the same command with the original inputs to install/verify the code-email
+template. No administrator sign-in or email delivery has been verified.
+Policy approvals (0/7), retention and the other launch gates are still open;
+the tenant was not activated. The CLI link now targets the customer, while
+local app/live/browser/reset profiles remain on demo. Do not use the CLI link
+for tests or initialize/reset the customer. Connection identifiers and
+administrator details stay in ignored profiles, not public documentation.
 
 **Synthetic create/delete test (6 November 2026).** With operator approval,
 `society:create` provisioned a temporary synthetic society project in

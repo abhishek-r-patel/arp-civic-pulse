@@ -11,15 +11,20 @@ This guide takes you from a fresh checkout to a running app you can sign in to, 
 ## Existing checkout: shared demo test backend
 
 As of 6 November 2026, the testdb Supabase project (`civic-pulse-testdb`, which
-backs the beta site) is paused to free an active free-tier slot for Premier
-Inspira Maplewood. This checkout's
+backs the beta site) is paused. Premier Inspira Maplewood now occupies the
+second active slot, but remains in `provisioning` pending SMTP and activation
+gates. This checkout's
 ignored `.env.local` points local development, live Vitest and opted-in
 Playwright fixtures at the synthetic demo `arxkuxlbynjbqcjuugde`.
 `TENANT_TEST_*` is empty; do not enable paired-project tests or substitute
-the new RWA database. The cached Supabase CLI link also targets demo; verify
-the project reference before any remote command. `.env.testdb.local` keeps the testdb credentials
+the customer database. The cached Supabase CLI link now targets that customer
+after onboarding, unlike `.env.local`; never use the linked project for
+testing or reset. Verify the project reference before any remote command.
+`.env.testdb.local` keeps the testdb credentials
 for reference only and is not loaded by normal development/tests.
-`npm run testdb:resume` resumes testdb and switches `.env.local` back to it;
+`npm run testdb:resume` requires an available active slot before resuming
+testdb and switching `.env.local` back to it; do not run it while the customer
+occupies that slot.
 `npm run testdb:pause` reverses both. See
 [switching the test target](./OPERATIONS.md#switching-the-test-target).
 Resume refreshes Supabase API keys from the Management API but reuses the saved
