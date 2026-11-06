@@ -19,10 +19,11 @@ Supabase project is demo (`arxkuxlbynjbqcjuugde`, Mumbai `ap-south-1`;
 recreated from a Singapore project on 6 November 2026, see
 [deployment](./DEPLOYMENT.md#demo-moved-to-mumbai-6-november-2026)).
 Premier Inspira Maplewood now occupies the second active slot in Mumbai,
-but its Vercel directory entry remains `provisioning`, pending custom SMTP and
-the activation gates. Never use that customer database for routine test data.
-Main and demo remain available; the provisioning customer answers 503 and beta
-has no fallback to another RWA.
+and its Vercel directory entry is `active` (operator request, 6 November 2026):
+shared SMTP delivered one administrator code, but app sign-in, policy approvals,
+retention and launch gates remain open. Never use that customer database for routine test data.
+Main, demo and the customer sign-in page are served, and beta has no fallback
+to another RWA.
 
 The beta site is the Vercel project `beta-arp-civic-pulse` at
 <https://beta.arp-civic-pulse.vercel.app>, backed by the testdb project. It
@@ -252,6 +253,42 @@ The commands then print these manual steps:
 Vercel settings do not change. The beta site is unavailable while testdb is
 paused and returns when it is resumed.
 
+### Shared SMTP
+
+Every society project sends sign-in codes through one shared relay (Brevo).
+Its settings live only in the ignored `.env.smtp.local` at the repository root,
+never in Git, Vercel or app `.env` profiles:
+
+```text
+SOCIETY_SMTP_HOST=smtp-relay.brevo.com
+SOCIETY_SMTP_PORT=465
+SOCIETY_SMTP_USER=<Brevo SMTP login>
+SOCIETY_SMTP_PASS=<Brevo SMTP key>
+SOCIETY_SMTP_SENDER_EMAIL=<sender verified in Brevo>
+SOCIETY_SMTP_SENDER_NAME=Civic Pulse
+```
+
+The login and key come from Brevo **Settings → SMTP & API → SMTP**; the key is
+an SMTP key, not an API key or account password. Port 465 (TLS) or 587 is
+accepted. `society:create` validates the file before creating anything and
+pushes it to the project's Auth settings on every run, because Supabase never
+returns the stored password. The same step raises the project's sign-in email
+limit from Supabase's built-in 2/hour to the operator-approved 60/hour
+(`SOCIETY_EMAIL_RATE_LIMIT`; Supabase accepts the change only once custom SMTP
+exists). To rotate the key, update this file and rerun
+`society:create` with each society's original inputs. All societies share the
+Brevo account's daily sending limit; check it before large vote days.
+
+Use the exact **Login** displayed on Brevo's SMTP tab, not a guessed account
+email. SMTP response 535 means authentication was rejected before delivery;
+check that login and the active SMTP key before changing ports or activating
+the tenant. Successful Supabase configuration readback is not a functional
+SMTP test. Verify Brevo's Sent/Delivered events and actual recipient inbox
+receipt without logging credentials or codes. An authorized operator can
+request a code directly through the customer's Supabase Auth with
+`shouldCreateUser=false` while its app host remains in `provisioning`; this
+does not verify an app sign-in or authorize activation.
+
 ### Creating a society project
 
 ```powershell
@@ -266,7 +303,8 @@ npm run society:create -- premier-inspira-maplewood `
 ```
 
 Replace the example subdomain and administrator details with the approved
-values. `--subdomain maplewood` expands to
+values. The command refuses to start until the shared SMTP profile below is
+filled in. `--subdomain maplewood` expands to
 `maplewood.arp-civic-pulse.vercel.app` (a single lowercase DNS label; the
 reserved labels `www`, `site`, `demo`, `staging`, `beta`, `tenant-a` and
 `tenant-b` are refused). The `staging` label remains reserved while its legacy
@@ -375,11 +413,25 @@ verified. The domain, sensitive service key and `provisioning` directory entry
 are registered on the shared Vercel project; its redeploy is READY, with
 main/demo returning 200 and the customer returning the expected 503.
 
-Custom SMTP is the provisioner's remaining blocker; configure it, then rerun
-the same command with the original inputs to install/verify the code-email
-template. No administrator sign-in or email delivery has been verified.
-Policy approvals (0/7), retention and the other launch gates are still open;
-the tenant was not activated. The CLI link now targets the customer, while
+The operator rerun of the same command applied the shared SMTP relay and the
+code-email template; production was rebuilt as
+`dpl_856hLHhpLiKKHCEixZDCDYqAakxn` and the customer still returns the expected
+503. A read-only check confirmed the SMTP fields match `.env.smtp.local`, the
+template contains `{{ .Token }}`, codes are six digits, sign-up is off and the
+Site/redirect URLs are the RWA host. The email limit was then raised from 2 to
+60/hour. A subsequent SMTP check found an incorrect shared SMTP Login; the
+operator corrected it, relay authentication succeeded, and the shared settings
+were reapplied to the customer. One code request produced matching Brevo
+Sent/Delivered events and operator-confirmed inbox receipt. App sign-in remains
+unverified; see the [delivery record](./DEPLOYMENT.md#first-rwa-provisioning-6-november-2026).
+At the operator's request the directory entry was then set to `active` and
+production rebuilt as `dpl_E8RgJeyVa48uCKTGPCbQUrbJLdzc` (rollback target
+`dpl_856hLHhpLiKKHCEixZDCDYqAakxn`); main, demo and the customer sign-in page
+returned 200. There is no dedicated activation command: an ad-hoc run of the
+`vercel-directory.ts` helpers changed only that entry's state, saved
+`.env.vercel.local`, pushed `TENANT_DIRECTORY_JSON`, redeployed and ran the
+live-host checks. Policy approvals (0/7), retention and the other launch gates
+are still open and must be recorded before the first vote. The CLI link now targets the customer, while
 local app/live/browser/reset profiles remain on demo. Do not use the CLI link
 for tests or initialize/reset the customer. Connection identifiers and
 administrator details stay in ignored profiles, not public documentation.
@@ -542,10 +594,12 @@ Every step checks before it writes, so re-run after any failure:
 5. **Auth.** With `SUPABASE_ACCESS_TOKEN` it sets sign-up off, email sign-in
    on, Site URL and the only redirect URL to the RWA host and six-digit codes,
    then verifies them. Supabase refuses email-template changes until the
-   project has custom SMTP (free projects return 400), so the repository
-   sign-in subject and template are set only after SMTP exists; until then the
-   step is `blocked` and activation is refused. Add SMTP in the Supabase
-   dashboard, then re-run. Without a token the step is reported as manual. The
+   project has custom SMTP (free projects return 400). When the shared SMTP
+   profile is supplied (always for `society:create`; for `ops provision` when
+   `.env.smtp.local` exists), it is applied first on every run, then the
+   repository sign-in subject and template are set. Without SMTP the step is
+   `blocked` and activation is refused. Without a token the step is reported
+   as manual. The
    token needs Organization Projects, Project Settings and Auth Config
    read-write plus Organizations, Projects, API Keys and API Key Secrets read;
    give it a short expiry and revoke it after use.

@@ -2,7 +2,7 @@
 
 ## 1. Status and approval boundary
 
-This repository is **deployed to the beta site using Vercel's Production target, not real production or approved for real voting**. The architecture prefers Vercel for Next.js and Supabase PostgreSQL/Auth/Cron. The beta account is recorded below; no production Supabase project, production hosting plan, region, domain, budget or production ingress is approved by this configuration. The shared Vercel project `arp-civic-pulse` is the [release flow](#release-flow-beta-then-production)'s production deployment target, serving the product website and synthetic demo; the first customer is registered in `provisioning`, not activated. No hosted project is approved for real voting.
+This repository is **deployed to the beta site using Vercel's Production target, not real production or approved for real voting**. The architecture prefers Vercel for Next.js and Supabase PostgreSQL/Auth/Cron. The beta account is recorded below; no production Supabase project, production hosting plan, region, domain, budget or production ingress is approved by this configuration. The shared Vercel project `arp-civic-pulse` is the [release flow](#release-flow-beta-then-production)'s production deployment target, serving the product website and synthetic demo; the first customer was activated on operator request on 6 November 2026, but is not approved for real voting. No hosted project is approved for real voting.
 
 Do not promote a deployment or admit real residents until the open gates in [PILOT_READINESS.md](./PILOT_READINESS.md) are closed. The application now implements local per-RWA OTP IP budgets using Vercel's overwritten `X-Forwarded-For`; hosted spoof/burst verification and pilot threshold validation remain open. `TRUSTED_PROXY_CONFIG=vercel` is required in production, and Vercel system environment variables must be enabled so `VERCEL=1` is available. The application does not support an upstream proxy in front of Vercel. This guide does not grant approval of A1-A7, providers, regions, retention or recovery objectives.
 
@@ -12,9 +12,11 @@ The testdb project (Supabase `civic-pulse-testdb`;
 `nycbbzgsilnxrgkwlwno`) remains `INACTIVE`. Demo
 (`arxkuxlbynjbqcjuugde`, `civic-pulse-demo`) and the newly provisioned
 **Premier Inspira Maplewood** project occupy the two active free-tier slots
-in Mumbai (`ap-south-1`). The customer remains in `provisioning`, not activated
-or approved for real voting; custom SMTP and the existing launch gates remain
-open. See the [onboarding record](#first-rwa-provisioning-6-november-2026).
+in Mumbai (`ap-south-1`). The customer directory entry is `active` (operator
+request) and its sign-in page is served, but it is not approved for real
+voting. Shared SMTP and one administrator inbox delivery are verified; app
+sign-in, policy approvals, retention and the existing launch gates remain open.
+See the [onboarding record](#first-rwa-provisioning-6-november-2026).
 
 Local `.env.local` still points the application, live tests and browser fixtures
 at demo; `TENANT_TEST_*` is empty. The cached Supabase CLI link was also
@@ -126,12 +128,35 @@ now has eight Production-only variables and three directory entries.
 Customer connection identifiers and credentials remain in ignored local
 profiles and Vercel's sensitive settings, not this public record.
 
-Required Auth settings match the RWA host, but custom SMTP and the code-email
-template are still unconfigured. No email delivery or administrator sign-in
-was verified. The project has 0/7 policy approvals and unset retention periods;
-these and the existing release gates remain open. No tenant activation was
-requested or performed. Local app/live/browser/reset credentials still point
-at demo; the CLI link now targets the customer and must not be used for tests.
+Required Auth settings match the RWA host. The operator then reran
+`society:create`, which applied the shared SMTP relay from the ignored
+`.env.smtp.local` ([Shared SMTP](./OPERATIONS.md#shared-smtp)) and the
+code-email template, and rebuilt production as
+`dpl_856hLHhpLiKKHCEixZDCDYqAakxn` (customer still 503 as expected). The
+project's email limit was raised from Supabase's built-in 2/hour to 60/hour.
+An initial code request returned Auth HTTP 500. A direct, certificate-verified
+SMTP probe isolated a relay authentication rejection (535): the shared profile's
+username did not match Brevo's SMTP **Login**. After the operator corrected that
+field without replacing the existing active key, a curl SMTPS `AUTH LOGIN`/`NOOP`
+check succeeded without sending email. The corrected shared SMTP settings were
+applied to the customer Auth configuration and read back; the 60/hour limit and
+code template were preserved. No additional Vercel redeploy was needed.
+
+One Supabase Auth code request at 19:26 IST then succeeded. Brevo recorded
+**Sent** and **Delivered** for the saved administrator recipient, and the
+operator confirmed inbox receipt. This verifies one SMTP delivery, not app
+sign-in, sender-domain approval or peak sending capacity.
+
+At the operator's request, the customer directory entry was then changed from
+`provisioning` to `active`, the sensitive directory variable was updated and
+production was rebuilt as `dpl_E8RgJeyVa48uCKTGPCbQUrbJLdzc` from
+`dpl_856hLHhpLiKKHCEixZDCDYqAakxn` (the rollback target). Post-deploy checks
+returned 200 for main, demo sign-in and the customer sign-in page. Activation
+only enables routing; it does not verify app sign-in or approve real voting.
+The project has 0/7 policy approvals and unset retention periods; these must be
+recorded before the first vote, and the existing release gates remain open. Local
+app/live/browser/reset credentials still point at demo; the CLI link now
+targets the customer and must not be used for tests.
 
 ### Tenant routing: disabled on beta; shared production project
 

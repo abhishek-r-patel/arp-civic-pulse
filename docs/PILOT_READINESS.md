@@ -15,10 +15,12 @@ database flows are unavailable; the hosted `tenant-a` customer that also used
 testdb was offboarded the same day. Two-backend live/isolation tests are
 disabled, not newly passed; historical checks below retain their original scope.
 Premier Inspira Maplewood now occupies the second active slot in Mumbai,
-but remains in `provisioning`, not activated or approved. Read-only onboarding
+and was activated on operator request (sign-in page served), but is not
+approved for real voting. Read-only onboarding
 checks verified all 45 migrations, matching RWA settings and the requested
-enabled administrator. Custom SMTP and its code-email template remain
-unconfigured; no email delivery or administrator sign-in was verified.
+enabled administrator. Shared SMTP and its code-email template are configured,
+and one administrator inbox delivery was verified after correcting the SMTP
+Login. App sign-in remains unverified.
 Policy approvals are 0/7 and retention periods are unset. Existing launch
 gates remain open, and the customer is never a test/reset target. Leave testdb
 paused while that slot is occupied. See the
@@ -591,6 +593,15 @@ authorizing a beta administrator. The browser showed RWA Admin navigation.
 See the [SMTP verification record](./DEPLOYMENT.md#beta-otp-verification-28-october-2026).
 This is not approval of the personal Gmail sender for production, the unchanged
 one-hour OTP expiry, sending capacity, or any production release gate.
+
+**6 November customer SMTP evidence:** correcting the shared Brevo SMTP Login
+resolved a relay authentication rejection. TLS/authentication checks passed,
+one Maplewood code request produced matching Brevo Sent/Delivered events, and
+the operator confirmed inbox receipt. The operator then requested activation:
+the customer is `active` on `dpl_E8RgJeyVa48uCKTGPCbQUrbJLdzc` and its sign-in
+page returns 200. App sign-in, approved sender/domain, peak capacity, 0/7
+policy approvals, retention and the release gates remain open; activation is
+not real-voting approval. See the [onboarding record](./DEPLOYMENT.md#first-rwa-provisioning-6-november-2026).
 
 **28 October beta-site follow-up:** the original canonical host was later
 renamed and now uses <https://beta.arp-civic-pulse.vercel.app> with project

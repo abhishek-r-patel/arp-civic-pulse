@@ -32,7 +32,8 @@ database password in `.env.testdb.local`; Supabase does not expose that
 password for retrieval.
 `npm run society:create -- <alias> ...` creates a separately ignored
 `.env.<alias>.local`, links the Supabase CLI to that society project and runs
-the existing non-activating provisioner. It leaves `.env.local` on demo; see
+the existing non-activating provisioner. It requires the ignored shared SMTP
+file `.env.smtp.local`. It leaves `.env.local` on demo; see
 [society project creation](./OPERATIONS.md#creating-a-society-project).
 `npm run society:delete` removes that profile after deleting the project and
 relinks the CLI to the current test target.
@@ -325,8 +326,8 @@ The app signs people in with a **six-digit code**. Supabase's built-in email ser
 ### Option A: custom SMTP (needed for real emailed codes)
 
 1. In Brevo, verify a sender you control. Prefer an authenticated domain you own. A verified personal Gmail sender was accepted for this testdb setup, but Brevo warns against freemail domains; it is not production sender-domain approval.
-2. In Brevo **Settings → SMTP & API → SMTP**, obtain the SMTP Login and generate a dedicated Standard SMTP key. Complete provider identity verification yourself. The SMTP Login may differ from the account email. The password is the **SMTP key**, not a Brevo API key, account password or Gmail app password.
-3. In Supabase **Authentication → Emails → SMTP Settings**, enable custom SMTP and set host `smtp-relay.brevo.com`, port `465` (TLS), username = Brevo SMTP Login, password = SMTP key, sender email = the verified sender, and sender name = `Civic Pulse`. Save and reload to confirm persistence. Enter credentials directly into the provider dashboard, never chat, Git, Vercel or application environment files.
+2. In Brevo **Settings → SMTP & API → SMTP**, obtain the SMTP Login and generate a dedicated Standard SMTP key. Complete provider identity verification yourself. Copy the exact **Login** shown on that tab; do not substitute the account email. A relay 535 response means authentication failed, so verify the login and active key first. The password is the **SMTP key**, not a Brevo API key, account password or Gmail app password.
+3. In Supabase **Authentication → Emails → SMTP Settings**, enable custom SMTP and set host `smtp-relay.brevo.com`, port `465` (TLS), username = Brevo SMTP Login, password = SMTP key, sender email = the verified sender, and sender name = `Civic Pulse`. Save and reload to confirm persistence. Enter credentials directly into the provider dashboard, never chat, Git, Vercel or application environment files. Society projects do not need this manual step: `society:create` applies the same relay from the ignored operator file `.env.smtp.local` (see [Shared SMTP](./OPERATIONS.md#shared-smtp)).
 4. In **Emails → Templates → Magic link or OTP**, set subject `Your Civic Pulse sign-in code` and use [the repository OTP template](../supabase/templates/magic_link.html), whose essential variable is `{{ .Token }}` rather than `{{ .ConfirmationURL }}`. Verify the saved template, not just its preview.
 5. Test using an existing project **Authentication → Users** identity with an enabled application profile. A Supabase dashboard login and a Brevo sender are not app accounts. Code requests use `shouldCreateUser=false`; unknown addresses receive the same generic app acknowledgement but no sign-in code. Provision normal residents through the app and use the audited setup/provisioning routines for authorized administrators, never grant admin merely to enable email.
 6. Confirm actual inbox receipt, enter the newest code in the app, and verify sign-in. Provider acceptance alone is not delivery evidence. The 28 October testdb test passed with six-digit OTPs, the existing one-hour expiry and 30 emails/hour; these unchanged provider settings are not production policy/capacity approval. Check Brevo account/key limits and rotate the SMTP key before its expiry or inactivity revocation.

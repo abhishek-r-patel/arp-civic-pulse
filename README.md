@@ -33,8 +33,9 @@ of this is release approval.
 **Current test setup (6 November 2026):** the testdb project (Supabase
 `civic-pulse-testdb`, `nycbbzgsilnxrgkwlwno`) is paused. **Premier Inspira
 Maplewood** now occupies the second active free-tier slot in Mumbai, but remains
-in `provisioning`: custom SMTP, policy/retention decisions and activation gates
-are still open.
+in `provisioning`: shared SMTP and one administrator inbox delivery are
+verified, but app sign-in, policy/retention decisions and activation gates are
+still open.
 Local development and hosted/browser tests now share the synthetic demo project
 `arxkuxlbynjbqcjuugde`; cross-project tests are disabled. The beta site is unavailable while its
 database is paused; it does not fall back to demo. Restore synthetic demo data with `npm run demo:reset`
@@ -47,7 +48,9 @@ See [operations](./docs/OPERATIONS.md#switching-the-test-target) for safeguards 
 Create a society project with `npm run society:create -- <alias> ...`; it
 attaches the RWA host to the shared Vercel project first, then creates and
 provisions the Supabase project, registers it in the Vercel tenant directory
-(kept in the ignored `.env.vercel.local`) and redeploys. It keeps local testing
+(kept in the ignored `.env.vercel.local`) and redeploys. Every society uses the
+one shared SMTP relay from the ignored `.env.smtp.local`
+([Shared SMTP](./docs/OPERATIONS.md#shared-smtp)). It keeps local testing
 on demo and leaves tenant activation disabled. See
 [society project creation](./docs/OPERATIONS.md#creating-a-society-project).
 `npm run society:delete -- <alias> --confirm-delete civic-pulse-<alias>`

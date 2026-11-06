@@ -755,7 +755,8 @@ defines the host and lifecycle policy. S03 implements a version-1 server-only
 directory, exact-host resolver and per-request Supabase clients. Routing defaults
 to off on the beta site, and no customer host is configured there. A separate
 shared Vercel project serves the product website and synthetic demo, with the
-first real customer registered in `provisioning` and answering 503; see the
+first real customer activated on operator request (not approved for real
+voting); see the
 [onboarding record](./DEPLOYMENT.md#first-rwa-provisioning-6-november-2026).
 Do not activate a real customer until the domain is approved and the remaining
 release gates close. The pilot cap is 10 customer hosts plus one main and one

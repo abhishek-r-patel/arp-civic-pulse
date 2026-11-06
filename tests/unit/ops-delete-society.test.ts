@@ -124,7 +124,6 @@ describe("society:delete target identity", () => {
 describe("removing a customer from the tenant directory", () => {
   const base = bootstrapDirectory({
     demoPublishableKey: "sb_publishable_demo",
-    tenantAPublishableKey: "sb_publishable_tenant_a",
   });
   const withSociety = withCustomerEntry(base, {
     host,

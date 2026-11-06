@@ -9,9 +9,11 @@
 **Environment update, 6 November 2026:** the testdb Supabase project
 (`civic-pulse-testdb`) is paused
 while the newly provisioned Premier Inspira Maplewood project occupies the
-second active free-tier slot in Mumbai. That customer remains in
-`provisioning`, pending custom SMTP, real approvals, retention and activation
-gates. Demo is the shared synthetic app/live/browser test backend;
+second active free-tier slot in Mumbai. That customer was activated on operator
+request (6 November 2026) but is not approved for real voting. Shared SMTP and
+one administrator inbox delivery are verified; app sign-in, real approvals,
+retention and launch gates remain open.
+Demo is the shared synthetic app/live/browser test backend;
 cross-project tests are disabled and historical two-backend evidence below is
 not a current availability claim. The customer is not approved for real voting
 and must never become a test/reset target.
@@ -102,8 +104,8 @@ continue to govern each customer.
 **Status: design specified, 31 October 2026.** The product owner selected Vercel
 environment variables for an initial capped pilot. At completion of S02, this
 was a configuration design decision only. S03 later added routing code and
-the shared hosted project; its first real customer is now registered only in
-`provisioning`, not activated or approved. The current environment update
+the shared hosted project; its first real customer was activated on operator
+request but is not approved for real voting. The current environment update
 above supersedes the original single-RWA deployment baseline.
 
 #### Host and tenant contract
@@ -330,9 +332,11 @@ purchases, production writes, migrations, resets, commits or deployment.
 	directory entry that is `active` only when nothing blocks. Two fresh
 	synthetic projects were provisioned one at a time (free-tier limit: the
 	demo was paused meanwhile), each wired as `tenant-b`, verified with both
-	two-customer hosted specs, then deleted. Open gate: custom SMTP, so every
-	real customer's Auth step (and therefore activation) stays blocked until
-	SMTP is configured on its project.
+	two-customer hosted specs, then deleted. Those synthetic runs did not verify
+	SMTP delivery. Every real customer still requires project SMTP configuration
+	and delivery verification before activation. `society:create` now applies
+	the shared SMTP relay (`.env.smtp.local`) itself; one Maplewood administrator
+	inbox delivery was verified on 6 November, without app sign-in or activation.
 - [ ] **S08 - Establish fleet releases and isolation regression.** Track each
 	backend's migration/schema version against the shared application, test fresh
 	install and upgrades, and define staged rollout and schema-compatible rollback.

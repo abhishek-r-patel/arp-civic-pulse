@@ -9,8 +9,10 @@ import {
   localMigrationVersions,
   migrationStatus,
   provisionPlan,
+  readSharedSmtp,
   SIGN_IN_TEMPLATE,
   serviceRoleKeyRef,
+  smtpConfigPatch,
 } from "../../scripts/ops/provision";
 
 const REF = "abcdefghijklmnopqrst";
@@ -253,6 +255,60 @@ describe("Auth configuration", () => {
     );
     expect(problems.fixable).toHaveLength(4);
     expect(problems.template).toBe(false);
+  });
+});
+
+describe("shared SMTP", () => {
+  const profile = {
+    SOCIETY_SMTP_HOST: "smtp-relay.example.org",
+    SOCIETY_SMTP_USER: "relay-login",
+    SOCIETY_SMTP_PASS: "relay-secret",
+    SOCIETY_SMTP_SENDER_EMAIL: "codes@example.org",
+  };
+
+  it("defaults to TLS port 465, the Civic Pulse sender name and 60 emails/hour", () => {
+    expect(smtpConfigPatch(readSharedSmtp(profile))).toEqual({
+      rate_limit_email_sent: 60,
+      smtp_host: "smtp-relay.example.org",
+      smtp_port: "465",
+      smtp_user: "relay-login",
+      smtp_pass: "relay-secret",
+      smtp_admin_email: "codes@example.org",
+      smtp_sender_name: "Civic Pulse",
+    });
+  });
+
+  it("satisfies the SMTP check once applied", () => {
+    const smtp = smtpConfigPatch(readSharedSmtp(profile));
+    expect(
+      authConfigProblems(
+        { ...authConfigPatch("rwa-one.example.org"), ...smtp },
+        "rwa-one.example.org",
+      ).smtp,
+    ).toBe(true);
+  });
+
+  it("names missing keys without echoing any value", () => {
+    expect(() =>
+      readSharedSmtp({ ...profile, SOCIETY_SMTP_PASS: " " }),
+    ).toThrow(/SOCIETY_SMTP_PASS/u);
+    try {
+      readSharedSmtp({ SOCIETY_SMTP_PASS: "relay-secret" });
+    } catch (error) {
+      expect(String(error)).not.toContain("relay-secret");
+    }
+  });
+
+  it("rejects an unsupported port, a URL host and a malformed sender", () => {
+    expect(() =>
+      readSharedSmtp({ ...profile, SOCIETY_SMTP_PORT: "25" }),
+    ).toThrow(/465/u);
+    expect(() =>
+      readSharedSmtp({ ...profile, SOCIETY_SMTP_HOST: "smtp://relay" }),
+    ).toThrow(/hostname/u);
+    expect(() =>
+      readSharedSmtp({ ...profile, SOCIETY_SMTP_SENDER_EMAIL: "codes" }),
+    ).toThrow(/email/u);
   });
 });
 

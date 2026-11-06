@@ -13,8 +13,10 @@ Never use the newly provisioned Premier Inspira Maplewood customer database for 
 fixtures or demo reset. Local integration/load tests remain on disposable
 PostgreSQL. Demo and the new customer both have all 45 repository migrations
 applied; customer migrations were explicit onboarding, not a test run.
-The customer remains in `provisioning`, pending custom SMTP and activation
-gates, with 0/7 policy approvals and retention unset. The Supabase CLI link now
+The customer was activated on operator request: shared SMTP and the code email
+are configured and one administrator inbox delivery is verified. App sign-in
+and launch gates remain open, with 0/7 policy approvals and retention unset.
+The Supabase CLI link now
 targets that customer after onboarding, unlike the demo test/reset profiles;
 do not use linked commands for testing.
 Reset demo with `npm run demo:reset` after browser/manual tests and before
