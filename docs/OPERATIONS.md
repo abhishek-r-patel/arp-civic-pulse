@@ -11,21 +11,17 @@ npm run ops -- <command> [options]      # Node uses --conditions=react-server an
 ## 1. Settings that belong to operations
 
 **Current override (6 November 2026):** the testdb project (Supabase
-`civic-pulse-testdb`, formerly `civic-pulse-disposable`;
+`civic-pulse-testdb`;
 `nycbbzgsilnxrgkwlwno`) is paused (`INACTIVE`), not deleted. Its beta site
 and synthetic `tenant-a` backends are unavailable. The remaining active
 Supabase project is demo (`hnqajjjemqepxuoqbsqx`); the freed slot is reserved
 for the planned Premier Inspira Maplewood project, never routine test data.
 Existing Vercel mappings are unchanged; there is no fallback to another RWA.
 
-The beta site is the Vercel project `beta-arp-civic-pulse` (formerly
-`staging-arp-civic-pulse`; same project ID) at
+The beta site is the Vercel project `beta-arp-civic-pulse` at
 <https://beta.arp-civic-pulse.vercel.app>, backed by the testdb project. It
-uses Vercel's Production target for its production branch `beta`. The former
-<https://staging.arp-civic-pulse.vercel.app> host is kept as a permanent (308)
-redirect to the beta host; the older `arp-civic-pulse-staging.vercel.app` and
-`staging-arp-civic-pulse.vercel.app` hosts were already 308 redirects.
-Keep Production `APP_ORIGIN` and the testdb Supabase Auth Site URL/redirect
+uses Vercel's Production target for its production branch `beta`. The legacy beta host alias is kept as a permanent (308) redirect to the beta
+host. Keep Production `APP_ORIGIN` and the testdb Supabase Auth Site URL/redirect
 allow-list aligned with this exact beta origin and redeploy after origin
 changes; protection settings do not rewrite it. See the
 [current deployment record](./DEPLOYMENT.md#current-beta-configuration-production-target-only)
@@ -57,10 +53,8 @@ testdb database into the real register.
 S03 implements a server-only `TENANT_DIRECTORY_JSON` host allowlist and separate
 `TENANT_<UUID32>_SUPABASE_SERVICE_ROLE_KEY` variables for tenant credentials.
 `TENANT_ROUTING_ENABLED` defaults to `false`. The beta project has no tenant
-directory, host entries or tenant secrets configured. Only the separate
-`arp-civic-pulse` Vercel project (formerly `demo-arp-civic-pulse`, originally
-`arp-civic-pulse-tenant-test`)
-routes hosts, all synthetic:
+directory, host entries or tenant secrets configured. Only the separate `arp-civic-pulse` Vercel project routes hosts, all
+synthetic:
 `arp-civic-pulse.vercel.app` (main product website),
 `demo.arp-civic-pulse.vercel.app` (demo, synthetic project B) and
 `tenant-a.arp-civic-pulse.vercel.app` (customer, the testdb project as A).
@@ -68,10 +62,9 @@ The former `site.arp-civic-pulse.vercel.app` permanently redirects (308) to
 the bare main-site host, preserving paths. Main-site canonical metadata,
 sitemap and demo backlinks follow the `main` directory entry; do not add the
 redirect host as a second `main` entry (only one is permitted).
-The former project-name host
-<https://demo-arp-civic-pulse.vercel.app> permanently redirects (308) to the
-canonical demo host; it stayed attached when the project was renamed to
-`arp-civic-pulse` on 6 November 2026. The project is configured for Node.js 24.x. The former
+The former project-name host permanently redirects (308) to the canonical demo
+host; it remains attached as a redirect. The project is configured for Node.js
+24.x. The former
 `tenant-b.arp-civic-pulse.vercel.app` domain was detached on 31 October 2026
 and now returns 404. The two-customer hosted isolation specs need a second
 customer project before they can run again. Do not enable routing for real
@@ -167,10 +160,8 @@ Supabase Management API and never prints credentials.
 | `npm run test:target -- demo` or `-- testdb` | Switch `.env.local` only; the target must already be `ACTIVE_HEALTHY`. |
 
 The npm scripts call `scripts/ops/test-target.ts` with the internal arguments
-`pause-testdb`/`resume-testdb`. These replace the former `staging:pause`,
-`staging:resume` and `.env.staging.local` names (renamed 6 November 2026);
-rename an existing local `.env.staging.local` to `.env.testdb.local` before
-using them.
+`pause-testdb`/`resume-testdb`. If an old testdb profile remains under its
+previous filename, rename it to `.env.testdb.local` before using the commands.
 
 Both pause and resume are safe to rerun. If they time out, rerun the same
 command to keep waiting. Pause needs demo to be `ACTIVE_HEALTHY` and repoints tests before
@@ -244,9 +235,9 @@ Replace the example subdomain and administrator details with the approved
 values. `--subdomain maplewood` expands to
 `maplewood.arp-civic-pulse.vercel.app` (a single lowercase DNS label; the
 reserved labels `www`, `site`, `demo`, `staging`, `beta`, `tenant-a` and
-`tenant-b` are refused). For a
-custom domain, pass `--host <full hostname>` instead, without `https://` or a
-path; the two options are mutually exclusive.
+`tenant-b` are refused). The `staging` label remains reserved while its legacy
+redirect is attached. For a custom domain, pass `--host <full hostname>`
+instead, without `https://` or a path; the two options are mutually exclusive.
 
 Vercel is handled by the same command, against the shared multi-tenant Vercel
 project `arp-civic-pulse` (no per-society Vercel project is created):
@@ -281,8 +272,8 @@ is public; back it up with the other ignored env profiles. Inspect it with
 `npm run vercel:directory -- init`, which rebuilds the then-live main, demo and
 `tenant-a` entries (all `active`) from saved public keys and refuses to
 overwrite an existing file. The demo key was checked against Supabase; the
-`tenant-a` key came from the saved testdb profile (then named
-`.env.staging.local`) while testdb was paused.
+`tenant-a` key came from the saved `.env.testdb.local` profile while testdb was
+paused.
 The rebuilt value was first pushed to Vercel by the synthetic `society:create`
 test on 6 November 2026 (recorded below).
 The script validates the directory as strictly as the app (and stricter:
@@ -340,16 +331,14 @@ command requires a Management API token with project create/read and revealed
 API-key permissions, and Vercel access to the `arp-civic-pulse` team.
 
 **Synthetic create/delete test (6 November 2026).** With operator approval,
-`society:create` ran for alias `synthetic-test` (synthetic RWA name and
-`synthetic-admin@example.com`, host
-`synthetic-test.arp-civic-pulse.vercel.app`). It created
-`civic-pulse-synthetic-test` (`xoctovsclhmpdytkczpt`, `ap-south-1`), applied 45
-migrations, initialized settings and the synthetic administrator, reported only
+`society:create` provisioned a temporary synthetic society project in
+`ap-south-1`, applied 45 migrations, initialized settings and the synthetic
+administrator, reported only
 the expected SMTP blocker, pushed the rebuilt directory plus the
 `provisioning` entry and redeployed production. The first attempt stopped
 without `PGSSLROOTCERT`; a later redeploy status poll timed out (polling now
 tolerates transient errors). The completed rerun served
-`dpl_8NY1B4hy4xeXtAv8iThgt8sAEEpM`: main and demo 200, the new host the app's
+`dpl_8NY1B4hy4xeXtAv8iThgt8sAEEpM`: main and demo 200, the temporary host the app's
 503. `society:delete` then redeployed (`dpl_AFJgJiN3tCvR9c1Rwbd8twAuawVK`;
 main/demo 200, the host the app's 404), deleted the variable, domain and
 Supabase project, relinked the CLI to demo and removed the profile. Afterwards
@@ -463,7 +452,7 @@ zero; an uninitialized/untracked project, pending migrations or unknown remote
 versions exits nonzero. Run once per RWA during a fleet release and retain the
 sanitized reports in the approved release record. This is a migration-history
 check, not proof of schema drift absence, policy correctness or active-vote
-compatibility; continue the required dry-run, SQL review and staging checks.
+compatibility; continue the required dry-run, SQL review and testdb/beta checks.
 
 ### Provision a customer RWA
 

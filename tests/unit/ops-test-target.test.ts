@@ -15,7 +15,7 @@ import {
 } from "../../scripts/ops/test-target.ts";
 
 const DEMO = "hnqajjjemqepxuoqbsqx";
-const STAGING = "nycbbzgsilnxrgkwlwno";
+const TESTDB = "nycbbzgsilnxrgkwlwno";
 
 const profile = (ref: string, paired = "") =>
   [
@@ -36,7 +36,7 @@ const demoLocal = `# app\nAPP_ORIGIN=http://localhost:3000\n${profile(DEMO)}SUPA
 const files = {
   ".env.local": demoLocal,
   ".env.demo.local": "DEMO_PROJECT_REF=x\nDEMO_SHARED_TEST_PROJECT=true\n",
-  ".env.testdb.local": profile(STAGING, DEMO),
+  ".env.testdb.local": profile(TESTDB, DEMO),
 };
 const healthy = { demo: "ACTIVE_HEALTHY", testdb: "ACTIVE_HEALTHY" };
 const refreshedKeys = {
@@ -117,8 +117,8 @@ describe("planSwitch", () => {
         "testdb",
         {
           ...files,
-          ".env.testdb.local": profile(STAGING).replace(
-            `https://${STAGING}`,
+          ".env.testdb.local": profile(TESTDB).replace(
+            `https://${TESTDB}`,
             "https://abcdefghijklmnopqrst",
           ),
         },
@@ -128,12 +128,12 @@ describe("planSwitch", () => {
     expect(() =>
       planSwitch(
         "testdb",
-        { ...files, ".env.testdb.local": profile(STAGING, STAGING) },
+        { ...files, ".env.testdb.local": profile(TESTDB, TESTDB) },
         healthy,
       ),
     ).toThrow(/TENANT_TEST/);
     expect(() =>
-      planSwitch("demo", { ...files, ".env.local": profile(STAGING) }, healthy),
+      planSwitch("demo", { ...files, ".env.local": profile(TESTDB) }, healthy),
     ).toThrow(/does not exist/);
   });
 });
@@ -193,62 +193,62 @@ describe("Supabase credential refresh", () => {
       ]);
     };
     await expect(
-      fetchProjectKeys(STAGING, "access-token", undefined, fetcher),
+      fetchProjectKeys(TESTDB, "access-token", undefined, fetcher),
     ).resolves.toEqual({ publishable: "pub", serviceRole: "role" });
     expect(requestUrl).toBe(
-      `https://api.supabase.com/v1/projects/${STAGING}/api-keys?reveal=true`,
+      `https://api.supabase.com/v1/projects/${TESTDB}/api-keys?reveal=true`,
     );
     expect(authorization).toBe("Bearer access-token");
   });
 
   it("refreshes testdb API values while preserving its saved DB credentials", () => {
-    const text = `# testdb settings\n${profile(STAGING, DEMO)}RATE_LIMIT_HMAC_KEY=keep-me\n`;
-    const refreshed = refreshTestProfile(text, STAGING, refreshedKeys);
+    const text = `# testdb settings\n${profile(TESTDB, DEMO)}RATE_LIMIT_HMAC_KEY=keep-me\n`;
+    const refreshed = refreshTestProfile(text, TESTDB, refreshedKeys);
     const values = rawValues(refreshed);
     expect(values.NEXT_PUBLIC_SUPABASE_URL).toBe(
-      `https://${STAGING}.supabase.co`,
+      `https://${TESTDB}.supabase.co`,
     );
     expect(values.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY).toBe(
       refreshedKeys.publishable,
     );
     expect(values.SUPABASE_SERVICE_ROLE_KEY).toBe(refreshedKeys.serviceRole);
-    expect(values.SUPABASE_DB_PASSWORD).toBe(`pw-${STAGING}`);
-    expect(values.LIVE_DATABASE_URL).toContain(`postgres.${STAGING}`);
+    expect(values.SUPABASE_DB_PASSWORD).toBe(`pw-${TESTDB}`);
+    expect(values.LIVE_DATABASE_URL).toContain(`postgres.${TESTDB}`);
     expect(refreshed).toContain("RATE_LIMIT_HMAC_KEY=keep-me");
     expect(() =>
       refreshTestProfile(
-        text.replace(`pw-${STAGING}`, ""),
-        STAGING,
+        text.replace(`pw-${TESTDB}`, ""),
+        TESTDB,
         refreshedKeys,
       ),
     ).toThrow(/database password/);
     expect(() =>
       refreshTestProfile(
         text.replace(
-          `SUPABASE_PROJECT_REF=${STAGING}`,
+          `SUPABASE_PROJECT_REF=${TESTDB}`,
           "SUPABASE_PROJECT_REF=abcdefghijklmnopqrst",
         ),
-        STAGING,
+        TESTDB,
         refreshedKeys,
       ),
     ).toThrow(/SUPABASE_PROJECT_REF/);
     expect(() =>
       refreshTestProfile(
         text.replace(
-          `LIVE_DATABASE_URL=postgresql://postgres.${STAGING}`,
+          `LIVE_DATABASE_URL=postgresql://postgres.${TESTDB}`,
           "LIVE_DATABASE_URL=postgresql://postgres.abcdefghijklmnopqrst",
         ),
-        STAGING,
+        TESTDB,
         refreshedKeys,
       ),
     ).toThrow(/LIVE_DATABASE_URL/);
     expect(() =>
       refreshTestProfile(
         text.replace(
-          `LIVE_DATABASE_URL=postgresql://postgres.${STAGING}:pw-${STAGING}@`,
-          `LIVE_DATABASE_URL=postgresql://postgres.${STAGING}:other@`,
+          `LIVE_DATABASE_URL=postgresql://postgres.${TESTDB}:pw-${TESTDB}@`,
+          `LIVE_DATABASE_URL=postgresql://postgres.${TESTDB}:other@`,
         ),
-        STAGING,
+        TESTDB,
         refreshedKeys,
       ),
     ).toThrow(/saved database password/);
@@ -269,7 +269,7 @@ describe("Supabase credential refresh", () => {
     );
 
     const paired = refreshPairedDemoKeys(
-      profile(STAGING, DEMO),
+      profile(TESTDB, DEMO),
       demoOps,
       refreshedKeys,
     );

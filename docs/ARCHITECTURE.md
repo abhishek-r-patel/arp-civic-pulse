@@ -19,7 +19,7 @@ confirms a shared application with a separate Supabase database/Auth project per
 customer RWA, customer subdomains, a separate main website and a dedicated
 synthetic demo (shared and writable since 31 October 2026, reset regularly). S03 routing code is now present but disabled; no
 current deployment has tenant isolation or routing configured. The existing
-single-project beta configuration (formerly called staging) remains unchanged.
+single-project beta configuration remains unchanged.
 
 Server-controlled exact-host allowlisting, managed secret references and
 restricted operator access are confirmed boundaries. The [S02 design
@@ -47,7 +47,7 @@ domain, customer capacity and existing production gates remain open.
 ## 02 System Overview and Stack
 
 **Current environment override (6 November 2026):** the testdb Supabase
-project (`civic-pulse-testdb`, formerly `civic-pulse-disposable`) is paused;
+project (`civic-pulse-testdb`) is paused;
 its beta site and `tenant-a` backends are
 unavailable, with no fallback. Local app/live/browser testing shares only the
 synthetic demo project. Two-project tests are disabled, local SQL integration
@@ -55,13 +55,13 @@ tests remain on disposable PostgreSQL, and a future Premier Inspira Maplewood
 backend must stay outside test/reset targets. Hosting mappings were not
 redeployed. See [deployment status](./DEPLOYMENT.md#current-capacity-and-testing-arrangement---6-november-2026).
 
-The beta Vercel project `beta-arp-civic-pulse` (formerly
-`staging-arp-civic-pulse`) serves <https://beta.arp-civic-pulse.vercel.app>
-(the old `staging.` host 308-redirects there) on its Production target, with
+The beta Vercel project `beta-arp-civic-pulse` serves
+<https://beta.arp-civic-pulse.vercel.app>
+(its legacy host alias 308-redirects there) on its Production target, with
 `beta` as its Production branch and the testdb Supabase database. Feature
 branches merge into `beta`, then `beta` into `main`; the shared production
-Vercel project `arp-civic-pulse` (formerly `demo-arp-civic-pulse`) is deployed
-from the merged `main` commit in an approved release window. It is linked to the
+Vercel project `arp-civic-pulse` is deployed from the merged `main` commit in
+an approved release window. It is linked to the
 GitHub repository with Production branch `main` (see the
 [release flow](./DEPLOYMENT.md#release-flow-beta-then-manual-production) for
 what that link deploys automatically).
@@ -642,7 +642,7 @@ Sources: [Supabase pricing](https://supabase.com/pricing), [SMTP](https://supaba
 - Keep canonical application origin, Supabase URL/public client key, server-only privileged credentials and SMTP settings in appropriate environment/provider configuration. The Supabase URL and public key are not secrets; privileged credentials must never use a browser-visible prefix.
 - Store RWA timezone, policy approvals and retention settings in controlled database records. Block real activation until required approvals are recorded.
 - Configure the RWA profile (required full name, alias, household label and identifier kind; optional address, email, phone, website and welcome message, hidden when blank; one of six contrast-checked accent palettes) in Settings. RWA Admins can read and update it; RWA ReadOnly observers can read but not change it. The household and identifier labels are display-only. Updates audit changed field names, not values. Changes apply to all screens and exports immediately, including existing votes.
-- Keep local/test/staging/production data and credentials isolated. Use synthetic data and local mail capture; never copy production registers, ballots or backups into development.
+- Keep local/demo/testdb/production data and credentials isolated. Use synthetic data and local mail capture; never copy production registers, ballots or backups into development.
 - Enforce HTTPS, secure cookies, restrictive CSP, frame denial, MIME protection and safe origin handling. Limit export concurrency and untrusted text input.
 - Monitor availability, submission failure/latency, invariant failures, Cron lag, database capacity, email and export failures. Disable session replay and payload capture; log allowlisted event classes and random support IDs only.
 - Keep automated encrypted backups outside the live database with restricted credentials/access and approved expiry. On Free, arrange an external scheduled export and off-site storage; database Cron alone is not an off-site backup.
@@ -684,7 +684,7 @@ Sources: [Supabase pricing](https://supabase.com/pricing), [SMTP](https://supaba
 4. Replace custom OTP/session runtime code with Supabase Auth. If real data exists, plan identity mapping and historical-reference preservation explicitly; do not assume existing accounts can be dropped.
 5. Replace raw `pg` runtime access with user-session Supabase clients and RPCs. Remove old dependencies/modules only after all callers are migrated and validated.
 6. Configure SMTP, Cron, grants, backup automation, environment examples and provider limits. Retain PDF tooling only if needed; its presence does not make export mandatory.
-7. Validate in staging with synthetic data, then schedule cutover outside active votes. No real election should straddle an unvalidated storage/Auth migration.
+7. Validate the testdb project and beta deployment with synthetic data, then schedule cutover outside active votes. No real election should straddle an unvalidated storage/Auth migration.
 
 ### Growth
 - Measure indexes, query plans, RPC contention and capacity before adding infrastructure. Upgrade operational capacity before redesigning locking.

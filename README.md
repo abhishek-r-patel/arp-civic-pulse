@@ -52,12 +52,12 @@ project, local profile); see
 [deleting a society project](./docs/OPERATIONS.md#deleting-offboarding-a-society-project).
 
 The [beta site](https://beta.arp-civic-pulse.vercel.app) (Vercel project
-`beta-arp-civic-pulse`, formerly `staging-arp-civic-pulse`; the old
-`staging.` host redirects there) uses Vercel's **Production target**, backed by
+`beta-arp-civic-pulse`; its legacy host alias redirects there) uses Vercel's
+**Production target**, backed by
 the testdb Supabase project. Release flow: feature branches → pull request into
 `beta`, which auto-deploys the beta site → after verification, merge `beta`
 into `main` → deploy the merged `main` commit manually to the shared production
-Vercel project `arp-civic-pulse` (formerly `demo-arp-civic-pulse`) inside an
+Vercel project `arp-civic-pulse` inside an
 approved release window. That project is currently Git-linked with Production
 branch `main` (see the release flow for what that deploys). None of this is approval for real voting; real
 production still requires the open launch gates and approvals.
@@ -107,9 +107,8 @@ the beta application deployment or production. The application does not apply it
 The approved Turnout column requires the follow-up
 `20261120100000_admin_vote_turnout` migration, which extends that guarded RPC
 with aggregate submitted/eligible counts for Active and Completed votes only.
-It was applied only to the verified testdb project (then named
-`civic-pulse-disposable`) after separate authorization; the beta (then staging)
-application and production are untouched.
+It was applied only to the verified testdb project after separate
+authorization; the beta application and production are untouched.
 
 Administrators can open **Import CSV** from the register: upload at most 500 rows
 (256 KiB), check conflicts, confirm import, then review and enable suspended

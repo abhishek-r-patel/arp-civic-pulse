@@ -10,7 +10,7 @@ import {
 
 const demo = {
   id: "hnqajjjemqepxuoqbsqx",
-  name: "civic-pulse-tenant-b-test",
+  name: "civic-pulse-demo",
   status: "ACTIVE_HEALTHY",
   region: "ap-southeast-1",
 };

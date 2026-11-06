@@ -6,13 +6,12 @@ Legend: ✅ proven here by an automated check you can re-run · 🟡 partly prov
 
 ## Current environment availability - 6 November 2026
 
-The testdb Supabase project (`civic-pulse-testdb`, formerly
-`civic-pulse-disposable`; `nycbbzgsilnxrgkwlwno`) is confirmed paused
+The testdb Supabase project (`civic-pulse-testdb`;
+`nycbbzgsilnxrgkwlwno`) is confirmed paused
 (`INACTIVE`); demo `hnqajjjemqepxuoqbsqx` remains `ACTIVE_HEALTHY` and is
 the shared synthetic local/live/browser test backend. The beta site and hosted
 `tenant-a` backend flows are unavailable. Two-backend live/isolation tests are
-disabled, not newly passed; historical checks below retain their original scope
-and the names then in use (the beta site was called staging until 6 November 2026).
+disabled, not newly passed; historical checks below retain their original scope.
 The free active slot is intended for Premier Inspira Maplewood, not a test
 target or production approval.
 
@@ -212,9 +211,9 @@ The Manage Votes list now has global sorting and per-column filters, with exact
 filtered totals and bounded page IDs from the new
 `20261119100000_admin_vote_table_controls` routine. The existing HTTP cursor
 contract is unchanged. After the target was verified and separately authorized,
-only this migration was applied to `civic-pulse-disposable` in one verified-TLS
+only this migration was applied to testdb in one verified-TLS
 transaction with its exact ledger entry and a PostgREST schema notification.
-Function ownership and authenticated-only execution were verified. Staging and
+Function ownership and authenticated-only execution were verified. Beta and
 production were not changed.
 
 - Current local checks pass: **562 unit tests**, ESLint, TypeScript, production
@@ -232,7 +231,7 @@ production were not changed.
   now has version `20261124100000`, while the existing deadline migration
   history remains unchanged. The audit-filter and draft-deletion migrations
   were applied to the verified disposable project, and the Amber migration was
-  applied through the normal CLI. This did not deploy the staging application
+  applied through the normal CLI. This did not deploy the beta application
   or change a separate production database.
 - User Guide HTML copies were regenerated; guide screenshots were not changed.
   Accessibility, hosted rollout and all existing launch gates remain open.
@@ -244,13 +243,13 @@ and an exact whole percentage for Active/Completed votes. Draft/Scheduled rows
 show **Not open**; Cancelled rows show **Not available**. It does not expose
 candidate or option totals. Its follow-up migration,
 `20261120100000_admin_vote_turnout`, was applied only to the verified
-`civic-pulse-disposable` project after separate authorization. Function
+testdb project after separate authorization. Function
 ownership, fixed search path and authenticated-only execution were verified;
 anon and service-role execution are absent. `INTEGRATION_DATABASE_URL` is
 unset, so the new SQL behavior is not verified by the PostgreSQL integration
 suite. The authenticated local browser loaded the populated Screen 8 table
 after the migration and showed aggregate counts, including PRIVATE turnout.
-Staging and production remain untouched; the prior table-control verification
+Beta and production remain untouched; the prior table-control verification
 above does not cover this follow-up.
 
 ### Centred confirmation popup follow-up (28 October 2026)
@@ -312,7 +311,7 @@ authorized by this local rollback alone.
   inspected; a dialog redaction overlap and a cramped account-page section found
   this way were fixed before the final captures.
 - Not yet done: manual keyboard and screen-reader checks of the flat pickers and
-  move dialog, A4 approval, and staging/production application.
+  move dialog, A4 approval, and beta/production application.
 
 ### Persona-First User Guide Refresh
 
@@ -561,36 +560,35 @@ apply only to injected runner values, approval presence is not authenticity,
 and provider/SMTP/ingress/Cron/backup/recovery gates remain open. See
 [Operations](./OPERATIONS.md#read-only-rwa-configuration-inspection).
 
-**Security release blocker:** code request and verification now have local per-RWA IP budgets (30 and 100 per 15 minutes) using atomic HMAC buckets. Production code accepts the Vercel-overwritten `X-Forwarded-For` only with `TRUSTED_PROXY_CONFIG=vercel` and `VERCEL=1`, and fails closed on missing or invalid values. Before release, configure and redeploy the selected Vercel environment, verify direct-origin protection and spoofed-header/burst behavior on the hosted test project, and validate the shared-NAT thresholds during the pilot. On 31 October 2026 the tenant-test project was configured and redeployed, and a wrong-code verification reached validation (422) instead of failing closed; the spoof, burst and direct-origin checks are still not done. Staging Production was configured the same way and redeployed (`9ff6ec6`); a wrong-code verification there also returned 422. The real production host/plan and ingress approval remain open; the self-registration endpoint still lacks an IP budget.
+**Security release blocker:** code request and verification now have local per-RWA IP budgets (30 and 100 per 15 minutes) using atomic HMAC buckets. Production code accepts the Vercel-overwritten `X-Forwarded-For` only with `TRUSTED_PROXY_CONFIG=vercel` and `VERCEL=1`, and fails closed on missing or invalid values. Before release, configure and redeploy the selected Vercel environment, verify direct-origin protection and spoofed-header/burst behavior on the hosted test project, and validate the shared-NAT thresholds during the pilot. On 31 October 2026 the shared project was configured and redeployed, and a wrong-code verification reached validation (422) instead of failing closed; the spoof, burst and direct-origin checks are still not done. Beta Production was configured the same way and redeployed (`9ff6ec6`); a wrong-code verification there also returned 422. The real production host/plan and ingress approval remain open; the self-registration endpoint still lacks an IP budget.
 
 Operational remote database connections now require verified TLS, and backup manifests are validated before use. The real provider CA/hostname and off-site backup/restore path still need deployment evidence; local integration tests do not establish that evidence.
 
-**27 October protected-staging evidence:** the committed GitHub app plus the
+**27 October protected beta evidence:** the committed GitHub app plus the
 deployment packaging fix (`8ac9d1c`) is Ready on Vercel Preview using the
 operator-confirmed disposable Supabase project. See the
-[staging deployment record](./DEPLOYMENT.md#historical-protected-staging-27-october-2026).
+[beta deployment record](./DEPLOYMENT.md#historical-protected-beta-deployment-27-october-2026).
 Hosted health, maintenance, signed-out access boundaries and wrong-Origin
 rejection passed; authenticated voting/export acceptance, full
 migration history, hosted capacity and recovery remain unverified. Read-only SQL
 verification failed certificate-chain validation without disabling TLS; no
 migrations or database writes were performed. Local uncommitted features were
-not deployed. This partial staging evidence does **not** close gates 4 or 9,
+not deployed. This partial beta evidence does **not** close gates 4 or 9,
 approve production, or supersede any unresolved credential-hygiene gate.
 
-**28 October staging email evidence:** Brevo-backed six-digit OTP inbox receipt
+**28 October beta email evidence:** Brevo-backed six-digit OTP inbox receipt
 and successful sign-in were confirmed by the operator after explicitly
-authorizing a staging administrator. The browser showed RWA Admin navigation.
-See the [SMTP verification record](./DEPLOYMENT.md#staging-otp-verification-28-october-2026).
+authorizing a beta administrator. The browser showed RWA Admin navigation.
+See the [SMTP verification record](./DEPLOYMENT.md#beta-otp-verification-28-october-2026).
 This is not approval of the personal Gmail sender for production, the unchanged
 one-hour OTP expiry, sending capacity, or any production release gate.
 
-**Current 28 October staging-only follow-up:** the canonical site was then
-<https://arp-civic-pulse-staging.vercel.app> (moved on 31 October to
-<https://staging.arp-civic-pulse.vercel.app>, and on 6 November to
-<https://beta.arp-civic-pulse.vercel.app> with project `beta-arp-civic-pulse`
-and Supabase `civic-pulse-testdb`; see the
-[deployment record](./DEPLOYMENT.md#current-beta-configuration-production-target-only)), using Vercel's Production target
-only with the same disposable database. Hosted Preview deployments are disabled,
+**28 October beta-site follow-up:** the original canonical host was later
+renamed and now uses <https://beta.arp-civic-pulse.vercel.app> with project
+`beta-arp-civic-pulse` and Supabase `civic-pulse-testdb`; see the
+[deployment record](./DEPLOYMENT.md#current-beta-configuration-production-target-only).
+At the time, the site used Vercel's Production target with testdb. Hosted
+Preview deployments are disabled,
 all eight Preview-only variables were removed, Production `APP_ORIGIN` and
 Supabase Auth Site URL are aligned, and redeployment
 `dpl_6cEy2UQrC2ZDFxupXbhy14VMWR5x` of committed `a0823d8` is Ready.
@@ -607,14 +605,14 @@ below, not the unresolved gates. Real production remains a separate Vercel and
 non-disposable Supabase setup. See the
 [current beta configuration](./DEPLOYMENT.md#current-beta-configuration-production-target-only).
 
-**Earlier 28 October Production-target switch:** the staging host now uses Vercel's
+**Earlier 28 October Production-target switch:** the beta host now uses Vercel's
 Production environment so `main` builds carry application variables. The two
 pending migrations (`20261112100000_app_support_access`,
-`20261113100000_readonly_household_optional`) were applied to the disposable
-staging Supabase over its session pooler without weakening TLS, `APP_SUPPORT_EMAIL`
+`20261113100000_readonly_household_optional`) were applied to testdb over its
+session pooler without weakening TLS, `APP_SUPPORT_EMAIL`
 and the other Production variables were set, and the `-git-main-` deployment is
 Ready behind Vercel SSO. See the
-[Production-target record](./DEPLOYMENT.md#staging-promoted-to-the-production-target-28-october-2026).
+[Production-target record](./DEPLOYMENT.md#beta-promoted-to-the-production-target-28-october-2026).
 This does **not** close gates 4 or 9: authenticated voting/export and App Support
 Access acceptance, load and recovery stay unverified, and real production still
 requires a separate Vercel project and non-disposable Supabase project.
@@ -629,12 +627,12 @@ requires a separate Vercel project and non-disposable Supabase project.
 | 6   | Manual accessibility: screen reader (VoiceOver, TalkBack, NVDA), keyboard-only, forced contrast, reduced motion, 200–400% zoom on the core journeys                                      | ⬜     |
 | 7   | Backup to the real off-site store with the real key, then a **full restore of the hosted project into a second project** and a documented RPO/RTO                                       | ⬜     |
 | 8   | Incident owner, committee decision-maker and escalation route named in docs/OPERATIONS.md, section 6                                                                                    | ⬜     |
-| 9   | Deployment through staging to production on the approved plan; smoke test with synthetic data; migrations applied outside any active vote                                               | ⬜     |
+| 9 | Deployment through beta to production on the approved plan; smoke test with synthetic data; migrations applied outside any active vote | ⬜ |
 | 10  | Load test repeated on the real plan                                                                                                                                                   | ⬜     |
 | 11  | Key and credential hygiene: the database password that was shown in a chat earlier and the CLI access token must be rotated or deleted; the disposable project reset or deleted        | ⬜     |
 | 12 | Public launch: approve legal operator/contact details, exact privacy/retention/provider terms and canonical domain; configure contact sender/recipient/Resend and prove real inbox receipt. If enabling GA4/Search Console, approve the integrations, verify consent/isolation and disable Enhanced Measurement, complete property verification and submit the public sitemap. | ⬜ |
-| 13 | Resident self-registration: record A4 approval covering it (including its duplicate-email/household disclosure); apply `20261109100000` to staging/production through the release process; manual keyboard and screen-reader checks of the flat picker; implement and verify its trusted-IP budget before release. (Integration, hosted-project application and screenshots: done 27 October on the disposable project.) | ⬜ |
-| 14 | One-step account and household onboarding: apply `20261110100000` to staging/production through the release process; manual keyboard and screen-reader checks of the Add Account picker and account-page move dialog. (Integration, live browser flow and screenshots: done 27 October on the disposable project.) | ⬜ |
+| 13 | Resident self-registration: record A4 approval covering it (including its duplicate-email/household disclosure); apply `20261109100000` to beta/production through the release process; manual keyboard and screen-reader checks of the flat picker; implement and verify its trusted-IP budget before release. (Integration, hosted-project application and screenshots: done 27 October on the disposable project.) | ⬜ |
+| 14 | One-step account and household onboarding: apply `20261110100000` to beta/production through the release process; manual keyboard and screen-reader checks of the Add Account picker and account-page move dialog. (Integration, live browser flow and screenshots: done 27 October on the disposable project.) | ⬜ |
 
 ## 4. Pilot evaluation (after the gates above, with real residents)
 
@@ -654,14 +652,14 @@ No adoption or budget target excuses an integrity or privacy failure. A lost, du
 ## 5. Running the HTTP load test
 
 A production server insists on an HTTPS **non-loopback** origin, so use an approved
-isolated staging hostname and TLS front in front of `next start`. The earlier
+isolated test hostname and TLS front in front of `next start`. The earlier
 `https://127.0.0.1:3100` recipe is rejected by current production validation; do
 not weaken that guard. Provision the hostname/certificate and set both
 `APP_ORIGIN` and `LOAD_ORIGIN` to its exact origin at build/runtime before using
 the historical test topology below; it is not a currently validated runnable
 deployment recipe.
 
-1. With the approved staging origin and isolated Supabase settings injected, run `npm run build`, then `next start --hostname 127.0.0.1 --port 3101` behind the approved HTTPS front.
+1. With the approved test origin and isolated Supabase settings injected, run `npm run build`, then `next start --hostname 127.0.0.1 --port 3101` behind the approved HTTPS front.
 2. Verify the front's hostname, certificate and forwarding rules. Use approved CA configuration where required; ignore-certificate test flags do not prove trusted production TLS.
 3. With `LOAD_LIVE=1` and `LOAD_ORIGIN` set to that same approved origin, run `npx playwright test -c playwright.load.config.ts`. Validate this host-specific recipe before recording new results.
 
