@@ -40,6 +40,15 @@ the shared Vercel project was renamed from `demo-arp-civic-pulse` (originally
 change. The unused Vercel default domain for the former shared-project name was
 detached on 6 November 2026. Use only the current names in commands and setup.
 
+**Dashboard avatars (6 November 2026):** `arp-civic-pulse` uses the green
+Open Conversation mark from `src/app/icon.svg`; `beta-arp-civic-pulse` uses
+Vercel's black Next.js framework icon. Both were uploaded as explicit custom
+project avatars through the [Vercel avatar API](https://vercel.com/docs/rest-api/projects/upload-a-project-avatar)
+and their persisted values were re-read through the project API. Manage them
+under each project's **Settings > General > Project avatar**, independently
+of deployed favicons. This changed dashboard/integration icons only; no
+application deployment, environment, domain, Git-link or database change was made.
+
 Applied live on 6 November 2026: Git branch `beta` was created from `main`
 (`b6c334e`); the beta Vercel project was renamed, its Production branch set to
 `beta`, Production `APP_ORIGIN` set to the beta origin, and `beta` deployed to
